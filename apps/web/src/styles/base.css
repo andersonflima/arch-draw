@@ -230,11 +230,13 @@ button {
 
 .palette-item {
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) 16px;
-  align-items: center;
-  gap: 8px;
+  grid-template-columns: 1fr;
+  justify-items: center;
+  align-items: start;
+  gap: 6px;
   padding: 8px;
   overflow: hidden;
+  text-align: center;
 }
 
 .palette-group {
@@ -288,10 +290,16 @@ button {
 }
 
 .palette-item__label {
+  width: 100%;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  line-height: 1.2;
+}
+
+.palette-item b {
+  display: none;
 }
 
 .canvas-shell {
