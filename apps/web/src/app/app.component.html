@@ -426,10 +426,6 @@
             Cor
             <input class="property-color-input" type="color" [ngModel]="edge.style.color" (ngModelChange)="updateSelectedEdgeStyle({ color: $event })" />
           </label>
-          <label class="checkbox-field">
-            <input type="checkbox" [ngModel]="edge.style.animated" (ngModelChange)="updateSelectedEdgeStyle({ animated: $event })" />
-            Animar fluxo
-          </label>
           <button class="danger-action" type="button" (click)="deleteSelectedEdge()">Remover linha</button>
         </div>
       </section>
