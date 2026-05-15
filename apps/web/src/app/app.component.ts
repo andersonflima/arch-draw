@@ -55,6 +55,8 @@ import {
 
 type DragState = Readonly<{
   pointerOffsets: ReadonlyMap<string, Readonly<{ x: number; y: number }>>;
+  startPoint: Readonly<{ x: number; y: number }>;
+  hasMoved: boolean;
 }>;
 
 type ResizeDirection = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
@@ -118,6 +120,7 @@ const DEFAULT_CANVAS_PAN = { x: 0, y: 0 };
 const AUTOSAVE_DEBOUNCE_MS = 1200;
 const EDGE_NODE_GAP = 10;
 const MAX_UNDO_HISTORY = 150;
+const DRAG_START_THRESHOLD = 4;
 const CLOUD_PROPERTY_FIELDS: readonly NodePropertyField[] = [
   { key: "provider", label: "Provider", placeholder: "aws, azure, gcp" },
   { key: "accountId", label: "Account ID", placeholder: "123456789012" },
@@ -1365,7 +1368,9 @@ export class AppComponent {
     }
 
     this.dragState = {
-      pointerOffsets
+      pointerOffsets,
+      startPoint: point,
+      hasMoved: false
     };
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
     this.markViewChanged();
@@ -1435,6 +1440,15 @@ export class AppComponent {
   onWindowPointerMove(event: PointerEvent): void {
     if (this.dragState) {
       const point = this.toCanvasPoint(event);
+      const hasMoved =
+        this.dragState.hasMoved || this.hasExceededDragStartThreshold(this.dragState.startPoint, point);
+      if (!hasMoved) return;
+      if (!this.dragState.hasMoved) {
+        this.dragState = {
+          ...this.dragState,
+          hasMoved: true
+        };
+      }
       this.moveSelectedNodes(point);
       return;
     }
@@ -1466,7 +1480,7 @@ export class AppComponent {
   onWindowPointerUp(event: PointerEvent): void {
     const hadDragState = this.dragState !== null;
     const hadResizeState = this.resizeState !== null;
-    if (this.dragState) {
+    if (this.dragState?.hasMoved) {
       const selectedIds = new Set(this.dragState.pointerOffsets.keys());
       const dropPoint = this.toCanvasPoint(event);
       const rootNodes = this.nodes.filter(
@@ -1958,6 +1972,15 @@ export class AppComponent {
       return { ...node, position };
     });
     this.markInteractionChanged();
+  }
+
+  private hasExceededDragStartThreshold(
+    startPoint: Readonly<{ x: number; y: number }>,
+    point: Readonly<{ x: number; y: number }>
+  ): boolean {
+    const deltaX = point.x - startPoint.x;
+    const deltaY = point.y - startPoint.y;
+    return Math.hypot(deltaX, deltaY) >= DRAG_START_THRESHOLD;
   }
 
   private attachNodeToContainer(
