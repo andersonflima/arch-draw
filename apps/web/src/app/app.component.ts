@@ -69,6 +69,7 @@ const MINI_MAP_SIZE = { width: 150, height: 96 };
 const MINI_MAP_PADDING = 8;
 const DEFAULT_CANVAS_PAN = { x: 0, y: 0 };
 const AUTOSAVE_DEBOUNCE_MS = 1200;
+const EDGE_NODE_GAP = 10;
 
 mermaid.initialize({
   startOnLoad: false,
@@ -666,8 +667,8 @@ export class AppComponent {
     const source = this.nodes.find((node) => node.id === edge.from);
     const target = this.nodes.find((node) => node.id === edge.to);
     if (!source || !target) return "";
-    const start = this.getNodeAnchor(source, target);
-    const end = this.getNodeAnchor(target, source);
+    const start = this.getAnchorWithGap(source, target, EDGE_NODE_GAP);
+    const end = this.getAnchorWithGap(target, source, EDGE_NODE_GAP);
     const midX = (start.x + end.x) / 2;
     const style = normalizeEdgeStyle(edge.style);
 
@@ -1043,6 +1044,24 @@ export class AppComponent {
     return {
       x: fromCenter.x + dx * scale,
       y: fromCenter.y + dy * scale
+    };
+  }
+
+  private getAnchorWithGap(
+    from: CanvasNode,
+    to: CanvasNode,
+    gap: number
+  ): Readonly<{ x: number; y: number }> {
+    const anchor = this.getNodeAnchor(from, to);
+    const center = this.getNodeCenter(from);
+    const dx = anchor.x - center.x;
+    const dy = anchor.y - center.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance === 0) return anchor;
+
+    return {
+      x: anchor.x + (dx / distance) * gap,
+      y: anchor.y + (dy / distance) * gap
     };
   }
 
