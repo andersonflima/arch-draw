@@ -613,6 +613,100 @@ button {
   box-shadow: 3px 3px 0 #065f46;
 }
 
+/* Flow Diagram nodes must follow draw.io-style flowchart geometry */
+.architecture-node[class*="architecture-node--flow-"] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 18px;
+  text-align: center;
+  transform: none;
+}
+
+.architecture-node[class*="architecture-node--flow-"] .architecture-node__header {
+  display: none;
+}
+
+.architecture-node[class*="architecture-node--flow-"] strong {
+  margin: 0;
+  max-width: 100%;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.architecture-node[class*="architecture-node--flow-"]:not(.architecture-node--container)::before {
+  inset: 0;
+  border: 2px solid #065f46;
+  border-radius: 8px;
+  background-color: var(--node-bg, #ffffff);
+  background-image: none;
+  box-shadow: 3px 3px 0 #065f46;
+  transform: none;
+  clip-path: none;
+}
+
+.architecture-node--flow-start:not(.architecture-node--container)::before,
+.architecture-node--flow-end:not(.architecture-node--container)::before {
+  border-radius: 999px;
+}
+
+.architecture-node--flow-decision {
+  padding-inline: 44px;
+}
+
+.architecture-node--flow-decision:not(.architecture-node--container)::before {
+  border-radius: 0;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+.architecture-node--flow-input:not(.architecture-node--container)::before {
+  border-radius: 0;
+  clip-path: polygon(10% 0, 100% 0, 90% 100%, 0 100%);
+}
+
+.architecture-node--flow-output:not(.architecture-node--container)::before {
+  border-radius: 0;
+  clip-path: polygon(0 0, 90% 0, 100% 100%, 10% 100%);
+}
+
+.architecture-node--flow-data:not(.architecture-node--container)::before {
+  border-radius: 0;
+  clip-path: polygon(12% 0, 100% 0, 88% 100%, 0 100%);
+}
+
+.architecture-node--flow-loop:not(.architecture-node--container)::before {
+  border-radius: 0;
+  clip-path: polygon(15% 0, 85% 0, 100% 50%, 85% 100%, 15% 100%, 0 50%);
+}
+
+.architecture-node--flow-subroutine:not(.architecture-node--container)::before {
+  border-radius: 8px;
+}
+
+.architecture-node--flow-subroutine:not(.architecture-node--container)::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: 12px;
+  bottom: 12px;
+  left: 16px;
+  right: 16px;
+  border-left: 2px solid #065f46;
+  border-right: 2px solid #065f46;
+  pointer-events: none;
+}
+
+.architecture-node--flow-document:not(.architecture-node--container)::before {
+  border-radius: 0;
+  clip-path: polygon(0 0, 100% 0, 100% 82%, 82% 100%, 64% 82%, 44% 100%, 24% 82%, 0 100%);
+}
+
 /* draw.io-like resource nodes: icon + label, no full rectangular card */
 .architecture-node--leaf {
   display: grid;
@@ -646,10 +740,10 @@ button {
   width: 78px;
   min-width: 78px;
   height: 78px;
-  color: #f8fafc;
+  color: color-mix(in srgb, var(--icon-base) 88%, #ffffff 12%);
   border-radius: 18px;
-  background: color-mix(in srgb, var(--icon-base) 18%, #111827 82%);
-  border: 2px solid color-mix(in srgb, var(--icon-base) 30%, #000000 70%);
+  background: color-mix(in srgb, var(--icon-base) 44%, #000000 56%);
+  border: 2px solid color-mix(in srgb, var(--icon-base) 34%, #000000 66%);
   box-shadow: none;
 }
 
