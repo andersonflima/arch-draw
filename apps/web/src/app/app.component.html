@@ -245,6 +245,16 @@
                 <span class="node-icon__label">{{ getNodeIcon(getNodeIconKind(node)) }}</span>
               </span>
               <span>{{ getNodeLabel(node.kind) }}</span>
+              <button
+                *ngIf="isCollapsibleContainerNode(node)"
+                class="node-collapse-toggle"
+                type="button"
+                [title]="isContainerCollapsed(node) ? 'Expandir container' : 'Minimizar para icone'"
+                (pointerdown)="$event.stopPropagation()"
+                (click)="onNodeCollapseToggle(node, $event)"
+              >
+                <i [class]="isContainerCollapsed(node) ? 'fa-solid fa-up-right-and-down-left-from-center' : 'fa-solid fa-down-left-and-up-right-to-center'" aria-hidden="true"></i>
+              </button>
             </div>
             <ng-container *ngIf="!isEditingNode(node.id); else nodeLabelEditor">
               <ng-container *ngIf="isFlowNodeKind(node.kind); else defaultNodeLabel">
@@ -286,17 +296,6 @@
               (pointerdown)="onSourcePortPointerDown($event, node.id)"
               (click)="onSourcePortClick($event, node.id)"
             ></button>
-            <button
-              *ngIf="isCollapsibleContainerNode(node)"
-              class="node-collapse-toggle"
-              type="button"
-              [title]="isContainerCollapsed(node) ? 'Expandir container' : 'Minimizar para icone'"
-              (pointerdown)="$event.stopPropagation()"
-              (click)="onNodeCollapseToggle(node, $event)"
-            >
-              <i [class]="isContainerCollapsed(node) ? 'fa-solid fa-up-right-and-down-left-from-center' : 'fa-solid fa-down-left-and-up-right-to-center'" aria-hidden="true"></i>
-            </button>
-
             <ng-container *ngIf="canResizeNode(node.id)">
               <button class="resize-control resize-control--n" type="button" (pointerdown)="onResizePointerDown($event, node, 'n')"></button>
               <button class="resize-control resize-control--s" type="button" (pointerdown)="onResizePointerDown($event, node, 's')"></button>
