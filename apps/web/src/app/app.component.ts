@@ -66,6 +66,14 @@ type ConnectionDragState = Readonly<{
   current: Readonly<{ x: number; y: number }>;
 }>;
 
+type EditorSnapshot = Readonly<{
+  title: string;
+  description: string;
+  nodes: readonly CanvasNode[];
+  edges: readonly CanvasEdge[];
+  mermaidSource: string;
+}>;
+
 const DEFAULT_MERMAID_SOURCE = `graph LR
   User["User"] --> Api["API"]
   Api --> Db["SQLite"]`;
@@ -78,6 +86,7 @@ const MINI_MAP_PADDING = 8;
 const DEFAULT_CANVAS_PAN = { x: 0, y: 0 };
 const AUTOSAVE_DEBOUNCE_MS = 1200;
 const EDGE_NODE_GAP = 10;
+const MAX_UNDO_HISTORY = 150;
 
 mermaid.initialize({
   startOnLoad: false,
@@ -137,6 +146,9 @@ export class AppComponent {
   private autoSaveInFlight = false;
   private autoSaveQueued = false;
   private lastPersistedSignature = "";
+  private history: EditorSnapshot[] = [];
+  private historyIndex = -1;
+  private applyingHistory = false;
 
   constructor(
     private readonly changeDetectorRef: ChangeDetectorRef,
@@ -736,7 +748,15 @@ export class AppComponent {
 
   @HostListener("window:keydown", ["$event"])
   onWindowKeyDown(event: KeyboardEvent): void {
-    if (event.defaultPrevented || this.isTypingTarget(event.target)) return;
+    if (event.defaultPrevented) return;
+    const isUndoShortcut = (event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "z";
+    if (isUndoShortcut) {
+      event.preventDefault();
+      this.undoLastChange();
+      return;
+    }
+
+    if (this.isTypingTarget(event.target)) return;
     if (event.key !== "Delete" && event.key !== "Backspace") return;
 
     if (this.selectedEdgeId) {
@@ -944,6 +964,7 @@ export class AppComponent {
     this.resizeEnabledNodeId = null;
     this.cancelAutoSave();
     this.lastPersistedSignature = this.buildPersistenceSignature();
+    this.resetHistory();
     void this.renderMermaid();
     this.markViewChanged();
   }
@@ -1462,6 +1483,76 @@ export class AppComponent {
     });
   }
 
+  private resetHistory(): void {
+    const snapshot = this.captureSnapshot();
+    this.history = [snapshot];
+    this.historyIndex = 0;
+  }
+
+  private captureSnapshot(): EditorSnapshot {
+    return {
+      title: this.architecture?.title ?? "",
+      description: this.architecture?.description ?? "",
+      nodes: this.nodes.map((node) => ({ ...node })),
+      edges: this.edges.map((edge) => ({ ...edge, style: { ...edge.style } })),
+      mermaidSource: this.mermaidDraft
+    };
+  }
+
+  private snapshotSignature(snapshot: EditorSnapshot): string {
+    return JSON.stringify(snapshot);
+  }
+
+  private recordHistory(): void {
+    if (!this.architecture || this.applyingHistory) return;
+    const snapshot = this.captureSnapshot();
+    const current = this.history[this.historyIndex];
+    if (current && this.snapshotSignature(current) === this.snapshotSignature(snapshot)) return;
+
+    if (this.historyIndex < this.history.length - 1) {
+      this.history = this.history.slice(0, this.historyIndex + 1);
+    }
+
+    this.history = [...this.history, snapshot];
+    if (this.history.length > MAX_UNDO_HISTORY) {
+      this.history = this.history.slice(this.history.length - MAX_UNDO_HISTORY);
+    }
+    this.historyIndex = this.history.length - 1;
+  }
+
+  private undoLastChange(): void {
+    if (!this.architecture || this.historyIndex <= 0) return;
+    const previous = this.history[this.historyIndex - 1];
+    if (!previous) return;
+
+    this.historyIndex -= 1;
+    this.applyingHistory = true;
+    try {
+      this.architecture = {
+        ...this.architecture,
+        title: previous.title,
+        description: previous.description,
+        mermaidSource: previous.mermaidSource
+      };
+      this.nodes = this.sortNodes(previous.nodes.map((node) => ({ ...node })));
+      this.edges = previous.edges.map((edge) => ({ ...edge, style: { ...edge.style } }));
+      this.mermaidDraft = previous.mermaidSource;
+      this.selectedNodeId = null;
+      this.selectedNodeIds = [];
+      this.selectedEdgeId = null;
+      this.editingNodeId = null;
+      this.marqueeState = null;
+      this.resizeEnabledNodeId = null;
+      this.connectionSourceId = null;
+      this.connectionDragState = null;
+      this.status = "Desfeito";
+      void this.renderMermaid();
+      this.markViewChanged();
+    } finally {
+      this.applyingHistory = false;
+    }
+  }
+
   private async persistCurrent(mode: "manual" | "auto"): Promise<boolean> {
     if (!this.architecture) return false;
 
@@ -1548,6 +1639,7 @@ export class AppComponent {
   }
 
   private markViewChanged(): void {
+    this.recordHistory();
     this.scheduleAutoSave();
     this.changeDetectorRef.detectChanges();
   }
