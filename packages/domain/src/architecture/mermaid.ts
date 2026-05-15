@@ -6,7 +6,8 @@ type ParsedConnection = Readonly<{
   label?: string;
 }>;
 
-const NODE_PATTERN = /([A-Za-z0-9_-]+)\s*(?:\["([^"]+)"\]|\("([^"]+)"\)|\{([^}]+)\})?/g;
+const NODE_WITH_LABEL_PATTERN =
+  /([A-Za-z0-9_-]+)\s*(?:\[\s*"([^"]+)"\s*\]|\[\s*([^\]"]+?)\s*\]|\(\(\s*"([^"]+)"\s*\)\)|\(\(\s*([^)"]+?)\s*\)\)|\(\s*"([^"]+)"\s*\)|\(\s*([^)"]+?)\s*\)|\{\s*"([^"]+)"\s*\}|\{\s*([^}"]+?)\s*\})/g;
 
 export const architectureFromMermaid = (
   architecture: ArchitectureDocument,
@@ -59,10 +60,22 @@ const parseConnectionLine = (line: string): readonly ParsedConnection[] => {
 const parseLabels = (source: string): ReadonlyMap<string, string> => {
   const labels = new Map<string, string>();
 
-  for (const match of source.matchAll(NODE_PATTERN)) {
-    const [, id, squareLabel, roundLabel, curlyLabel] = match;
-    const label = squareLabel ?? roundLabel ?? curlyLabel;
-    if (id && label) labels.set(id, label);
+  for (const rawLine of source.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (
+      line.length === 0 ||
+      line.startsWith("%%") ||
+      /^graph\b/i.test(line) ||
+      /^flowchart\b/i.test(line)
+    ) {
+      continue;
+    }
+
+    for (const match of line.matchAll(NODE_WITH_LABEL_PATTERN)) {
+      const [id, ...labelCandidates] = match.slice(1);
+      const label = labelCandidates.find((candidate) => candidate && candidate.trim().length > 0);
+      if (id && label) labels.set(id, label.trim());
+    }
   }
 
   return labels;

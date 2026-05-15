@@ -26,6 +26,26 @@ describe("architecture domain", () => {
     expect(validateArchitecture(result)).toEqual({ ok: true });
   });
 
+  it("parses unquoted Mermaid labels and infers node kinds from labels", () => {
+    const architecture = createEmptyArchitecture({
+      id: "arch-2",
+      title: "Unquoted labels",
+      now: "2026-05-15T10:00:00.000Z"
+    });
+
+    const result = architectureFromMermaid(
+      architecture,
+      "graph LR\n  U[User] --> API[API service]\n  API --> DB[(Postgres database)]",
+      "2026-05-15T10:01:00.000Z"
+    );
+
+    expect(result.nodes).toHaveLength(3);
+    expect(result.nodes.find((node) => node.id === "U")?.label).toBe("User");
+    expect(result.nodes.find((node) => node.id === "U")?.kind).toBe("external");
+    expect(result.nodes.find((node) => node.id === "API")?.kind).toBe("service");
+    expect(result.nodes.find((node) => node.id === "DB")?.kind).toBe("database");
+  });
+
   it("rejects an edge pointing to a missing node", () => {
     const architecture = {
       ...createEmptyArchitecture({
