@@ -2022,13 +2022,6 @@ button {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .canvas-edge.is-live,
-  .canvas-edge-preview {
-    animation: none;
-  }
-}
-
 .resize-control {
   display: none;
   position: absolute;
