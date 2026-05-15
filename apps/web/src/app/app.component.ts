@@ -119,6 +119,7 @@ const MINI_MAP_PADDING = 8;
 const DEFAULT_CANVAS_PAN = { x: 0, y: 0 };
 const AUTOSAVE_DEBOUNCE_MS = 1200;
 const EDGE_NODE_GAP = 10;
+const EDGE_MARKER_CLEARANCE = 6;
 const MAX_UNDO_HISTORY = 150;
 const DRAG_START_THRESHOLD = 4;
 const EXPORT_EXCLUDED_SELECTORS = [
@@ -1708,27 +1709,30 @@ export class AppComponent {
     const source = this.nodes.find((node) => node.id === edge.from);
     const target = this.nodes.find((node) => node.id === edge.to);
     if (!source || !target) return "";
-    const start = this.getAnchorWithGap(source, target, EDGE_NODE_GAP);
-    const end = this.getAnchorWithGap(target, source, EDGE_NODE_GAP);
-    const midX = (start.x + end.x) / 2;
+    const rawStart = this.getAnchorWithGap(source, target, EDGE_NODE_GAP);
+    const rawEnd = this.getAnchorWithGap(target, source, EDGE_NODE_GAP);
     const style = normalizeEdgeStyle(edge.style);
+    const { start, end } = this.applyEdgeMarkerClearance(rawStart, rawEnd, style.bidirectional);
+    const adjustedMidX = (start.x + end.x) / 2;
 
     if (style.path === "straight") return `M ${start.x} ${start.y} L ${end.x} ${end.y}`;
     if (style.path === "bezier") {
-      return `M ${start.x} ${start.y} C ${midX} ${start.y}, ${midX} ${end.y}, ${end.x} ${end.y}`;
+      return `M ${start.x} ${start.y} C ${adjustedMidX} ${start.y}, ${adjustedMidX} ${end.y}, ${end.x} ${end.y}`;
     }
     if (style.path === "step") {
-      return `M ${start.x} ${start.y} L ${midX} ${start.y} L ${midX} ${end.y} L ${end.x} ${end.y}`;
+      return `M ${start.x} ${start.y} L ${adjustedMidX} ${start.y} L ${adjustedMidX} ${end.y} L ${end.x} ${end.y}`;
     }
-    return `M ${start.x} ${start.y} C ${midX} ${start.y}, ${midX} ${end.y}, ${end.x} ${end.y}`;
+    return `M ${start.x} ${start.y} C ${adjustedMidX} ${start.y}, ${adjustedMidX} ${end.y}, ${end.x} ${end.y}`;
   }
 
   getEdgeLabelPosition(edge: CanvasEdge): Readonly<{ x: number; y: number }> {
     const source = this.nodes.find((node) => node.id === edge.from);
     const target = this.nodes.find((node) => node.id === edge.to);
     if (!source || !target) return { x: 0, y: 0 };
-    const start = this.getAnchorWithGap(source, target, EDGE_NODE_GAP);
-    const end = this.getAnchorWithGap(target, source, EDGE_NODE_GAP);
+    const rawStart = this.getAnchorWithGap(source, target, EDGE_NODE_GAP);
+    const rawEnd = this.getAnchorWithGap(target, source, EDGE_NODE_GAP);
+    const style = normalizeEdgeStyle(edge.style);
+    const { start, end } = this.applyEdgeMarkerClearance(rawStart, rawEnd, style.bidirectional);
     return {
       x: (start.x + end.x) / 2,
       y: (start.y + end.y) / 2
@@ -1753,8 +1757,9 @@ export class AppComponent {
     if (!dragState) return "";
     const source = this.nodes.find((node) => node.id === dragState.sourceId);
     if (!source) return "";
-    const start = this.getAnchorTowardPoint(source, dragState.current, EDGE_NODE_GAP);
-    const end = dragState.current;
+    const rawStart = this.getAnchorTowardPoint(source, dragState.current, EDGE_NODE_GAP);
+    const rawEnd = dragState.current;
+    const { start, end } = this.offsetSegmentEndpoints(rawStart, rawEnd, 0, EDGE_MARKER_CLEARANCE);
     const midX = (start.x + end.x) / 2;
     return `M ${start.x} ${start.y} C ${midX} ${start.y}, ${midX} ${end.y}, ${end.x} ${end.y}`;
   }
@@ -1998,6 +2003,52 @@ export class AppComponent {
     const deltaX = point.x - startPoint.x;
     const deltaY = point.y - startPoint.y;
     return Math.hypot(deltaX, deltaY) >= DRAG_START_THRESHOLD;
+  }
+
+  private applyEdgeMarkerClearance(
+    start: Readonly<{ x: number; y: number }>,
+    end: Readonly<{ x: number; y: number }>,
+    hasStartMarker: boolean
+  ): Readonly<{ start: Readonly<{ x: number; y: number }>; end: Readonly<{ x: number; y: number }> }> {
+    return this.offsetSegmentEndpoints(
+      start,
+      end,
+      hasStartMarker ? EDGE_MARKER_CLEARANCE : 0,
+      EDGE_MARKER_CLEARANCE
+    );
+  }
+
+  private offsetSegmentEndpoints(
+    start: Readonly<{ x: number; y: number }>,
+    end: Readonly<{ x: number; y: number }>,
+    startInset: number,
+    endInset: number
+  ): Readonly<{ start: Readonly<{ x: number; y: number }>; end: Readonly<{ x: number; y: number }> }> {
+    const deltaX = end.x - start.x;
+    const deltaY = end.y - start.y;
+    const distance = Math.hypot(deltaX, deltaY);
+    if (distance === 0) return { start, end };
+
+    const maxInset = Math.max(0, Math.min(startInset + endInset, distance - 1));
+    const safeStartInset = maxInset === startInset + endInset
+      ? (startInset / (startInset + endInset || 1)) * maxInset
+      : startInset;
+    const safeEndInset = maxInset === startInset + endInset
+      ? (endInset / (startInset + endInset || 1)) * maxInset
+      : endInset;
+
+    const unitX = deltaX / distance;
+    const unitY = deltaY / distance;
+    return {
+      start: {
+        x: start.x + unitX * safeStartInset,
+        y: start.y + unitY * safeStartInset
+      },
+      end: {
+        x: end.x - unitX * safeEndInset,
+        y: end.y - unitY * safeEndInset
+      }
+    };
   }
 
   private attachNodeToContainer(
