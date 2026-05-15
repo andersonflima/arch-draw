@@ -1,3 +1,5 @@
+@import "@fortawesome/fontawesome-free/css/all.min.css";
+
 :root {
   color: #111827;
   background: #f7f4ed;
@@ -105,14 +107,8 @@ button {
   width: 40px;
 }
 
-.icon-button svg {
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.icon-button i {
+  font-size: 14px;
   pointer-events: none;
 }
 
@@ -710,25 +706,7 @@ button {
 }
 
 .node-icon::after {
-  content: attr(data-icon-code);
-  position: absolute;
-  left: 50%;
-  bottom: -4px;
-  transform: translateX(-50%);
-  min-width: 18px;
-  padding: 1px 4px;
-  border: 1px solid rgba(17, 24, 39, 0.6);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  color: currentColor;
-  font-size: 7px;
-  font-weight: 900;
-  line-height: 1;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  text-align: center;
-  pointer-events: none;
-  z-index: 1;
+  content: none;
 }
 
 .palette-item__icon {
@@ -738,9 +716,13 @@ button {
 }
 
 .palette-item__icon::after {
-  bottom: -5px;
-  font-size: 6px;
-  padding: 1px 3px;
+  content: none;
+}
+
+.node-icon i {
+  font-size: 14px;
+  line-height: 1;
+  pointer-events: none;
 }
 
 .node-icon__label {
