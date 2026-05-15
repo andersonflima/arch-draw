@@ -72,8 +72,10 @@
             (click)="addNode(template)"
             (dragstart)="onPaletteDragStart($event, template)"
           >
-            <span [style.background]="template.color">{{ getNodeIcon(template.kind) }}</span>
-            {{ template.label }}
+            <span [class]="'node-icon palette-item__icon node-icon--' + template.kind" [style.background]="template.color">
+              {{ getNodeIcon(template.kind) }}
+            </span>
+            <span class="palette-item__label" [title]="template.label">{{ template.label }}</span>
             <b>+</b>
           </button>
         </section>
@@ -86,9 +88,23 @@
       (click)="clearSelection()"
       (dragover)="$event.preventDefault()"
       (drop)="onCanvasDrop($event)"
+      (wheel)="onCanvasWheel($event)"
     >
       <div class="canvas-viewport" [ngStyle]="getViewportStyle()">
         <svg class="canvas-edge-layer">
+          <defs>
+            <marker
+              id="edge-arrow"
+              markerWidth="12"
+              markerHeight="12"
+              refX="10"
+              refY="6"
+              orient="auto-start-reverse"
+              markerUnits="strokeWidth"
+            >
+              <path d="M 2 2 L 10 6 L 2 10 z" fill="context-stroke"></path>
+            </marker>
+          </defs>
           <g *ngFor="let edge of edges">
             <path
               class="canvas-edge-hit"
@@ -101,6 +117,7 @@
               [attr.d]="getEdgePath(edge)"
               [attr.stroke]="getEdgeColor(edge)"
               [attr.stroke-dasharray]="getEdgeDash(edge)"
+              marker-end="url(#edge-arrow)"
               (click)="selectEdge(edge.id, $event)"
             />
           </g>
@@ -115,7 +132,7 @@
         >
           <button class="node-port node-port--target" type="button" (click)="finishConnect(node.id, $event)"></button>
           <div class="architecture-node__header">
-            <span class="node-icon">{{ getNodeIcon(node.kind) }}</span>
+            <span [class]="'node-icon node-icon--' + node.kind">{{ getNodeIcon(node.kind) }}</span>
             <span>{{ getNodeLabel(node.kind) }}</span>
           </div>
           <strong>{{ node.label }}</strong>
@@ -235,7 +252,7 @@
           <p class="error-text" *ngIf="mermaidError; else mermaidOk">{{ mermaidError }}</p>
           <ng-template #mermaidOk>
             <p class="lint-text">{{ lintStatus === "valid" ? "Mermaid valido" : "Informe um diagrama Mermaid" }}</p>
-            <div [innerHTML]="mermaidSvg"></div>
+            <div class="mermaid-preview__diagram" [innerHTML]="mermaidSvg"></div>
           </ng-template>
         </div>
       </section>

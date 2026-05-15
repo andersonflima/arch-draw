@@ -1,6 +1,7 @@
 import { CommonModule } from "@angular/common";
 import { ChangeDetectorRef, Component, ElementRef, HostListener, ViewChild } from "@angular/core";
 import { FormsModule } from "@angular/forms";
+import { DomSanitizer, type SafeHtml } from "@angular/platform-browser";
 import mermaid from "mermaid";
 import {
   architectureFromMermaid,
@@ -62,6 +63,7 @@ const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 1.8;
 const MINI_MAP_SIZE = { width: 150, height: 96 };
 const MINI_MAP_PADDING = 8;
+const DEFAULT_CANVAS_PAN = { x: 0, y: 0 };
 
 mermaid.initialize({
   startOnLoad: false,
@@ -100,17 +102,21 @@ export class AppComponent {
   selectedEdgeId: string | null = null;
   connectionSourceId: string | null = null;
   mermaidDraft = "";
-  mermaidSvg = "";
+  mermaidSvg: SafeHtml | string = "";
   mermaidError = "";
   lintStatus: "empty" | "valid" | "invalid" = "empty";
   status = "Inicializando";
   error = "";
   canvasZoom = 1;
+  canvasPan: Readonly<{ x: number; y: number }> = DEFAULT_CANVAS_PAN;
 
   private dragState: DragState | null = null;
   private resizeState: ResizeState | null = null;
 
-  constructor(private readonly changeDetectorRef: ChangeDetectorRef) {
+  constructor(
+    private readonly changeDetectorRef: ChangeDetectorRef,
+    private readonly sanitizer: DomSanitizer
+  ) {
     void this.boot();
   }
 
@@ -253,17 +259,16 @@ export class AppComponent {
   }
 
   zoomIn(): void {
-    this.canvasZoom = this.clampZoom(this.canvasZoom + ZOOM_STEP);
-    this.markViewChanged();
+    this.zoomTo(this.clampZoom(this.canvasZoom + ZOOM_STEP), this.getCanvasViewportCenter());
   }
 
   zoomOut(): void {
-    this.canvasZoom = this.clampZoom(this.canvasZoom - ZOOM_STEP);
-    this.markViewChanged();
+    this.zoomTo(this.clampZoom(this.canvasZoom - ZOOM_STEP), this.getCanvasViewportCenter());
   }
 
   resetZoom(): void {
     this.canvasZoom = 1;
+    this.canvasPan = DEFAULT_CANVAS_PAN;
     this.markViewChanged();
   }
 
@@ -404,6 +409,16 @@ export class AppComponent {
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
   }
 
+  onCanvasWheel(event: WheelEvent): void {
+    if (!event.ctrlKey && !event.metaKey) return;
+    event.preventDefault();
+    const direction = event.deltaY < 0 ? 1 : -1;
+    this.zoomTo(
+      this.clampZoom(this.canvasZoom + direction * ZOOM_STEP),
+      { clientX: event.clientX, clientY: event.clientY }
+    );
+  }
+
   @HostListener("window:pointermove", ["$event"])
   onWindowPointerMove(event: PointerEvent): void {
     if (this.dragState) {
@@ -445,7 +460,7 @@ export class AppComponent {
 
   getViewportStyle(): Record<string, string> {
     return {
-      transform: `scale(${this.canvasZoom})`
+      transform: `translate(${this.canvasPan.x}px, ${this.canvasPan.y}px) scale(${this.canvasZoom})`
     };
   }
 
@@ -492,8 +507,8 @@ export class AppComponent {
     const source = this.nodes.find((node) => node.id === edge.from);
     const target = this.nodes.find((node) => node.id === edge.to);
     if (!source || !target) return "";
-    const start = this.getNodeCenter(source);
-    const end = this.getNodeCenter(target);
+    const start = this.getNodeAnchor(source, target);
+    const end = this.getNodeAnchor(target, source);
     const midX = (start.x + end.x) / 2;
     const style = normalizeEdgeStyle(edge.style);
 
@@ -603,7 +618,7 @@ export class AppComponent {
       await mermaid.parse(source);
       const result = await mermaid.render(`mermaid-${crypto.randomUUID()}`, source);
       if (this.mermaidDraft !== source) return;
-      this.mermaidSvg = result.svg;
+      this.mermaidSvg = this.sanitizer.bypassSecurityTrustHtml(result.svg);
       this.mermaidError = "";
       this.lintStatus = "valid";
       this.markViewChanged();
@@ -779,8 +794,8 @@ export class AppComponent {
   private toCanvasPoint(event: Pick<MouseEvent, "clientX" | "clientY">): Readonly<{ x: number; y: number }> {
     const rect = this.canvasShell?.nativeElement.getBoundingClientRect();
     return {
-      x: (event.clientX - (rect?.left ?? 0)) / this.canvasZoom,
-      y: (event.clientY - (rect?.top ?? 0)) / this.canvasZoom
+      x: (event.clientX - (rect?.left ?? 0) - this.canvasPan.x) / this.canvasZoom,
+      y: (event.clientY - (rect?.top ?? 0) - this.canvasPan.y) / this.canvasZoom
     };
   }
 
@@ -788,8 +803,54 @@ export class AppComponent {
     return [...nodes].sort((a, b) => Number(isContainerNodeKind(b.kind)) - Number(isContainerNodeKind(a.kind)));
   }
 
+  private zoomTo(nextZoom: number, viewportPoint: Pick<MouseEvent, "clientX" | "clientY">): void {
+    if (nextZoom === this.canvasZoom) return;
+    const rect = this.canvasShell?.nativeElement.getBoundingClientRect();
+    if (!rect) {
+      this.canvasZoom = nextZoom;
+      this.markViewChanged();
+      return;
+    }
+
+    const canvasPoint = this.toCanvasPoint(viewportPoint);
+    this.canvasZoom = nextZoom;
+    this.canvasPan = {
+      x: viewportPoint.clientX - rect.left - canvasPoint.x * nextZoom,
+      y: viewportPoint.clientY - rect.top - canvasPoint.y * nextZoom
+    };
+    this.markViewChanged();
+  }
+
   private clampZoom(value: number): number {
     return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number(value.toFixed(2))));
+  }
+
+  private getCanvasViewportCenter(): Pick<MouseEvent, "clientX" | "clientY"> {
+    const rect = this.canvasShell?.nativeElement.getBoundingClientRect();
+    return {
+      clientX: (rect?.left ?? 0) + (rect?.width ?? 0) / 2,
+      clientY: (rect?.top ?? 0) + (rect?.height ?? 0) / 2
+    };
+  }
+
+  private getNodeAnchor(
+    from: CanvasNode,
+    to: CanvasNode
+  ): Readonly<{ x: number; y: number }> {
+    const fromCenter = this.getNodeCenter(from);
+    const toCenter = this.getNodeCenter(to);
+    const dx = toCenter.x - fromCenter.x;
+    const dy = toCenter.y - fromCenter.y;
+    const xScale = dx === 0 ? Number.POSITIVE_INFINITY : from.size.width / 2 / Math.abs(dx);
+    const yScale = dy === 0 ? Number.POSITIVE_INFINITY : from.size.height / 2 / Math.abs(dy);
+    const scale = Math.min(xScale, yScale);
+
+    if (!Number.isFinite(scale)) return fromCenter;
+
+    return {
+      x: fromCenter.x + dx * scale,
+      y: fromCenter.y + dy * scale
+    };
   }
 
   private getMiniMapBounds(): Readonly<{ x: number; y: number; width: number; height: number }> {
