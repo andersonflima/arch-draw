@@ -397,7 +397,7 @@ export class AppComponent {
     this.editingNodeLabelDraft = node.label;
     this.markViewChanged();
     requestAnimationFrame(() => {
-      const input = document.querySelector<HTMLInputElement>(`input[data-node-editor-id="${nodeId}"]`);
+      const input = document.querySelector<HTMLTextAreaElement>(`textarea[data-node-editor-id="${nodeId}"]`);
       input?.focus();
       const cursorAt = input?.value.length ?? 0;
       input?.setSelectionRange(cursorAt, cursorAt);
@@ -418,7 +418,18 @@ export class AppComponent {
   onNodeLabelEditorKeyDown(event: KeyboardEvent, nodeId: string): void {
     if (event.key === "Enter") {
       event.preventDefault();
-      this.commitNodeLabelEditing(nodeId);
+      const editor = event.currentTarget as HTMLTextAreaElement | null;
+      if (!editor) return;
+
+      const insertion = event.shiftKey ? "\n" : "\n\n";
+      const start = editor.selectionStart ?? editor.value.length;
+      const end = editor.selectionEnd ?? editor.value.length;
+      const nextValue = `${editor.value.slice(0, start)}${insertion}${editor.value.slice(end)}`;
+      const nextCursor = start + insertion.length;
+
+      this.editingNodeLabelDraft = nextValue;
+      editor.value = nextValue;
+      requestAnimationFrame(() => editor.setSelectionRange(nextCursor, nextCursor));
       return;
     }
 

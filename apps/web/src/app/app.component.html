@@ -200,7 +200,7 @@
               <strong>{{ node.label }}</strong>
             </ng-container>
             <ng-template #nodeLabelEditor>
-              <input
+              <textarea
                 class="node-inline-label-input"
                 [attr.data-node-editor-id]="node.id"
                 [ngModel]="editingNodeLabelDraft"
@@ -209,7 +209,7 @@
                 (click)="$event.stopPropagation()"
                 (pointerdown)="$event.stopPropagation()"
                 (keydown)="onNodeLabelEditorKeyDown($event, node.id)"
-              />
+              ></textarea>
             </ng-template>
             <button
               class="node-port node-port--source"

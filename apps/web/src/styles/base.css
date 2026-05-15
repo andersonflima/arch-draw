@@ -669,14 +669,14 @@ button {
   font-weight: 700;
   line-height: 1.15;
   text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .node-inline-label-input {
   width: 100%;
   min-width: 92px;
+  min-height: 56px;
   border: 2px solid #111827;
   border-radius: 6px;
   background: #ffffff;
@@ -687,6 +687,7 @@ button {
   text-align: center;
   padding: 2px 6px;
   outline: none;
+  resize: none;
 }
 
 .node-inline-label-input:focus {
