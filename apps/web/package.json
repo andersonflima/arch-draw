@@ -12,7 +12,7 @@
     "lint": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@arch-draw/domain": "workspace:*",
+    "@arch-draw/domain": "0.1.0",
     "@vitejs/plugin-react": "^4.4.1",
     "@xyflow/react": "^12.6.4",
     "lucide-react": "^0.510.0",
@@ -28,4 +28,3 @@
     "vitest": "^3.1.2"
   }
 }
-

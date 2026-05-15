@@ -4,7 +4,7 @@ Ferramenta local para desenho de arquitetura com canvas drag and drop, entrada M
 
 ## Stack
 
-- Monorepo com `pnpm workspaces`
+- Monorepo com npm workspaces
 - Frontend: React, TypeScript, Vite, React Flow, Mermaid
 - Backend: Node.js, Fastify, TypeScript
 - Banco local: SQLite via `sql.js`, persistido em `apps/api/data/arch-draw.sqlite`
@@ -13,8 +13,8 @@ Ferramenta local para desenho de arquitetura com canvas drag and drop, entrada M
 ## Rodando local
 
 ```bash
-pnpm install
-pnpm dev
+npm install
+npm run dev
 ```
 
 URLs padrão:
@@ -25,10 +25,10 @@ URLs padrão:
 ## Scripts
 
 ```bash
-pnpm typecheck
-pnpm test
-pnpm build
-pnpm lint
+npm run typecheck
+npm test
+npm run build
+npm run lint
 ```
 
 ## Funcionalidades
