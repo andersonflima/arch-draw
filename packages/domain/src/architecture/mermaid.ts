@@ -1,4 +1,4 @@
-import type { ArchitectureDocument, ArchitectureEdge, ArchitectureNode } from "./architecture";
+import type { ArchitectureDocument, ArchitectureEdge, ArchitectureNode } from "./architecture.js";
 
 type ParsedConnection = Readonly<{
   from: string;
