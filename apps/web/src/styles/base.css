@@ -168,7 +168,16 @@ button {
 }
 
 .right-rail .inspector {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
   border-bottom: 2px solid #111827;
+}
+
+.right-rail .inspector .property-stack {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .panel-heading {
