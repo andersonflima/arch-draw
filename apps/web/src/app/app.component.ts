@@ -877,7 +877,7 @@ export class AppComponent {
 
   getEdgeDash(edge: CanvasEdge): string | null {
     const style = normalizeEdgeStyle(edge.style);
-    if (style.animated && style.line === "solid") return "8 6";
+    if (style.line === "solid") return "8 6";
     const line = style.line;
     if (line === "dashed") return "8 6";
     if (line === "dotted") return "2 6";
@@ -899,8 +899,8 @@ export class AppComponent {
     return `M ${start.x} ${start.y} C ${midX} ${start.y}, ${midX} ${end.y}, ${end.x} ${end.y}`;
   }
 
-  isLiveEdge(edge: CanvasEdge): boolean {
-    return normalizeEdgeStyle(edge.style).animated;
+  isLiveEdge(_edge: CanvasEdge): boolean {
+    return true;
   }
 
   isBidirectional(edge: CanvasEdge): boolean {
