@@ -148,6 +148,7 @@ export type ArchitectureNode = Readonly<{
   position: Point;
   size: Size;
   color: string;
+  properties?: Readonly<Record<string, string>>;
   collapsed?: boolean;
   collapsedIconKind?: ArchitectureNodeKind;
   expandedSize?: Size;
@@ -263,6 +264,7 @@ const normalizeNode = (node: ArchitectureNode): ArchitectureNode => ({
   label: node.label.trim() || "Untitled node",
   parentId: node.parentId?.trim() || undefined,
   color: node.color.trim() || "#f8fafc",
+  properties: normalizeNodeProperties(node.properties),
   collapsed: node.collapsed ?? false,
   collapsedIconKind: node.collapsedIconKind,
   expandedSize: node.expandedSize
@@ -276,6 +278,19 @@ const normalizeNode = (node: ArchitectureNode): ArchitectureNode => ({
     height: Math.max(72, node.size.height)
   }
 });
+
+const normalizeNodeProperties = (
+  properties: Readonly<Record<string, string>> | undefined
+): Readonly<Record<string, string>> | undefined => {
+  if (!properties) return undefined;
+  const entries = Object.entries(properties)
+    .map(([key, value]) => [key.trim(), value.trim()] as const)
+    .filter(([key, value]) => key.length > 0 && value.length > 0);
+
+  return entries.length > 0
+    ? Object.fromEntries(entries)
+    : undefined;
+};
 
 const normalizeEdge = (edge: ArchitectureEdge): ArchitectureEdge => ({
   ...edge,

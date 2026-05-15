@@ -77,6 +77,12 @@ type EditorSnapshot = Readonly<{
 }>;
 
 type EdgeDirection = "left-to-right" | "right-to-left" | "both";
+type NodePropertyField = Readonly<{
+  key: string;
+  label: string;
+  placeholder?: string;
+  multiline?: boolean;
+}>;
 
 const DEFAULT_MERMAID_SOURCE = `graph LR
   User["User"] --> Api["API"]
@@ -91,6 +97,67 @@ const DEFAULT_CANVAS_PAN = { x: 0, y: 0 };
 const AUTOSAVE_DEBOUNCE_MS = 1200;
 const EDGE_NODE_GAP = 10;
 const MAX_UNDO_HISTORY = 150;
+const CLOUD_PROPERTY_FIELDS: readonly NodePropertyField[] = [
+  { key: "provider", label: "Provider", placeholder: "aws, azure, gcp..." },
+  { key: "region", label: "Regiao", placeholder: "us-east-1" },
+  { key: "environment", label: "Ambiente", placeholder: "prod, staging, dev" },
+  { key: "owner", label: "Owner", placeholder: "squad-plataforma" }
+];
+
+const NODE_PROPERTY_FIELDS_BY_KIND: Partial<Record<ArchitectureNodeKind, readonly NodePropertyField[]>> = {
+  "cloud-vpc": [
+    { key: "vpcId", label: "VPC ID", placeholder: "vpc-123456" },
+    { key: "cidr", label: "CIDR", placeholder: "10.0.0.0/16" },
+    { key: "dnsSupport", label: "DNS Support", placeholder: "enabled" }
+  ],
+  "aws-vpc": [
+    { key: "vpcId", label: "VPC ID", placeholder: "vpc-123456" },
+    { key: "cidr", label: "CIDR", placeholder: "10.0.0.0/16" },
+    { key: "dnsHostnames", label: "DNS Hostnames", placeholder: "enabled" }
+  ],
+  subnet: [
+    { key: "subnetId", label: "Subnet ID", placeholder: "subnet-123456" },
+    { key: "cidr", label: "CIDR", placeholder: "10.0.1.0/24" },
+    { key: "availabilityZone", label: "Availability Zone", placeholder: "us-east-1a" }
+  ],
+  "aws-subnet": [
+    { key: "subnetId", label: "Subnet ID", placeholder: "subnet-123456" },
+    { key: "cidr", label: "CIDR", placeholder: "10.0.1.0/24" },
+    { key: "availabilityZone", label: "Availability Zone", placeholder: "us-east-1a" }
+  ],
+  "aws-account": [
+    { key: "accountId", label: "Account ID", placeholder: "123456789012" },
+    { key: "organizationUnit", label: "Organizational Unit", placeholder: "platform" }
+  ],
+  "aws-region": [
+    { key: "region", label: "Regiao", placeholder: "us-east-1" }
+  ],
+  "aws-security-group": [
+    { key: "groupId", label: "Security Group ID", placeholder: "sg-123456" },
+    { key: "inbound", label: "Inbound", placeholder: "443 from alb", multiline: true },
+    { key: "outbound", label: "Outbound", placeholder: "all traffic", multiline: true }
+  ],
+  "aws-ec2": [
+    { key: "instanceType", label: "Instance Type", placeholder: "t3.medium" },
+    { key: "ami", label: "AMI", placeholder: "ami-xxxx" },
+    { key: "autoscaling", label: "Auto Scaling", placeholder: "min=2,max=8" }
+  ],
+  "aws-lambda": [
+    { key: "runtime", label: "Runtime", placeholder: "nodejs22.x" },
+    { key: "memory", label: "Memory", placeholder: "1024 MB" },
+    { key: "timeout", label: "Timeout", placeholder: "30s" }
+  ],
+  "aws-rds": [
+    { key: "engine", label: "Engine", placeholder: "postgres" },
+    { key: "version", label: "Version", placeholder: "16" },
+    { key: "storage", label: "Storage", placeholder: "gp3 200GB" }
+  ],
+  "aws-dynamodb": [
+    { key: "billingMode", label: "Billing Mode", placeholder: "on-demand" },
+    { key: "partitionKey", label: "Partition Key", placeholder: "pk" },
+    { key: "sortKey", label: "Sort Key", placeholder: "sk" }
+  ]
+};
 
 mermaid.initialize({
   startOnLoad: false,
@@ -148,6 +215,7 @@ export class AppComponent {
   status = "Inicializando";
   error = "";
   blockSearch = "";
+  isMermaidPanelOpen = false;
   canvasZoom = 1;
   canvasPan: Readonly<{ x: number; y: number }> = DEFAULT_CANVAS_PAN;
 
@@ -661,6 +729,42 @@ export class AppComponent {
     const selected = this.selectedNode;
     if (!selected) return;
     this.updateNode(selected.id, { color });
+  }
+
+  toggleMermaidPanel(): void {
+    this.isMermaidPanelOpen = !this.isMermaidPanelOpen;
+  }
+
+  getNodePropertyFields(node: CanvasNode): readonly NodePropertyField[] {
+    const kindFields = NODE_PROPERTY_FIELDS_BY_KIND[node.kind] ?? [];
+    const cloudFields =
+      node.kind.startsWith("cloud-") || node.kind.startsWith("aws-")
+        ? CLOUD_PROPERTY_FIELDS
+        : [];
+    const genericFields: readonly NodePropertyField[] = [
+      { key: "description", label: "Descricao", placeholder: "Resumo tecnico", multiline: true }
+    ];
+
+    return [...cloudFields, ...kindFields, ...genericFields];
+  }
+
+  getNodePropertyValue(node: CanvasNode, key: string): string {
+    return node.properties?.[key] ?? "";
+  }
+
+  updateSelectedNodeProperty(key: string, value: string): void {
+    const selected = this.selectedNode;
+    if (!selected) return;
+    const nextProperties = { ...(selected.properties ?? {}) };
+    if (value.trim().length === 0) {
+      delete nextProperties[key];
+    } else {
+      nextProperties[key] = value;
+    }
+
+    this.updateNode(selected.id, {
+      properties: Object.keys(nextProperties).length > 0 ? nextProperties : undefined
+    });
   }
 
   deleteSelectedNode(): void {
@@ -1915,7 +2019,10 @@ export class AppComponent {
     return {
       title: this.architecture?.title ?? "",
       description: this.architecture?.description ?? "",
-      nodes: this.nodes.map((node) => ({ ...node })),
+      nodes: this.nodes.map((node) => ({
+        ...node,
+        properties: node.properties ? { ...node.properties } : undefined
+      })),
       edges: this.edges.map((edge) => ({ ...edge, style: { ...edge.style } })),
       mermaidSource: this.mermaidDraft
     };
@@ -1956,7 +2063,10 @@ export class AppComponent {
         description: previous.description,
         mermaidSource: previous.mermaidSource
       };
-      this.nodes = this.sortNodes(previous.nodes.map((node) => ({ ...node })));
+      this.nodes = this.sortNodes(previous.nodes.map((node) => ({
+        ...node,
+        properties: node.properties ? { ...node.properties } : undefined
+      })));
       this.edges = previous.edges.map((edge) => ({ ...edge, style: { ...edge.style } }));
       this.mermaidDraft = previous.mermaidSource;
       this.lastCanvasTopologySignature = this.buildCanvasTopologySignature();

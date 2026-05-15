@@ -35,6 +35,15 @@
       <button
         class="icon-button"
         type="button"
+        [title]="isMermaidPanelOpen ? 'Ocultar Mermaid' : 'Mostrar Mermaid'"
+        [attr.aria-label]="isMermaidPanelOpen ? 'Ocultar Mermaid' : 'Mostrar Mermaid'"
+        (click)="toggleMermaidPanel()"
+      >
+        <i class="fa-solid fa-diagram-project" aria-hidden="true"></i>
+      </button>
+      <button
+        class="icon-button"
+        type="button"
         title="Apagar item selecionado ou limpar board"
         aria-label="Apagar item selecionado ou limpar board"
         (click)="onToolbarDeleteClick()"
@@ -308,7 +317,7 @@
       </section>
     </main>
 
-    <div class="right-rail">
+    <div class="right-rail" [class.right-rail--mermaid-open]="isMermaidPanelOpen">
       <aside class="inspector" aria-label="Inspector">
         <div class="panel-heading">
           <div>
@@ -334,6 +343,24 @@
             Cor
             <input type="color" [ngModel]="node.color" (ngModelChange)="updateNodeColor($event)" />
           </label>
+          <ng-container *ngFor="let field of getNodePropertyFields(node)">
+            <label>
+              {{ field.label }}
+              <input
+                *ngIf="!field.multiline"
+                [ngModel]="getNodePropertyValue(node, field.key)"
+                (ngModelChange)="updateSelectedNodeProperty(field.key, $event)"
+                [placeholder]="field.placeholder || ''"
+              />
+              <textarea
+                *ngIf="field.multiline"
+                class="property-textarea"
+                [ngModel]="getNodePropertyValue(node, field.key)"
+                (ngModelChange)="updateSelectedNodeProperty(field.key, $event)"
+                [placeholder]="field.placeholder || ''"
+              ></textarea>
+            </label>
+          </ng-container>
           <ng-container *ngIf="isCollapsibleContainerNode(node)">
             <label>
               Icone minimizado
@@ -396,7 +423,7 @@
         </p>
       </aside>
 
-      <section class="mermaid-panel" aria-label="Mermaid editor">
+      <section class="mermaid-panel" aria-label="Mermaid editor" *ngIf="isMermaidPanelOpen">
         <div class="panel-heading">
           <div>
             <span>Mermaid</span>

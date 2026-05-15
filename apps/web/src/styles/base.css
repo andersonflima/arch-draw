@@ -165,9 +165,13 @@ button {
 
 .right-rail {
   display: grid;
-  grid-template-rows: 280px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   min-height: 0;
   border-left: 2px solid #111827;
+}
+
+.right-rail.right-rail--mermaid-open {
+  grid-template-rows: 340px minmax(0, 1fr);
 }
 
 .right-rail .inspector,
@@ -179,6 +183,10 @@ button {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
+  border-bottom: 0;
+}
+
+.right-rail.right-rail--mermaid-open .inspector {
   border-bottom: 2px solid #111827;
 }
 
@@ -2434,6 +2442,12 @@ button {
   padding: 0 10px;
 }
 
+.property-stack .property-textarea {
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
 .checkbox-field {
   display: flex;
   grid-template-columns: none;
@@ -2542,6 +2556,11 @@ button {
   }
 
   .right-rail {
+    grid-template-rows: auto;
+    border-left: 0;
+  }
+
+  .right-rail.right-rail--mermaid-open {
     grid-template-rows: auto 560px;
     border-left: 0;
   }
