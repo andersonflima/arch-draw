@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getDefaultNodeSize, isContainerNodeKind, nodeCatalog } from "./node-catalog";
+import { getDefaultNodeSize, isContainerNodeKind, isIconOnlyNodeKind, nodeCatalog } from "./node-catalog";
 
 describe("node catalog", () => {
   it("keeps node kinds unique", () => {
@@ -22,5 +22,11 @@ describe("node catalog", () => {
     expect(isContainerNodeKind("group-container")).toBe(true);
     expect(isContainerNodeKind("container")).toBe(true);
     expect(getDefaultNodeSize("group-container")).toEqual(getDefaultNodeSize("container"));
+  });
+
+  it("uses flow nodes as block shapes instead of icon-only cards", () => {
+    expect(isIconOnlyNodeKind("aws-ec2")).toBe(true);
+    expect(isIconOnlyNodeKind("flow-process")).toBe(false);
+    expect(getDefaultNodeSize("flow-process")).toEqual({ width: 220, height: 120 });
   });
 });

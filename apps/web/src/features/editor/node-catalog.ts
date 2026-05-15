@@ -178,6 +178,9 @@ const containerKinds = new Set<ArchitectureNodeKind>([
 export const isContainerNodeKind = (kind: ArchitectureNodeKind): boolean =>
   containerKinds.has(kind);
 
+export const isIconOnlyNodeKind = (kind: ArchitectureNodeKind): boolean =>
+  !isContainerNodeKind(kind) && !kind.startsWith("flow-");
+
 export type NodeVisualGroup = "container" | "aws" | "code" | "flow" | "algorithm" | "cloud" | "core";
 
 export const getNodeVisualGroup = (kind: ArchitectureNodeKind): NodeVisualGroup => {
@@ -220,4 +223,6 @@ export const getDefaultNodeSize = (
 ): Readonly<{ width: number; height: number }> =>
   isContainerNodeKind(kind)
     ? { width: 420, height: 280 }
-    : { width: 136, height: 140 };
+    : kind.startsWith("flow-")
+      ? { width: 220, height: 120 }
+      : { width: 136, height: 140 };

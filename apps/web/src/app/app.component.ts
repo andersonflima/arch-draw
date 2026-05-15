@@ -27,6 +27,7 @@ import {
   getDefaultNodeSize,
   getNodeKindLabel,
   getNodeVisualGroup,
+  isIconOnlyNodeKind,
   isContainerNodeKind,
   nodeCatalog,
   nodeTemplateCategories,
@@ -787,11 +788,12 @@ export class AppComponent {
   getNodeClass(node: CanvasNode): string {
     const visualGroup = getNodeVisualGroup(node.kind);
     const isContainer = isContainerNodeKind(node.kind);
+    const isIconOnly = isIconOnlyNodeKind(node.kind);
     return [
       "architecture-node",
       `architecture-node--${visualGroup}`,
       `architecture-node--${node.kind}`,
-      isContainer ? "architecture-node--container" : "architecture-node--leaf",
+      isContainer ? "architecture-node--container" : isIconOnly ? "architecture-node--leaf" : "",
       this.selectedNodeIds.includes(node.id) ? "is-selected" : ""
     ].filter(Boolean).join(" ");
   }
@@ -1105,7 +1107,11 @@ export class AppComponent {
     };
     const min = this.nodes.find((node) => node.id === this.resizeState?.nodeId);
     if (!min) return;
-    const minSize = isContainerNodeKind(min.kind) ? { width: 260, height: 180 } : { width: 118, height: 126 };
+    const minSize = isContainerNodeKind(min.kind)
+      ? { width: 260, height: 180 }
+      : isIconOnlyNodeKind(min.kind)
+        ? { width: 118, height: 126 }
+        : { width: 170, height: 92 };
     const west = this.resizeState.direction.includes("w");
     const north = this.resizeState.direction.includes("n");
     const east = this.resizeState.direction.includes("e");
