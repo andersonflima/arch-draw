@@ -114,6 +114,8 @@ export class AppComponent {
   selectedNodeIds: readonly string[] = [];
   selectedEdgeId: string | null = null;
   connectionSourceId: string | null = null;
+  editingNodeId: string | null = null;
+  editingNodeLabelDraft = "";
   mermaidDraft = "";
   mermaidSvg: SafeHtml | string = "";
   mermaidError = "";
@@ -302,6 +304,7 @@ export class AppComponent {
     this.selectedNodeId = nodeId;
     this.selectedNodeIds = [nodeId];
     this.selectedEdgeId = null;
+    this.editingNodeId = null;
     this.marqueeState = null;
     this.resizeEnabledNodeId = null;
     this.markViewChanged();
@@ -312,6 +315,7 @@ export class AppComponent {
     this.selectedEdgeId = edgeId;
     this.selectedNodeId = null;
     this.selectedNodeIds = [];
+    this.editingNodeId = null;
     this.marqueeState = null;
     this.resizeEnabledNodeId = null;
     this.markViewChanged();
@@ -323,6 +327,7 @@ export class AppComponent {
     this.selectedEdgeId = null;
     this.connectionSourceId = null;
     this.connectionDragState = null;
+    this.editingNodeId = null;
     this.marqueeState = null;
     this.resizeEnabledNodeId = null;
     this.markViewChanged();
@@ -333,9 +338,57 @@ export class AppComponent {
     this.selectedNodeId = nodeId;
     this.selectedNodeIds = [nodeId];
     this.selectedEdgeId = null;
+    this.editingNodeId = null;
     this.marqueeState = null;
     this.resizeEnabledNodeId = nodeId;
     this.markViewChanged();
+  }
+
+  isEditingNode(nodeId: string): boolean {
+    return this.editingNodeId === nodeId;
+  }
+
+  startNodeLabelEditing(nodeId: string, event: MouseEvent): void {
+    event.stopPropagation();
+    const node = this.nodes.find((candidate) => candidate.id === nodeId);
+    if (!node) return;
+    this.selectedNodeId = nodeId;
+    this.selectedNodeIds = [nodeId];
+    this.selectedEdgeId = null;
+    this.editingNodeId = nodeId;
+    this.editingNodeLabelDraft = node.label;
+    this.markViewChanged();
+    requestAnimationFrame(() => {
+      const input = document.querySelector<HTMLInputElement>(`input[data-node-editor-id="${nodeId}"]`);
+      input?.focus();
+      input?.select();
+    });
+  }
+
+  commitNodeLabelEditing(nodeId: string): void {
+    if (this.editingNodeId !== nodeId) return;
+    const value = this.editingNodeLabelDraft.trim();
+    if (value.length > 0) {
+      this.updateNode(nodeId, { label: value });
+    }
+    this.editingNodeId = null;
+    this.editingNodeLabelDraft = "";
+    this.markViewChanged();
+  }
+
+  onNodeLabelEditorKeyDown(event: KeyboardEvent, nodeId: string): void {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      this.commitNodeLabelEditing(nodeId);
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      this.editingNodeId = null;
+      this.editingNodeLabelDraft = "";
+      this.markViewChanged();
+    }
   }
 
   onCanvasClick(event: MouseEvent): void {
@@ -462,7 +515,7 @@ export class AppComponent {
   }
 
   onNodePointerDown(event: PointerEvent, node: CanvasNode): void {
-    if ((event.target as HTMLElement).closest(".node-port, .resize-control")) return;
+    if ((event.target as HTMLElement).closest(".node-port, .resize-control, .node-inline-label-input")) return;
     event.stopPropagation();
     const isInSelection = this.selectedNodeIds.includes(node.id);
     const draggedIds =
@@ -474,6 +527,7 @@ export class AppComponent {
       this.selectedNodeIds = [node.id];
       this.selectedEdgeId = null;
     }
+    this.editingNodeId = null;
     this.resizeEnabledNodeId = null;
 
     const point = this.toCanvasPoint(event);
@@ -808,6 +862,7 @@ export class AppComponent {
     this.selectedNodeId = null;
     this.selectedNodeIds = [];
     this.selectedEdgeId = null;
+    this.editingNodeId = null;
     this.marqueeState = null;
     this.resizeEnabledNodeId = null;
     this.cancelAutoSave();
@@ -975,7 +1030,7 @@ export class AppComponent {
     };
     const min = this.nodes.find((node) => node.id === this.resizeState?.nodeId);
     if (!min) return;
-    const minSize = isContainerNodeKind(min.kind) ? { width: 260, height: 180 } : { width: 86, height: 96 };
+    const minSize = isContainerNodeKind(min.kind) ? { width: 260, height: 180 } : { width: 118, height: 126 };
     const west = this.resizeState.direction.includes("w");
     const north = this.resizeState.direction.includes("n");
     const east = this.resizeState.direction.includes("e");
