@@ -26,6 +26,7 @@ import {
 } from "../features/editor/flow-mappers";
 import {
   getDefaultNodeSize,
+  getNodeKindColor,
   getNodeKindLabel,
   getNodeVisualGroup,
   isIconOnlyNodeKind,
@@ -935,7 +936,14 @@ export class AppComponent {
 
   applyMermaid(): void {
     if (!this.architecture || this.lintStatus !== "valid") return;
-    const next = architectureFromMermaid(this.architecture, this.mermaidDraft, new Date().toISOString());
+    const generated = architectureFromMermaid(this.architecture, this.mermaidDraft, new Date().toISOString());
+    const next = {
+      ...generated,
+      nodes: generated.nodes.map((node) => ({
+        ...node,
+        color: getNodeKindColor(node.kind)
+      }))
+    };
     this.updateCurrent(next);
     this.status = "Mermaid aplicado ao canvas";
   }

@@ -154,8 +154,13 @@ export const nodeTemplateCategories = [
   ...new Set(nodeCatalog.map((template) => template.category))
 ];
 
+const nodeColorByKind = new Map(nodeCatalog.map((template) => [template.kind, template.color] as const));
+
 export const getNodeKindLabel = (kind: ArchitectureNodeKind): string =>
   nodeCatalog.find((template) => template.kind === kind)?.label ?? kind;
+
+export const getNodeKindColor = (kind: ArchitectureNodeKind): string =>
+  nodeColorByKind.get(kind) ?? "#f8fafc";
 
 const containerKinds = new Set<ArchitectureNodeKind>([
   "group-container",
