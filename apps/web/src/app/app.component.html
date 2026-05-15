@@ -188,6 +188,7 @@
             <div class="architecture-node__header">
               <span
                 [class]="'node-icon node-icon--' + node.kind"
+                [style.color]="node.color"
                 [attr.title]="getNodeIcon(node.kind)"
               >
                 <i [class]="getNodeIconClass(node.kind)" aria-hidden="true"></i>
