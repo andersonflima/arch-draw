@@ -327,11 +327,11 @@
         </div>
 
         <div class="property-stack" *ngIf="selectedNode as node">
-          <label>
+          <label class="property-field">
             {{ isContainer(node.kind) ? "Nome do container" : "Nome" }}
             <input [ngModel]="node.label" (ngModelChange)="updateNodeLabel($event)" />
           </label>
-          <label>
+          <label class="property-field">
             Tipo
             <select [ngModel]="node.kind" (ngModelChange)="updateNodeKind($event)">
               <option *ngFor="let kind of getNodeKindOptions(node.kind)" [ngValue]="kind">
@@ -339,12 +339,12 @@
               </option>
             </select>
           </label>
-          <label>
+          <label class="property-field">
             Cor
-            <input type="color" [ngModel]="node.color" (ngModelChange)="updateNodeColor($event)" />
+            <input class="property-color-input" type="color" [ngModel]="node.color" (ngModelChange)="updateNodeColor($event)" />
           </label>
           <ng-container *ngFor="let field of getNodePropertyFields(node)">
-            <label>
+            <label class="property-field">
               {{ field.label }}
               <input
                 *ngIf="!field.multiline"
@@ -362,7 +362,7 @@
             </label>
           </ng-container>
           <ng-container *ngIf="isCollapsibleContainerNode(node)">
-            <label>
+            <label class="property-field">
               Icone minimizado
               <select
                 [ngModel]="node.collapsedIconKind || (isContainerPlusNode(node) ? 'system' : node.kind)"
@@ -385,31 +385,31 @@
         </div>
 
         <div class="property-stack" *ngIf="!selectedNode && selectedEdge as edge">
-          <label>
+          <label class="property-field">
             Rotulo
             <input [ngModel]="edge.label || ''" (ngModelChange)="updateSelectedEdgeLabel($event)" />
           </label>
-          <label>
+          <label class="property-field">
             Caminho
             <select [ngModel]="edge.style.path" (ngModelChange)="updateSelectedEdgeStyle({ path: $event })">
               <option *ngFor="let path of edgePaths" [ngValue]="path">{{ path }}</option>
             </select>
           </label>
-          <label>
+          <label class="property-field">
             Traco
             <select [ngModel]="edge.style.line" (ngModelChange)="updateSelectedEdgeStyle({ line: $event })">
               <option *ngFor="let line of edgeLines" [ngValue]="line">{{ line }}</option>
             </select>
           </label>
-          <label>
+          <label class="property-field">
             Direction
             <select [ngModel]="getSelectedEdgeDirection(edge)" (ngModelChange)="updateSelectedEdgeDirection($event)">
               <option *ngFor="let direction of edgeDirections" [ngValue]="direction">{{ direction }}</option>
             </select>
           </label>
-          <label>
+          <label class="property-field">
             Cor
-            <input type="color" [ngModel]="edge.style.color" (ngModelChange)="updateSelectedEdgeStyle({ color: $event })" />
+            <input class="property-color-input" type="color" [ngModel]="edge.style.color" (ngModelChange)="updateSelectedEdgeStyle({ color: $event })" />
           </label>
           <label class="checkbox-field">
             <input type="checkbox" [ngModel]="edge.style.animated" (ngModelChange)="updateSelectedEdgeStyle({ animated: $event })" />
