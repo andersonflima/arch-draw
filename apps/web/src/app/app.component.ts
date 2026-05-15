@@ -568,6 +568,23 @@ export class AppComponent {
     this.resizeState = null;
   }
 
+  @HostListener("window:keydown", ["$event"])
+  onWindowKeyDown(event: KeyboardEvent): void {
+    if (event.defaultPrevented || this.isTypingTarget(event.target)) return;
+    if (event.key !== "Delete" && event.key !== "Backspace") return;
+
+    if (this.selectedEdgeId) {
+      event.preventDefault();
+      this.deleteSelectedEdge();
+      return;
+    }
+
+    if (this.selectedNodeIds.length > 0 || this.selectedNodeId) {
+      event.preventDefault();
+      this.deleteSelectedNode();
+    }
+  }
+
   getNodeStyle(node: CanvasNode): Record<string, string | number> {
     const position = this.getAbsolutePosition(node);
     return {
@@ -1103,6 +1120,14 @@ export class AppComponent {
   private normalizeMermaidError(cause: unknown): string {
     const message = cause instanceof Error ? cause.message : "Mermaid invalido";
     return message.replaceAll(/<[^>]+>/g, "").replaceAll(/\s+/g, " ").trim();
+  }
+
+  private isTypingTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) return false;
+    const tagName = target.tagName.toLowerCase();
+    if (tagName === "input" || tagName === "textarea" || tagName === "select") return true;
+    if (target.isContentEditable) return true;
+    return target.closest("[contenteditable='true']") !== null;
   }
 
   private scheduleAutoSave(): void {
