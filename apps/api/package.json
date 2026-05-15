@@ -19,7 +19,7 @@
   },
   "devDependencies": {
     "@types/sql.js": "^1.4.9",
-    "tsx": "^4.19.4",
+    "tsx": "4.21.0",
     "tsup": "^8.4.0",
     "typescript": "^5.8.3",
     "vitest": "^4.1.6"
