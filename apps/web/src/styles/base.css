@@ -2105,6 +2105,47 @@ button {
   stroke-width: 4;
 }
 
+.canvas-edge-label {
+  fill: #111827;
+  font-size: 12px;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: #fffaf0;
+  stroke-width: 4px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.canvas-edge-label textPath {
+  dominant-baseline: middle;
+  text-anchor: middle;
+}
+
+.canvas-edge-label-editor {
+  overflow: visible;
+  pointer-events: all;
+}
+
+.canvas-edge-label-editor textarea {
+  width: 180px;
+  height: 32px;
+  border: 2px solid #111827;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #111827;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 4px 8px;
+  outline: none;
+  resize: none;
+  overflow: hidden;
+}
+
+.canvas-edge-label-editor textarea:focus {
+  box-shadow: 0 0 0 2px #facc15;
+}
+
 .canvas-edge-preview {
   stroke: #2563eb;
   stroke-dasharray: 8 6;
