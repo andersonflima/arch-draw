@@ -695,6 +695,7 @@ button {
 }
 
 .node-icon {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -708,10 +709,38 @@ button {
   box-shadow: 2px 2px 0 rgba(17, 24, 39, 0.82);
 }
 
+.node-icon::after {
+  content: attr(data-icon-code);
+  position: absolute;
+  left: 50%;
+  bottom: -4px;
+  transform: translateX(-50%);
+  min-width: 18px;
+  padding: 1px 4px;
+  border: 1px solid rgba(17, 24, 39, 0.6);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: currentColor;
+  font-size: 7px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+  pointer-events: none;
+  z-index: 1;
+}
+
 .palette-item__icon {
   width: 30px;
   min-width: 30px;
   height: 30px;
+}
+
+.palette-item__icon::after {
+  bottom: -5px;
+  font-size: 6px;
+  padding: 1px 3px;
 }
 
 .node-icon__label {
@@ -1464,6 +1493,86 @@ button {
   border-radius: 3px 3px 0 0;
 }
 
+.node-icon--aws-ecs .node-icon__glyph::before {
+  left: 4px;
+  top: 6px;
+  width: 16px;
+  height: 4px;
+  border-radius: 3px;
+  box-shadow:
+    0 6px 0 rgba(154, 52, 18, 0.24),
+    0 12px 0 rgba(154, 52, 18, 0.16);
+  background: rgba(255, 237, 213, 0.84);
+}
+
+.node-icon--aws-ecs .node-icon__glyph::after {
+  left: 7px;
+  top: 2px;
+  width: 10px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.node-icon--aws-eks .node-icon__glyph::before {
+  left: 5px;
+  top: 4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  transform: rotate(45deg);
+  background: rgba(219, 234, 254, 0.52);
+}
+
+.node-icon--aws-eks .node-icon__glyph::after {
+  left: 10px;
+  top: 1px;
+  width: 2px;
+  height: 20px;
+  border: 0;
+  background:
+    radial-gradient(circle at 50% 2px, currentColor 2px, transparent 2.2px),
+    radial-gradient(circle at 50% 10px, currentColor 2px, transparent 2.2px),
+    radial-gradient(circle at 50% 18px, currentColor 2px, transparent 2.2px);
+}
+
+.node-icon--aws-fargate .node-icon__glyph::before {
+  left: 4px;
+  top: 8px;
+  width: 16px;
+  height: 10px;
+  border-radius: 3px;
+  clip-path: polygon(0 0, 100% 0, 84% 100%, 16% 100%);
+  background: rgba(254, 243, 199, 0.72);
+}
+
+.node-icon--aws-fargate .node-icon__glyph::after {
+  left: 8px;
+  top: 3px;
+  width: 8px;
+  height: 5px;
+  border-bottom: 0;
+  border-radius: 2px 2px 0 0;
+}
+
+.node-icon--aws-ecr .node-icon__glyph::before {
+  left: 4px;
+  top: 8px;
+  width: 16px;
+  height: 10px;
+  border-radius: 3px;
+  background: rgba(224, 231, 255, 0.76);
+}
+
+.node-icon--aws-ecr .node-icon__glyph::after {
+  left: 7px;
+  top: 3px;
+  width: 10px;
+  height: 4px;
+  border-bottom: 0;
+  border-radius: 2px 2px 0 0;
+  box-shadow: 0 9px 0 -3px currentColor;
+}
+
 .node-icon--aws-lambda .node-icon__glyph::before {
   left: 7px;
   top: 3px;
@@ -1629,6 +1738,30 @@ button {
   border-left: 0;
   border-bottom: 0;
   transform: rotate(45deg);
+}
+
+.node-icon--aws-kinesis .node-icon__glyph::before {
+  left: 3px;
+  top: 8px;
+  width: 18px;
+  height: 9px;
+  border-left: 0;
+  border-right: 0;
+  border-radius: 999px;
+  box-shadow: none;
+  transform: skew(-14deg);
+}
+
+.node-icon--aws-kinesis .node-icon__glyph::after {
+  left: 9px;
+  top: 3px;
+  width: 6px;
+  height: 18px;
+  border-top: 0;
+  border-bottom: 0;
+  border-left: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  transform: none;
 }
 
 .node-icon--aws-sns .node-icon__glyph::before {
