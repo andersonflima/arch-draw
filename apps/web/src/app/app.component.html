@@ -241,14 +241,50 @@
             (dblclick)="onNodeDoubleClick(node, $event)"
             (contextmenu)="onNodeContextMenu(node.id, $event)"
           >
-            <button
-              class="node-port node-port--target"
-              type="button"
-              title="Conectar aqui"
-              [attr.data-target-port-node-id]="node.id"
-              (pointerdown)="onTargetPortPointerDown($event, node.id)"
-              (click)="onTargetPortClick($event, node.id)"
-            ></button>
+            <ng-container *ngIf="hasOmniConnectionPorts(node); else defaultNodePorts">
+              <button
+                class="node-port node-port--omni node-port--omni-top"
+                type="button"
+                title="Conectar"
+                [attr.data-target-port-node-id]="node.id"
+                (pointerdown)="onTargetPortPointerDown($event, node.id)"
+                (click)="onTargetPortClick($event, node.id)"
+              ></button>
+              <button
+                class="node-port node-port--omni node-port--omni-right"
+                type="button"
+                title="Conectar"
+                [attr.data-target-port-node-id]="node.id"
+                (pointerdown)="onTargetPortPointerDown($event, node.id)"
+                (click)="onTargetPortClick($event, node.id)"
+              ></button>
+              <button
+                class="node-port node-port--omni node-port--omni-bottom"
+                type="button"
+                title="Conectar"
+                [attr.data-target-port-node-id]="node.id"
+                (pointerdown)="onTargetPortPointerDown($event, node.id)"
+                (click)="onTargetPortClick($event, node.id)"
+              ></button>
+              <button
+                class="node-port node-port--omni node-port--omni-left"
+                type="button"
+                title="Conectar"
+                [attr.data-target-port-node-id]="node.id"
+                (pointerdown)="onTargetPortPointerDown($event, node.id)"
+                (click)="onTargetPortClick($event, node.id)"
+              ></button>
+            </ng-container>
+            <ng-template #defaultNodePorts>
+              <button
+                class="node-port node-port--target"
+                type="button"
+                title="Conectar aqui"
+                [attr.data-target-port-node-id]="node.id"
+                (pointerdown)="onTargetPortPointerDown($event, node.id)"
+                (click)="onTargetPortClick($event, node.id)"
+              ></button>
+            </ng-template>
             <div class="architecture-node__header">
               <span
                 [class]="'node-icon node-icon--' + getNodeIconKind(node)"
@@ -303,6 +339,7 @@
               ></textarea>
             </ng-template>
             <button
+              *ngIf="!hasOmniConnectionPorts(node)"
               class="node-port node-port--source"
               type="button"
               title="Criar conexao"
