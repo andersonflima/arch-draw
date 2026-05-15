@@ -642,20 +642,22 @@ button {
 }
 
 .architecture-node--leaf .node-icon {
+  --icon-base: var(--icon-color, #111827);
   width: 78px;
   min-width: 78px;
   height: 78px;
+  color: color-mix(in srgb, var(--icon-base) 52%, #ffffff 48%);
   border-radius: 18px;
   background:
     radial-gradient(
       circle at 28% 20%,
-      color-mix(in srgb, currentColor 76%, #ffffff 24%) 0 34%,
-      color-mix(in srgb, currentColor 86%, #000000 14%) 100%
+      color-mix(in srgb, var(--icon-base) 34%, #ffffff 66%) 0 34%,
+      color-mix(in srgb, var(--icon-base) 18%, #000000 82%) 100%
     ),
-    color-mix(in srgb, currentColor 84%, #000000 16%);
+    color-mix(in srgb, var(--icon-base) 22%, #000000 78%);
   box-shadow:
-    0 0 0 2px rgba(17, 24, 39, 0.42),
-    0 10px 20px rgba(17, 24, 39, 0.18);
+    0 0 0 2px rgba(0, 0, 0, 0.62),
+    0 10px 20px rgba(0, 0, 0, 0.34);
 }
 
 .architecture-node--leaf .node-icon i {
