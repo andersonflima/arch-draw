@@ -6,6 +6,7 @@ import { toPng, toSvg } from "html-to-image";
 import mermaid from "mermaid";
 import {
   architectureFromMermaid,
+  architectureToMermaid,
   type ArchitectureDocument,
   type ArchitectureEdgeLineStyle,
   type ArchitectureEdgePath,
@@ -25,8 +26,10 @@ import {
 } from "../features/editor/flow-mappers";
 import {
   getDefaultNodeSize,
+  getNodeKindColor,
   getNodeKindLabel,
   getNodeVisualGroup,
+  isIconOnlyNodeKind,
   isContainerNodeKind,
   nodeCatalog,
   nodeTemplateCategories,
@@ -65,6 +68,16 @@ type ConnectionDragState = Readonly<{
   current: Readonly<{ x: number; y: number }>;
 }>;
 
+type EditorSnapshot = Readonly<{
+  title: string;
+  description: string;
+  nodes: readonly CanvasNode[];
+  edges: readonly CanvasEdge[];
+  mermaidSource: string;
+}>;
+
+type EdgeDirection = "left-to-right" | "right-to-left" | "both";
+
 const DEFAULT_MERMAID_SOURCE = `graph LR
   User["User"] --> Api["API"]
   Api --> Db["SQLite"]`;
@@ -77,6 +90,7 @@ const MINI_MAP_PADDING = 8;
 const DEFAULT_CANVAS_PAN = { x: 0, y: 0 };
 const AUTOSAVE_DEBOUNCE_MS = 1200;
 const EDGE_NODE_GAP = 10;
+const MAX_UNDO_HISTORY = 150;
 
 mermaid.initialize({
   startOnLoad: false,
@@ -106,6 +120,7 @@ export class AppComponent {
   readonly nodeTemplateCategories = nodeTemplateCategories;
   readonly edgePaths: readonly ArchitectureEdgePath[] = ["smoothstep", "step", "straight", "bezier"];
   readonly edgeLines: readonly ArchitectureEdgeLineStyle[] = ["solid", "dashed", "dotted"];
+  readonly edgeDirections: readonly EdgeDirection[] = ["left-to-right", "right-to-left", "both"];
 
   summaries: readonly ArchitectureSummary[] = [];
   architecture: ArchitectureDocument | null = null;
@@ -136,6 +151,10 @@ export class AppComponent {
   private autoSaveInFlight = false;
   private autoSaveQueued = false;
   private lastPersistedSignature = "";
+  private lastCanvasTopologySignature = "";
+  private history: EditorSnapshot[] = [];
+  private historyIndex = -1;
+  private applyingHistory = false;
 
   constructor(
     private readonly changeDetectorRef: ChangeDetectorRef,
@@ -184,6 +203,25 @@ export class AppComponent {
       const saved = await this.persistCurrent("manual");
       this.status = saved ? "Salvo no SQLite" : "Sem alteracoes para salvar";
     });
+  }
+
+  onToolbarDeleteClick(): void {
+    if (this.selectedEdgeId) {
+      this.deleteSelectedEdge();
+      this.status = "Linha removida";
+      return;
+    }
+
+    if (this.selectedNodeIds.length > 0 || this.selectedNodeId) {
+      this.deleteSelectedNode();
+      this.status = "No removido";
+      return;
+    }
+
+    this.nodes = [];
+    this.edges = [];
+    this.clearSelection();
+    this.status = "Board limpo";
   }
 
   async exportCurrent(): Promise<void> {
@@ -369,6 +407,10 @@ export class AppComponent {
 
   onNodeClick(nodeId: string, event: MouseEvent): void {
     event.stopPropagation();
+    if (event.detail >= 2) {
+      this.startNodeLabelEditing(nodeId, event);
+      return;
+    }
     this.selectedNodeId = nodeId;
     this.selectedNodeIds = [nodeId];
     this.selectedEdgeId = null;
@@ -393,7 +435,7 @@ export class AppComponent {
     this.editingNodeLabelDraft = node.label;
     this.markViewChanged();
     requestAnimationFrame(() => {
-      const input = document.querySelector<HTMLInputElement>(`input[data-node-editor-id="${nodeId}"]`);
+      const input = document.querySelector<HTMLTextAreaElement>(`textarea[data-node-editor-id="${nodeId}"]`);
       input?.focus();
       const cursorAt = input?.value.length ?? 0;
       input?.setSelectionRange(cursorAt, cursorAt);
@@ -414,7 +456,18 @@ export class AppComponent {
   onNodeLabelEditorKeyDown(event: KeyboardEvent, nodeId: string): void {
     if (event.key === "Enter") {
       event.preventDefault();
-      this.commitNodeLabelEditing(nodeId);
+      const editor = event.currentTarget as HTMLTextAreaElement | null;
+      if (!editor) return;
+
+      const insertion = event.shiftKey ? "\n" : "\n\n";
+      const start = editor.selectionStart ?? editor.value.length;
+      const end = editor.selectionEnd ?? editor.value.length;
+      const nextValue = `${editor.value.slice(0, start)}${insertion}${editor.value.slice(end)}`;
+      const nextCursor = start + insertion.length;
+
+      this.editingNodeLabelDraft = nextValue;
+      editor.value = nextValue;
+      requestAnimationFrame(() => editor.setSelectionRange(nextCursor, nextCursor));
       return;
     }
 
@@ -498,6 +551,43 @@ export class AppComponent {
     });
   }
 
+  getSelectedEdgeDirection(edge: CanvasEdge): EdgeDirection {
+    if (edge.style.bidirectional) return "both";
+
+    const fromNode = this.nodes.find((node) => node.id === edge.from);
+    const toNode = this.nodes.find((node) => node.id === edge.to);
+    if (!fromNode || !toNode) return "left-to-right";
+
+    const fromCenter = this.getNodeCenter(fromNode);
+    const toCenter = this.getNodeCenter(toNode);
+    return fromCenter.x <= toCenter.x ? "left-to-right" : "right-to-left";
+  }
+
+  updateSelectedEdgeDirection(direction: EdgeDirection): void {
+    const edge = this.selectedEdge;
+    if (!edge) return;
+
+    if (direction === "both") {
+      this.updateEdge(edge.id, {
+        style: normalizeEdgeStyle({ ...edge.style, bidirectional: true })
+      });
+      return;
+    }
+
+    if (direction === "left-to-right") {
+      this.updateEdge(edge.id, {
+        style: normalizeEdgeStyle({ ...edge.style, bidirectional: false })
+      });
+      return;
+    }
+
+    this.updateEdge(edge.id, {
+      from: edge.to,
+      to: edge.from,
+      style: normalizeEdgeStyle({ ...edge.style, bidirectional: false })
+    });
+  }
+
   deleteSelectedEdge(): void {
     const edge = this.selectedEdge;
     if (!edge) return;
@@ -517,32 +607,30 @@ export class AppComponent {
   }
 
   onSourcePortPointerDown(event: PointerEvent, nodeId: string): void {
-    this.startConnect(nodeId, event);
-    const point = this.toCanvasPoint(event);
-    this.connectionDragState = {
-      sourceId: nodeId,
-      start: point,
-      current: point
-    };
-    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-    this.markViewChanged();
+    this.onPortPointerDown(event, nodeId);
   }
 
   onSourcePortClick(event: Event, nodeId: string): void {
-    this.startConnect(nodeId, event);
+    this.finishOrStartConnect(nodeId, event);
   }
 
   onTargetPortPointerDown(event: PointerEvent, nodeId: string): void {
-    this.finishConnect(nodeId, event);
+    this.onPortPointerDown(event, nodeId);
   }
 
   onTargetPortClick(event: Event, nodeId: string): void {
-    this.finishConnect(nodeId, event);
+    this.finishOrStartConnect(nodeId, event);
   }
 
-  finishConnect(nodeId: string, event: Event): void {
+  finishOrStartConnect(nodeId: string, event: Event): void {
     event.stopPropagation();
-    if (!this.connectionSourceId || this.connectionSourceId === nodeId) return;
+    if (!this.connectionSourceId) {
+      this.startConnect(nodeId, event);
+      return;
+    }
+
+    if (this.connectionSourceId === nodeId) return;
+
     this.createConnection(this.connectionSourceId, nodeId);
     this.connectionDragState = null;
     this.connectionSourceId = null;
@@ -703,7 +791,15 @@ export class AppComponent {
 
   @HostListener("window:keydown", ["$event"])
   onWindowKeyDown(event: KeyboardEvent): void {
-    if (event.defaultPrevented || this.isTypingTarget(event.target)) return;
+    if (event.defaultPrevented) return;
+    const isUndoShortcut = (event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "z";
+    if (isUndoShortcut) {
+      event.preventDefault();
+      this.undoLastChange();
+      return;
+    }
+
+    if (this.isTypingTarget(event.target)) return;
     if (event.key !== "Delete" && event.key !== "Backspace") return;
 
     if (this.selectedEdgeId) {
@@ -755,11 +851,12 @@ export class AppComponent {
   getNodeClass(node: CanvasNode): string {
     const visualGroup = getNodeVisualGroup(node.kind);
     const isContainer = isContainerNodeKind(node.kind);
+    const isIconOnly = isIconOnlyNodeKind(node.kind);
     return [
       "architecture-node",
       `architecture-node--${visualGroup}`,
       `architecture-node--${node.kind}`,
-      isContainer ? "architecture-node--container" : "architecture-node--leaf",
+      isContainer ? "architecture-node--container" : isIconOnly ? "architecture-node--leaf" : "",
       this.selectedNodeIds.includes(node.id) ? "is-selected" : ""
     ].filter(Boolean).join(" ");
   }
@@ -819,7 +916,9 @@ export class AppComponent {
   }
 
   getEdgeDash(edge: CanvasEdge): string | null {
-    const line = normalizeEdgeStyle(edge.style).line;
+    const style = normalizeEdgeStyle(edge.style);
+    if (style.line === "solid") return "16 8";
+    const line = style.line;
     if (line === "dashed") return "8 6";
     if (line === "dotted") return "2 6";
     return null;
@@ -840,9 +939,12 @@ export class AppComponent {
     return `M ${start.x} ${start.y} C ${midX} ${start.y}, ${midX} ${end.y}, ${end.x} ${end.y}`;
   }
 
-  isLiveDashed(edge: CanvasEdge): boolean {
-    const style = normalizeEdgeStyle(edge.style);
-    return style.line === "dashed" && style.animated;
+  isLiveEdge(_edge: CanvasEdge): boolean {
+    return true;
+  }
+
+  isBidirectional(edge: CanvasEdge): boolean {
+    return normalizeEdgeStyle(edge.style).bidirectional;
   }
 
   async onMermaidChange(value: string): Promise<void> {
@@ -874,7 +976,14 @@ export class AppComponent {
 
   applyMermaid(): void {
     if (!this.architecture || this.lintStatus !== "valid") return;
-    const next = architectureFromMermaid(this.architecture, this.mermaidDraft, new Date().toISOString());
+    const generated = architectureFromMermaid(this.architecture, this.mermaidDraft, new Date().toISOString());
+    const next = {
+      ...generated,
+      nodes: generated.nodes.map((node) => ({
+        ...node,
+        color: getNodeKindColor(node.kind)
+      }))
+    };
     this.updateCurrent(next);
     this.status = "Mermaid aplicado ao canvas";
   }
@@ -898,6 +1007,7 @@ export class AppComponent {
     this.nodes = this.sortNodes(toCanvasNodes(architecture));
     this.edges = toCanvasEdges(architecture);
     this.mermaidDraft = architecture.mermaidSource || DEFAULT_MERMAID_SOURCE;
+    this.lastCanvasTopologySignature = this.buildCanvasTopologySignature();
     this.selectedNodeId = null;
     this.selectedNodeIds = [];
     this.selectedEdgeId = null;
@@ -906,6 +1016,7 @@ export class AppComponent {
     this.resizeEnabledNodeId = null;
     this.cancelAutoSave();
     this.lastPersistedSignature = this.buildPersistenceSignature();
+    this.resetHistory();
     void this.renderMermaid();
     this.markViewChanged();
   }
@@ -1069,7 +1180,11 @@ export class AppComponent {
     };
     const min = this.nodes.find((node) => node.id === this.resizeState?.nodeId);
     if (!min) return;
-    const minSize = isContainerNodeKind(min.kind) ? { width: 260, height: 180 } : { width: 118, height: 126 };
+    const minSize = isContainerNodeKind(min.kind)
+      ? { width: 260, height: 180 }
+      : isIconOnlyNodeKind(min.kind)
+        ? { width: 118, height: 126 }
+        : { width: 170, height: 92 };
     const west = this.resizeState.direction.includes("w");
     const north = this.resizeState.direction.includes("n");
     const east = this.resizeState.direction.includes("e");
@@ -1321,10 +1436,46 @@ export class AppComponent {
     return message.replaceAll(/<[^>]+>/g, "").replaceAll(/\s+/g, " ").trim();
   }
 
+  private startConnectDrag(nodeId: string, event: PointerEvent): void {
+    this.startConnect(nodeId, event);
+    const point = this.toCanvasPoint(event);
+    this.connectionDragState = {
+      sourceId: nodeId,
+      start: point,
+      current: point
+    };
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    this.markViewChanged();
+  }
+
+  private onPortPointerDown(event: PointerEvent, nodeId: string): void {
+    event.stopPropagation();
+
+    // If a source is already armed from the previous click, preserve it so
+    // the next click can finish the connection instead of resetting the source.
+    if (this.connectionSourceId && this.connectionSourceId !== nodeId) return;
+
+    this.startConnectDrag(nodeId, event);
+  }
+
   private createConnection(from: string, to: string): void {
     if (from === to) return;
     if (!this.nodes.some((node) => node.id === from) || !this.nodes.some((node) => node.id === to)) return;
     if (this.edges.some((edge) => edge.from === from && edge.to === to)) return;
+
+    const reverseEdge = this.edges.find((edge) => edge.from === to && edge.to === from);
+    if (reverseEdge) {
+      const bidirectionalStyle = normalizeEdgeStyle({
+        ...reverseEdge.style,
+        bidirectional: true
+      });
+      this.edges = this.edges.map((edge) =>
+        edge.id === reverseEdge.id
+          ? { ...edge, style: bidirectionalStyle }
+          : edge
+      );
+      return;
+    }
 
     const style = normalizeEdgeStyle(undefined);
     this.edges = [
@@ -1392,6 +1543,113 @@ export class AppComponent {
       edges: this.edges,
       mermaidSource: this.mermaidDraft
     });
+  }
+
+  private buildCanvasTopologySignature(): string {
+    return JSON.stringify({
+      nodes: this.nodes
+        .map((node) => ({ id: node.id, label: node.label }))
+        .sort((left, right) => left.id.localeCompare(right.id)),
+      edges: this.edges
+        .map((edge) => ({
+          from: edge.from,
+          to: edge.to,
+          label: edge.label ?? "",
+          bidirectional: edge.style?.bidirectional ?? false
+        }))
+        .sort((left, right) =>
+          `${left.from}|${left.to}|${left.label}|${left.bidirectional}`.localeCompare(
+            `${right.from}|${right.to}|${right.label}|${right.bidirectional}`
+          )
+        )
+    });
+  }
+
+  private syncMermaidFromCanvasIfNeeded(): void {
+    if (!this.architecture || this.applyingHistory) return;
+    const signature = this.buildCanvasTopologySignature();
+    if (signature === this.lastCanvasTopologySignature) return;
+    this.lastCanvasTopologySignature = signature;
+
+    const generated = architectureToMermaid({
+      ...this.architecture,
+      nodes: this.nodes,
+      edges: this.edges
+    });
+    if (generated === this.mermaidDraft) return;
+    this.mermaidDraft = generated;
+    void this.renderMermaid();
+  }
+
+  private resetHistory(): void {
+    const snapshot = this.captureSnapshot();
+    this.history = [snapshot];
+    this.historyIndex = 0;
+  }
+
+  private captureSnapshot(): EditorSnapshot {
+    return {
+      title: this.architecture?.title ?? "",
+      description: this.architecture?.description ?? "",
+      nodes: this.nodes.map((node) => ({ ...node })),
+      edges: this.edges.map((edge) => ({ ...edge, style: { ...edge.style } })),
+      mermaidSource: this.mermaidDraft
+    };
+  }
+
+  private snapshotSignature(snapshot: EditorSnapshot): string {
+    return JSON.stringify(snapshot);
+  }
+
+  private recordHistory(): void {
+    if (!this.architecture || this.applyingHistory) return;
+    const snapshot = this.captureSnapshot();
+    const current = this.history[this.historyIndex];
+    if (current && this.snapshotSignature(current) === this.snapshotSignature(snapshot)) return;
+
+    if (this.historyIndex < this.history.length - 1) {
+      this.history = this.history.slice(0, this.historyIndex + 1);
+    }
+
+    this.history = [...this.history, snapshot];
+    if (this.history.length > MAX_UNDO_HISTORY) {
+      this.history = this.history.slice(this.history.length - MAX_UNDO_HISTORY);
+    }
+    this.historyIndex = this.history.length - 1;
+  }
+
+  private undoLastChange(): void {
+    if (!this.architecture || this.historyIndex <= 0) return;
+    const previous = this.history[this.historyIndex - 1];
+    if (!previous) return;
+
+    this.historyIndex -= 1;
+    this.applyingHistory = true;
+    try {
+      this.architecture = {
+        ...this.architecture,
+        title: previous.title,
+        description: previous.description,
+        mermaidSource: previous.mermaidSource
+      };
+      this.nodes = this.sortNodes(previous.nodes.map((node) => ({ ...node })));
+      this.edges = previous.edges.map((edge) => ({ ...edge, style: { ...edge.style } }));
+      this.mermaidDraft = previous.mermaidSource;
+      this.lastCanvasTopologySignature = this.buildCanvasTopologySignature();
+      this.selectedNodeId = null;
+      this.selectedNodeIds = [];
+      this.selectedEdgeId = null;
+      this.editingNodeId = null;
+      this.marqueeState = null;
+      this.resizeEnabledNodeId = null;
+      this.connectionSourceId = null;
+      this.connectionDragState = null;
+      this.status = "Desfeito";
+      void this.renderMermaid();
+      this.markViewChanged();
+    } finally {
+      this.applyingHistory = false;
+    }
   }
 
   private async persistCurrent(mode: "manual" | "auto"): Promise<boolean> {
@@ -1480,6 +1738,8 @@ export class AppComponent {
   }
 
   private markViewChanged(): void {
+    this.syncMermaidFromCanvasIfNeeded();
+    this.recordHistory();
     this.scheduleAutoSave();
     this.changeDetectorRef.detectChanges();
   }

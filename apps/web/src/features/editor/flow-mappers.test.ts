@@ -30,7 +30,8 @@ describe("canvas mappers", () => {
             path: "step" as const,
             line: "dashed" as const,
             color: "#2563eb",
-            animated: true
+            animated: true,
+            bidirectional: false
           }
         }
       ]

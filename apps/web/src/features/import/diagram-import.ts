@@ -11,7 +11,7 @@ import {
   type ArchitectureNodeKind,
   type ArchitectureSharePackage
 } from "@arch-draw/domain";
-import { getDefaultNodeSize, isContainerNodeKind, nodeCatalog } from "../editor/node-catalog";
+import { getDefaultNodeSize, getNodeKindColor, isContainerNodeKind, nodeCatalog } from "../editor/node-catalog";
 
 type ImportInput = Readonly<{
   fileName: string;
@@ -155,7 +155,14 @@ const parseMermaidToArchitecture = ({
     now
   });
 
-  return architectureFromMermaid(architecture, text, now);
+  const generated = architectureFromMermaid(architecture, text, now);
+  return {
+    ...generated,
+    nodes: generated.nodes.map((node) => ({
+      ...node,
+      color: getNodeKindColor(node.kind)
+    }))
+  };
 };
 
 const parseDrawIoToArchitecture = async ({
@@ -298,7 +305,7 @@ const inferDrawIoEdgeStyle = (styleText: string): ArchitectureEdgeStyle => {
     : "#111827";
   const animated = style.flowAnimation === "1";
 
-  return { path, line, color, animated };
+  return { path, line, color, animated, bidirectional: false };
 };
 
 const inferKindFromLabel = (label: string): ArchitectureNodeKind => {

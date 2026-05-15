@@ -32,7 +32,13 @@
       <button class="icon-button" type="button" title="Importar" aria-label="Importar" (click)="openImport()">
         <i class="fa-solid fa-file-import" aria-hidden="true"></i>
       </button>
-      <button class="icon-button" type="button" title="Remover arquitetura" aria-label="Remover arquitetura" (click)="deleteCurrent()">
+      <button
+        class="icon-button"
+        type="button"
+        title="Apagar item selecionado ou limpar board"
+        aria-label="Apagar item selecionado ou limpar board"
+        (click)="onToolbarDeleteClick()"
+      >
         <i class="fa-solid fa-trash" aria-hidden="true"></i>
       </button>
     </div>
@@ -142,10 +148,11 @@
             <path
               class="canvas-edge"
               [class.is-selected]="edge.id === selectedEdgeId"
-              [class.is-live-dashed]="isLiveDashed(edge)"
+              [class.is-live]="isLiveEdge(edge)"
               [attr.d]="getEdgePath(edge)"
               [attr.stroke]="getEdgeColor(edge)"
               [attr.stroke-dasharray]="getEdgeDash(edge)"
+              [attr.marker-start]="isBidirectional(edge) ? 'url(#edge-arrow)' : null"
               marker-end="url(#edge-arrow)"
               (click)="selectEdge(edge.id, $event)"
             />
@@ -175,7 +182,6 @@
             [ngStyle]="getNodeStyle(node)"
             (pointerdown)="onNodePointerDown($event, node)"
             (click)="onNodeClick(node.id, $event)"
-            (dblclick)="startNodeLabelEditing(node.id, $event)"
           >
             <button
               class="node-port node-port--target"
@@ -188,6 +194,7 @@
             <div class="architecture-node__header">
               <span
                 [class]="'node-icon node-icon--' + node.kind"
+                [style.--icon-color]="node.color"
                 [attr.title]="getNodeIcon(node.kind)"
               >
                 <i [class]="getNodeIconClass(node.kind)" aria-hidden="true"></i>
@@ -199,7 +206,7 @@
               <strong>{{ node.label }}</strong>
             </ng-container>
             <ng-template #nodeLabelEditor>
-              <input
+              <textarea
                 class="node-inline-label-input"
                 [attr.data-node-editor-id]="node.id"
                 [ngModel]="editingNodeLabelDraft"
@@ -208,12 +215,13 @@
                 (click)="$event.stopPropagation()"
                 (pointerdown)="$event.stopPropagation()"
                 (keydown)="onNodeLabelEditorKeyDown($event, node.id)"
-              />
+              ></textarea>
             </ng-template>
             <button
               class="node-port node-port--source"
               type="button"
               title="Criar conexao"
+              [attr.data-target-port-node-id]="node.id"
               (pointerdown)="onSourcePortPointerDown($event, node.id)"
               (click)="onSourcePortClick($event, node.id)"
             ></button>
@@ -292,6 +300,12 @@
             Traco
             <select [ngModel]="edge.style.line" (ngModelChange)="updateSelectedEdgeStyle({ line: $event })">
               <option *ngFor="let line of edgeLines" [ngValue]="line">{{ line }}</option>
+            </select>
+          </label>
+          <label>
+            Direction
+            <select [ngModel]="getSelectedEdgeDirection(edge)" (ngModelChange)="updateSelectedEdgeDirection($event)">
+              <option *ngFor="let direction of edgeDirections" [ngValue]="direction">{{ direction }}</option>
             </select>
           </label>
           <label>

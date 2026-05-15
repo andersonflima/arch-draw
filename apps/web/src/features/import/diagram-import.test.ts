@@ -55,5 +55,8 @@ describe("diagram import parser", () => {
     expect(parsed.architecture.mermaidSource).toBe(source);
     expect(parsed.architecture.nodes.length).toBeGreaterThanOrEqual(3);
     expect(parsed.architecture.edges.length).toBe(2);
+    expect(parsed.architecture.nodes.find((node) => node.id === "User")?.color).toBe("#fae8ff");
+    expect(parsed.architecture.nodes.find((node) => node.id === "Api")?.color).toBe("#ffedd5");
+    expect(parsed.architecture.nodes.find((node) => node.id === "Db")?.color).toBe("#e0f2fe");
   });
 });
