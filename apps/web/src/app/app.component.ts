@@ -80,6 +80,11 @@ type ConnectionDragState = Readonly<{
   current: Readonly<{ x: number; y: number }>;
 }>;
 
+type PanState = Readonly<{
+  startPointer: Readonly<{ x: number; y: number }>;
+  startPan: Readonly<{ x: number; y: number }>;
+}>;
+
 type EditorSnapshot = Readonly<{
   title: string;
   description: string;
@@ -580,6 +585,7 @@ export class AppComponent {
   canvasPan: Readonly<{ x: number; y: number }> = DEFAULT_CANVAS_PAN;
 
   private dragState: DragState | null = null;
+  private panState: PanState | null = null;
   private resizeState: ResizeState | null = null;
   marqueeState: MarqueeState | null = null;
   private suppressCanvasClickClear = false;
@@ -1357,6 +1363,10 @@ export class AppComponent {
   }
 
   onNodePointerDown(event: PointerEvent, node: CanvasNode): void {
+    if (event.button === 1) {
+      this.startCanvasPan(event);
+      return;
+    }
     if ((event.target as HTMLElement).closest(".node-port, .resize-control, .node-inline-label-input, .node-collapse-toggle")) return;
     event.stopPropagation();
     const isInSelection = this.selectedNodeIds.includes(node.id);
@@ -1406,6 +1416,10 @@ export class AppComponent {
   }
 
   onResizePointerDown(event: PointerEvent, node: CanvasNode, direction: ResizeDirection): void {
+    if (event.button === 1) {
+      this.startCanvasPan(event);
+      return;
+    }
     if (!this.canResizeNode(node.id)) return;
     event.stopPropagation();
     this.selectedNodeId = node.id;
@@ -1423,6 +1437,10 @@ export class AppComponent {
   }
 
   onCanvasPointerDown(event: PointerEvent): void {
+    if (event.button === 1) {
+      this.startCanvasPan(event);
+      return;
+    }
     if (event.button !== 0) return;
     const target = event.target as HTMLElement;
     if (
@@ -1455,6 +1473,17 @@ export class AppComponent {
 
   @HostListener("window:pointermove", ["$event"])
   onWindowPointerMove(event: PointerEvent): void {
+    if (this.panState) {
+      const deltaX = event.clientX - this.panState.startPointer.x;
+      const deltaY = event.clientY - this.panState.startPointer.y;
+      this.canvasPan = {
+        x: this.panState.startPan.x + deltaX,
+        y: this.panState.startPan.y + deltaY
+      };
+      this.markInteractionChanged();
+      return;
+    }
+
     if (this.dragState) {
       const point = this.toCanvasPoint(event);
       const hasMoved =
@@ -1495,6 +1524,7 @@ export class AppComponent {
 
   @HostListener("window:pointerup", ["$event"])
   onWindowPointerUp(event: PointerEvent): void {
+    const hadPanState = this.panState !== null;
     const hadDragState = this.dragState !== null;
     const hadResizeState = this.resizeState !== null;
     if (this.dragState?.hasMoved) {
@@ -1532,19 +1562,23 @@ export class AppComponent {
       this.markViewChanged();
     }
 
+    this.panState = null;
     this.dragState = null;
     this.resizeState = null;
 
+    if (hadPanState) this.markInteractionChanged();
     if (hadDragState || hadResizeState) this.markViewChanged();
   }
 
   @HostListener("window:pointercancel", ["$event"])
   onWindowPointerCancel(_event: PointerEvent): void {
     const hadInteraction =
+      this.panState !== null ||
       this.dragState !== null ||
       this.resizeState !== null ||
       this.connectionDragState !== null ||
       this.marqueeState !== null;
+    this.panState = null;
     this.dragState = null;
     this.resizeState = null;
     this.connectionDragState = null;
@@ -2480,6 +2514,10 @@ export class AppComponent {
   }
 
   private onPortPointerDown(event: PointerEvent, nodeId: string): void {
+    if (event.button === 1) {
+      this.startCanvasPan(event);
+      return;
+    }
     event.stopPropagation();
 
     // If a source is already armed from the previous click, preserve it so
@@ -2487,6 +2525,17 @@ export class AppComponent {
     if (this.connectionSourceId && this.connectionSourceId !== nodeId) return;
 
     this.startConnectDrag(nodeId, event);
+  }
+
+  private startCanvasPan(event: PointerEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.panState = {
+      startPointer: { x: event.clientX, y: event.clientY },
+      startPan: this.canvasPan
+    };
+    (event.currentTarget as HTMLElement | null)?.setPointerCapture?.(event.pointerId);
+    this.markInteractionChanged();
   }
 
   private createConnection(from: string, to: string): void {
