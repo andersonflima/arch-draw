@@ -81,14 +81,23 @@
           <small>Arraste para o canvas.</small>
         </div>
       </div>
+      <label class="palette-search">
+        <input
+          type="search"
+          placeholder="Buscar recurso..."
+          [ngModel]="blockSearch"
+          (ngModelChange)="blockSearch = $event"
+        />
+      </label>
       <div class="palette-list">
-        <section class="palette-group" *ngFor="let category of nodeTemplateCategories">
+        <ng-container *ngFor="let category of nodeTemplateCategories">
+          <section class="palette-group" *ngIf="hasFilteredTemplates(category)">
           <h3>{{ category }}</h3>
           <button
             class="palette-item"
             draggable="true"
             type="button"
-            *ngFor="let template of templatesByCategory(category)"
+            *ngFor="let template of filteredTemplatesByCategory(category)"
             (click)="addNode(template)"
             (dragstart)="onPaletteDragStart($event, template)"
           >
@@ -103,8 +112,12 @@
             <span class="palette-item__label" [title]="template.label">{{ template.label }}</span>
             <b>+</b>
           </button>
-        </section>
+          </section>
+        </ng-container>
       </div>
+      <p class="muted-copy" *ngIf="blockSearch && !hasAnyFilteredTemplates()">
+        Nenhum recurso encontrado.
+      </p>
     </aside>
 
     <main
