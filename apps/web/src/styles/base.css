@@ -623,10 +623,10 @@ button {
   grid-template-rows: auto minmax(0, 1fr);
   align-items: start;
   justify-items: center;
-  gap: 6px;
-  min-width: 86px;
-  min-height: 96px;
-  padding: 4px 6px;
+  gap: 8px;
+  min-width: 118px;
+  min-height: 126px;
+  padding: 6px 8px;
   transform: none;
 }
 
@@ -646,26 +646,47 @@ button {
 }
 
 .architecture-node--leaf .node-icon {
-  width: 54px;
-  min-width: 54px;
-  height: 54px;
+  width: 66px;
+  min-width: 66px;
+  height: 66px;
 }
 
 .architecture-node--leaf .node-icon__glyph {
-  width: 42px;
-  height: 42px;
+  width: 23px;
+  height: 23px;
+  transform: scale(2.1);
+  transform-origin: center;
 }
 
 .architecture-node--leaf strong {
   margin: 0;
   max-width: 100%;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   line-height: 1.15;
   text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.node-inline-label-input {
+  width: 100%;
+  min-width: 92px;
+  border: 2px solid #111827;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  padding: 2px 6px;
+  outline: none;
+}
+
+.node-inline-label-input:focus {
+  box-shadow: 0 0 0 2px #facc15;
 }
 
 .architecture-node.is-selected {

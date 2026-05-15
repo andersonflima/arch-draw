@@ -187,6 +187,7 @@
             [ngStyle]="getNodeStyle(node)"
             (pointerdown)="onNodePointerDown($event, node)"
             (click)="onNodeClick(node.id, $event)"
+            (dblclick)="startNodeLabelEditing(node.id, $event)"
           >
             <button
               class="node-port node-port--target"
@@ -202,7 +203,21 @@
               </span>
               <span>{{ getNodeLabel(node.kind) }}</span>
             </div>
-            <strong>{{ node.label }}</strong>
+            <ng-container *ngIf="!isEditingNode(node.id); else nodeLabelEditor">
+              <strong>{{ node.label }}</strong>
+            </ng-container>
+            <ng-template #nodeLabelEditor>
+              <input
+                class="node-inline-label-input"
+                [attr.data-node-editor-id]="node.id"
+                [ngModel]="editingNodeLabelDraft"
+                (ngModelChange)="editingNodeLabelDraft = $event"
+                (blur)="commitNodeLabelEditing(node.id)"
+                (click)="$event.stopPropagation()"
+                (pointerdown)="$event.stopPropagation()"
+                (keydown)="onNodeLabelEditorKeyDown($event, node.id)"
+              />
+            </ng-template>
             <button
               class="node-port node-port--source"
               type="button"
