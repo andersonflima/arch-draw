@@ -1594,13 +1594,15 @@ export class AppComponent {
   getNodeStyle(node: CanvasNode): Record<string, string | number> {
     const position = this.getAbsolutePosition(node);
     const rendersAsContainer = this.rendersAsContainer(node);
+    const isBeingDragged = this.dragState?.pointerOffsets.has(node.id) ?? false;
+    const baseZIndex = rendersAsContainer ? 0 : 2;
     return {
       left: `${position.x}px`,
       top: `${position.y}px`,
       width: `${node.size.width}px`,
       height: `${node.size.height}px`,
       "--node-bg": node.color,
-      zIndex: rendersAsContainer ? 0 : 2
+      zIndex: isBeingDragged ? 30 : baseZIndex
     };
   }
 
