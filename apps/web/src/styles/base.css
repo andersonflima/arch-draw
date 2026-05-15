@@ -832,6 +832,13 @@ button {
   pointer-events: none;
 }
 
+.node-icon--aws-lambda i::before {
+  content: "λ";
+  font-family: "Times New Roman", Times, serif;
+  font-style: italic;
+  font-weight: 700;
+}
+
 .node-icon__label {
   position: absolute;
   width: 1px;
