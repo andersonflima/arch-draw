@@ -20,6 +20,7 @@ describe("node catalog", () => {
 
   it("treats core and cloud containers as grouping containers", () => {
     expect(isContainerNodeKind("group-container")).toBe(true);
+    expect(isContainerNodeKind("group-container-plus")).toBe(true);
     expect(isContainerNodeKind("container")).toBe(true);
     expect(getDefaultNodeSize("group-container")).toEqual(getDefaultNodeSize("container"));
   });
