@@ -395,7 +395,8 @@ export class AppComponent {
     requestAnimationFrame(() => {
       const input = document.querySelector<HTMLInputElement>(`input[data-node-editor-id="${nodeId}"]`);
       input?.focus();
-      input?.select();
+      const cursorAt = input?.value.length ?? 0;
+      input?.setSelectionRange(cursorAt, cursorAt);
     });
   }
 
