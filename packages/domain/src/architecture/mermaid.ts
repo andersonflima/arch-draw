@@ -27,7 +27,8 @@ export const architectureFromMermaid = (
       path: "smoothstep" as const,
       line: "solid" as const,
       color: "#111827",
-      animated: false
+      animated: false,
+      bidirectional: false
     }
   }));
 

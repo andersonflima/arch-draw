@@ -298,7 +298,7 @@ const inferDrawIoEdgeStyle = (styleText: string): ArchitectureEdgeStyle => {
     : "#111827";
   const animated = style.flowAnimation === "1";
 
-  return { path, line, color, animated };
+  return { path, line, color, animated, bidirectional: false };
 };
 
 const inferKindFromLabel = (label: string): ArchitectureNodeKind => {

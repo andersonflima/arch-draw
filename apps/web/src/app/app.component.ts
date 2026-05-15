@@ -517,32 +517,30 @@ export class AppComponent {
   }
 
   onSourcePortPointerDown(event: PointerEvent, nodeId: string): void {
-    this.startConnect(nodeId, event);
-    const point = this.toCanvasPoint(event);
-    this.connectionDragState = {
-      sourceId: nodeId,
-      start: point,
-      current: point
-    };
-    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-    this.markViewChanged();
+    this.startConnectDrag(nodeId, event);
   }
 
   onSourcePortClick(event: Event, nodeId: string): void {
-    this.startConnect(nodeId, event);
+    this.finishOrStartConnect(nodeId, event);
   }
 
   onTargetPortPointerDown(event: PointerEvent, nodeId: string): void {
-    this.finishConnect(nodeId, event);
+    this.startConnectDrag(nodeId, event);
   }
 
   onTargetPortClick(event: Event, nodeId: string): void {
-    this.finishConnect(nodeId, event);
+    this.finishOrStartConnect(nodeId, event);
   }
 
-  finishConnect(nodeId: string, event: Event): void {
+  finishOrStartConnect(nodeId: string, event: Event): void {
     event.stopPropagation();
-    if (!this.connectionSourceId || this.connectionSourceId === nodeId) return;
+    if (!this.connectionSourceId) {
+      this.startConnect(nodeId, event);
+      return;
+    }
+
+    if (this.connectionSourceId === nodeId) return;
+
     this.createConnection(this.connectionSourceId, nodeId);
     this.connectionDragState = null;
     this.connectionSourceId = null;
@@ -843,6 +841,10 @@ export class AppComponent {
   isLiveDashed(edge: CanvasEdge): boolean {
     const style = normalizeEdgeStyle(edge.style);
     return style.line === "dashed" && style.animated;
+  }
+
+  isBidirectional(edge: CanvasEdge): boolean {
+    return normalizeEdgeStyle(edge.style).bidirectional;
   }
 
   async onMermaidChange(value: string): Promise<void> {
@@ -1321,10 +1323,36 @@ export class AppComponent {
     return message.replaceAll(/<[^>]+>/g, "").replaceAll(/\s+/g, " ").trim();
   }
 
+  private startConnectDrag(nodeId: string, event: PointerEvent): void {
+    this.startConnect(nodeId, event);
+    const point = this.toCanvasPoint(event);
+    this.connectionDragState = {
+      sourceId: nodeId,
+      start: point,
+      current: point
+    };
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    this.markViewChanged();
+  }
+
   private createConnection(from: string, to: string): void {
     if (from === to) return;
     if (!this.nodes.some((node) => node.id === from) || !this.nodes.some((node) => node.id === to)) return;
     if (this.edges.some((edge) => edge.from === from && edge.to === to)) return;
+
+    const reverseEdge = this.edges.find((edge) => edge.from === to && edge.to === from);
+    if (reverseEdge) {
+      const bidirectionalStyle = normalizeEdgeStyle({
+        ...reverseEdge.style,
+        bidirectional: true
+      });
+      this.edges = this.edges.map((edge) =>
+        edge.id === reverseEdge.id
+          ? { ...edge, style: bidirectionalStyle }
+          : edge
+      );
+      return;
+    }
 
     const style = normalizeEdgeStyle(undefined);
     this.edges = [

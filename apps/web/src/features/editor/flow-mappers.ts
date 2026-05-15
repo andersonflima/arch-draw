@@ -45,5 +45,6 @@ export const normalizeEdgeStyle = (
   path: style?.path ?? "smoothstep",
   line: style?.line ?? "solid",
   color: style?.color ?? "#111827",
-  animated: style?.animated ?? false
+  animated: style?.animated ?? false,
+  bidirectional: style?.bidirectional ?? false
 });
