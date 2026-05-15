@@ -2003,7 +2003,32 @@ export class AppComponent {
   }
 
   private sortNodes(nodes: readonly CanvasNode[]): CanvasNode[] {
-    return [...nodes].sort((a, b) => Number(this.rendersAsContainer(b)) - Number(this.rendersAsContainer(a)));
+    const byId = new Map(nodes.map((node) => [node.id, node] as const));
+    const depthCache = new Map<string, number>();
+    const getDepth = (nodeId: string): number => {
+      const cached = depthCache.get(nodeId);
+      if (cached !== undefined) return cached;
+
+      const node = byId.get(nodeId);
+      if (!node || !node.parentId) {
+        depthCache.set(nodeId, 0);
+        return 0;
+      }
+
+      const depth = getDepth(node.parentId) + 1;
+      depthCache.set(nodeId, depth);
+      return depth;
+    };
+
+    return [...nodes].sort((a, b) => {
+      const containerDiff = Number(this.rendersAsContainer(b)) - Number(this.rendersAsContainer(a));
+      if (containerDiff !== 0) return containerDiff;
+
+      const depthDiff = getDepth(a.id) - getDepth(b.id);
+      if (depthDiff !== 0) return depthDiff;
+
+      return 0;
+    });
   }
 
   private zoomTo(nextZoom: number, viewportPoint: Pick<MouseEvent, "clientX" | "clientY">): void {
