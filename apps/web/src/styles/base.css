@@ -1281,6 +1281,420 @@ button {
     0 12px 0 rgba(109, 40, 217, 0.16);
 }
 
+/* Draw.io-inspired cloud icon silhouettes with hand-drawn stroke treatment */
+.node-icon {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.node-icon__glyph {
+  width: 24px;
+  height: 24px;
+}
+
+.node-icon[class*="node-icon--aws-"] .node-icon__glyph::before,
+.node-icon[class*="node-icon--aws-"] .node-icon__glyph::after {
+  border-width: 2px;
+  border-color: currentColor;
+}
+
+.node-icon--aws-s3 .node-icon__glyph::before,
+.node-icon--aws-ebs .node-icon__glyph::before,
+.node-icon--aws-rds .node-icon__glyph::before,
+.node-icon--aws-aurora .node-icon__glyph::before {
+  left: 4px;
+  top: 4px;
+  width: 16px;
+  height: 17px;
+  border-radius: 50% / 18%;
+  background:
+    linear-gradient(90deg, rgba(122, 161, 22, 0.26) 0 28%, transparent 28% 40%, rgba(122, 161, 22, 0.16) 40% 68%, transparent 68%),
+    rgba(255, 255, 255, 0.75);
+}
+
+.node-icon--aws-s3 .node-icon__glyph::after,
+.node-icon--aws-ebs .node-icon__glyph::after,
+.node-icon--aws-rds .node-icon__glyph::after,
+.node-icon--aws-aurora .node-icon__glyph::after {
+  left: 4px;
+  top: 4px;
+  width: 16px;
+  height: 6px;
+  border-radius: 50%;
+  border-bottom: 2px solid currentColor;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.node-icon--aws-efs .node-icon__glyph::before {
+  left: 3px;
+  top: 8px;
+  width: 18px;
+  height: 12px;
+  border-radius: 3px;
+  background: rgba(224, 242, 254, 0.76);
+}
+
+.node-icon--aws-efs .node-icon__glyph::after {
+  left: 5px;
+  top: 4px;
+  width: 9px;
+  height: 6px;
+  border-bottom: 0;
+  border-radius: 3px 3px 0 0;
+}
+
+.node-icon--aws-ec2 .node-icon__glyph::before,
+.node-icon--aws-ecs .node-icon__glyph::before,
+.node-icon--aws-eks .node-icon__glyph::before,
+.node-icon--aws-fargate .node-icon__glyph::before,
+.node-icon--aws-ecr .node-icon__glyph::before {
+  left: 4px;
+  top: 7px;
+  width: 16px;
+  height: 12px;
+  border-radius: 3px;
+  background:
+    linear-gradient(90deg, transparent 0 30%, currentColor 30% 38%, transparent 38% 58%, currentColor 58% 66%, transparent 66%),
+    rgba(255, 237, 213, 0.75);
+}
+
+.node-icon--aws-ec2 .node-icon__glyph::after,
+.node-icon--aws-ecs .node-icon__glyph::after,
+.node-icon--aws-eks .node-icon__glyph::after,
+.node-icon--aws-fargate .node-icon__glyph::after,
+.node-icon--aws-ecr .node-icon__glyph::after {
+  left: 8px;
+  top: 3px;
+  width: 8px;
+  height: 5px;
+  border-bottom: 0;
+  border-radius: 3px 3px 0 0;
+}
+
+.node-icon--aws-lambda .node-icon__glyph::before {
+  left: 7px;
+  top: 3px;
+  width: 8px;
+  height: 18px;
+  border-right: 0;
+  border-top-left-radius: 5px;
+  transform: skew(-16deg);
+  background: rgba(237, 113, 0, 0.15);
+}
+
+.node-icon--aws-lambda .node-icon__glyph::after {
+  left: 12px;
+  top: 10px;
+  width: 8px;
+  height: 10px;
+  border-left: 0;
+  border-bottom: 0;
+  transform: skew(-18deg);
+}
+
+.node-icon--aws-api-gateway .node-icon__glyph::before,
+.node-icon--aws-internet-gateway .node-icon__glyph::before,
+.node-icon--aws-nat-gateway .node-icon__glyph::before {
+  left: 4px;
+  top: 8px;
+  width: 16px;
+  height: 10px;
+  border-radius: 3px;
+  transform: skew(-12deg);
+  background: rgba(14, 116, 144, 0.16);
+}
+
+.node-icon--aws-api-gateway .node-icon__glyph::after,
+.node-icon--aws-internet-gateway .node-icon__glyph::after,
+.node-icon--aws-nat-gateway .node-icon__glyph::after {
+  left: 8px;
+  top: 2px;
+  width: 8px;
+  height: 20px;
+  border-top: 0;
+  border-bottom: 0;
+}
+
+.node-icon--aws-alb .node-icon__glyph::before,
+.node-icon--aws-nlb .node-icon__glyph::before {
+  left: 4px;
+  top: 10px;
+  width: 16px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.node-icon--aws-alb .node-icon__glyph::after,
+.node-icon--aws-nlb .node-icon__glyph::after {
+  right: 3px;
+  top: 7px;
+  width: 8px;
+  height: 8px;
+  border-left: 0;
+  border-bottom: 0;
+  transform: rotate(45deg);
+}
+
+.node-icon--aws-route53 .node-icon__glyph::before {
+  left: 4px;
+  top: 3px;
+  width: 16px;
+  height: 18px;
+  border-radius: 8px 8px 10px 10px;
+  clip-path: polygon(50% 0, 100% 18%, 88% 76%, 50% 100%, 12% 76%, 0 18%);
+  background: rgba(126, 34, 206, 0.14);
+}
+
+.node-icon--aws-route53 .node-icon__glyph::after {
+  content: "53";
+  left: 0;
+  top: 7px;
+  width: 24px;
+  border: 0;
+  color: currentColor;
+  font-size: 8px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.node-icon--aws-cloudfront .node-icon__glyph::before {
+  left: 3px;
+  top: 10px;
+  width: 18px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.node-icon--aws-cloudfront .node-icon__glyph::after {
+  left: 7px;
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(219, 234, 254, 0.8);
+}
+
+.node-icon--aws-dynamodb .node-icon__glyph::before,
+.node-icon--aws-redshift .node-icon__glyph::before {
+  left: 4px;
+  top: 5px;
+  width: 16px;
+  height: 13px;
+  border-radius: 3px;
+  background:
+    linear-gradient(currentColor 0 0) 50% 0 / 2px 100% no-repeat,
+    linear-gradient(currentColor 0 0) 0 50% / 100% 2px no-repeat,
+    rgba(250, 232, 255, 0.7);
+}
+
+.node-icon--aws-dynamodb .node-icon__glyph::after,
+.node-icon--aws-redshift .node-icon__glyph::after {
+  left: 7px;
+  bottom: 3px;
+  width: 10px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.node-icon--aws-opensearch .node-icon__glyph::before {
+  left: 4px;
+  top: 4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+}
+
+.node-icon--aws-opensearch .node-icon__glyph::after {
+  right: 2px;
+  bottom: 3px;
+  width: 9px;
+  height: 2px;
+  border-width: 2px 0 0;
+  transform: rotate(45deg);
+}
+
+.node-icon--aws-sqs .node-icon__glyph::before,
+.node-icon--aws-kinesis .node-icon__glyph::before {
+  left: 3px;
+  top: 5px;
+  width: 18px;
+  height: 4px;
+  border-radius: 999px;
+  box-shadow:
+    0 6px 0 rgba(4, 120, 87, 0.28),
+    0 12px 0 rgba(4, 120, 87, 0.22);
+}
+
+.node-icon--aws-sqs .node-icon__glyph::after,
+.node-icon--aws-kinesis .node-icon__glyph::after {
+  right: 3px;
+  top: 7px;
+  width: 7px;
+  height: 7px;
+  border-left: 0;
+  border-bottom: 0;
+  transform: rotate(45deg);
+}
+
+.node-icon--aws-sns .node-icon__glyph::before {
+  left: 4px;
+  top: 8px;
+  width: 9px;
+  height: 7px;
+  border-radius: 2px 0 0 2px;
+  border-right: 0;
+}
+
+.node-icon--aws-sns .node-icon__glyph::after {
+  left: 12px;
+  top: 7px;
+  width: 8px;
+  height: 9px;
+  border-left: 0;
+  clip-path: polygon(0 12%, 100% 0, 100% 100%, 0 88%);
+}
+
+.node-icon--aws-eventbridge .node-icon__glyph::before {
+  left: 3px;
+  top: 6px;
+  width: 18px;
+  height: 12px;
+  border-radius: 999px;
+}
+
+.node-icon--aws-eventbridge .node-icon__glyph::after {
+  left: 9px;
+  top: 4px;
+  width: 6px;
+  height: 16px;
+  border-right: 0;
+  border-left: 0;
+}
+
+.node-icon--aws-step-functions .node-icon__glyph::before {
+  left: 4px;
+  top: 10px;
+  width: 16px;
+  height: 4px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.node-icon--aws-step-functions .node-icon__glyph::after {
+  right: 3px;
+  top: 7px;
+  width: 8px;
+  height: 8px;
+  border-left: 0;
+  border-bottom: 0;
+  transform: rotate(45deg);
+}
+
+.node-icon--aws-iam .node-icon__glyph::before,
+.node-icon--aws-cognito .node-icon__glyph::before {
+  left: 8px;
+  top: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.node-icon--aws-iam .node-icon__glyph::after,
+.node-icon--aws-cognito .node-icon__glyph::after {
+  left: 5px;
+  top: 13px;
+  width: 14px;
+  height: 8px;
+  border-radius: 999px 999px 4px 4px;
+  background: rgba(250, 232, 255, 0.7);
+}
+
+.node-icon--aws-secrets-manager .node-icon__glyph::before,
+.node-icon--aws-kms .node-icon__glyph::before {
+  left: 4px;
+  top: 9px;
+  width: 16px;
+  height: 9px;
+  border-radius: 3px;
+  background: rgba(254, 249, 195, 0.7);
+}
+
+.node-icon--aws-secrets-manager .node-icon__glyph::after,
+.node-icon--aws-kms .node-icon__glyph::after {
+  left: 8px;
+  top: 4px;
+  width: 8px;
+  height: 8px;
+  border-bottom: 0;
+  border-radius: 999px 999px 0 0;
+}
+
+.node-icon--aws-waf .node-icon__glyph::before,
+.node-icon--aws-shield .node-icon__glyph::before,
+.node-icon--aws-security-group .node-icon__glyph::before {
+  left: 5px;
+  top: 3px;
+  width: 14px;
+  height: 18px;
+  border-radius: 8px 8px 10px 10px;
+  clip-path: polygon(50% 0, 100% 18%, 88% 76%, 50% 100%, 12% 76%, 0 18%);
+  background: rgba(254, 202, 202, 0.62);
+}
+
+.node-icon--aws-waf .node-icon__glyph::after,
+.node-icon--aws-shield .node-icon__glyph::after,
+.node-icon--aws-security-group .node-icon__glyph::after {
+  content: "";
+  left: 9px;
+  top: 7px;
+  width: 6px;
+  height: 8px;
+  border-left: 0;
+  border-top: 0;
+  transform: skew(-10deg);
+}
+
+.node-icon--aws-cloudwatch .node-icon__glyph::before {
+  left: 4px;
+  top: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+}
+
+.node-icon--aws-cloudwatch .node-icon__glyph::after {
+  left: 11px;
+  top: 7px;
+  width: 2px;
+  height: 6px;
+  border-right: 0;
+  border-bottom: 0;
+  transform: rotate(35deg);
+}
+
+.node-icon--aws-cloudtrail .node-icon__glyph::before {
+  left: 3px;
+  top: 10px;
+  width: 18px;
+  height: 4px;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  transform: rotate(-8deg);
+}
+
+.node-icon--aws-cloudtrail .node-icon__glyph::after {
+  left: 14px;
+  top: 8px;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
 .node-port {
   position: absolute;
   z-index: 4;
