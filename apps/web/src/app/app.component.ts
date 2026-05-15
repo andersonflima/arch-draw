@@ -2588,6 +2588,8 @@ export class AppComponent {
     sourceNodeId: string
   ): string | null {
     const target = event.target as HTMLElement | null;
+    const isImplicitlyInvalidTarget = (targetNodeId: string): boolean =>
+      targetNodeId === sourceNodeId || this.isAncestorOfNode(targetNodeId, sourceNodeId);
     const fromTargetPort =
       target?.closest<HTMLElement>("[data-target-port-node-id]")?.dataset["targetPortNodeId"] ??
       null;
@@ -2595,7 +2597,7 @@ export class AppComponent {
 
     const fromTargetNode =
       target?.closest<HTMLElement>("[data-node-id]")?.dataset["nodeId"] ?? null;
-    if (fromTargetNode && fromTargetNode !== sourceNodeId) return fromTargetNode;
+    if (fromTargetNode && !isImplicitlyInvalidTarget(fromTargetNode)) return fromTargetNode;
 
     const hoveredElements = document.elementsFromPoint(event.clientX, event.clientY);
     for (const hoveredElement of hoveredElements) {
@@ -2609,16 +2611,25 @@ export class AppComponent {
     for (const hoveredElement of hoveredElements) {
       const hovered = hoveredElement as HTMLElement;
       const targetNodeId = hovered.closest<HTMLElement>("[data-node-id]")?.dataset["nodeId"] ?? null;
-      if (targetNodeId && targetNodeId !== sourceNodeId) return targetNodeId;
+      if (targetNodeId && !isImplicitlyInvalidTarget(targetNodeId)) return targetNodeId;
     }
 
     const canvasPoint = this.toCanvasPoint(event);
     const fallbackTargets = this.nodes
-      .filter((node) => node.id !== sourceNodeId && this.isVisibleNode(node))
+      .filter((node) => !isImplicitlyInvalidTarget(node.id) && this.isVisibleNode(node))
       .filter((node) => this.containsPoint(node, canvasPoint))
       .sort((left, right) => this.area(left.size) - this.area(right.size));
 
     return fallbackTargets[0]?.id ?? null;
+  }
+
+  private isAncestorOfNode(ancestorNodeId: string, nodeId: string): boolean {
+    let current = this.nodes.find((node) => node.id === nodeId) ?? null;
+    while (current?.parentId) {
+      if (current.parentId === ancestorNodeId) return true;
+      current = this.nodes.find((node) => node.id === current?.parentId) ?? null;
+    }
+    return false;
   }
 
   private isTypingTarget(target: EventTarget | null): boolean {
