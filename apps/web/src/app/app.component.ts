@@ -132,6 +132,8 @@ export class AppComponent {
   connectionSourceId: string | null = null;
   editingNodeId: string | null = null;
   editingNodeLabelDraft = "";
+  editingEdgeId: string | null = null;
+  editingEdgeLabelDraft = "";
   mermaidDraft = "";
   mermaidSvg: SafeHtml | string = "";
   mermaidError = "";
@@ -376,6 +378,8 @@ export class AppComponent {
     this.selectedNodeId = nodeId;
     this.selectedNodeIds = [nodeId];
     this.selectedEdgeId = null;
+    this.editingEdgeId = null;
+    this.editingEdgeLabelDraft = "";
     this.editingNodeId = null;
     this.marqueeState = null;
     this.resizeEnabledNodeId = null;
@@ -387,10 +391,38 @@ export class AppComponent {
     this.selectedEdgeId = edgeId;
     this.selectedNodeId = null;
     this.selectedNodeIds = [];
+    this.editingEdgeId = null;
+    this.editingEdgeLabelDraft = "";
     this.editingNodeId = null;
     this.marqueeState = null;
     this.resizeEnabledNodeId = null;
     this.markViewChanged();
+  }
+
+  onEdgeClick(edgeId: string, event: MouseEvent): void {
+    this.selectEdge(edgeId, event);
+  }
+
+  onEdgeDoubleClick(edgeId: string, event: MouseEvent): void {
+    event.stopPropagation();
+    this.selectedEdgeId = edgeId;
+    this.selectedNodeId = null;
+    this.selectedNodeIds = [];
+    this.editingNodeId = null;
+    this.marqueeState = null;
+    this.resizeEnabledNodeId = null;
+    this.editingEdgeId = edgeId;
+    this.editingEdgeLabelDraft = this.selectedEdge?.label ?? "";
+    this.markViewChanged();
+
+    requestAnimationFrame(() => {
+      const input = document.querySelector<HTMLTextAreaElement>(
+        `textarea[data-edge-editor-id="${edgeId}"]`
+      );
+      input?.focus();
+      const cursorAt = input?.value.length ?? 0;
+      input?.setSelectionRange(cursorAt, cursorAt);
+    });
   }
 
   clearSelection(): void {
@@ -399,6 +431,8 @@ export class AppComponent {
     this.selectedEdgeId = null;
     this.connectionSourceId = null;
     this.connectionDragState = null;
+    this.editingEdgeId = null;
+    this.editingEdgeLabelDraft = "";
     this.editingNodeId = null;
     this.marqueeState = null;
     this.resizeEnabledNodeId = null;
@@ -422,6 +456,8 @@ export class AppComponent {
     this.selectedNodeId = nodeId;
     this.selectedNodeIds = [nodeId];
     this.selectedEdgeId = null;
+    this.editingEdgeId = null;
+    this.editingEdgeLabelDraft = "";
     this.editingNodeId = null;
     this.marqueeState = null;
     this.resizeEnabledNodeId = nodeId;
@@ -439,6 +475,8 @@ export class AppComponent {
     this.selectedNodeId = nodeId;
     this.selectedNodeIds = [nodeId];
     this.selectedEdgeId = null;
+    this.editingEdgeId = null;
+    this.editingEdgeLabelDraft = "";
     this.editingNodeId = nodeId;
     this.editingNodeLabelDraft = node.label;
     this.markViewChanged();
@@ -551,6 +589,39 @@ export class AppComponent {
     this.updateEdge(edge.id, { label: label || undefined });
   }
 
+  isEditingEdge(edgeId: string): boolean {
+    return this.editingEdgeId === edgeId;
+  }
+
+  commitEdgeLabelEditing(edgeId: string): void {
+    if (this.editingEdgeId !== edgeId) return;
+    const value = this.editingEdgeLabelDraft.trim();
+    this.updateEdge(edgeId, { label: value.length > 0 ? value : undefined });
+    this.editingEdgeId = null;
+    this.editingEdgeLabelDraft = "";
+    this.markViewChanged();
+  }
+
+  cancelEdgeLabelEditing(edgeId: string): void {
+    if (this.editingEdgeId !== edgeId) return;
+    this.editingEdgeId = null;
+    this.editingEdgeLabelDraft = "";
+    this.markViewChanged();
+  }
+
+  onEdgeLabelEditorKeyDown(event: KeyboardEvent, edgeId: string): void {
+    event.stopPropagation();
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      this.commitEdgeLabelEditing(edgeId);
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      this.cancelEdgeLabelEditing(edgeId);
+    }
+  }
+
   updateSelectedEdgeStyle(style: Partial<ArchitectureEdgeStyle>): void {
     const edge = this.selectedEdge;
     if (!edge) return;
@@ -601,6 +672,8 @@ export class AppComponent {
     if (!edge) return;
     this.edges = this.edges.filter((candidate) => candidate.id !== edge.id);
     this.selectedEdgeId = null;
+    this.editingEdgeId = null;
+    this.editingEdgeLabelDraft = "";
     this.markViewChanged();
   }
 
@@ -926,6 +999,18 @@ export class AppComponent {
     return `M ${start.x} ${start.y} C ${midX} ${start.y}, ${midX} ${end.y}, ${end.x} ${end.y}`;
   }
 
+  getEdgeLabelPosition(edge: CanvasEdge): Readonly<{ x: number; y: number }> {
+    const source = this.nodes.find((node) => node.id === edge.from);
+    const target = this.nodes.find((node) => node.id === edge.to);
+    if (!source || !target) return { x: 0, y: 0 };
+    const start = this.getAnchorWithGap(source, target, EDGE_NODE_GAP);
+    const end = this.getAnchorWithGap(target, source, EDGE_NODE_GAP);
+    return {
+      x: (start.x + end.x) / 2,
+      y: (start.y + end.y) / 2
+    };
+  }
+
   getEdgeDash(edge: CanvasEdge): string | null {
     const style = normalizeEdgeStyle(edge.style);
     if (style.line === "solid") return "16 8";
@@ -1022,6 +1107,8 @@ export class AppComponent {
     this.selectedNodeId = null;
     this.selectedNodeIds = [];
     this.selectedEdgeId = null;
+    this.editingEdgeId = null;
+    this.editingEdgeLabelDraft = "";
     this.editingNodeId = null;
     this.marqueeState = null;
     this.resizeEnabledNodeId = null;
@@ -1671,6 +1758,8 @@ export class AppComponent {
       this.selectedNodeId = null;
       this.selectedNodeIds = [];
       this.selectedEdgeId = null;
+      this.editingEdgeId = null;
+      this.editingEdgeLabelDraft = "";
       this.editingNodeId = null;
       this.marqueeState = null;
       this.resizeEnabledNodeId = null;
