@@ -120,6 +120,7 @@ export class AppComponent {
   private resizeState: ResizeState | null = null;
   marqueeState: MarqueeState | null = null;
   private suppressCanvasClickClear = false;
+  private resizeEnabledNodeId: string | null = null;
   private autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
   private autoSaveInFlight = false;
   private autoSaveQueued = false;
@@ -294,6 +295,7 @@ export class AppComponent {
     this.selectedNodeIds = [nodeId];
     this.selectedEdgeId = null;
     this.marqueeState = null;
+    this.resizeEnabledNodeId = null;
     this.markViewChanged();
   }
 
@@ -303,6 +305,7 @@ export class AppComponent {
     this.selectedNodeId = null;
     this.selectedNodeIds = [];
     this.marqueeState = null;
+    this.resizeEnabledNodeId = null;
     this.markViewChanged();
   }
 
@@ -312,6 +315,17 @@ export class AppComponent {
     this.selectedEdgeId = null;
     this.connectionSourceId = null;
     this.marqueeState = null;
+    this.resizeEnabledNodeId = null;
+    this.markViewChanged();
+  }
+
+  onNodeClick(nodeId: string, event: MouseEvent): void {
+    event.stopPropagation();
+    this.selectedNodeId = nodeId;
+    this.selectedNodeIds = [nodeId];
+    this.selectedEdgeId = null;
+    this.marqueeState = null;
+    this.resizeEnabledNodeId = nodeId;
     this.markViewChanged();
   }
 
@@ -369,6 +383,7 @@ export class AppComponent {
     );
     this.selectedNodeId = null;
     this.selectedNodeIds = [];
+    this.resizeEnabledNodeId = null;
     this.markViewChanged();
   }
 
@@ -400,6 +415,7 @@ export class AppComponent {
     this.selectedNodeId = nodeId;
     this.selectedNodeIds = [nodeId];
     this.selectedEdgeId = null;
+    this.resizeEnabledNodeId = null;
     this.markViewChanged();
   }
 
@@ -433,6 +449,7 @@ export class AppComponent {
       this.selectedNodeIds = [node.id];
       this.selectedEdgeId = null;
     }
+    this.resizeEnabledNodeId = null;
 
     const point = this.toCanvasPoint(event);
     const pointerOffsets = new Map<string, Readonly<{ x: number; y: number }>>();
@@ -454,6 +471,7 @@ export class AppComponent {
   }
 
   onResizePointerDown(event: PointerEvent, node: CanvasNode, direction: ResizeDirection): void {
+    if (!this.canResizeNode(node.id)) return;
     event.stopPropagation();
     this.selectedNodeId = node.id;
     this.selectedNodeIds = [node.id];
@@ -486,6 +504,7 @@ export class AppComponent {
     this.selectedNodeIds = [];
     this.selectedEdgeId = null;
     this.connectionSourceId = null;
+    this.resizeEnabledNodeId = null;
     this.markViewChanged();
   }
 
@@ -541,6 +560,7 @@ export class AppComponent {
       this.selectedEdgeId = null;
       this.marqueeState = null;
       this.suppressCanvasClickClear = true;
+      this.resizeEnabledNodeId = null;
       this.markViewChanged();
     }
 
@@ -592,6 +612,14 @@ export class AppComponent {
       isContainer ? "architecture-node--container" : "architecture-node--leaf",
       this.selectedNodeIds.includes(node.id) ? "is-selected" : ""
     ].filter(Boolean).join(" ");
+  }
+
+  canResizeNode(nodeId: string): boolean {
+    return (
+      this.selectedNodeIds.length === 1 &&
+      this.selectedNodeId === nodeId &&
+      this.resizeEnabledNodeId === nodeId
+    );
   }
 
   getMarqueeStyle(): Record<string, string> {
@@ -704,6 +732,7 @@ export class AppComponent {
     this.selectedNodeIds = [];
     this.selectedEdgeId = null;
     this.marqueeState = null;
+    this.resizeEnabledNodeId = null;
     this.cancelAutoSave();
     this.lastPersistedSignature = this.buildPersistenceSignature();
     void this.renderMermaid();

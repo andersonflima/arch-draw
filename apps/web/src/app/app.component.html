@@ -152,7 +152,7 @@
             [class]="getNodeClass(node)"
             [ngStyle]="getNodeStyle(node)"
             (pointerdown)="onNodePointerDown($event, node)"
-            (click)="$event.stopPropagation()"
+            (click)="onNodeClick(node.id, $event)"
           >
             <button
               class="node-port node-port--target"
@@ -177,14 +177,16 @@
               (click)="startConnect(node.id, $event)"
             ></button>
 
-            <button class="resize-control resize-control--n" type="button" (pointerdown)="onResizePointerDown($event, node, 'n')"></button>
-            <button class="resize-control resize-control--s" type="button" (pointerdown)="onResizePointerDown($event, node, 's')"></button>
-            <button class="resize-control resize-control--e" type="button" (pointerdown)="onResizePointerDown($event, node, 'e')"></button>
-            <button class="resize-control resize-control--w" type="button" (pointerdown)="onResizePointerDown($event, node, 'w')"></button>
-            <button class="resize-control resize-control--ne" type="button" (pointerdown)="onResizePointerDown($event, node, 'ne')"></button>
-            <button class="resize-control resize-control--nw" type="button" (pointerdown)="onResizePointerDown($event, node, 'nw')"></button>
-            <button class="resize-control resize-control--se" type="button" (pointerdown)="onResizePointerDown($event, node, 'se')"></button>
-            <button class="resize-control resize-control--sw" type="button" (pointerdown)="onResizePointerDown($event, node, 'sw')"></button>
+            <ng-container *ngIf="canResizeNode(node.id)">
+              <button class="resize-control resize-control--n" type="button" (pointerdown)="onResizePointerDown($event, node, 'n')"></button>
+              <button class="resize-control resize-control--s" type="button" (pointerdown)="onResizePointerDown($event, node, 's')"></button>
+              <button class="resize-control resize-control--e" type="button" (pointerdown)="onResizePointerDown($event, node, 'e')"></button>
+              <button class="resize-control resize-control--w" type="button" (pointerdown)="onResizePointerDown($event, node, 'w')"></button>
+              <button class="resize-control resize-control--ne" type="button" (pointerdown)="onResizePointerDown($event, node, 'ne')"></button>
+              <button class="resize-control resize-control--nw" type="button" (pointerdown)="onResizePointerDown($event, node, 'nw')"></button>
+              <button class="resize-control resize-control--se" type="button" (pointerdown)="onResizePointerDown($event, node, 'se')"></button>
+              <button class="resize-control resize-control--sw" type="button" (pointerdown)="onResizePointerDown($event, node, 'sw')"></button>
+            </ng-container>
           </div>
         </ng-template>
       </div>
