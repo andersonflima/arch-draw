@@ -1,0 +1,26 @@
+import { describe, expect, it } from "vitest";
+import { getDefaultNodeSize, isContainerNodeKind, nodeCatalog } from "./node-catalog";
+
+describe("node catalog", () => {
+  it("keeps node kinds unique", () => {
+    const kinds = nodeCatalog.map((template) => template.kind);
+
+    expect(new Set(kinds).size).toBe(kinds.length);
+  });
+
+  it("contains AWS, code structure, and algorithm blocks", () => {
+    expect(nodeCatalog.some((template) => template.category === "AWS Compute")).toBe(true);
+    expect(nodeCatalog.some((template) => template.category === "Code")).toBe(true);
+    expect(nodeCatalog.some((template) => template.category === "Flow Diagram")).toBe(true);
+    expect(nodeCatalog.some((template) => template.category === "Algorithms")).toBe(true);
+    expect(nodeCatalog.some((template) => template.kind === "flow-start")).toBe(true);
+    expect(nodeCatalog.some((template) => template.kind === "flow-process")).toBe(true);
+    expect(nodeCatalog.some((template) => template.kind === "flow-end")).toBe(true);
+  });
+
+  it("treats core and cloud containers as grouping containers", () => {
+    expect(isContainerNodeKind("group-container")).toBe(true);
+    expect(isContainerNodeKind("container")).toBe(true);
+    expect(getDefaultNodeSize("group-container")).toEqual(getDefaultNodeSize("container"));
+  });
+});
