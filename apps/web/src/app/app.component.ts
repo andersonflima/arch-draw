@@ -89,6 +89,7 @@ type EditorSnapshot = Readonly<{
 }>;
 
 type EdgeDirection = "left-to-right" | "right-to-left" | "both";
+type EdgeFlowDirection = "forward" | "reverse";
 type NodePropertyField = Readonly<{
   key: string;
   label: string;
@@ -1706,37 +1707,27 @@ export class AppComponent {
   }
 
   getEdgePath(edge: CanvasEdge): string {
-    const source = this.nodes.find((node) => node.id === edge.from);
-    const target = this.nodes.find((node) => node.id === edge.to);
-    if (!source || !target) return "";
-    const rawStart = this.getAnchorWithGap(source, target, EDGE_NODE_GAP);
-    const rawEnd = this.getAnchorWithGap(target, source, EDGE_NODE_GAP);
-    const style = normalizeEdgeStyle(edge.style);
-    const { start, end } = this.applyEdgeMarkerClearance(rawStart, rawEnd, style.bidirectional);
-    const adjustedMidX = (start.x + end.x) / 2;
-
-    if (style.path === "straight") return `M ${start.x} ${start.y} L ${end.x} ${end.y}`;
-    if (style.path === "bezier") {
-      return `M ${start.x} ${start.y} C ${adjustedMidX} ${start.y}, ${adjustedMidX} ${end.y}, ${end.x} ${end.y}`;
-    }
-    if (style.path === "step") {
-      return `M ${start.x} ${start.y} L ${adjustedMidX} ${start.y} L ${adjustedMidX} ${end.y} L ${end.x} ${end.y}`;
-    }
-    return `M ${start.x} ${start.y} C ${adjustedMidX} ${start.y}, ${adjustedMidX} ${end.y}, ${end.x} ${end.y}`;
+    const geometry = this.getEdgeGeometry(edge);
+    if (!geometry) return "";
+    const { start, end, style } = geometry;
+    return this.buildFullEdgePath(start, end, style.path);
   }
 
   getEdgeLabelPosition(edge: CanvasEdge): Readonly<{ x: number; y: number }> {
-    const source = this.nodes.find((node) => node.id === edge.from);
-    const target = this.nodes.find((node) => node.id === edge.to);
-    if (!source || !target) return { x: 0, y: 0 };
-    const rawStart = this.getAnchorWithGap(source, target, EDGE_NODE_GAP);
-    const rawEnd = this.getAnchorWithGap(target, source, EDGE_NODE_GAP);
-    const style = normalizeEdgeStyle(edge.style);
-    const { start, end } = this.applyEdgeMarkerClearance(rawStart, rawEnd, style.bidirectional);
+    const geometry = this.getEdgeGeometry(edge);
+    if (!geometry) return { x: 0, y: 0 };
+    const { start, end } = geometry;
     return {
       x: (start.x + end.x) / 2,
       y: (start.y + end.y) / 2
     };
+  }
+
+  getBidirectionalFlowPath(edge: CanvasEdge, direction: EdgeFlowDirection): string {
+    const geometry = this.getEdgeGeometry(edge);
+    if (!geometry) return "";
+    const { start, end, style } = geometry;
+    return this.buildEdgeHalfPath(start, end, style.path, direction);
   }
 
   getEdgeDash(edge: CanvasEdge): string | null {
@@ -2003,6 +1994,75 @@ export class AppComponent {
     const deltaX = point.x - startPoint.x;
     const deltaY = point.y - startPoint.y;
     return Math.hypot(deltaX, deltaY) >= DRAG_START_THRESHOLD;
+  }
+
+  private getEdgeGeometry(
+    edge: CanvasEdge
+  ): Readonly<{
+    start: Readonly<{ x: number; y: number }>;
+    end: Readonly<{ x: number; y: number }>;
+    style: ArchitectureEdgeStyle;
+  }> | null {
+    const source = this.nodes.find((node) => node.id === edge.from);
+    const target = this.nodes.find((node) => node.id === edge.to);
+    if (!source || !target) return null;
+    const rawStart = this.getAnchorWithGap(source, target, EDGE_NODE_GAP);
+    const rawEnd = this.getAnchorWithGap(target, source, EDGE_NODE_GAP);
+    const style = normalizeEdgeStyle(edge.style);
+    const { start, end } = this.applyEdgeMarkerClearance(rawStart, rawEnd, style.bidirectional);
+    return { start, end, style };
+  }
+
+  private buildFullEdgePath(
+    start: Readonly<{ x: number; y: number }>,
+    end: Readonly<{ x: number; y: number }>,
+    path: ArchitectureEdgePath
+  ): string {
+    const midX = (start.x + end.x) / 2;
+    if (path === "straight") return `M ${start.x} ${start.y} L ${end.x} ${end.y}`;
+    if (path === "step") {
+      return `M ${start.x} ${start.y} L ${midX} ${start.y} L ${midX} ${end.y} L ${end.x} ${end.y}`;
+    }
+    return `M ${start.x} ${start.y} C ${midX} ${start.y}, ${midX} ${end.y}, ${end.x} ${end.y}`;
+  }
+
+  private buildEdgeHalfPath(
+    start: Readonly<{ x: number; y: number }>,
+    end: Readonly<{ x: number; y: number }>,
+    path: ArchitectureEdgePath,
+    direction: EdgeFlowDirection
+  ): string {
+    const midX = (start.x + end.x) / 2;
+    const center = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
+    if (path === "straight") {
+      const target = direction === "forward" ? end : start;
+      return `M ${center.x} ${center.y} L ${target.x} ${target.y}`;
+    }
+
+    if (path === "step") {
+      const centerStep = { x: midX, y: (start.y + end.y) / 2 };
+      if (direction === "forward") {
+        return `M ${centerStep.x} ${centerStep.y} L ${midX} ${end.y} L ${end.x} ${end.y}`;
+      }
+      return `M ${centerStep.x} ${centerStep.y} L ${midX} ${start.y} L ${start.x} ${start.y}`;
+    }
+
+    // Split the cubic curve at t=0.5 so each half can animate from the middle outward.
+    const p0 = start;
+    const p1 = { x: midX, y: start.y };
+    const p2 = { x: midX, y: end.y };
+    const p3 = end;
+    const p01 = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 };
+    const p12 = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+    const p23 = { x: (p2.x + p3.x) / 2, y: (p2.y + p3.y) / 2 };
+    const p012 = { x: (p01.x + p12.x) / 2, y: (p01.y + p12.y) / 2 };
+    const p123 = { x: (p12.x + p23.x) / 2, y: (p12.y + p23.y) / 2 };
+    const p0123 = { x: (p012.x + p123.x) / 2, y: (p012.y + p123.y) / 2 };
+
+    if (direction === "forward") {
+      return `M ${p0123.x} ${p0123.y} C ${p123.x} ${p123.y}, ${p23.x} ${p23.y}, ${p3.x} ${p3.y}`;
+    }
+    return `M ${p0123.x} ${p0123.y} C ${p012.x} ${p012.y}, ${p01.x} ${p01.y}, ${p0.x} ${p0.y}`;
   }
 
   private applyEdgeMarkerClearance(
