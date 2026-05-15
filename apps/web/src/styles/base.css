@@ -266,6 +266,12 @@ button {
   background-size: 24px 24px;
 }
 
+.canvas-viewport {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+}
+
 .architecture-node {
   position: absolute;
   width: 100%;
@@ -273,26 +279,46 @@ button {
   min-width: 190px;
   min-height: 92px;
   padding: 12px;
-  border: 2px solid #111827;
-  border-radius: 8px 7px 9px 6px;
+  border: 0;
+  background: transparent;
   color: #111827;
-  box-shadow: 3px 3px 0 #111827;
   transform: rotate(-0.35deg);
   user-select: none;
   touch-action: none;
+  isolation: isolate;
+}
+
+.architecture-node::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border: 2px solid #111827;
+  border-radius: 8px 7px 9px 6px;
+  background: var(--node-bg, #ffffff);
+  box-shadow: 3px 3px 0 #111827;
+}
+
+.architecture-node > :not(.resize-control):not(.node-port) {
+  position: relative;
+  z-index: 1;
 }
 
 .architecture-node--container {
   min-width: 260px;
   min-height: 180px;
+  transform: rotate(-0.12deg);
+}
+
+.architecture-node--container::before {
   border-style: dashed;
   border-width: 2.4px;
+  background-color: var(--node-bg, #ffffff);
   background-image:
     linear-gradient(rgba(17, 24, 39, 0.035) 1px, transparent 1px),
     linear-gradient(90deg, rgba(17, 24, 39, 0.035) 1px, transparent 1px);
   background-size: 22px 22px;
   box-shadow: 4px 4px 0 rgba(17, 24, 39, 0.72);
-  transform: rotate(-0.12deg);
 }
 
 .architecture-node--container::after {
@@ -304,35 +330,105 @@ button {
   pointer-events: none;
 }
 
-.architecture-node--aws {
+.architecture-node--aws::before {
   border-color: #7c2d12;
   box-shadow: 3px 3px 0 #7c2d12;
 }
 
-.architecture-node--code {
+.architecture-node--code::before {
   border-style: dashed;
 }
 
-.architecture-node--algorithm {
+.architecture-node--algorithm::before {
   border-radius: 999px;
 }
 
-.architecture-node--flow {
+.architecture-node--flow::before {
   border-style: solid;
   box-shadow: 3px 3px 0 #065f46;
 }
 
-.architecture-node--flow-start,
-.architecture-node--flow-end {
+.architecture-node--flow-start::before,
+.architecture-node--flow-end::before,
+.architecture-node--queue::before,
+.architecture-node--aws-sqs::before,
+.architecture-node--algorithm-start::before {
   border-radius: 999px;
 }
 
-.architecture-node--flow-decision {
-  border-radius: 14px 4px 14px 4px;
+.architecture-node--flow-decision::before,
+.architecture-node--algorithm-condition::before {
+  inset: 9px 36px;
+  border-radius: 5px;
+  transform: rotate(45deg);
 }
 
-.architecture-node--cloud:not(.architecture-node--container) {
+.architecture-node--flow-decision,
+.architecture-node--algorithm-condition {
+  padding-inline: 36px;
+  text-align: center;
+}
+
+.architecture-node--flow-input::before,
+.architecture-node--flow-output::before,
+.architecture-node--flow-data::before {
+  inset-inline: 10px;
+  transform: skew(-10deg);
+}
+
+.architecture-node--flow-document::before {
+  border-radius: 8px 8px 28px 8px;
+}
+
+.architecture-node--database::before,
+.architecture-node--object-storage::before,
+.architecture-node--block-storage::before,
+.architecture-node--aws-s3::before,
+.architecture-node--aws-ebs::before,
+.architecture-node--aws-efs::before,
+.architecture-node--aws-rds::before,
+.architecture-node--aws-aurora::before,
+.architecture-node--aws-dynamodb::before,
+.architecture-node--aws-elasticache::before,
+.architecture-node--aws-redshift::before,
+.architecture-node--aws-opensearch::before {
+  border-radius: 48% / 16%;
+}
+
+.architecture-node--external::before,
+.architecture-node--aws-security-group::before {
+  clip-path: polygon(12% 0, 88% 0, 100% 50%, 88% 100%, 12% 100%, 0 50%);
+}
+
+.architecture-node--code-file::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 24px;
+  height: 24px;
+  border-left: 2px solid #111827;
+  border-bottom: 2px solid #111827;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 0 6px 0 4px;
+}
+
+.architecture-node--code-folder::before,
+.architecture-node--code-package::before,
+.architecture-node--code-module::before,
+.architecture-node--code-workspace::before {
+  border-radius: 4px 8px 8px;
+}
+
+.architecture-node--cloud:not(.architecture-node--container)::before,
+.architecture-node--cloud-provider::before {
   border-radius: 10px 8px 12px 8px;
+}
+
+.architecture-node--cloud-provider::before,
+.architecture-node--cdn::before,
+.architecture-node--aws-cloudfront::before {
+  border-radius: 36px 32px 18px 22px;
 }
 
 .architecture-node.is-selected {
@@ -379,10 +475,18 @@ button {
 .canvas-edge-layer {
   position: absolute;
   inset: 0;
+  z-index: 1;
   width: 100%;
   height: 100%;
   pointer-events: none;
   overflow: visible;
+}
+
+.canvas-edge-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 18;
+  pointer-events: stroke;
 }
 
 .canvas-edge {
@@ -492,10 +596,75 @@ button {
 
 .architecture-node strong {
   display: block;
-  max-width: 180px;
+  max-width: 100%;
   font-size: 16px;
   line-height: 1.15;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  overflow-wrap: normal;
+  text-overflow: ellipsis;
+  word-break: normal;
+}
+
+.architecture-node__header span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.canvas-map {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 20;
+  width: 174px;
+  border: 2px solid #111827;
+  border-radius: 8px;
+  background: #fffaf0;
+  box-shadow: 3px 3px 0 #111827;
+  padding: 10px;
+}
+
+.mini-map {
+  position: relative;
+  width: 150px;
+  height: 96px;
+  overflow: hidden;
+  border: 1px dashed #9ca3af;
+  border-radius: 6px;
+  background:
+    linear-gradient(rgba(17, 24, 39, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(17, 24, 39, 0.04) 1px, transparent 1px),
+    #ffffff;
+  background-size: 12px 12px;
+}
+
+.mini-map-node {
+  position: absolute;
+  border: 1px solid #111827;
+  border-radius: 3px;
+}
+
+.mini-map-node--container {
+  border-style: dashed;
+}
+
+.zoom-controls {
+  display: grid;
+  grid-template-columns: 40px 1fr 40px;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.zoom-value {
+  min-height: 38px;
+  border: 2px solid #111827;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #111827;
+  font-size: 12px;
+  font-weight: 900;
+  box-shadow: 2px 2px 0 #111827;
 }
 
 .property-stack label {

@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, ElementRef, HostListener, ViewChild } from "@angular/core";
+import { ChangeDetectorRef, Component, ElementRef, HostListener, ViewChild } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import mermaid from "mermaid";
 import {
@@ -57,6 +57,12 @@ const DEFAULT_MERMAID_SOURCE = `graph LR
   User["User"] --> Api["API"]
   Api --> Db["SQLite"]`;
 
+const ZOOM_STEP = 0.1;
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 1.8;
+const MINI_MAP_SIZE = { width: 150, height: 96 };
+const MINI_MAP_PADDING = 8;
+
 mermaid.initialize({
   startOnLoad: false,
   securityLevel: "strict",
@@ -99,11 +105,12 @@ export class AppComponent {
   lintStatus: "empty" | "valid" | "invalid" = "empty";
   status = "Inicializando";
   error = "";
+  canvasZoom = 1;
 
   private dragState: DragState | null = null;
   private resizeState: ResizeState | null = null;
 
-  constructor() {
+  constructor(private readonly changeDetectorRef: ChangeDetectorRef) {
     void this.boot();
   }
 
@@ -196,11 +203,13 @@ export class AppComponent {
     const loaded = await api.readArchitecture(id);
     this.updateCurrent(loaded);
     this.status = "Arquitetura carregada";
+    this.markViewChanged();
   }
 
   updateTitle(title: string): void {
     if (!this.architecture) return;
     this.architecture = { ...this.architecture, title };
+    this.markViewChanged();
   }
 
   templatesByCategory(category: NodeTemplateCategory): readonly NodeTemplate[] {
@@ -227,6 +236,7 @@ export class AppComponent {
     };
 
     this.nodes = this.sortNodes([...this.nodes, node]);
+    this.markViewChanged();
   }
 
   onPaletteDragStart(event: DragEvent, template: NodeTemplate): void {
@@ -242,22 +252,44 @@ export class AppComponent {
     this.addNode(template, this.toCanvasPoint(event));
   }
 
+  zoomIn(): void {
+    this.canvasZoom = this.clampZoom(this.canvasZoom + ZOOM_STEP);
+    this.markViewChanged();
+  }
+
+  zoomOut(): void {
+    this.canvasZoom = this.clampZoom(this.canvasZoom - ZOOM_STEP);
+    this.markViewChanged();
+  }
+
+  resetZoom(): void {
+    this.canvasZoom = 1;
+    this.markViewChanged();
+  }
+
+  getZoomPercent(): number {
+    return Math.round(this.canvasZoom * 100);
+  }
+
   selectNode(nodeId: string, event?: Event): void {
     event?.stopPropagation();
     this.selectedNodeId = nodeId;
     this.selectedEdgeId = null;
+    this.markViewChanged();
   }
 
   selectEdge(edgeId: string, event: Event): void {
     event.stopPropagation();
     this.selectedEdgeId = edgeId;
     this.selectedNodeId = null;
+    this.markViewChanged();
   }
 
   clearSelection(): void {
     this.selectedNodeId = null;
     this.selectedEdgeId = null;
     this.connectionSourceId = null;
+    this.markViewChanged();
   }
 
   updateNodeLabel(label: string): void {
@@ -276,6 +308,7 @@ export class AppComponent {
         ? this.detachNodeFromParent(node)
         : node;
     });
+    this.markViewChanged();
   }
 
   updateNodeColor(color: string): void {
@@ -292,6 +325,7 @@ export class AppComponent {
       .filter((node) => node.id !== selected.id);
     this.edges = this.edges.filter((edge) => edge.from !== selected.id && edge.to !== selected.id);
     this.selectedNodeId = null;
+    this.markViewChanged();
   }
 
   updateSelectedEdgeLabel(label: string): void {
@@ -313,6 +347,7 @@ export class AppComponent {
     if (!edge) return;
     this.edges = this.edges.filter((candidate) => candidate.id !== edge.id);
     this.selectedEdgeId = null;
+    this.markViewChanged();
   }
 
   startConnect(nodeId: string, event: Event): void {
@@ -320,6 +355,7 @@ export class AppComponent {
     this.connectionSourceId = nodeId;
     this.selectedNodeId = nodeId;
     this.selectedEdgeId = null;
+    this.markViewChanged();
   }
 
   finishConnect(nodeId: string, event: Event): void {
@@ -336,6 +372,7 @@ export class AppComponent {
       }
     ];
     this.connectionSourceId = null;
+    this.markViewChanged();
   }
 
   onNodePointerDown(event: PointerEvent, node: CanvasNode): void {
@@ -384,11 +421,11 @@ export class AppComponent {
     }
   }
 
-  @HostListener("window:pointerup")
-  onWindowPointerUp(): void {
+  @HostListener("window:pointerup", ["$event"])
+  onWindowPointerUp(event: PointerEvent): void {
     if (this.dragState) {
       const dragged = this.nodes.find((node) => node.id === this.dragState?.nodeId);
-      if (dragged) this.attachNodeToContainer(dragged);
+      if (dragged) this.attachNodeToContainer(dragged, this.toCanvasPoint(event));
     }
     this.dragState = null;
     this.resizeState = null;
@@ -401,8 +438,30 @@ export class AppComponent {
       top: `${position.y}px`,
       width: `${node.size.width}px`,
       height: `${node.size.height}px`,
-      background: node.color,
-      zIndex: isContainerNodeKind(node.kind) ? 1 : 2
+      "--node-bg": node.color,
+      zIndex: isContainerNodeKind(node.kind) ? 0 : 2
+    };
+  }
+
+  getViewportStyle(): Record<string, string> {
+    return {
+      transform: `scale(${this.canvasZoom})`
+    };
+  }
+
+  getMiniMapNodeStyle(node: CanvasNode): Record<string, string> {
+    const bounds = this.getMiniMapBounds();
+    const position = this.getAbsolutePosition(node);
+    const availableWidth = MINI_MAP_SIZE.width - MINI_MAP_PADDING * 2;
+    const availableHeight = MINI_MAP_SIZE.height - MINI_MAP_PADDING * 2;
+    const scale = Math.min(availableWidth / bounds.width, availableHeight / bounds.height);
+
+    return {
+      left: `${MINI_MAP_PADDING + (position.x - bounds.x) * scale}px`,
+      top: `${MINI_MAP_PADDING + (position.y - bounds.y) * scale}px`,
+      width: `${Math.max(3, node.size.width * scale)}px`,
+      height: `${Math.max(3, node.size.height * scale)}px`,
+      background: isContainerNodeKind(node.kind) ? "rgba(17, 24, 39, 0.14)" : node.color
     };
   }
 
@@ -504,6 +563,7 @@ export class AppComponent {
 
   private async refreshSummaries(): Promise<void> {
     this.summaries = await api.listArchitectures();
+    this.markViewChanged();
   }
 
   private updateCurrent(architecture: ArchitectureDocument): void {
@@ -514,6 +574,7 @@ export class AppComponent {
     this.selectedNodeId = null;
     this.selectedEdgeId = null;
     void this.renderMermaid();
+    this.markViewChanged();
   }
 
   private async runSafely(operation: () => Promise<void>, fallbackStatus?: string): Promise<void> {
@@ -523,6 +584,8 @@ export class AppComponent {
     } catch (cause) {
       this.error = cause instanceof Error ? cause.message : "Operacao falhou";
       if (fallbackStatus) this.status = fallbackStatus;
+    } finally {
+      this.markViewChanged();
     }
   }
 
@@ -532,6 +595,7 @@ export class AppComponent {
       this.mermaidSvg = "";
       this.mermaidError = "";
       this.lintStatus = "empty";
+      this.markViewChanged();
       return;
     }
 
@@ -542,20 +606,24 @@ export class AppComponent {
       this.mermaidSvg = result.svg;
       this.mermaidError = "";
       this.lintStatus = "valid";
+      this.markViewChanged();
     } catch (cause) {
       if (this.mermaidDraft !== source) return;
       this.mermaidSvg = "";
       this.mermaidError = this.normalizeMermaidError(cause);
       this.lintStatus = "invalid";
+      this.markViewChanged();
     }
   }
 
   private updateNode(id: string, patch: Partial<CanvasNode>): void {
     this.nodes = this.nodes.map((node) => node.id === id ? { ...node, ...patch } : node);
+    this.markViewChanged();
   }
 
   private updateEdge(id: string, patch: Partial<CanvasEdge>): void {
     this.edges = this.edges.map((edge) => edge.id === id ? { ...edge, ...patch } : edge);
+    this.markViewChanged();
   }
 
   private moveNodeToAbsolutePosition(nodeId: string, absolutePosition: Readonly<{ x: number; y: number }>): void {
@@ -569,14 +637,16 @@ export class AppComponent {
     this.updateNode(nodeId, { position });
   }
 
-  private attachNodeToContainer(dragged: CanvasNode): void {
+  private attachNodeToContainer(
+    dragged: CanvasNode,
+    dropPoint?: Readonly<{ x: number; y: number }>
+  ): void {
     const unavailable = new Set([dragged.id, ...this.getDescendantIds(dragged.id)]);
     const draggedPosition = this.getAbsolutePosition(dragged);
-    const target = this.findContainingNode(
-      draggedPosition,
-      dragged.size,
-      this.nodes.filter((node) => !unavailable.has(node.id))
-    );
+    const candidates = this.nodes.filter((node) => !unavailable.has(node.id));
+    const target = dropPoint
+      ? this.findContainingPoint(dropPoint, candidates)
+      : this.findContainingNode(draggedPosition, dragged.size, candidates);
     const targetPosition = target ? this.getAbsolutePosition(target) : null;
     const position = targetPosition
       ? { x: draggedPosition.x - targetPosition.x, y: draggedPosition.y - targetPosition.y }
@@ -589,6 +659,7 @@ export class AppComponent {
           : node
       )
     );
+    this.markViewChanged();
   }
 
   private findContainingNode(
@@ -604,6 +675,16 @@ export class AppComponent {
     return nodes
       .filter((node) => isContainerNodeKind(node.kind))
       .filter((node) => this.containsPoint(node, center))
+      .sort((a, b) => this.area(a.size) - this.area(b.size))[0] ?? null;
+  }
+
+  private findContainingPoint(
+    point: Readonly<{ x: number; y: number }>,
+    nodes: readonly CanvasNode[]
+  ): CanvasNode | null {
+    return nodes
+      .filter((node) => isContainerNodeKind(node.kind))
+      .filter((node) => this.containsPoint(node, point))
       .sort((a, b) => this.area(a.size) - this.area(b.size))[0] ?? null;
   }
 
@@ -698,13 +779,43 @@ export class AppComponent {
   private toCanvasPoint(event: Pick<MouseEvent, "clientX" | "clientY">): Readonly<{ x: number; y: number }> {
     const rect = this.canvasShell?.nativeElement.getBoundingClientRect();
     return {
-      x: event.clientX - (rect?.left ?? 0),
-      y: event.clientY - (rect?.top ?? 0)
+      x: (event.clientX - (rect?.left ?? 0)) / this.canvasZoom,
+      y: (event.clientY - (rect?.top ?? 0)) / this.canvasZoom
     };
   }
 
   private sortNodes(nodes: readonly CanvasNode[]): CanvasNode[] {
     return [...nodes].sort((a, b) => Number(isContainerNodeKind(b.kind)) - Number(isContainerNodeKind(a.kind)));
+  }
+
+  private clampZoom(value: number): number {
+    return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number(value.toFixed(2))));
+  }
+
+  private getMiniMapBounds(): Readonly<{ x: number; y: number; width: number; height: number }> {
+    if (this.nodes.length === 0) return { x: 0, y: 0, width: 1, height: 1 };
+
+    const boxes = this.nodes.map((node) => {
+      const position = this.getAbsolutePosition(node);
+      return {
+        left: position.x,
+        top: position.y,
+        right: position.x + node.size.width,
+        bottom: position.y + node.size.height
+      };
+    });
+
+    const left = Math.min(...boxes.map((box) => box.left));
+    const top = Math.min(...boxes.map((box) => box.top));
+    const right = Math.max(...boxes.map((box) => box.right));
+    const bottom = Math.max(...boxes.map((box) => box.bottom));
+
+    return {
+      x: left,
+      y: top,
+      width: Math.max(1, right - left),
+      height: Math.max(1, bottom - top)
+    };
   }
 
   private area(size: Readonly<{ width: number; height: number }>): number {
@@ -714,5 +825,9 @@ export class AppComponent {
   private normalizeMermaidError(cause: unknown): string {
     const message = cause instanceof Error ? cause.message : "Mermaid invalido";
     return message.replaceAll(/<[^>]+>/g, "").replaceAll(/\s+/g, " ").trim();
+  }
+
+  private markViewChanged(): void {
+    this.changeDetectorRef.detectChanges();
   }
 }
