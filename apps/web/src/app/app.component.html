@@ -1,0 +1,223 @@
+<div class="app-shell">
+  <header class="topbar">
+    <div class="brand-lockup">
+      <span class="brand-icon">AD</span>
+      <div>
+        <strong>Arch Draw</strong>
+        <span>{{ status }}</span>
+      </div>
+    </div>
+
+    <input
+      *ngIf="architecture"
+      class="title-input"
+      [ngModel]="architecture.title"
+      (ngModelChange)="updateTitle($event)"
+    />
+
+    <div class="toolbar">
+      <button class="icon-button" type="button" title="Nova arquitetura" (click)="createArchitecture()">+</button>
+      <button class="icon-button" type="button" title="Salvar" (click)="saveCurrent()">S</button>
+      <button class="icon-button" type="button" title="Exportar" (click)="exportCurrent()">E</button>
+      <button class="icon-button" type="button" title="Importar" (click)="openImport()">I</button>
+      <button class="icon-button" type="button" title="Remover arquitetura" (click)="deleteCurrent()">X</button>
+    </div>
+
+    <input
+      #importInput
+      hidden
+      type="file"
+      accept="application/json,.json,.archdraw"
+      (change)="importArchitecture($event)"
+    />
+  </header>
+
+  <div class="workspace">
+    <nav class="sidebar">
+      <div class="panel-heading">
+        <div>
+          <span>Arquivos</span>
+          <small>{{ summaries.length }} salvos localmente</small>
+        </div>
+        <span>DIR</span>
+      </div>
+      <div class="file-list">
+        <button
+          *ngFor="let summary of summaries"
+          [class]="summary.id === architecture?.id ? 'file-item is-active' : 'file-item'"
+          type="button"
+          (click)="loadArchitecture(summary.id)"
+        >
+          <strong>{{ summary.title }}</strong>
+          <span>{{ summary.nodeCount }} nos, {{ summary.edgeCount }} conexoes</span>
+        </button>
+      </div>
+    </nav>
+
+    <aside class="palette" aria-label="Node palette">
+      <div class="panel-heading">
+        <div>
+          <span>Blocos</span>
+          <small>Arraste para o canvas.</small>
+        </div>
+      </div>
+      <div class="palette-list">
+        <section class="palette-group" *ngFor="let category of nodeTemplateCategories">
+          <h3>{{ category }}</h3>
+          <button
+            class="palette-item"
+            draggable="true"
+            type="button"
+            *ngFor="let template of templatesByCategory(category)"
+            (click)="addNode(template)"
+            (dragstart)="onPaletteDragStart($event, template)"
+          >
+            <span [style.background]="template.color">{{ getNodeIcon(template.kind) }}</span>
+            {{ template.label }}
+            <b>+</b>
+          </button>
+        </section>
+      </div>
+    </aside>
+
+    <main
+      #canvasShell
+      class="canvas-shell"
+      (click)="clearSelection()"
+      (dragover)="$event.preventDefault()"
+      (drop)="onCanvasDrop($event)"
+    >
+      <svg class="canvas-edge-layer">
+        <path
+          *ngFor="let edge of edges"
+          class="canvas-edge"
+          [class.is-selected]="edge.id === selectedEdgeId"
+          [attr.d]="getEdgePath(edge)"
+          [attr.stroke]="getEdgeColor(edge)"
+          [attr.stroke-dasharray]="getEdgeDash(edge)"
+          (click)="selectEdge(edge.id, $event)"
+        />
+      </svg>
+
+      <div
+        *ngFor="let node of nodes"
+        [class]="getNodeClass(node)"
+        [ngStyle]="getNodeStyle(node)"
+        (pointerdown)="onNodePointerDown($event, node)"
+        (click)="selectNode(node.id, $event)"
+      >
+        <button class="node-port node-port--target" type="button" (click)="finishConnect(node.id, $event)"></button>
+        <div class="architecture-node__header">
+          <span class="node-icon">{{ getNodeIcon(node.kind) }}</span>
+          <span>{{ getNodeLabel(node.kind) }}</span>
+        </div>
+        <strong>{{ node.label }}</strong>
+        <button class="node-port node-port--source" type="button" (click)="startConnect(node.id, $event)"></button>
+
+        <button class="resize-control resize-control--n" type="button" (pointerdown)="onResizePointerDown($event, node, 'n')"></button>
+        <button class="resize-control resize-control--s" type="button" (pointerdown)="onResizePointerDown($event, node, 's')"></button>
+        <button class="resize-control resize-control--e" type="button" (pointerdown)="onResizePointerDown($event, node, 'e')"></button>
+        <button class="resize-control resize-control--w" type="button" (pointerdown)="onResizePointerDown($event, node, 'w')"></button>
+        <button class="resize-control resize-control--ne" type="button" (pointerdown)="onResizePointerDown($event, node, 'ne')"></button>
+        <button class="resize-control resize-control--nw" type="button" (pointerdown)="onResizePointerDown($event, node, 'nw')"></button>
+        <button class="resize-control resize-control--se" type="button" (pointerdown)="onResizePointerDown($event, node, 'se')"></button>
+        <button class="resize-control resize-control--sw" type="button" (pointerdown)="onResizePointerDown($event, node, 'sw')"></button>
+      </div>
+    </main>
+
+    <div class="right-rail">
+      <aside class="inspector" aria-label="Inspector">
+        <div class="panel-heading">
+          <div>
+            <span>Propriedades</span>
+            <small>{{ selectedNode ? "No selecionado" : selectedEdge ? "Linha selecionada" : "Selecione algo" }}</small>
+          </div>
+        </div>
+
+        <div class="property-stack" *ngIf="selectedNode as node">
+          <label>
+            {{ isContainer(node.kind) ? "Nome do container" : "Nome" }}
+            <input [ngModel]="node.label" (ngModelChange)="updateNodeLabel($event)" />
+          </label>
+          <label>
+            Tipo
+            <select [ngModel]="node.kind" (ngModelChange)="updateNodeKind($event)">
+              <option *ngFor="let template of nodeCatalog" [ngValue]="template.kind">
+                {{ getNodeLabel(template.kind) }}
+              </option>
+            </select>
+          </label>
+          <label>
+            Cor
+            <input type="color" [ngModel]="node.color" (ngModelChange)="updateNodeColor($event)" />
+          </label>
+          <button class="danger-action" type="button" (click)="deleteSelectedNode()">Remover no</button>
+        </div>
+
+        <div class="property-stack" *ngIf="!selectedNode && selectedEdge as edge">
+          <label>
+            Rotulo
+            <input [ngModel]="edge.label || ''" (ngModelChange)="updateSelectedEdgeLabel($event)" />
+          </label>
+          <label>
+            Caminho
+            <select [ngModel]="edge.style.path" (ngModelChange)="updateSelectedEdgeStyle({ path: $event })">
+              <option *ngFor="let path of edgePaths" [ngValue]="path">{{ path }}</option>
+            </select>
+          </label>
+          <label>
+            Traco
+            <select [ngModel]="edge.style.line" (ngModelChange)="updateSelectedEdgeStyle({ line: $event })">
+              <option *ngFor="let line of edgeLines" [ngValue]="line">{{ line }}</option>
+            </select>
+          </label>
+          <label>
+            Cor
+            <input type="color" [ngModel]="edge.style.color" (ngModelChange)="updateSelectedEdgeStyle({ color: $event })" />
+          </label>
+          <label class="checkbox-field">
+            <input type="checkbox" [ngModel]="edge.style.animated" (ngModelChange)="updateSelectedEdgeStyle({ animated: $event })" />
+            Animar fluxo
+          </label>
+          <button class="danger-action" type="button" (click)="deleteSelectedEdge()">Remover linha</button>
+        </div>
+
+        <p class="muted-copy" *ngIf="!selectedNode && !selectedEdge">
+          Use os blocos, conecte nos ou aplique Mermaid para compor a arquitetura.
+        </p>
+      </aside>
+
+      <section class="mermaid-panel" aria-label="Mermaid editor">
+        <div class="panel-heading">
+          <div>
+            <span>Mermaid</span>
+            <small>Renderiza e transforma em nos editaveis.</small>
+          </div>
+          <button class="primary-action" type="button" [disabled]="lintStatus !== 'valid'" (click)="applyMermaid()">
+            Aplicar
+          </button>
+        </div>
+        <textarea
+          #mermaidTextarea
+          [ngModel]="mermaidDraft"
+          spellcheck="false"
+          autocapitalize="off"
+          autocomplete="off"
+          autocorrect="off"
+          (ngModelChange)="onMermaidChange($event)"
+          (keydown)="onMermaidKeyDown($event)"
+          placeholder='graph LR&#10;  User["User"] --> Api["API"]&#10;  Api --> Db["SQLite"]'
+        ></textarea>
+        <div class="mermaid-preview">
+          <p class="error-text" *ngIf="mermaidError; else mermaidOk">{{ mermaidError }}</p>
+          <ng-template #mermaidOk>
+            <p class="lint-text">{{ lintStatus === "valid" ? "Mermaid valido" : "Informe um diagrama Mermaid" }}</p>
+            <div [innerHTML]="mermaidSvg"></div>
+          </ng-template>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="toast error-text" *ngIf="error">{{ error }}</div>
+</div>

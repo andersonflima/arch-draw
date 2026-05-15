@@ -5,7 +5,7 @@ Ferramenta local para desenho de arquitetura com canvas drag and drop, entrada M
 ## Stack
 
 - Monorepo com npm workspaces
-- Frontend: React, TypeScript, Vite, React Flow, Mermaid
+- Frontend: Angular, TypeScript, canvas/SVG customizado, Mermaid
 - Backend: Node.js, Fastify, TypeScript
 - Banco local: SQLite via `sql.js`, persistido em `apps/api/data/arch-draw.sqlite`
 - Domínio compartilhado em `packages/domain`, sem dependência de HTTP, framework ou banco
@@ -60,7 +60,7 @@ apps/web
   Interface, canvas, Mermaid editor, integração com API e import/export.
 ```
 
-O domínio não depende de Fastify, React, SQLite ou bibliotecas de infraestrutura. As dependências apontam para dentro: API e frontend adaptam entrada/saída para os tipos do domínio.
+O domínio não depende de Fastify, Angular, SQLite ou bibliotecas de infraestrutura. As dependências apontam para dentro: API e frontend adaptam entrada/saída para os tipos do domínio.
 
 ## Variáveis
 

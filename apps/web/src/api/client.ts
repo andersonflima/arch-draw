@@ -3,9 +3,7 @@ import type {
   ArchitectureSharePackage
 } from "@arch-draw/domain";
 
-const API_URL =
-  import.meta.env.VITE_API_URL ??
-  `${window.location.protocol}//${window.location.hostname || "127.0.0.1"}:3333`;
+const API_URL = `${window.location.protocol}//${window.location.hostname || "127.0.0.1"}:3333`;
 
 export type ArchitectureSummary = Readonly<{
   id: string;

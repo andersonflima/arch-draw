@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { createEmptyArchitecture } from "@arch-draw/domain";
-import { toArchitectureDocument, toFlowEdges, toFlowNodes } from "./flow-mappers";
+import { toArchitectureDocument, toCanvasEdges, toCanvasNodes } from "./flow-mappers";
 
-describe("flow mappers", () => {
-  it("preserves graph data when converting to and from React Flow", () => {
+describe("canvas mappers", () => {
+  it("preserves graph data when converting to and from canvas state", () => {
     const architecture = {
       ...createEmptyArchitecture({
         id: "arch-1",
@@ -38,8 +38,8 @@ describe("flow mappers", () => {
 
     const result = toArchitectureDocument(
       architecture,
-      toFlowNodes(architecture),
-      toFlowEdges(architecture)
+      toCanvasNodes(architecture),
+      toCanvasEdges(architecture)
     );
 
     expect(result.nodes).toEqual(architecture.nodes);
@@ -83,7 +83,7 @@ describe("flow mappers", () => {
       ]
     };
 
-    const result = toArchitectureDocument(architecture, toFlowNodes(architecture), []);
+    const result = toArchitectureDocument(architecture, toCanvasNodes(architecture), []);
 
     expect(result.nodes[1]?.parentId).toBe("vpc");
     expect(result.nodes[2]?.parentId).toBe("vpc");
