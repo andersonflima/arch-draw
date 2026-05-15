@@ -399,15 +399,28 @@ export class AppComponent {
   }
 
   filteredTemplatesByCategory(category: NodeTemplateCategory): readonly NodeTemplate[] {
-    const templates = this.templatesByCategory(category);
     const query = this.normalizeSearchQuery(this.blockSearch);
-    if (!query) return templates;
+    const seenLabels = new Set<string>();
 
-    return templates.filter((template) => {
-      const label = this.normalizeSearchQuery(template.label);
-      const kind = this.normalizeSearchQuery(template.kind);
-      return label.includes(query) || kind.includes(query);
-    });
+    for (const currentCategory of this.nodeTemplateCategories) {
+      const currentTemplates = this.templatesByCategory(currentCategory)
+        .filter((template) => {
+          if (!query) return true;
+          const label = this.normalizeSearchQuery(template.label);
+          const kind = this.normalizeSearchQuery(template.kind);
+          return label.includes(query) || kind.includes(query);
+        })
+        .filter((template) => {
+          const key = this.normalizeSearchQuery(template.label);
+          if (seenLabels.has(key)) return false;
+          seenLabels.add(key);
+          return true;
+        });
+
+      if (currentCategory === category) return currentTemplates;
+    }
+
+    return [];
   }
 
   hasFilteredTemplates(category: NodeTemplateCategory): boolean {
