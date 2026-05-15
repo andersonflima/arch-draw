@@ -693,6 +693,11 @@ export class AppComponent {
     return normalizeEdgeStyle(edge.style).color;
   }
 
+  isLiveDashed(edge: CanvasEdge): boolean {
+    const style = normalizeEdgeStyle(edge.style);
+    return style.line === "dashed" && style.animated;
+  }
+
   async onMermaidChange(value: string): Promise<void> {
     this.mermaidDraft = value;
     await this.renderMermaid();
