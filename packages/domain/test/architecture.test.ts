@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   architectureFromMermaid,
+  architectureToMermaid,
   createEmptyArchitecture,
   createSharePackage,
   parseSharePackage,
@@ -113,5 +114,51 @@ describe("architecture domain", () => {
     const exported = createSharePackage(architecture, "2026-05-15T10:02:00.000Z");
 
     expect(parseSharePackage(exported)).toEqual({ ok: true, architecture });
+  });
+
+  it("generates Mermaid source from manual canvas structure", () => {
+    const architecture = {
+      ...createEmptyArchitecture({
+        id: "arch-3",
+        title: "Manual canvas",
+        now: "2026-05-15T10:00:00.000Z"
+      }),
+      nodes: [
+        {
+          id: "web",
+          kind: "service" as const,
+          label: "Web App",
+          position: { x: 120, y: 80 },
+          size: { width: 136, height: 140 },
+          color: "#ffedd5"
+        },
+        {
+          id: "db",
+          kind: "database" as const,
+          label: "Orders DB",
+          position: { x: 360, y: 80 },
+          size: { width: 136, height: 140 },
+          color: "#e0f2fe"
+        }
+      ],
+      edges: [
+        {
+          id: "edge-1",
+          from: "web",
+          to: "db",
+          style: {
+            path: "smoothstep" as const,
+            line: "solid" as const,
+            color: "#111827",
+            animated: false,
+            bidirectional: true
+          }
+        }
+      ]
+    };
+
+    expect(architectureToMermaid(architecture)).toBe(
+      'graph LR\n  web["Web App"]\n  db["Orders DB"]\n  web --> db\n  db --> web'
+    );
   });
 });

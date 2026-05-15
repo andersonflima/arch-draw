@@ -126,6 +126,7 @@ export type ArchitectureEdgeStyle = Readonly<{
   line: ArchitectureEdgeLineStyle;
   color: string;
   animated: boolean;
+  bidirectional: boolean;
 }>;
 
 export type Point = Readonly<{
@@ -276,7 +277,8 @@ const normalizeEdgeStyle = (
   path: style?.path ?? "smoothstep",
   line: style?.line ?? "solid",
   color: style?.color?.trim() || "#111827",
-  animated: style?.animated ?? false
+  animated: style?.animated ?? false,
+  bidirectional: style?.bidirectional ?? false
 });
 
 const validateUniqueIds = (entity: string, ids: readonly string[]): readonly string[] => {

@@ -27,7 +27,8 @@ export const architectureFromMermaid = (
       path: "smoothstep" as const,
       line: "solid" as const,
       color: "#111827",
-      animated: false
+      animated: false,
+      bidirectional: false
     }
   }));
 
@@ -38,6 +39,26 @@ export const architectureFromMermaid = (
     mermaidSource,
     updatedAt: now
   };
+};
+
+export const architectureToMermaid = (
+  architecture: Pick<ArchitectureDocument, "nodes" | "edges">
+): string => {
+  const nodeIds = new Set(architecture.nodes.map((node) => node.id));
+  const nodeLines = architecture.nodes
+    .map((node) => `  ${node.id}["${escapeMermaidLabel(node.label)}"]`);
+
+  const edgeLines: string[] = [];
+  const emitted = new Set<string>();
+  for (const edge of architecture.edges) {
+    if (!nodeIds.has(edge.from) || !nodeIds.has(edge.to)) continue;
+    emitMermaidEdgeLine(edgeLines, emitted, edge.from, edge.to, edge.label);
+    if (edge.style?.bidirectional) {
+      emitMermaidEdgeLine(edgeLines, emitted, edge.to, edge.from, edge.label);
+    }
+  }
+
+  return ["graph LR", ...nodeLines, ...edgeLines].join("\n");
 };
 
 export const parseConnections = (source: string): readonly ParsedConnection[] =>
@@ -211,3 +232,21 @@ const inferNodeColor = (label: string): string => {
 };
 
 const unique = <T>(values: readonly T[]): readonly T[] => [...new Set(values)];
+
+const emitMermaidEdgeLine = (
+  lines: string[],
+  emitted: Set<string>,
+  from: string,
+  to: string,
+  label: string | undefined
+): void => {
+  const normalizedLabel = label?.trim() || "";
+  const key = `${from}::${to}::${normalizedLabel}`;
+  if (emitted.has(key)) return;
+  emitted.add(key);
+  const labelPart = normalizedLabel ? ` -->|"${escapeMermaidLabel(normalizedLabel)}"| ` : " --> ";
+  lines.push(`  ${from}${labelPart}${to}`);
+};
+
+const escapeMermaidLabel = (value: string): string =>
+  value.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"");
