@@ -83,6 +83,10 @@ type NodePropertyField = Readonly<{
   placeholder?: string;
   multiline?: boolean;
 }>;
+type PaletteCategoryGroup = Readonly<{
+  category: NodeTemplateCategory;
+  templates: readonly NodeTemplate[];
+}>;
 
 const DEFAULT_MERMAID_SOURCE = `graph LR
   User["User"] --> Api["API"]
@@ -102,6 +106,9 @@ const CLOUD_PROPERTY_FIELDS: readonly NodePropertyField[] = [
   { key: "region", label: "Regiao", placeholder: "us-east-1" },
   { key: "environment", label: "Ambiente", placeholder: "prod, staging, dev" },
   { key: "owner", label: "Owner", placeholder: "squad-plataforma" }
+];
+const GENERIC_NODE_PROPERTY_FIELDS: readonly NodePropertyField[] = [
+  { key: "description", label: "Descricao", placeholder: "Resumo tecnico", multiline: true }
 ];
 
 const NODE_PROPERTY_FIELDS_BY_KIND: Partial<Record<ArchitectureNodeKind, readonly NodePropertyField[]>> = {
@@ -215,6 +222,7 @@ export class AppComponent {
   status = "Inicializando";
   error = "";
   blockSearch = "";
+  displayedPaletteGroups: readonly PaletteCategoryGroup[] = [];
   isMermaidPanelOpen = false;
   canvasZoom = 1;
   canvasPan: Readonly<{ x: number; y: number }> = DEFAULT_CANVAS_PAN;
@@ -233,11 +241,13 @@ export class AppComponent {
   private history: EditorSnapshot[] = [];
   private historyIndex = -1;
   private applyingHistory = false;
+  private readonly nodePropertyFieldsCache = new Map<ArchitectureNodeKind, readonly NodePropertyField[]>();
 
   constructor(
     private readonly changeDetectorRef: ChangeDetectorRef,
     private readonly sanitizer: DomSanitizer
   ) {
+    this.rebuildPaletteGroups();
     void this.boot();
   }
 
@@ -398,37 +408,9 @@ export class AppComponent {
     );
   }
 
-  filteredTemplatesByCategory(category: NodeTemplateCategory): readonly NodeTemplate[] {
-    const query = this.normalizeSearchQuery(this.blockSearch);
-    const seenLabels = new Set<string>();
-
-    for (const currentCategory of this.nodeTemplateCategories) {
-      const currentTemplates = this.templatesByCategory(currentCategory)
-        .filter((template) => {
-          if (!query) return true;
-          const label = this.normalizeSearchQuery(template.label);
-          const kind = this.normalizeSearchQuery(template.kind);
-          return label.includes(query) || kind.includes(query);
-        })
-        .filter((template) => {
-          const key = this.normalizeSearchQuery(template.label);
-          if (seenLabels.has(key)) return false;
-          seenLabels.add(key);
-          return true;
-        });
-
-      if (currentCategory === category) return currentTemplates;
-    }
-
-    return [];
-  }
-
-  hasFilteredTemplates(category: NodeTemplateCategory): boolean {
-    return this.filteredTemplatesByCategory(category).length > 0;
-  }
-
-  hasAnyFilteredTemplates(): boolean {
-    return this.nodeTemplateCategories.some((category) => this.hasFilteredTemplates(category));
+  onBlockSearchChange(value: string): void {
+    this.blockSearch = value;
+    this.rebuildPaletteGroups();
   }
 
   getNodeKindOptions(selectedKind: ArchitectureNodeKind): readonly ArchitectureNodeKind[] {
@@ -749,16 +731,17 @@ export class AppComponent {
   }
 
   getNodePropertyFields(node: CanvasNode): readonly NodePropertyField[] {
+    const cached = this.nodePropertyFieldsCache.get(node.kind);
+    if (cached) return cached;
+
     const kindFields = NODE_PROPERTY_FIELDS_BY_KIND[node.kind] ?? [];
     const cloudFields =
       node.kind.startsWith("cloud-") || node.kind.startsWith("aws-")
         ? CLOUD_PROPERTY_FIELDS
         : [];
-    const genericFields: readonly NodePropertyField[] = [
-      { key: "description", label: "Descricao", placeholder: "Resumo tecnico", multiline: true }
-    ];
-
-    return [...cloudFields, ...kindFields, ...genericFields];
+    const fields = [...cloudFields, ...kindFields, ...GENERIC_NODE_PROPERTY_FIELDS];
+    this.nodePropertyFieldsCache.set(node.kind, fields);
+    return fields;
   }
 
   getNodePropertyValue(node: CanvasNode, key: string): string {
@@ -2196,6 +2179,33 @@ export class AppComponent {
 
   private isSimpleContainerKind(kind: ArchitectureNodeKind): boolean {
     return kind === "group-container" || kind === "container";
+  }
+
+  private rebuildPaletteGroups(): void {
+    const query = this.normalizeSearchQuery(this.blockSearch);
+    const seenLabels = new Set<string>();
+    const groups: PaletteCategoryGroup[] = [];
+
+    for (const category of this.nodeTemplateCategories) {
+      const templates = this.templatesByCategory(category)
+        .filter((template) => {
+          if (!query) return true;
+          const label = this.normalizeSearchQuery(template.label);
+          const kind = this.normalizeSearchQuery(template.kind);
+          return label.includes(query) || kind.includes(query);
+        })
+        .filter((template) => {
+          const key = this.normalizeSearchQuery(template.label);
+          if (seenLabels.has(key)) return false;
+          seenLabels.add(key);
+          return true;
+        });
+
+      if (templates.length === 0) continue;
+      groups.push({ category, templates });
+    }
+
+    this.displayedPaletteGroups = groups;
   }
 
   private markViewChanged(): void {

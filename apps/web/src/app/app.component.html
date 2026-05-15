@@ -95,18 +95,18 @@
           type="search"
           placeholder="Buscar recurso..."
           [ngModel]="blockSearch"
-          (ngModelChange)="blockSearch = $event"
+          (ngModelChange)="onBlockSearchChange($event)"
         />
       </label>
       <div class="palette-list">
-        <ng-container *ngFor="let category of nodeTemplateCategories">
-          <section class="palette-group" *ngIf="hasFilteredTemplates(category)">
-          <h3>{{ category }}</h3>
+        <ng-container *ngFor="let group of displayedPaletteGroups">
+          <section class="palette-group">
+          <h3>{{ group.category }}</h3>
           <button
             class="palette-item"
             draggable="true"
             type="button"
-            *ngFor="let template of filteredTemplatesByCategory(category)"
+            *ngFor="let template of group.templates"
             (click)="addNode(template)"
             (dragstart)="onPaletteDragStart($event, template)"
           >
@@ -124,7 +124,7 @@
           </section>
         </ng-container>
       </div>
-      <p class="muted-copy" *ngIf="blockSearch && !hasAnyFilteredTemplates()">
+      <p class="muted-copy" *ngIf="blockSearch && displayedPaletteGroups.length === 0">
         Nenhum recurso encontrado.
       </p>
     </aside>
