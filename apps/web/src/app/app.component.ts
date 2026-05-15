@@ -241,6 +241,7 @@ export class AppComponent {
   private history: EditorSnapshot[] = [];
   private historyIndex = -1;
   private applyingHistory = false;
+  private viewRenderFrame: number | null = null;
   private readonly nodePropertyFieldsCache = new Map<ArchitectureNodeKind, readonly NodePropertyField[]>();
 
   constructor(
@@ -1091,6 +1092,20 @@ export class AppComponent {
     this.resizeState = null;
 
     if (hadDragState || hadResizeState) this.markViewChanged();
+  }
+
+  @HostListener("window:pointercancel", ["$event"])
+  onWindowPointerCancel(_event: PointerEvent): void {
+    const hadInteraction =
+      this.dragState !== null ||
+      this.resizeState !== null ||
+      this.connectionDragState !== null ||
+      this.marqueeState !== null;
+    this.dragState = null;
+    this.resizeState = null;
+    this.connectionDragState = null;
+    this.marqueeState = null;
+    if (hadInteraction) this.markInteractionChanged();
   }
 
   @HostListener("window:keydown", ["$event"])
@@ -2226,10 +2241,18 @@ export class AppComponent {
     this.syncMermaidFromCanvasIfNeeded();
     this.recordHistory();
     this.scheduleAutoSave();
-    this.changeDetectorRef.detectChanges();
+    this.requestViewRender();
   }
 
   private markInteractionChanged(): void {
-    this.changeDetectorRef.detectChanges();
+    this.requestViewRender();
+  }
+
+  private requestViewRender(): void {
+    if (this.viewRenderFrame !== null) return;
+    this.viewRenderFrame = requestAnimationFrame(() => {
+      this.viewRenderFrame = null;
+      this.changeDetectorRef.detectChanges();
+    });
   }
 }
