@@ -148,7 +148,7 @@
             <path
               class="canvas-edge"
               [class.is-selected]="edge.id === selectedEdgeId"
-              [class.is-live-dashed]="isLiveDashed(edge)"
+              [class.is-live]="isLiveEdge(edge)"
               [attr.d]="getEdgePath(edge)"
               [attr.stroke]="getEdgeColor(edge)"
               [attr.stroke-dasharray]="getEdgeDash(edge)"

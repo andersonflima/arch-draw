@@ -2016,7 +2016,7 @@ button {
   animation: edge-flow-dash 0.9s linear infinite;
 }
 
-.canvas-edge.is-live-dashed {
+.canvas-edge.is-live {
   animation: edge-flow-dash 0.9s linear infinite;
 }
 
@@ -2030,7 +2030,7 @@ button {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .canvas-edge.is-live-dashed,
+  .canvas-edge.is-live,
   .canvas-edge-preview {
     animation: none;
   }
