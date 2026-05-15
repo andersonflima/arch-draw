@@ -642,16 +642,13 @@ button {
 }
 
 .architecture-node--leaf .node-icon {
-  width: 66px;
-  min-width: 66px;
-  height: 66px;
+  width: 78px;
+  min-width: 78px;
+  height: 78px;
 }
 
-.architecture-node--leaf .node-icon__glyph {
-  width: 23px;
-  height: 23px;
-  transform: scale(2.1);
-  transform-origin: center;
+.architecture-node--leaf .node-icon i {
+  font-size: 34px;
 }
 
 .architecture-node--leaf strong {
