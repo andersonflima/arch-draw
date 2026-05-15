@@ -88,6 +88,11 @@ type PaletteCategoryGroup = Readonly<{
   templates: readonly NodeTemplate[];
 }>;
 
+type ContextPropertiesPanelState = Readonly<{
+  x: number;
+  y: number;
+}>;
+
 const DEFAULT_MERMAID_SOURCE = `graph LR
   User["User"] --> Api["API"]
   Api --> Db["SQLite"]`;
@@ -533,7 +538,7 @@ export class AppComponent {
   error = "";
   blockSearch = "";
   displayedPaletteGroups: readonly PaletteCategoryGroup[] = [];
-  isMermaidPanelOpen = false;
+  contextPropertiesPanel: ContextPropertiesPanelState | null = null;
   canvasZoom = 1;
   canvasPan: Readonly<{ x: number; y: number }> = DEFAULT_CANVAS_PAN;
 
@@ -803,6 +808,7 @@ export class AppComponent {
     this.editingNodeId = null;
     this.marqueeState = null;
     this.resizeEnabledNodeId = null;
+    this.contextPropertiesPanel = null;
     this.markViewChanged();
   }
 
@@ -816,6 +822,7 @@ export class AppComponent {
     this.editingNodeId = null;
     this.marqueeState = null;
     this.resizeEnabledNodeId = null;
+    this.contextPropertiesPanel = null;
     this.markViewChanged();
   }
 
@@ -831,6 +838,7 @@ export class AppComponent {
     this.editingNodeId = null;
     this.marqueeState = null;
     this.resizeEnabledNodeId = null;
+    this.contextPropertiesPanel = null;
     this.editingEdgeId = edgeId;
     this.editingEdgeLabelDraft = this.selectedEdge?.label ?? "";
     this.markViewChanged();
@@ -856,7 +864,45 @@ export class AppComponent {
     this.editingNodeId = null;
     this.marqueeState = null;
     this.resizeEnabledNodeId = null;
+    this.contextPropertiesPanel = null;
     this.markViewChanged();
+  }
+
+  onNodeContextMenu(nodeId: string, event: MouseEvent): void {
+    event.preventDefault();
+    this.selectNode(nodeId);
+    this.openContextPropertiesPanel(event);
+  }
+
+  onEdgeContextMenu(edgeId: string, event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.selectedEdgeId = edgeId;
+    this.selectedNodeId = null;
+    this.selectedNodeIds = [];
+    this.editingNodeId = null;
+    this.editingEdgeId = null;
+    this.editingEdgeLabelDraft = "";
+    this.marqueeState = null;
+    this.resizeEnabledNodeId = null;
+    this.openContextPropertiesPanel(event);
+    this.markViewChanged();
+  }
+
+  onCanvasContextMenu(event: MouseEvent): void {
+    event.preventDefault();
+    const target = event.target as HTMLElement;
+    if (target.closest(".architecture-node, .canvas-edge, .canvas-edge-hit")) return;
+    this.contextPropertiesPanel = null;
+    this.markInteractionChanged();
+  }
+
+  getContextPropertiesPanelStyle(): Record<string, string> {
+    if (!this.contextPropertiesPanel) return {};
+    return {
+      left: `${this.contextPropertiesPanel.x}px`,
+      top: `${this.contextPropertiesPanel.y}px`
+    };
   }
 
   onNodeClick(nodeId: string, event: MouseEvent): void {
@@ -876,6 +922,7 @@ export class AppComponent {
     this.editingNodeId = null;
     this.marqueeState = null;
     this.resizeEnabledNodeId = nodeId;
+    this.contextPropertiesPanel = null;
     this.markViewChanged();
   }
 
@@ -891,6 +938,7 @@ export class AppComponent {
       this.editingNodeId = null;
       this.marqueeState = null;
       this.resizeEnabledNodeId = node.id;
+      this.contextPropertiesPanel = null;
       this.markViewChanged();
       return;
     }
@@ -968,6 +1016,18 @@ export class AppComponent {
     this.clearSelection();
   }
 
+  private openContextPropertiesPanel(event: MouseEvent): void {
+    const panelWidth = 360;
+    const panelHeight = 520;
+    const margin = 8;
+    const x = Math.min(event.clientX + 6, window.innerWidth - panelWidth - margin);
+    const y = Math.min(event.clientY + 6, window.innerHeight - panelHeight - margin);
+    this.contextPropertiesPanel = {
+      x: Math.max(margin, x),
+      y: Math.max(margin, y)
+    };
+  }
+
   updateNodeLabel(label: string): void {
     const selected = this.selectedNode;
     if (!selected) return;
@@ -1035,10 +1095,6 @@ export class AppComponent {
     const selected = this.selectedNode;
     if (!selected) return;
     this.updateNode(selected.id, { color });
-  }
-
-  toggleMermaidPanel(): void {
-    this.isMermaidPanelOpen = !this.isMermaidPanelOpen;
   }
 
   getNodePropertyFields(node: CanvasNode): readonly NodePropertyField[] {
@@ -1431,6 +1487,12 @@ export class AppComponent {
     if (isUndoShortcut) {
       event.preventDefault();
       this.undoLastChange();
+      return;
+    }
+
+    if (event.key === "Escape" && this.contextPropertiesPanel) {
+      this.contextPropertiesPanel = null;
+      this.markInteractionChanged();
       return;
     }
 
