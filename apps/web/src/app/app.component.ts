@@ -76,6 +76,8 @@ type EditorSnapshot = Readonly<{
   mermaidSource: string;
 }>;
 
+type EdgeDirection = "left-to-right" | "right-to-left" | "both";
+
 const DEFAULT_MERMAID_SOURCE = `graph LR
   User["User"] --> Api["API"]
   Api --> Db["SQLite"]`;
@@ -118,6 +120,7 @@ export class AppComponent {
   readonly nodeTemplateCategories = nodeTemplateCategories;
   readonly edgePaths: readonly ArchitectureEdgePath[] = ["smoothstep", "step", "straight", "bezier"];
   readonly edgeLines: readonly ArchitectureEdgeLineStyle[] = ["solid", "dashed", "dotted"];
+  readonly edgeDirections: readonly EdgeDirection[] = ["left-to-right", "right-to-left", "both"];
 
   summaries: readonly ArchitectureSummary[] = [];
   architecture: ArchitectureDocument | null = null;
@@ -545,6 +548,43 @@ export class AppComponent {
     if (!edge) return;
     this.updateEdge(edge.id, {
       style: normalizeEdgeStyle({ ...edge.style, ...style })
+    });
+  }
+
+  getSelectedEdgeDirection(edge: CanvasEdge): EdgeDirection {
+    if (edge.style.bidirectional) return "both";
+
+    const fromNode = this.nodes.find((node) => node.id === edge.from);
+    const toNode = this.nodes.find((node) => node.id === edge.to);
+    if (!fromNode || !toNode) return "left-to-right";
+
+    const fromCenter = this.getNodeCenter(fromNode);
+    const toCenter = this.getNodeCenter(toNode);
+    return fromCenter.x <= toCenter.x ? "left-to-right" : "right-to-left";
+  }
+
+  updateSelectedEdgeDirection(direction: EdgeDirection): void {
+    const edge = this.selectedEdge;
+    if (!edge) return;
+
+    if (direction === "both") {
+      this.updateEdge(edge.id, {
+        style: normalizeEdgeStyle({ ...edge.style, bidirectional: true })
+      });
+      return;
+    }
+
+    if (direction === "left-to-right") {
+      this.updateEdge(edge.id, {
+        style: normalizeEdgeStyle({ ...edge.style, bidirectional: false })
+      });
+      return;
+    }
+
+    this.updateEdge(edge.id, {
+      from: edge.to,
+      to: edge.from,
+      style: normalizeEdgeStyle({ ...edge.style, bidirectional: false })
     });
   }
 

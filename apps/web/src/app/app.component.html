@@ -303,6 +303,12 @@
             </select>
           </label>
           <label>
+            Direction
+            <select [ngModel]="getSelectedEdgeDirection(edge)" (ngModelChange)="updateSelectedEdgeDirection($event)">
+              <option *ngFor="let direction of edgeDirections" [ngValue]="direction">{{ direction }}</option>
+            </select>
+          </label>
+          <label>
             Cor
             <input type="color" [ngModel]="edge.style.color" (ngModelChange)="updateSelectedEdgeStyle({ color: $event })" />
           </label>
