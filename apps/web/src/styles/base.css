@@ -2459,19 +2459,6 @@ button {
   min-height: 40px;
 }
 
-.checkbox-field {
-  display: flex;
-  grid-template-columns: none;
-  align-items: center;
-  gap: 8px;
-}
-
-.checkbox-field input {
-  width: 18px;
-  min-height: 18px;
-  padding: 0;
-}
-
 .mermaid-panel {
   display: grid;
   grid-template-rows: auto 210px minmax(0, 1fr);
