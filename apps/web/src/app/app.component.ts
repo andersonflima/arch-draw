@@ -1631,14 +1631,16 @@ export class AppComponent {
     const position = this.getAbsolutePosition(node);
     const rendersAsContainer = this.rendersAsContainer(node);
     const isBeingDragged = this.dragState?.pointerOffsets.has(node.id) ?? false;
+    const isDescendantOfDragged = this.hasDraggedAncestor(node);
     const baseZIndex = rendersAsContainer ? 0 : 2;
+    const dragZIndex = isDescendantOfDragged ? 31 : isBeingDragged ? 30 : baseZIndex;
     return {
       left: `${position.x}px`,
       top: `${position.y}px`,
       width: `${node.size.width}px`,
       height: `${node.size.height}px`,
       "--node-bg": node.color,
-      zIndex: isBeingDragged ? 30 : baseZIndex
+      zIndex: dragZIndex
     };
   }
 
@@ -1971,6 +1973,18 @@ export class AppComponent {
       const parent = this.nodes.find((candidate) => candidate.id === currentParentId);
       if (!parent) return false;
       if (this.isContainerCollapsed(parent)) return true;
+      currentParentId = parent.parentId;
+    }
+    return false;
+  }
+
+  private hasDraggedAncestor(node: CanvasNode): boolean {
+    if (!this.dragState) return false;
+    let currentParentId = node.parentId;
+    while (currentParentId) {
+      if (this.dragState.pointerOffsets.has(currentParentId)) return true;
+      const parent = this.nodes.find((candidate) => candidate.id === currentParentId);
+      if (!parent) return false;
       currentParentId = parent.parentId;
     }
     return false;
