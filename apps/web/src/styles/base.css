@@ -105,6 +105,17 @@ button {
   width: 40px;
 }
 
+.icon-button svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
 .icon-button:hover,
 .primary-action:hover,
 .danger-action:hover,
@@ -277,6 +288,15 @@ button {
   position: absolute;
   inset: 0;
   transform-origin: 0 0;
+}
+
+.canvas-marquee {
+  position: absolute;
+  border: 2px dashed #2563eb;
+  background: rgba(37, 99, 235, 0.14);
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 18;
 }
 
 .architecture-node {
@@ -595,6 +615,57 @@ button {
 
 .architecture-node--flow:not(.architecture-node--container)::before {
   box-shadow: 3px 3px 0 #065f46;
+}
+
+/* draw.io-like resource nodes: icon + label, no full rectangular card */
+.architecture-node--leaf {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-items: start;
+  justify-items: center;
+  gap: 6px;
+  min-width: 86px;
+  min-height: 96px;
+  padding: 4px 6px;
+  transform: none;
+}
+
+.architecture-node--leaf::before,
+.architecture-node--leaf::after {
+  content: none;
+}
+
+.architecture-node--leaf .architecture-node__header {
+  margin: 0;
+  padding: 0;
+  justify-content: center;
+}
+
+.architecture-node--leaf .architecture-node__header span:last-child {
+  display: none;
+}
+
+.architecture-node--leaf .node-icon {
+  width: 54px;
+  min-width: 54px;
+  height: 54px;
+}
+
+.architecture-node--leaf .node-icon__glyph {
+  width: 42px;
+  height: 42px;
+}
+
+.architecture-node--leaf strong {
+  margin: 0;
+  max-width: 100%;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .architecture-node.is-selected {
@@ -1789,6 +1860,25 @@ button {
 
 .canvas-edge.is-selected {
   stroke-width: 4;
+}
+
+.canvas-edge.is-live-dashed {
+  animation: edge-flow-dash 0.9s linear infinite;
+}
+
+@keyframes edge-flow-dash {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -14;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .canvas-edge.is-live-dashed {
+    animation: none;
+  }
 }
 
 .resize-control {
