@@ -118,6 +118,13 @@ export class AppComponent {
 
   readonly nodeCatalog = nodeCatalog;
   readonly nodeTemplateCategories = nodeTemplateCategories;
+  readonly containerPlusIconKinds: readonly ArchitectureNodeKind[] = [
+    ...new Set(
+      nodeCatalog
+        .map((template) => template.kind)
+        .filter((kind) => !kind.startsWith("flow-") && !isContainerNodeKind(kind))
+    )
+  ];
   readonly edgePaths: readonly ArchitectureEdgePath[] = ["smoothstep", "step", "straight", "bezier"];
   readonly edgeLines: readonly ArchitectureEdgeLineStyle[] = ["solid", "dashed", "dotted"];
   readonly edgeDirections: readonly EdgeDirection[] = ["left-to-right", "right-to-left", "both"];
@@ -335,7 +342,10 @@ export class AppComponent {
       parentId: parent?.id,
       color: template.color,
       position: nodePosition,
-      size
+      size,
+      collapsed: template.kind === "group-container-plus" ? false : undefined,
+      collapsedIconKind: template.kind === "group-container-plus" ? "system" : undefined,
+      expandedSize: undefined
     };
 
     this.nodes = this.sortNodes([...this.nodes, node]);
@@ -449,6 +459,20 @@ export class AppComponent {
       return;
     }
 
+    if (this.isContainerPlusCollapsedById(nodeId)) {
+      this.setContainerPlusCollapsed(nodeId, false);
+      this.selectedNodeId = nodeId;
+      this.selectedNodeIds = [nodeId];
+      this.selectedEdgeId = null;
+      this.editingEdgeId = null;
+      this.editingEdgeLabelDraft = "";
+      this.editingNodeId = null;
+      this.marqueeState = null;
+      this.resizeEnabledNodeId = nodeId;
+      this.markViewChanged();
+      return;
+    }
+
     if (event.detail >= 2) {
       this.startNodeLabelEditing(nodeId, event);
       return;
@@ -545,12 +569,46 @@ export class AppComponent {
     if (!selected) return;
     const size = this.getSizeForKind(selected, kind);
     this.nodes = this.nodes.map((node) => {
-      if (node.id === selected.id) return { ...node, kind, size };
+      if (node.id === selected.id) {
+        return {
+          ...node,
+          kind,
+          size,
+          collapsed: kind === "group-container-plus" ? (node.collapsed ?? false) : undefined,
+          collapsedIconKind:
+            kind === "group-container-plus" ? (node.collapsedIconKind ?? "system") : undefined,
+          expandedSize: kind === "group-container-plus" ? node.expandedSize : undefined
+        };
+      }
       return node.parentId === selected.id && !isContainerNodeKind(kind)
         ? this.detachNodeFromParent(node)
         : node;
     });
     this.markViewChanged();
+  }
+
+  isContainerPlusNode(node: CanvasNode): boolean {
+    return node.kind === "group-container-plus";
+  }
+
+  isContainerPlusCollapsed(node: CanvasNode): boolean {
+    return node.kind === "group-container-plus" && Boolean(node.collapsed);
+  }
+
+  setSelectedContainerPlusCollapsed(collapsed: boolean): void {
+    const selected = this.selectedNode;
+    if (!selected || !this.isContainerPlusNode(selected)) return;
+    this.setContainerPlusCollapsed(selected.id, collapsed);
+    this.selectedNodeId = selected.id;
+    this.selectedNodeIds = [selected.id];
+    this.resizeEnabledNodeId = collapsed ? null : selected.id;
+    this.markViewChanged();
+  }
+
+  updateSelectedContainerPlusIcon(kind: ArchitectureNodeKind): void {
+    const selected = this.selectedNode;
+    if (!selected || !this.isContainerPlusNode(selected)) return;
+    this.updateNode(selected.id, { collapsedIconKind: kind });
   }
 
   updateNodeColor(color: string): void {
@@ -900,13 +958,14 @@ export class AppComponent {
 
   getNodeStyle(node: CanvasNode): Record<string, string | number> {
     const position = this.getAbsolutePosition(node);
+    const rendersAsContainer = this.rendersAsContainer(node);
     return {
       left: `${position.x}px`,
       top: `${position.y}px`,
       width: `${node.size.width}px`,
       height: `${node.size.height}px`,
       "--node-bg": node.color,
-      zIndex: isContainerNodeKind(node.kind) ? 0 : 2
+      zIndex: rendersAsContainer ? 0 : 2
     };
   }
 
@@ -923,34 +982,57 @@ export class AppComponent {
     const availableHeight = MINI_MAP_SIZE.height - MINI_MAP_PADDING * 2;
     const scale = Math.min(availableWidth / bounds.width, availableHeight / bounds.height);
 
+    const rendersAsContainer = this.rendersAsContainer(node);
     return {
       left: `${MINI_MAP_PADDING + (position.x - bounds.x) * scale}px`,
       top: `${MINI_MAP_PADDING + (position.y - bounds.y) * scale}px`,
       width: `${Math.max(3, node.size.width * scale)}px`,
       height: `${Math.max(3, node.size.height * scale)}px`,
-      background: isContainerNodeKind(node.kind) ? "rgba(17, 24, 39, 0.14)" : node.color
+      background: rendersAsContainer ? "rgba(17, 24, 39, 0.14)" : node.color
     };
   }
 
   getNodeClass(node: CanvasNode): string {
     const visualGroup = getNodeVisualGroup(node.kind);
-    const isContainer = isContainerNodeKind(node.kind);
+    const isContainer = this.rendersAsContainer(node);
     const isIconOnly = isIconOnlyNodeKind(node.kind);
+    const isCollapsedContainerPlus = this.isContainerPlusCollapsed(node);
     return [
       "architecture-node",
       `architecture-node--${visualGroup}`,
       `architecture-node--${node.kind}`,
-      isContainer ? "architecture-node--container" : isIconOnly ? "architecture-node--leaf" : "",
+      isCollapsedContainerPlus ? "architecture-node--container-plus-collapsed" : "",
+      isContainer ? "architecture-node--container" : (isIconOnly || isCollapsedContainerPlus) ? "architecture-node--leaf" : "",
       this.selectedNodeIds.includes(node.id) ? "is-selected" : ""
     ].filter(Boolean).join(" ");
   }
 
   canResizeNode(nodeId: string): boolean {
+    const node = this.nodes.find((candidate) => candidate.id === nodeId);
+    if (node && this.isContainerPlusCollapsed(node)) return false;
     return (
       this.selectedNodeIds.length === 1 &&
-      this.selectedNodeId === nodeId &&
-      this.resizeEnabledNodeId === nodeId
+      this.selectedNodeId === nodeId
     );
+  }
+
+  isVisibleNode(node: CanvasNode): boolean {
+    return !this.hasCollapsedContainerPlusAncestor(node);
+  }
+
+  isVisibleEdge(edge: CanvasEdge): boolean {
+    const fromNode = this.nodes.find((node) => node.id === edge.from);
+    const toNode = this.nodes.find((node) => node.id === edge.to);
+    if (!fromNode || !toNode) return false;
+    return this.isVisibleNode(fromNode) && this.isVisibleNode(toNode);
+  }
+
+  isContainerLayerNode(node: CanvasNode): boolean {
+    return this.isVisibleNode(node) && this.rendersAsContainer(node);
+  }
+
+  isLeafLayerNode(node: CanvasNode): boolean {
+    return this.isVisibleNode(node) && !this.rendersAsContainer(node);
   }
 
   getMarqueeStyle(): Record<string, string> {
@@ -978,6 +1060,11 @@ export class AppComponent {
 
   isContainer(kind: ArchitectureNodeKind): boolean {
     return isContainerNodeKind(kind);
+  }
+
+  getNodeIconKind(node: CanvasNode): ArchitectureNodeKind {
+    if (this.isContainerPlusCollapsed(node)) return node.collapsedIconKind ?? "system";
+    return node.kind;
   }
 
   getEdgePath(edge: CanvasEdge): string {
@@ -1163,6 +1250,61 @@ export class AppComponent {
     this.markViewChanged();
   }
 
+  private isContainerPlusCollapsedById(nodeId: string): boolean {
+    const node = this.nodes.find((candidate) => candidate.id === nodeId);
+    return node ? this.isContainerPlusCollapsed(node) : false;
+  }
+
+  private setContainerPlusCollapsed(nodeId: string, collapsed: boolean): void {
+    this.nodes = this.sortNodes(
+      this.nodes.map((node) => {
+        if (node.id !== nodeId || node.kind !== "group-container-plus") return node;
+        if (collapsed) {
+          if (node.collapsed) return node;
+          return {
+            ...node,
+            collapsed: true,
+            expandedSize: node.size,
+            size: getDefaultNodeSize(node.collapsedIconKind ?? "system")
+          };
+        }
+
+        if (!node.collapsed) return node;
+        return {
+          ...node,
+          collapsed: false,
+          size: node.expandedSize ?? getDefaultNodeSize("group-container-plus"),
+          expandedSize: undefined
+        };
+      })
+    );
+
+    const selectedNode = this.selectedNodeId
+      ? this.nodes.find((node) => node.id === this.selectedNodeId) ?? null
+      : null;
+    if (selectedNode && !this.isVisibleNode(selectedNode)) {
+      this.selectedNodeId = null;
+      this.selectedNodeIds = [];
+      this.selectedEdgeId = null;
+      this.resizeEnabledNodeId = null;
+    }
+  }
+
+  private rendersAsContainer(node: CanvasNode): boolean {
+    return isContainerNodeKind(node.kind) && !this.isContainerPlusCollapsed(node);
+  }
+
+  private hasCollapsedContainerPlusAncestor(node: CanvasNode): boolean {
+    let currentParentId = node.parentId;
+    while (currentParentId) {
+      const parent = this.nodes.find((candidate) => candidate.id === currentParentId);
+      if (!parent) return false;
+      if (this.isContainerPlusCollapsed(parent)) return true;
+      currentParentId = parent.parentId;
+    }
+    return false;
+  }
+
   private updateEdge(id: string, patch: Partial<CanvasEdge>): void {
     this.edges = this.edges.map((edge) => edge.id === id ? { ...edge, ...patch } : edge);
     this.markViewChanged();
@@ -1244,7 +1386,7 @@ export class AppComponent {
     };
 
     return nodes
-      .filter((node) => isContainerNodeKind(node.kind))
+      .filter((node) => this.isVisibleNode(node) && this.rendersAsContainer(node))
       .filter((node) => this.containsPoint(node, center))
       .sort((a, b) => this.area(a.size) - this.area(b.size))[0] ?? null;
   }
@@ -1254,7 +1396,7 @@ export class AppComponent {
     nodes: readonly CanvasNode[]
   ): CanvasNode | null {
     return nodes
-      .filter((node) => isContainerNodeKind(node.kind))
+      .filter((node) => this.isVisibleNode(node) && this.rendersAsContainer(node))
       .filter((node) => this.containsPoint(node, point))
       .sort((a, b) => this.area(a.size) - this.area(b.size))[0] ?? null;
   }
@@ -1360,7 +1502,7 @@ export class AppComponent {
   }
 
   private sortNodes(nodes: readonly CanvasNode[]): CanvasNode[] {
-    return [...nodes].sort((a, b) => Number(isContainerNodeKind(b.kind)) - Number(isContainerNodeKind(a.kind)));
+    return [...nodes].sort((a, b) => Number(this.rendersAsContainer(b)) - Number(this.rendersAsContainer(a)));
   }
 
   private zoomTo(nextZoom: number, viewportPoint: Pick<MouseEvent, "clientX" | "clientY">): void {
@@ -1459,9 +1601,10 @@ export class AppComponent {
   }
 
   private getMiniMapBounds(): Readonly<{ x: number; y: number; width: number; height: number }> {
-    if (this.nodes.length === 0) return { x: 0, y: 0, width: 1, height: 1 };
+    const visibleNodes = this.nodes.filter((node) => this.isVisibleNode(node));
+    if (visibleNodes.length === 0) return { x: 0, y: 0, width: 1, height: 1 };
 
-    const boxes = this.nodes.map((node) => {
+    const boxes = visibleNodes.map((node) => {
       const position = this.getAbsolutePosition(node);
       return {
         left: position.x,

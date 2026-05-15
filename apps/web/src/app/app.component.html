@@ -118,7 +118,7 @@
     >
       <div class="canvas-viewport" [ngStyle]="getViewportStyle()">
         <ng-container *ngFor="let node of nodes">
-          <ng-container *ngIf="isContainer(node.kind)">
+          <ng-container *ngIf="isContainerLayerNode(node)">
             <ng-container
               *ngTemplateOutlet="canvasNodeTemplate; context: { $implicit: node }"
             ></ng-container>
@@ -139,7 +139,7 @@
               <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"></path>
             </marker>
           </defs>
-          <g *ngFor="let edge of edges">
+          <g *ngFor="let edge of edges" [attr.display]="isVisibleEdge(edge) ? null : 'none'">
             <path
               class="canvas-edge-hit"
               [attr.d]="getEdgePath(edge)"
@@ -192,7 +192,7 @@
         </svg>
 
         <ng-container *ngFor="let node of nodes">
-          <ng-container *ngIf="!isContainer(node.kind)">
+          <ng-container *ngIf="isLeafLayerNode(node)">
             <ng-container
               *ngTemplateOutlet="canvasNodeTemplate; context: { $implicit: node }"
             ></ng-container>
@@ -219,12 +219,12 @@
             ></button>
             <div class="architecture-node__header">
               <span
-                [class]="'node-icon node-icon--' + node.kind"
+                [class]="'node-icon node-icon--' + getNodeIconKind(node)"
                 [style.--icon-color]="node.color"
-                [attr.title]="getNodeIcon(node.kind)"
+                [attr.title]="getNodeIcon(getNodeIconKind(node))"
               >
-                <i [class]="getNodeIconClass(node.kind)" aria-hidden="true"></i>
-                <span class="node-icon__label">{{ getNodeIcon(node.kind) }}</span>
+                <i [class]="getNodeIconClass(getNodeIconKind(node))" aria-hidden="true"></i>
+                <span class="node-icon__label">{{ getNodeIcon(getNodeIconKind(node)) }}</span>
               </span>
               <span>{{ getNodeLabel(node.kind) }}</span>
             </div>
@@ -268,11 +268,13 @@
 
       <section class="canvas-map" aria-label="Mapa do canvas" (click)="$event.stopPropagation()">
         <div class="mini-map">
-          <span
-            *ngFor="let node of nodes"
-            [class]="isContainer(node.kind) ? 'mini-map-node mini-map-node--container' : 'mini-map-node'"
-            [ngStyle]="getMiniMapNodeStyle(node)"
-          ></span>
+          <ng-container *ngFor="let node of nodes">
+            <span
+              *ngIf="isVisibleNode(node)"
+              [class]="isContainerLayerNode(node) ? 'mini-map-node mini-map-node--container' : 'mini-map-node'"
+              [ngStyle]="getMiniMapNodeStyle(node)"
+            ></span>
+          </ng-container>
         </div>
         <div class="zoom-controls">
           <button class="icon-button" type="button" title="Diminuir zoom" (click)="zoomOut()">-</button>
@@ -308,6 +310,26 @@
             Cor
             <input type="color" [ngModel]="node.color" (ngModelChange)="updateNodeColor($event)" />
           </label>
+          <ng-container *ngIf="isContainerPlusNode(node)">
+            <label>
+              Icone minimizado
+              <select
+                [ngModel]="node.collapsedIconKind || 'system'"
+                (ngModelChange)="updateSelectedContainerPlusIcon($event)"
+              >
+                <option *ngFor="let kind of containerPlusIconKinds" [ngValue]="kind">
+                  {{ getNodeLabel(kind) }}
+                </option>
+              </select>
+            </label>
+            <button
+              class="secondary-action"
+              type="button"
+              (click)="setSelectedContainerPlusCollapsed(!isContainerPlusCollapsed(node))"
+            >
+              {{ isContainerPlusCollapsed(node) ? "Maximizar container" : "Minimizar para icone" }}
+            </button>
+          </ng-container>
           <button class="danger-action" type="button" (click)="deleteSelectedNode()">Remover no</button>
         </div>
 

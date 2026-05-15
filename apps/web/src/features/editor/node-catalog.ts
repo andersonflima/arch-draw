@@ -23,6 +23,7 @@ export type NodeTemplate = Readonly<{
 
 export const nodeCatalog: readonly NodeTemplate[] = [
   { category: "Core", kind: "group-container", label: "Container", color: "#ffffff" },
+  { category: "Core", kind: "group-container-plus", label: "Container+", color: "#f8fafc" },
   { category: "Core", kind: "system", label: "System", color: "#f8fafc" },
   { category: "Core", kind: "service", label: "Service", color: "#ffedd5" },
   { category: "Core", kind: "database", label: "Database", color: "#e0f2fe" },
@@ -164,6 +165,7 @@ export const getNodeKindColor = (kind: ArchitectureNodeKind): string =>
 
 const containerKinds = new Set<ArchitectureNodeKind>([
   "group-container",
+  "group-container-plus",
   "cloud-provider",
   "cloud-region",
   "cloud-vpc",

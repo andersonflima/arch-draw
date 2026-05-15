@@ -8,6 +8,7 @@ export type ArchitectureNodeKind =
   | "external"
   | "mermaid"
   | "group-container"
+  | "group-container-plus"
   | "cloud-provider"
   | "cloud-region"
   | "cloud-vpc"
@@ -147,6 +148,9 @@ export type ArchitectureNode = Readonly<{
   position: Point;
   size: Size;
   color: string;
+  collapsed?: boolean;
+  collapsedIconKind?: ArchitectureNodeKind;
+  expandedSize?: Size;
   mermaidSource?: string;
 }>;
 
@@ -259,6 +263,21 @@ const normalizeNode = (node: ArchitectureNode): ArchitectureNode => ({
   label: node.label.trim() || "Untitled node",
   parentId: node.parentId?.trim() || undefined,
   color: node.color.trim() || "#f8fafc",
+  collapsed:
+    node.kind === "group-container-plus"
+      ? node.collapsed ?? false
+      : undefined,
+  collapsedIconKind:
+    node.kind === "group-container-plus"
+      ? node.collapsedIconKind ?? "system"
+      : undefined,
+  expandedSize:
+    node.kind === "group-container-plus" && node.expandedSize
+      ? {
+          width: Math.max(120, node.expandedSize.width),
+          height: Math.max(72, node.expandedSize.height)
+        }
+      : undefined,
   size: {
     width: Math.max(120, node.size.width),
     height: Math.max(72, node.size.height)

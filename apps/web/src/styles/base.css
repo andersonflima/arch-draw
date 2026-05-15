@@ -86,7 +86,8 @@ button {
 
 .icon-button,
 .primary-action,
-.danger-action {
+.danger-action,
+.secondary-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -115,6 +116,7 @@ button {
 .icon-button:hover,
 .primary-action:hover,
 .danger-action:hover,
+.secondary-action:hover,
 .palette-item:hover,
 .file-item:hover {
   transform: translate(-1px, -1px) rotate(-0.2deg);
@@ -138,6 +140,12 @@ button {
   justify-content: flex-start;
   padding: 0 12px;
   background: #fee2e2;
+}
+
+.secondary-action {
+  justify-content: flex-start;
+  padding: 0 12px;
+  background: #dbeafe;
 }
 
 .workspace {
@@ -1182,6 +1190,7 @@ button {
 }
 
 .node-icon--group-container,
+.node-icon--group-container-plus,
 .node-icon--cloud-region,
 .node-icon--cloud-vpc,
 .node-icon--subnet,
@@ -1197,6 +1206,7 @@ button {
 }
 
 .node-icon--group-container .node-icon__glyph::before,
+.node-icon--group-container-plus .node-icon__glyph::before,
 .node-icon--cloud-region .node-icon__glyph::before,
 .node-icon--cloud-vpc .node-icon__glyph::before,
 .node-icon--subnet .node-icon__glyph::before,
@@ -1214,6 +1224,7 @@ button {
 }
 
 .node-icon--group-container .node-icon__glyph::after,
+.node-icon--group-container-plus .node-icon__glyph::after,
 .node-icon--cloud-region .node-icon__glyph::after,
 .node-icon--cloud-vpc .node-icon__glyph::after,
 .node-icon--subnet .node-icon__glyph::after,
