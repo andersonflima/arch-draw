@@ -407,6 +407,14 @@ export class AppComponent {
 
   onNodeClick(nodeId: string, event: MouseEvent): void {
     event.stopPropagation();
+    if (this.connectionSourceId && this.connectionSourceId !== nodeId) {
+      this.createConnection(this.connectionSourceId, nodeId);
+      this.connectionDragState = null;
+      this.connectionSourceId = null;
+      this.markViewChanged();
+      return;
+    }
+
     if (event.detail >= 2) {
       this.startNodeLabelEditing(nodeId, event);
       return;
@@ -776,7 +784,10 @@ export class AppComponent {
     }
 
     if (this.connectionDragState) {
-      const targetNodeId = this.getTargetPortNodeIdFromPointerEvent(event);
+      const targetNodeId = this.getTargetNodeIdFromPointerEvent(
+        event,
+        this.connectionDragState.sourceId
+      );
       if (targetNodeId && targetNodeId !== this.connectionDragState.sourceId) {
         this.createConnection(this.connectionDragState.sourceId, targetNodeId);
       }
@@ -1489,15 +1500,36 @@ export class AppComponent {
     ];
   }
 
-  private getTargetPortNodeIdFromPointerEvent(event: PointerEvent): string | null {
+  private getTargetNodeIdFromPointerEvent(
+    event: PointerEvent,
+    sourceNodeId: string
+  ): string | null {
     const target = event.target as HTMLElement | null;
-    const fromTarget = target?.closest<HTMLElement>("[data-target-port-node-id]")?.dataset["targetPortNodeId"] ?? null;
-    if (fromTarget) return fromTarget;
-    const fallback = document
-      .elementFromPoint(event.clientX, event.clientY)
-      ?.closest<HTMLElement>("[data-target-port-node-id]")
-      ?.dataset["targetPortNodeId"] ?? null;
-    return fallback;
+    const fromTargetPort =
+      target?.closest<HTMLElement>("[data-target-port-node-id]")?.dataset["targetPortNodeId"] ??
+      null;
+    if (fromTargetPort && fromTargetPort !== sourceNodeId) return fromTargetPort;
+
+    const fromTargetNode =
+      target?.closest<HTMLElement>("[data-node-id]")?.dataset["nodeId"] ?? null;
+    if (fromTargetNode && fromTargetNode !== sourceNodeId) return fromTargetNode;
+
+    const hoveredElements = document.elementsFromPoint(event.clientX, event.clientY);
+    for (const hoveredElement of hoveredElements) {
+      const hovered = hoveredElement as HTMLElement;
+      const targetPortNodeId =
+        hovered.closest<HTMLElement>("[data-target-port-node-id]")?.dataset["targetPortNodeId"] ??
+        null;
+      if (targetPortNodeId && targetPortNodeId !== sourceNodeId) return targetPortNodeId;
+    }
+
+    for (const hoveredElement of hoveredElements) {
+      const hovered = hoveredElement as HTMLElement;
+      const targetNodeId = hovered.closest<HTMLElement>("[data-node-id]")?.dataset["nodeId"] ?? null;
+      if (targetNodeId && targetNodeId !== sourceNodeId) return targetNodeId;
+    }
+
+    return null;
   }
 
   private isTypingTarget(target: EventTarget | null): boolean {

@@ -646,10 +646,10 @@ button {
   width: 78px;
   min-width: 78px;
   height: 78px;
-  color: #f8fafc;
+  color: color-mix(in srgb, var(--icon-base) 88%, #ffffff 12%);
   border-radius: 18px;
-  background: color-mix(in srgb, var(--icon-base) 18%, #111827 82%);
-  border: 2px solid color-mix(in srgb, var(--icon-base) 30%, #000000 70%);
+  background: color-mix(in srgb, var(--icon-base) 44%, #000000 56%);
+  border: 2px solid color-mix(in srgb, var(--icon-base) 34%, #000000 66%);
   box-shadow: none;
 }
 
