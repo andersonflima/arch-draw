@@ -263,21 +263,14 @@ const normalizeNode = (node: ArchitectureNode): ArchitectureNode => ({
   label: node.label.trim() || "Untitled node",
   parentId: node.parentId?.trim() || undefined,
   color: node.color.trim() || "#f8fafc",
-  collapsed:
-    node.kind === "group-container-plus"
-      ? node.collapsed ?? false
-      : undefined,
-  collapsedIconKind:
-    node.kind === "group-container-plus"
-      ? node.collapsedIconKind ?? "system"
-      : undefined,
-  expandedSize:
-    node.kind === "group-container-plus" && node.expandedSize
-      ? {
-          width: Math.max(120, node.expandedSize.width),
-          height: Math.max(72, node.expandedSize.height)
-        }
-      : undefined,
+  collapsed: node.collapsed ?? false,
+  collapsedIconKind: node.collapsedIconKind,
+  expandedSize: node.expandedSize
+    ? {
+        width: Math.max(120, node.expandedSize.width),
+        height: Math.max(72, node.expandedSize.height)
+      }
+    : undefined,
   size: {
     width: Math.max(120, node.size.width),
     height: Math.max(72, node.size.height)

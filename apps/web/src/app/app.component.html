@@ -221,6 +221,7 @@
             [ngStyle]="getNodeStyle(node)"
             (pointerdown)="onNodePointerDown($event, node)"
             (click)="onNodeClick(node.id, $event)"
+            (dblclick)="onNodeDoubleClick(node, $event)"
           >
             <button
               class="node-port node-port--target"
@@ -264,6 +265,16 @@
               (pointerdown)="onSourcePortPointerDown($event, node.id)"
               (click)="onSourcePortClick($event, node.id)"
             ></button>
+            <button
+              *ngIf="isCollapsibleContainerNode(node)"
+              class="node-collapse-toggle"
+              type="button"
+              [title]="isContainerCollapsed(node) ? 'Expandir container' : 'Minimizar para icone'"
+              (pointerdown)="$event.stopPropagation()"
+              (click)="onNodeCollapseToggle(node, $event)"
+            >
+              <i [class]="isContainerCollapsed(node) ? 'fa-solid fa-up-right-and-down-left-from-center' : 'fa-solid fa-down-left-and-up-right-to-center'" aria-hidden="true"></i>
+            </button>
 
             <ng-container *ngIf="canResizeNode(node.id)">
               <button class="resize-control resize-control--n" type="button" (pointerdown)="onResizePointerDown($event, node, 'n')"></button>
@@ -314,8 +325,8 @@
           <label>
             Tipo
             <select [ngModel]="node.kind" (ngModelChange)="updateNodeKind($event)">
-              <option *ngFor="let template of nodeCatalog" [ngValue]="template.kind">
-                {{ getNodeLabel(template.kind) }}
+              <option *ngFor="let kind of getNodeKindOptions(node.kind)" [ngValue]="kind">
+                {{ getNodeLabel(kind) }}
               </option>
             </select>
           </label>
@@ -323,14 +334,14 @@
             Cor
             <input type="color" [ngModel]="node.color" (ngModelChange)="updateNodeColor($event)" />
           </label>
-          <ng-container *ngIf="isContainerPlusNode(node)">
+          <ng-container *ngIf="isCollapsibleContainerNode(node)">
             <label>
               Icone minimizado
               <select
-                [ngModel]="node.collapsedIconKind || 'system'"
-                (ngModelChange)="updateSelectedContainerPlusIcon($event)"
+                [ngModel]="node.collapsedIconKind || (isContainerPlusNode(node) ? 'system' : node.kind)"
+                (ngModelChange)="updateSelectedCollapsedIcon($event)"
               >
-                <option *ngFor="let kind of containerPlusIconKinds" [ngValue]="kind">
+                <option *ngFor="let kind of collapsibleIconKinds" [ngValue]="kind">
                   {{ getNodeLabel(kind) }}
                 </option>
               </select>
@@ -338,9 +349,9 @@
             <button
               class="secondary-action"
               type="button"
-              (click)="setSelectedContainerPlusCollapsed(!isContainerPlusCollapsed(node))"
+              (click)="setSelectedContainerCollapsed(!isContainerCollapsed(node))"
             >
-              {{ isContainerPlusCollapsed(node) ? "Maximizar container" : "Minimizar para icone" }}
+              {{ isContainerCollapsed(node) ? "Maximizar container" : "Minimizar para icone" }}
             </button>
           </ng-container>
           <button class="danger-action" type="button" (click)="deleteSelectedNode()">Remover no</button>
