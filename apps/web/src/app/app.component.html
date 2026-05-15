@@ -176,7 +176,6 @@
             [ngStyle]="getNodeStyle(node)"
             (pointerdown)="onNodePointerDown($event, node)"
             (click)="onNodeClick(node.id, $event)"
-            (dblclick)="startNodeLabelEditing(node.id, $event)"
           >
             <button
               class="node-port node-port--target"

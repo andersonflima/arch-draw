@@ -369,6 +369,10 @@ export class AppComponent {
 
   onNodeClick(nodeId: string, event: MouseEvent): void {
     event.stopPropagation();
+    if (event.detail >= 2) {
+      this.startNodeLabelEditing(nodeId, event);
+      return;
+    }
     this.selectedNodeId = nodeId;
     this.selectedNodeIds = [nodeId];
     this.selectedEdgeId = null;
