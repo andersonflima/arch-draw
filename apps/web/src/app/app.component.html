@@ -181,6 +181,7 @@
               class="node-port node-port--target"
               type="button"
               title="Conectar aqui"
+              [attr.data-target-port-node-id]="node.id"
               (pointerdown)="onTargetPortPointerDown($event, node.id)"
               (click)="onTargetPortClick($event, node.id)"
             ></button>
