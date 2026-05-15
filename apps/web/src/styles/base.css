@@ -2128,6 +2128,50 @@ button {
   right: 8px;
 }
 
+.node-port--omni {
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  top: auto;
+  bottom: auto;
+}
+
+.node-port--omni::before {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.node-port--omni::after {
+  left: 50%;
+  top: 50%;
+  bottom: auto;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+}
+
+.node-port--omni-top {
+  top: -15px;
+  left: calc(50% - 14px);
+}
+
+.node-port--omni-right {
+  top: calc(50% - 14px);
+  right: -15px;
+}
+
+.node-port--omni-bottom {
+  bottom: -15px;
+  left: calc(50% - 14px);
+}
+
+.node-port--omni-left {
+  top: calc(50% - 14px);
+  left: -15px;
+}
+
 .canvas-edge-layer {
   position: absolute;
   inset: 0;

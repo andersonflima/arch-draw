@@ -1134,6 +1134,10 @@ export class AppComponent {
     return kind.startsWith("flow-");
   }
 
+  hasOmniConnectionPorts(node: CanvasNode): boolean {
+    return node.kind === "flow-decision" || node.kind === "algorithm-condition";
+  }
+
   isCollapsibleContainerNode(node: CanvasNode): boolean {
     return isContainerNodeKind(node.kind);
   }
