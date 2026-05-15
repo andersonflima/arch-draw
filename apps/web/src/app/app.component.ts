@@ -147,6 +147,7 @@ export class AppComponent {
   lintStatus: "empty" | "valid" | "invalid" = "empty";
   status = "Inicializando";
   error = "";
+  blockSearch = "";
   canvasZoom = 1;
   canvasPan: Readonly<{ x: number; y: number }> = DEFAULT_CANVAS_PAN;
 
@@ -324,6 +325,26 @@ export class AppComponent {
 
   templatesByCategory(category: NodeTemplateCategory): readonly NodeTemplate[] {
     return this.nodeCatalog.filter((template) => template.category === category);
+  }
+
+  filteredTemplatesByCategory(category: NodeTemplateCategory): readonly NodeTemplate[] {
+    const templates = this.templatesByCategory(category);
+    const query = this.normalizeSearchQuery(this.blockSearch);
+    if (!query) return templates;
+
+    return templates.filter((template) => {
+      const label = this.normalizeSearchQuery(template.label);
+      const kind = this.normalizeSearchQuery(template.kind);
+      return label.includes(query) || kind.includes(query);
+    });
+  }
+
+  hasFilteredTemplates(category: NodeTemplateCategory): boolean {
+    return this.filteredTemplatesByCategory(category).length > 0;
+  }
+
+  hasAnyFilteredTemplates(): boolean {
+    return this.nodeTemplateCategories.some((category) => this.hasFilteredTemplates(category));
   }
 
   addNode(template: NodeTemplate, position = this.nextNodePosition()): void {
@@ -1999,6 +2020,14 @@ export class AppComponent {
     link.href = dataUrl;
     link.download = filename;
     link.click();
+  }
+
+  private normalizeSearchQuery(value: string): string {
+    return value
+      .normalize("NFD")
+      .replaceAll(/[\u0300-\u036f]/g, "")
+      .trim()
+      .toLowerCase();
   }
 
   private markViewChanged(): void {
