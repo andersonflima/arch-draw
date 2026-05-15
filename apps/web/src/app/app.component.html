@@ -27,7 +27,7 @@
       #importInput
       hidden
       type="file"
-      accept="application/json,.json,.archdraw"
+      accept="application/json,text/plain,text/xml,application/xml,.json,.archdraw,.drawio,.xml,.mmd,.mermaid"
       (change)="importArchitecture($event)"
     />
   </header>
@@ -90,7 +90,8 @@
     <main
       #canvasShell
       class="canvas-shell"
-      (click)="clearSelection()"
+      (click)="onCanvasClick($event)"
+      (pointerdown)="onCanvasPointerDown($event)"
       (dragover)="$event.preventDefault()"
       (drop)="onCanvasDrop($event)"
       (wheel)="onCanvasWheel($event)"
@@ -144,12 +145,14 @@
           </ng-container>
         </ng-container>
 
+        <div *ngIf="marqueeState" class="canvas-marquee" [ngStyle]="getMarqueeStyle()"></div>
+
         <ng-template #canvasNodeTemplate let-node>
           <div
             [class]="getNodeClass(node)"
             [ngStyle]="getNodeStyle(node)"
             (pointerdown)="onNodePointerDown($event, node)"
-            (click)="selectNode(node.id, $event)"
+            (click)="$event.stopPropagation()"
           >
             <button
               class="node-port node-port--target"

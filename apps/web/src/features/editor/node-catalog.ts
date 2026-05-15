@@ -220,4 +220,4 @@ export const getDefaultNodeSize = (
 ): Readonly<{ width: number; height: number }> =>
   isContainerNodeKind(kind)
     ? { width: 420, height: 280 }
-    : { width: 190, height: 92 };
+    : { width: 112, height: 118 };

@@ -1,5 +1,5 @@
-import type { ArchitectureDocument } from "./architecture";
-import { normalizeArchitecture, validateArchitecture } from "./architecture";
+import type { ArchitectureDocument } from "./architecture.js";
+import { normalizeArchitecture, validateArchitecture } from "./architecture.js";
 
 export const SHARE_PACKAGE_VERSION = 1;
 
@@ -49,4 +49,3 @@ const isSharePackage = (value: unknown): value is ArchitectureSharePackage => {
     candidate.architecture !== null
   );
 };
-

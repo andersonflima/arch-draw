@@ -1,4 +1,3 @@
-export * from "./architecture/architecture";
-export * from "./architecture/share-package";
-export * from "./architecture/mermaid";
-
+export * from "./architecture/architecture.js";
+export * from "./architecture/share-package.js";
+export * from "./architecture/mermaid.js";
