@@ -102,6 +102,7 @@
               [class]="'node-icon palette-item__icon node-icon--' + template.kind"
               [style.background]="template.color"
               [attr.title]="getNodeIcon(template.kind)"
+              [attr.data-icon-code]="getNodeIcon(template.kind)"
             >
               <span class="node-icon__glyph" aria-hidden="true"></span>
               <span class="node-icon__label">{{ getNodeIcon(template.kind) }}</span>
@@ -197,7 +198,11 @@
               (click)="onTargetPortClick($event, node.id)"
             ></button>
             <div class="architecture-node__header">
-              <span [class]="'node-icon node-icon--' + node.kind" [attr.title]="getNodeIcon(node.kind)">
+              <span
+                [class]="'node-icon node-icon--' + node.kind"
+                [attr.title]="getNodeIcon(node.kind)"
+                [attr.data-icon-code]="getNodeIcon(node.kind)"
+              >
                 <span class="node-icon__glyph" aria-hidden="true"></span>
                 <span class="node-icon__label">{{ getNodeIcon(node.kind) }}</span>
               </span>
