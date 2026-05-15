@@ -2200,12 +2200,33 @@ button {
   animation: edge-flow-dash 0.9s linear infinite;
 }
 
+.canvas-edge-flow {
+  pointer-events: none;
+}
+
+.canvas-edge-flow--forward {
+  animation: edge-flow-dash 0.9s linear infinite;
+}
+
+.canvas-edge-flow--reverse {
+  animation: edge-flow-dash-reverse 0.9s linear infinite;
+}
+
 @keyframes edge-flow-dash {
   from {
     stroke-dashoffset: 0;
   }
   to {
     stroke-dashoffset: -14;
+  }
+}
+
+@keyframes edge-flow-dash-reverse {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: 14;
   }
 }
 
