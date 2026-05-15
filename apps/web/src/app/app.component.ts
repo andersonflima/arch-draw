@@ -6,6 +6,7 @@ import { toPng, toSvg } from "html-to-image";
 import mermaid from "mermaid";
 import {
   architectureFromMermaid,
+  architectureToMermaid,
   type ArchitectureDocument,
   type ArchitectureEdgeLineStyle,
   type ArchitectureEdgePath,
@@ -146,6 +147,7 @@ export class AppComponent {
   private autoSaveInFlight = false;
   private autoSaveQueued = false;
   private lastPersistedSignature = "";
+  private lastCanvasTopologySignature = "";
   private history: EditorSnapshot[] = [];
   private historyIndex = -1;
   private applyingHistory = false;
@@ -956,6 +958,7 @@ export class AppComponent {
     this.nodes = this.sortNodes(toCanvasNodes(architecture));
     this.edges = toCanvasEdges(architecture);
     this.mermaidDraft = architecture.mermaidSource || DEFAULT_MERMAID_SOURCE;
+    this.lastCanvasTopologySignature = this.buildCanvasTopologySignature();
     this.selectedNodeId = null;
     this.selectedNodeIds = [];
     this.selectedEdgeId = null;
@@ -1493,6 +1496,42 @@ export class AppComponent {
     });
   }
 
+  private buildCanvasTopologySignature(): string {
+    return JSON.stringify({
+      nodes: this.nodes
+        .map((node) => ({ id: node.id, label: node.label }))
+        .sort((left, right) => left.id.localeCompare(right.id)),
+      edges: this.edges
+        .map((edge) => ({
+          from: edge.from,
+          to: edge.to,
+          label: edge.label ?? "",
+          bidirectional: edge.style?.bidirectional ?? false
+        }))
+        .sort((left, right) =>
+          `${left.from}|${left.to}|${left.label}|${left.bidirectional}`.localeCompare(
+            `${right.from}|${right.to}|${right.label}|${right.bidirectional}`
+          )
+        )
+    });
+  }
+
+  private syncMermaidFromCanvasIfNeeded(): void {
+    if (!this.architecture || this.applyingHistory) return;
+    const signature = this.buildCanvasTopologySignature();
+    if (signature === this.lastCanvasTopologySignature) return;
+    this.lastCanvasTopologySignature = signature;
+
+    const generated = architectureToMermaid({
+      ...this.architecture,
+      nodes: this.nodes,
+      edges: this.edges
+    });
+    if (generated === this.mermaidDraft) return;
+    this.mermaidDraft = generated;
+    void this.renderMermaid();
+  }
+
   private resetHistory(): void {
     const snapshot = this.captureSnapshot();
     this.history = [snapshot];
@@ -1547,6 +1586,7 @@ export class AppComponent {
       this.nodes = this.sortNodes(previous.nodes.map((node) => ({ ...node })));
       this.edges = previous.edges.map((edge) => ({ ...edge, style: { ...edge.style } }));
       this.mermaidDraft = previous.mermaidSource;
+      this.lastCanvasTopologySignature = this.buildCanvasTopologySignature();
       this.selectedNodeId = null;
       this.selectedNodeIds = [];
       this.selectedEdgeId = null;
@@ -1649,6 +1689,7 @@ export class AppComponent {
   }
 
   private markViewChanged(): void {
+    this.syncMermaidFromCanvasIfNeeded();
     this.recordHistory();
     this.scheduleAutoSave();
     this.changeDetectorRef.detectChanges();
