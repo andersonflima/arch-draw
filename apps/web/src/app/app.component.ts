@@ -101,6 +101,8 @@ type PaletteCategoryGroup = Readonly<{
 type ContextPropertiesPanelState = Readonly<{
   x: number;
   y: number;
+  maxWidth: number;
+  maxHeight: number;
 }>;
 
 const DEFAULT_MERMAID_SOURCE = `graph LR
@@ -924,7 +926,9 @@ export class AppComponent {
     if (!this.contextPropertiesPanel) return {};
     return {
       left: `${this.contextPropertiesPanel.x}px`,
-      top: `${this.contextPropertiesPanel.y}px`
+      top: `${this.contextPropertiesPanel.y}px`,
+      maxWidth: `${this.contextPropertiesPanel.maxWidth}px`,
+      maxHeight: `${this.contextPropertiesPanel.maxHeight}px`
     };
   }
 
@@ -1040,14 +1044,24 @@ export class AppComponent {
   }
 
   private openContextPropertiesPanel(event: MouseEvent): void {
-    const panelWidth = 360;
-    const panelHeight = 520;
+    this.contextPropertiesPanel = this.layoutContextPropertiesPanel(event.clientX + 6, event.clientY + 6);
+  }
+
+  private layoutContextPropertiesPanel(preferredX: number, preferredY: number): ContextPropertiesPanelState {
     const margin = 8;
-    const x = Math.min(event.clientX + 6, window.innerWidth - panelWidth - margin);
-    const y = Math.min(event.clientY + 6, window.innerHeight - panelHeight - margin);
-    this.contextPropertiesPanel = {
-      x: Math.max(margin, x),
-      y: Math.max(margin, y)
+    const idealWidth = 360;
+    const idealHeight = 520;
+    const viewportWidth = Math.max(0, window.innerWidth);
+    const viewportHeight = Math.max(0, window.innerHeight);
+    const maxWidth = Math.max(0, Math.min(idealWidth, viewportWidth - margin * 2));
+    const maxHeight = Math.max(0, Math.min(idealHeight, viewportHeight - margin * 2));
+    const maxX = Math.max(margin, viewportWidth - margin - maxWidth);
+    const maxY = Math.max(margin, viewportHeight - margin - maxHeight);
+    return {
+      x: Math.max(margin, Math.min(preferredX, maxX)),
+      y: Math.max(margin, Math.min(preferredY, maxY)),
+      maxWidth,
+      maxHeight
     };
   }
 
@@ -1536,6 +1550,16 @@ export class AppComponent {
       event.preventDefault();
       this.deleteSelectedNode();
     }
+  }
+
+  @HostListener("window:resize")
+  onWindowResize(): void {
+    if (!this.contextPropertiesPanel) return;
+    this.contextPropertiesPanel = this.layoutContextPropertiesPanel(
+      this.contextPropertiesPanel.x,
+      this.contextPropertiesPanel.y
+    );
+    this.markInteractionChanged();
   }
 
   getNodeStyle(node: CanvasNode): Record<string, string | number> {
