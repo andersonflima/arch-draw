@@ -564,7 +564,7 @@ export class AppComponent {
   }
 
   onSourcePortPointerDown(event: PointerEvent, nodeId: string): void {
-    this.startConnectDrag(nodeId, event);
+    this.onPortPointerDown(event, nodeId);
   }
 
   onSourcePortClick(event: Event, nodeId: string): void {
@@ -572,7 +572,7 @@ export class AppComponent {
   }
 
   onTargetPortPointerDown(event: PointerEvent, nodeId: string): void {
-    this.startConnectDrag(nodeId, event);
+    this.onPortPointerDown(event, nodeId);
   }
 
   onTargetPortClick(event: Event, nodeId: string): void {
@@ -1394,6 +1394,16 @@ export class AppComponent {
     };
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
     this.markViewChanged();
+  }
+
+  private onPortPointerDown(event: PointerEvent, nodeId: string): void {
+    event.stopPropagation();
+
+    // If a source is already armed from the previous click, preserve it so
+    // the next click can finish the connection instead of resetting the source.
+    if (this.connectionSourceId && this.connectionSourceId !== nodeId) return;
+
+    this.startConnectDrag(nodeId, event);
   }
 
   private createConnection(from: string, to: string): void {
