@@ -5,5 +5,5 @@ coverage
 .DS_Store
 *.log
 apps/api/data
+apps/web/.angular
 apps/web/.vite
-

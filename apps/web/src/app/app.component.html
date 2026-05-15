@@ -72,8 +72,13 @@
             (click)="addNode(template)"
             (dragstart)="onPaletteDragStart($event, template)"
           >
-            <span [class]="'node-icon palette-item__icon node-icon--' + template.kind" [style.background]="template.color">
-              {{ getNodeIcon(template.kind) }}
+            <span
+              [class]="'node-icon palette-item__icon node-icon--' + template.kind"
+              [style.background]="template.color"
+              [attr.title]="getNodeIcon(template.kind)"
+            >
+              <span class="node-icon__glyph" aria-hidden="true"></span>
+              <span class="node-icon__label">{{ getNodeIcon(template.kind) }}</span>
             </span>
             <span class="palette-item__label" [title]="template.label">{{ template.label }}</span>
             <b>+</b>
@@ -91,6 +96,14 @@
       (wheel)="onCanvasWheel($event)"
     >
       <div class="canvas-viewport" [ngStyle]="getViewportStyle()">
+        <ng-container *ngFor="let node of nodes">
+          <ng-container *ngIf="isContainer(node.kind)">
+            <ng-container
+              *ngTemplateOutlet="canvasNodeTemplate; context: { $implicit: node }"
+            ></ng-container>
+          </ng-container>
+        </ng-container>
+
         <svg class="canvas-edge-layer">
           <defs>
             <marker
@@ -123,30 +136,54 @@
           </g>
         </svg>
 
-        <div
-          *ngFor="let node of nodes"
-          [class]="getNodeClass(node)"
-          [ngStyle]="getNodeStyle(node)"
-          (pointerdown)="onNodePointerDown($event, node)"
-          (click)="selectNode(node.id, $event)"
-        >
-          <button class="node-port node-port--target" type="button" (click)="finishConnect(node.id, $event)"></button>
-          <div class="architecture-node__header">
-            <span [class]="'node-icon node-icon--' + node.kind">{{ getNodeIcon(node.kind) }}</span>
-            <span>{{ getNodeLabel(node.kind) }}</span>
-          </div>
-          <strong>{{ node.label }}</strong>
-          <button class="node-port node-port--source" type="button" (click)="startConnect(node.id, $event)"></button>
+        <ng-container *ngFor="let node of nodes">
+          <ng-container *ngIf="!isContainer(node.kind)">
+            <ng-container
+              *ngTemplateOutlet="canvasNodeTemplate; context: { $implicit: node }"
+            ></ng-container>
+          </ng-container>
+        </ng-container>
 
-          <button class="resize-control resize-control--n" type="button" (pointerdown)="onResizePointerDown($event, node, 'n')"></button>
-          <button class="resize-control resize-control--s" type="button" (pointerdown)="onResizePointerDown($event, node, 's')"></button>
-          <button class="resize-control resize-control--e" type="button" (pointerdown)="onResizePointerDown($event, node, 'e')"></button>
-          <button class="resize-control resize-control--w" type="button" (pointerdown)="onResizePointerDown($event, node, 'w')"></button>
-          <button class="resize-control resize-control--ne" type="button" (pointerdown)="onResizePointerDown($event, node, 'ne')"></button>
-          <button class="resize-control resize-control--nw" type="button" (pointerdown)="onResizePointerDown($event, node, 'nw')"></button>
-          <button class="resize-control resize-control--se" type="button" (pointerdown)="onResizePointerDown($event, node, 'se')"></button>
-          <button class="resize-control resize-control--sw" type="button" (pointerdown)="onResizePointerDown($event, node, 'sw')"></button>
-        </div>
+        <ng-template #canvasNodeTemplate let-node>
+          <div
+            [class]="getNodeClass(node)"
+            [ngStyle]="getNodeStyle(node)"
+            (pointerdown)="onNodePointerDown($event, node)"
+            (click)="selectNode(node.id, $event)"
+          >
+            <button
+              class="node-port node-port--target"
+              type="button"
+              title="Conectar aqui"
+              (pointerdown)="finishConnect(node.id, $event)"
+              (click)="finishConnect(node.id, $event)"
+            ></button>
+            <div class="architecture-node__header">
+              <span [class]="'node-icon node-icon--' + node.kind" [attr.title]="getNodeIcon(node.kind)">
+                <span class="node-icon__glyph" aria-hidden="true"></span>
+                <span class="node-icon__label">{{ getNodeIcon(node.kind) }}</span>
+              </span>
+              <span>{{ getNodeLabel(node.kind) }}</span>
+            </div>
+            <strong>{{ node.label }}</strong>
+            <button
+              class="node-port node-port--source"
+              type="button"
+              title="Criar conexao"
+              (pointerdown)="startConnect(node.id, $event)"
+              (click)="startConnect(node.id, $event)"
+            ></button>
+
+            <button class="resize-control resize-control--n" type="button" (pointerdown)="onResizePointerDown($event, node, 'n')"></button>
+            <button class="resize-control resize-control--s" type="button" (pointerdown)="onResizePointerDown($event, node, 's')"></button>
+            <button class="resize-control resize-control--e" type="button" (pointerdown)="onResizePointerDown($event, node, 'e')"></button>
+            <button class="resize-control resize-control--w" type="button" (pointerdown)="onResizePointerDown($event, node, 'w')"></button>
+            <button class="resize-control resize-control--ne" type="button" (pointerdown)="onResizePointerDown($event, node, 'ne')"></button>
+            <button class="resize-control resize-control--nw" type="button" (pointerdown)="onResizePointerDown($event, node, 'nw')"></button>
+            <button class="resize-control resize-control--se" type="button" (pointerdown)="onResizePointerDown($event, node, 'se')"></button>
+            <button class="resize-control resize-control--sw" type="button" (pointerdown)="onResizePointerDown($event, node, 'sw')"></button>
+          </div>
+        </ng-template>
       </div>
 
       <section class="canvas-map" aria-label="Mapa do canvas" (click)="$event.stopPropagation()">

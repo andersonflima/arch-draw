@@ -573,6 +573,30 @@ button {
   clip-path: polygon(0 0, 86% 0, 100% 50%, 86% 100%, 0 100%);
 }
 
+.architecture-node:not(.architecture-node--container)::before {
+  inset: 0;
+  clip-path: none;
+  border: 2px solid #111827;
+  border-radius: 8px 7px 9px 6px;
+  background-color: var(--node-bg, #ffffff);
+  background-image: none;
+  box-shadow: 3px 3px 0 #111827;
+  transform: none;
+}
+
+.architecture-node--aws:not(.architecture-node--container)::before {
+  border-color: #7c2d12;
+  box-shadow: 3px 3px 0 #7c2d12;
+}
+
+.architecture-node--code:not(.architecture-node--container)::before {
+  border-style: dashed;
+}
+
+.architecture-node--flow:not(.architecture-node--container)::before {
+  box-shadow: 3px 3px 0 #065f46;
+}
+
 .architecture-node.is-selected {
   outline: 3px solid #facc15;
   outline-offset: 3px;
@@ -582,73 +606,583 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 34px;
+  min-width: 34px;
+  height: 30px;
+  color: #111827;
+  border: 2px solid currentColor;
+  border-radius: 8px 7px 9px 6px;
+  background: #ffffff;
+  box-shadow: 2px 2px 0 rgba(17, 24, 39, 0.82);
+}
+
+.palette-item__icon {
   width: 30px;
   min-width: 30px;
-  height: 24px;
-  border: 1px solid currentColor;
-  border-radius: 5px;
-  padding: 0 3px;
-  font-size: 8px;
-  font-weight: 900;
-  line-height: 1;
-  box-shadow: inset 0 -4px 0 rgba(17, 24, 39, 0.08);
+  height: 30px;
+}
+
+.node-icon__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.node-icon__glyph,
+.node-icon__glyph::before,
+.node-icon__glyph::after {
+  box-sizing: border-box;
+}
+
+.node-icon__glyph {
+  position: relative;
+  display: block;
+  width: 23px;
+  height: 23px;
+}
+
+.node-icon__glyph::before,
+.node-icon__glyph::after {
+  content: "";
+  position: absolute;
+  border: 2px solid currentColor;
+}
+
+.node-icon__glyph::before {
+  inset: 4px;
+  border-radius: 5px 4px 6px 4px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.node-icon__glyph::after {
+  right: 4px;
+  bottom: 4px;
+  width: 6px;
+  height: 6px;
+  border-top: 0;
+  border-left: 0;
 }
 
 .node-icon--aws-s3,
 .node-icon--object-storage {
   color: #166534;
-  border-radius: 42% / 18%;
-  box-shadow:
-    inset 0 6px 0 rgba(22, 101, 52, 0.16),
-    inset 0 -5px 0 rgba(22, 101, 52, 0.1);
+}
+
+.node-icon--aws-s3 .node-icon__glyph::before,
+.node-icon--object-storage .node-icon__glyph::before,
+.node-icon--database .node-icon__glyph::before,
+.node-icon--aws-rds .node-icon__glyph::before,
+.node-icon--aws-aurora .node-icon__glyph::before {
+  left: 4px;
+  top: 4px;
+  width: 15px;
+  height: 17px;
+  border-radius: 50% / 18%;
+  background:
+    linear-gradient(90deg, rgba(22, 101, 52, 0.18) 0 28%, transparent 28% 40%, rgba(22, 101, 52, 0.12) 40% 68%, transparent 68%),
+    rgba(255, 255, 255, 0.74);
+}
+
+.node-icon--aws-s3 .node-icon__glyph::after,
+.node-icon--object-storage .node-icon__glyph::after,
+.node-icon--database .node-icon__glyph::after,
+.node-icon--aws-rds .node-icon__glyph::after,
+.node-icon--aws-aurora .node-icon__glyph::after {
+  left: 4px;
+  top: 4px;
+  width: 15px;
+  height: 6px;
+  border-radius: 50%;
+  border-bottom: 2px solid currentColor;
+  background: rgba(255, 255, 255, 0.78);
 }
 
 .node-icon--aws-lambda,
 .node-icon--serverless,
 .node-icon--aws-step-functions {
   color: #92400e;
-  clip-path: polygon(24% 0, 76% 0, 100% 50%, 76% 100%, 24% 100%, 0 50%);
-  border-radius: 0;
+}
+
+.node-icon--aws-lambda .node-icon__glyph::before,
+.node-icon--serverless .node-icon__glyph::before {
+  left: 8px;
+  top: 3px;
+  width: 7px;
+  height: 18px;
+  border-right: 0;
+  border-top-left-radius: 5px;
+  transform: skew(-15deg);
+  background: rgba(254, 243, 199, 0.72);
+}
+
+.node-icon--aws-lambda .node-icon__glyph::after,
+.node-icon--serverless .node-icon__glyph::after {
+  left: 12px;
+  top: 10px;
+  width: 8px;
+  height: 10px;
+  border-left: 0;
+  border-bottom: 0;
+  transform: skew(-18deg);
+}
+
+.node-icon--aws-step-functions .node-icon__glyph::before,
+.node-icon--code-pipeline .node-icon__glyph::before {
+  left: 2px;
+  top: 9px;
+  width: 19px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.node-icon--aws-step-functions .node-icon__glyph::after,
+.node-icon--code-pipeline .node-icon__glyph::after {
+  right: 1px;
+  top: 6px;
+  width: 8px;
+  height: 8px;
+  border-left: 0;
+  border-bottom: 0;
+  transform: rotate(45deg);
 }
 
 .node-icon--aws-ec2,
 .node-icon--compute,
 .node-icon--aws-ecs,
 .node-icon--aws-eks,
-.node-icon--aws-fargate {
+.node-icon--aws-fargate,
+.node-icon--aws-ecr,
+.node-icon--kubernetes,
+.node-icon--container {
   color: #9a3412;
-  border-radius: 7px 2px 7px 2px;
 }
 
-.node-icon--database,
-.node-icon--aws-rds,
-.node-icon--aws-aurora,
+.node-icon--aws-ec2 .node-icon__glyph::before,
+.node-icon--compute .node-icon__glyph::before,
+.node-icon--aws-ecs .node-icon__glyph::before,
+.node-icon--aws-eks .node-icon__glyph::before,
+.node-icon--aws-fargate .node-icon__glyph::before,
+.node-icon--aws-ecr .node-icon__glyph::before,
+.node-icon--kubernetes .node-icon__glyph::before,
+.node-icon--container .node-icon__glyph::before {
+  inset: 4px;
+  border-radius: 3px;
+  background:
+    linear-gradient(90deg, transparent 0 34%, currentColor 34% 44%, transparent 44% 64%, currentColor 64% 74%, transparent 74%),
+    rgba(255, 237, 213, 0.78);
+}
+
+.node-icon--aws-ec2 .node-icon__glyph::after,
+.node-icon--compute .node-icon__glyph::after,
+.node-icon--aws-ecs .node-icon__glyph::after,
+.node-icon--aws-eks .node-icon__glyph::after,
+.node-icon--aws-fargate .node-icon__glyph::after,
+.node-icon--aws-ecr .node-icon__glyph::after,
+.node-icon--kubernetes .node-icon__glyph::after,
+.node-icon--container .node-icon__glyph::after {
+  left: 7px;
+  top: 1px;
+  width: 12px;
+  height: 7px;
+  border-bottom: 0;
+  border-radius: 5px 5px 0 0;
+}
+
 .node-icon--aws-dynamodb,
 .node-icon--aws-redshift,
+.node-icon--aws-opensearch,
+.node-icon--aws-elasticache,
 .node-icon--cache {
   color: #1d4ed8;
-  border-radius: 42% / 18%;
-  box-shadow:
-    inset 0 6px 0 rgba(29, 78, 216, 0.14),
-    inset 0 -5px 0 rgba(29, 78, 216, 0.08);
 }
 
+.node-icon--aws-dynamodb .node-icon__glyph::before,
+.node-icon--aws-redshift .node-icon__glyph::before {
+  inset: 4px;
+  border-radius: 4px;
+  background:
+    linear-gradient(currentColor 0 0) 50% 0 / 2px 100% no-repeat,
+    linear-gradient(currentColor 0 0) 0 50% / 100% 2px no-repeat,
+    rgba(219, 234, 254, 0.78);
+}
+
+.node-icon--aws-dynamodb .node-icon__glyph::after,
+.node-icon--aws-redshift .node-icon__glyph::after,
+.node-icon--aws-elasticache .node-icon__glyph::after,
+.node-icon--cache .node-icon__glyph::after {
+  left: 6px;
+  bottom: 3px;
+  width: 13px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.node-icon--aws-opensearch .node-icon__glyph::before,
+.node-icon--algorithm-search .node-icon__glyph::before {
+  left: 4px;
+  top: 4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+}
+
+.node-icon--aws-opensearch .node-icon__glyph::after,
+.node-icon--algorithm-search .node-icon__glyph::after {
+  right: 2px;
+  bottom: 3px;
+  width: 9px;
+  height: 2px;
+  border-width: 2px 0 0;
+  transform: rotate(45deg);
+}
+
+.node-icon--aws-sqs,
+.node-icon--aws-sns,
+.node-icon--aws-eventbridge,
+.node-icon--aws-kinesis,
+.node-icon--queue,
+.node-icon--algorithm-queue {
+  color: #047857;
+}
+
+.node-icon--aws-sqs .node-icon__glyph::before,
+.node-icon--aws-sns .node-icon__glyph::before,
+.node-icon--aws-eventbridge .node-icon__glyph::before,
+.node-icon--aws-kinesis .node-icon__glyph::before,
+.node-icon--queue .node-icon__glyph::before,
+.node-icon--algorithm-queue .node-icon__glyph::before {
+  left: 3px;
+  top: 5px;
+  width: 17px;
+  height: 4px;
+  border-radius: 999px;
+  box-shadow:
+    0 6px 0 rgba(4, 120, 87, 0.28),
+    0 12px 0 rgba(4, 120, 87, 0.22);
+}
+
+.node-icon--aws-sqs .node-icon__glyph::after,
+.node-icon--aws-sns .node-icon__glyph::after,
+.node-icon--aws-eventbridge .node-icon__glyph::after,
+.node-icon--aws-kinesis .node-icon__glyph::after,
+.node-icon--queue .node-icon__glyph::after,
+.node-icon--algorithm-queue .node-icon__glyph::after {
+  right: 2px;
+  top: 7px;
+  width: 7px;
+  height: 7px;
+  border-left: 0;
+  border-bottom: 0;
+  transform: rotate(45deg);
+}
+
+.node-icon--api-gateway,
+.node-icon--aws-api-gateway,
+.node-icon--aws-internet-gateway,
+.node-icon--aws-nat-gateway,
+.node-icon--load-balancer,
+.node-icon--aws-alb,
+.node-icon--aws-nlb {
+  color: #0e7490;
+}
+
+.node-icon--api-gateway .node-icon__glyph::before,
+.node-icon--aws-api-gateway .node-icon__glyph::before,
+.node-icon--aws-internet-gateway .node-icon__glyph::before,
+.node-icon--aws-nat-gateway .node-icon__glyph::before,
+.node-icon--load-balancer .node-icon__glyph::before,
+.node-icon--aws-alb .node-icon__glyph::before,
+.node-icon--aws-nlb .node-icon__glyph::before {
+  left: 3px;
+  top: 8px;
+  width: 17px;
+  height: 8px;
+  border-radius: 3px;
+  transform: skew(-12deg);
+}
+
+.node-icon--api-gateway .node-icon__glyph::after,
+.node-icon--aws-api-gateway .node-icon__glyph::after,
+.node-icon--aws-internet-gateway .node-icon__glyph::after,
+.node-icon--aws-nat-gateway .node-icon__glyph::after,
+.node-icon--load-balancer .node-icon__glyph::after,
+.node-icon--aws-alb .node-icon__glyph::after,
+.node-icon--aws-nlb .node-icon__glyph::after {
+  left: 6px;
+  top: 2px;
+  width: 11px;
+  height: 19px;
+  border-top: 0;
+  border-bottom: 0;
+}
+
+.node-icon--cloud-provider,
+.node-icon--cdn,
+.node-icon--aws-cloudfront,
+.node-icon--aws-route53 {
+  color: #0369a1;
+}
+
+.node-icon--cloud-provider .node-icon__glyph::before,
+.node-icon--cdn .node-icon__glyph::before,
+.node-icon--aws-cloudfront .node-icon__glyph::before,
+.node-icon--aws-route53 .node-icon__glyph::before {
+  left: 3px;
+  top: 9px;
+  width: 18px;
+  height: 9px;
+  border-radius: 999px;
+}
+
+.node-icon--cloud-provider .node-icon__glyph::after,
+.node-icon--cdn .node-icon__glyph::after,
+.node-icon--aws-cloudfront .node-icon__glyph::after,
+.node-icon--aws-route53 .node-icon__glyph::after {
+  left: 7px;
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.node-icon--group-container,
+.node-icon--cloud-region,
+.node-icon--cloud-vpc,
+.node-icon--subnet,
+.node-icon--aws-account,
+.node-icon--aws-region,
+.node-icon--aws-availability-zone,
+.node-icon--aws-vpc,
+.node-icon--aws-subnet,
+.node-icon--code-workspace,
+.node-icon--code-package,
+.node-icon--code-module {
+  color: #4d7c0f;
+}
+
+.node-icon--group-container .node-icon__glyph::before,
+.node-icon--cloud-region .node-icon__glyph::before,
+.node-icon--cloud-vpc .node-icon__glyph::before,
+.node-icon--subnet .node-icon__glyph::before,
+.node-icon--aws-account .node-icon__glyph::before,
+.node-icon--aws-region .node-icon__glyph::before,
+.node-icon--aws-availability-zone .node-icon__glyph::before,
+.node-icon--aws-vpc .node-icon__glyph::before,
+.node-icon--aws-subnet .node-icon__glyph::before,
+.node-icon--code-workspace .node-icon__glyph::before,
+.node-icon--code-package .node-icon__glyph::before,
+.node-icon--code-module .node-icon__glyph::before {
+  inset: 3px;
+  border-style: dashed;
+  border-radius: 5px;
+}
+
+.node-icon--group-container .node-icon__glyph::after,
+.node-icon--cloud-region .node-icon__glyph::after,
+.node-icon--cloud-vpc .node-icon__glyph::after,
+.node-icon--subnet .node-icon__glyph::after,
+.node-icon--aws-account .node-icon__glyph::after,
+.node-icon--aws-region .node-icon__glyph::after,
+.node-icon--aws-availability-zone .node-icon__glyph::after,
+.node-icon--aws-vpc .node-icon__glyph::after,
+.node-icon--aws-subnet .node-icon__glyph::after,
+.node-icon--code-workspace .node-icon__glyph::after,
+.node-icon--code-package .node-icon__glyph::after,
+.node-icon--code-module .node-icon__glyph::after {
+  inset: 8px;
+  border-radius: 3px;
+  background: rgba(236, 252, 203, 0.68);
+}
+
+.node-icon--identity,
+.node-icon--secrets,
 .node-icon--firewall,
+.node-icon--aws-iam,
+.node-icon--aws-cognito,
+.node-icon--aws-secrets-manager,
+.node-icon--aws-kms,
 .node-icon--aws-waf,
 .node-icon--aws-shield,
 .node-icon--aws-security-group {
   color: #991b1b;
-  clip-path: polygon(12% 0, 88% 0, 100% 50%, 88% 100%, 12% 100%, 0 50%);
-  border-radius: 0;
+}
+
+.node-icon--aws-kms .node-icon__glyph::before,
+.node-icon--secrets .node-icon__glyph::before,
+.node-icon--aws-secrets-manager .node-icon__glyph::before {
+  left: 4px;
+  top: 9px;
+  width: 16px;
+  height: 9px;
+  border-radius: 3px;
+  background: rgba(254, 249, 195, 0.7);
+}
+
+.node-icon--aws-kms .node-icon__glyph::after,
+.node-icon--secrets .node-icon__glyph::after,
+.node-icon--aws-secrets-manager .node-icon__glyph::after {
+  left: 8px;
+  top: 4px;
+  width: 8px;
+  height: 8px;
+  border-bottom: 0;
+  border-radius: 999px 999px 0 0;
+}
+
+.node-icon--firewall .node-icon__glyph::before,
+.node-icon--aws-waf .node-icon__glyph::before,
+.node-icon--aws-shield .node-icon__glyph::before,
+.node-icon--aws-security-group .node-icon__glyph::before {
+  left: 5px;
+  top: 3px;
+  width: 14px;
+  height: 18px;
+  border-radius: 8px 8px 10px 10px;
+  clip-path: polygon(50% 0, 100% 18%, 88% 76%, 50% 100%, 12% 76%, 0 18%);
+  background: rgba(254, 202, 202, 0.62);
+}
+
+.node-icon--identity .node-icon__glyph::before,
+.node-icon--aws-iam .node-icon__glyph::before,
+.node-icon--aws-cognito .node-icon__glyph::before {
+  left: 8px;
+  top: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.node-icon--identity .node-icon__glyph::after,
+.node-icon--aws-iam .node-icon__glyph::after,
+.node-icon--aws-cognito .node-icon__glyph::after {
+  left: 5px;
+  top: 13px;
+  width: 14px;
+  height: 8px;
+  border-radius: 999px 999px 4px 4px;
+  background: rgba(250, 232, 255, 0.7);
+}
+
+.node-icon--monitoring,
+.node-icon--logging,
+.node-icon--aws-cloudwatch,
+.node-icon--aws-cloudtrail {
+  color: #047857;
+}
+
+.node-icon--monitoring .node-icon__glyph::before,
+.node-icon--aws-cloudwatch .node-icon__glyph::before {
+  left: 4px;
+  top: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: conic-gradient(from 20deg, rgba(4, 120, 87, 0.2) 0 35%, transparent 35% 100%);
+}
+
+.node-icon--logging .node-icon__glyph::before,
+.node-icon--aws-cloudtrail .node-icon__glyph::before,
+.node-icon--flow-document .node-icon__glyph::before,
+.node-icon--code-file .node-icon__glyph::before {
+  left: 5px;
+  top: 3px;
+  width: 14px;
+  height: 18px;
+  border-radius: 3px 8px 3px 3px;
+  background:
+    linear-gradient(currentColor 0 0) 4px 6px / 8px 2px no-repeat,
+    linear-gradient(currentColor 0 0) 4px 11px / 7px 2px no-repeat,
+    rgba(255, 255, 255, 0.72);
 }
 
 .node-icon--code-file,
 .node-icon--code-class,
 .node-icon--code-interface,
 .node-icon--code-function,
-.node-icon--code-use-case {
+.node-icon--code-method,
+.node-icon--code-use-case,
+.node-icon--code-entity,
+.node-icon--code-value-object,
+.node-icon--code-port,
+.node-icon--code-adapter,
+.node-icon--code-schema,
+.node-icon--code-component,
+.node-icon--code-controller,
+.node-icon--code-middleware,
+.node-icon--code-hook,
+.node-icon--code-repository,
+.node-icon--code-folder,
+.node-icon--code-variable,
+.node-icon--code-enum,
+.node-icon--code-type {
   color: #4338ca;
-  border-style: dashed;
+}
+
+.node-icon--code-function .node-icon__glyph::before,
+.node-icon--code-method .node-icon__glyph::before,
+.node-icon--code-hook .node-icon__glyph::before {
+  left: 5px;
+  top: 6px;
+  width: 14px;
+  height: 12px;
+  border-radius: 999px;
+}
+
+.node-icon--code-function .node-icon__glyph::after,
+.node-icon--code-method .node-icon__glyph::after,
+.node-icon--code-hook .node-icon__glyph::after {
+  content: "fn";
+  left: 5px;
+  top: 6px;
+  width: 14px;
+  height: 12px;
+  border: 0;
+  color: currentColor;
+  font-size: 8px;
+  font-weight: 900;
+  line-height: 12px;
+  text-align: center;
+}
+
+.node-icon--code-class .node-icon__glyph::before,
+.node-icon--code-interface .node-icon__glyph::before,
+.node-icon--code-type .node-icon__glyph::before,
+.node-icon--code-enum .node-icon__glyph::before,
+.node-icon--code-schema .node-icon__glyph::before,
+.node-icon--code-entity .node-icon__glyph::before,
+.node-icon--code-value-object .node-icon__glyph::before {
+  left: 4px;
+  top: 5px;
+  width: 16px;
+  height: 13px;
+  border-style: double;
+  border-width: 4px;
+}
+
+.node-icon--code-repository .node-icon__glyph::before,
+.node-icon--code-folder .node-icon__glyph::before {
+  left: 3px;
+  top: 8px;
+  width: 18px;
+  height: 11px;
+  border-radius: 3px;
+  background: rgba(254, 249, 195, 0.72);
+}
+
+.node-icon--code-repository .node-icon__glyph::after,
+.node-icon--code-folder .node-icon__glyph::after {
+  left: 5px;
+  top: 5px;
+  width: 8px;
+  height: 5px;
+  border-bottom: 0;
+  border-radius: 3px 3px 0 0;
 }
 
 .node-icon--flow-start,
@@ -656,60 +1190,164 @@ button {
 .node-icon--flow-process,
 .node-icon--flow-decision,
 .node-icon--flow-input,
-.node-icon--flow-output {
+.node-icon--flow-output,
+.node-icon--flow-loop,
+.node-icon--flow-subroutine,
+.node-icon--flow-data {
   color: #065f46;
 }
 
-.node-icon--flow-start,
-.node-icon--flow-end,
-.node-icon--code-function,
-.node-icon--code-method,
-.node-icon--algorithm-search,
-.node-icon--algorithm-sort {
+.node-icon--flow-start .node-icon__glyph::before,
+.node-icon--flow-end .node-icon__glyph::before {
+  left: 3px;
+  top: 7px;
+  width: 18px;
+  height: 10px;
   border-radius: 999px;
+  background: rgba(220, 252, 231, 0.7);
 }
 
-.node-icon--flow-decision,
-.node-icon--algorithm-condition {
-  transform: rotate(45deg) scale(0.82);
-  border-radius: 4px;
-}
-
-.node-icon--flow-decision,
-.node-icon--algorithm-condition {
-  font-size: 9px;
-}
-
-.node-icon--flow-input,
-.node-icon--flow-output,
-.node-icon--flow-data,
-.node-icon--aws-api-gateway,
-.node-icon--api-gateway {
-  transform: skew(-10deg);
+.node-icon--flow-decision .node-icon__glyph::before,
+.node-icon--algorithm-condition .node-icon__glyph::before {
+  left: 6px;
+  top: 5px;
+  width: 13px;
+  height: 13px;
   border-radius: 3px;
+  transform: rotate(45deg);
+  background: rgba(253, 230, 138, 0.62);
+}
+
+.node-icon--flow-input .node-icon__glyph::before,
+.node-icon--flow-output .node-icon__glyph::before,
+.node-icon--flow-data .node-icon__glyph::before {
+  left: 4px;
+  top: 7px;
+  width: 16px;
+  height: 10px;
+  border-radius: 3px;
+  transform: skew(-12deg);
+}
+
+.node-icon--algorithm,
+.node-icon--algorithm-condition,
+.node-icon--algorithm-loop,
+.node-icon--algorithm-recursion,
+.node-icon--algorithm-sort,
+.node-icon--algorithm-search,
+.node-icon--algorithm-graph,
+.node-icon--algorithm-tree,
+.node-icon--algorithm-hash-table,
+.node-icon--algorithm-stack,
+.node-icon--algorithm-linked-list {
+  color: #6d28d9;
+}
+
+.node-icon--algorithm-graph .node-icon__glyph::before {
+  left: 4px;
+  top: 4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  box-shadow:
+    11px 2px 0 -1px #ffffff,
+    11px 2px 0 1px currentColor,
+    5px 12px 0 -1px #ffffff,
+    5px 12px 0 1px currentColor;
+}
+
+.node-icon--algorithm-graph .node-icon__glyph::after,
+.node-icon--algorithm-tree .node-icon__glyph::after,
+.node-icon--algorithm-linked-list .node-icon__glyph::after {
+  left: 6px;
+  top: 8px;
+  width: 12px;
+  height: 8px;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  transform: rotate(24deg);
+}
+
+.node-icon--algorithm-stack .node-icon__glyph::before,
+.node-icon--algorithm-hash-table .node-icon__glyph::before {
+  left: 4px;
+  top: 5px;
+  width: 16px;
+  height: 4px;
+  border-radius: 2px;
+  box-shadow:
+    0 6px 0 rgba(109, 40, 217, 0.22),
+    0 12px 0 rgba(109, 40, 217, 0.16);
 }
 
 .node-port {
   position: absolute;
   z-index: 4;
+  top: 18px;
+  bottom: 18px;
+  width: 28px;
+  min-height: 42px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.node-port::before {
+  content: "";
+  position: absolute;
+  top: 50%;
   width: 14px;
   height: 14px;
   border: 2px solid #111827;
   border-radius: 999px;
   background: #ffffff;
   box-shadow: 1px 1px 0 #111827;
+  transform: translateY(-50%);
+}
+
+.node-port::after {
+  content: "";
+  position: absolute;
+  top: 11px;
+  bottom: 11px;
+  width: 4px;
+  border-radius: 999px;
+  background: rgba(17, 24, 39, 0.08);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.node-port:hover::after,
+.node-port:focus-visible::after {
+  opacity: 1;
 }
 
 .node-port--target {
-  left: -8px;
-  top: 50%;
-  transform: translateY(-50%);
+  left: -15px;
+}
+
+.node-port--target::before {
+  left: 0;
+}
+
+.node-port--target::after {
+  left: 8px;
 }
 
 .node-port--source {
-  right: -8px;
-  top: 50%;
-  transform: translateY(-50%);
+  right: -15px;
+}
+
+.node-port--source::before {
+  right: 0;
+}
+
+.node-port--source::after {
+  right: 8px;
 }
 
 .canvas-edge-layer {
