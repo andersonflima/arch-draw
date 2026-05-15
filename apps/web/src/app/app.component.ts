@@ -16,6 +16,16 @@ import {
 } from "@arch-draw/domain";
 import { api, type ArchitectureSummary } from "../api/client";
 import { parseImportToSharePackage } from "../features/import/diagram-import";
+import { FlowDataNodeComponent } from "./flow-shapes/flow-data-node.component";
+import { FlowDecisionNodeComponent } from "./flow-shapes/flow-decision-node.component";
+import { FlowDocumentNodeComponent } from "./flow-shapes/flow-document-node.component";
+import { FlowEndNodeComponent } from "./flow-shapes/flow-end-node.component";
+import { FlowInputNodeComponent } from "./flow-shapes/flow-input-node.component";
+import { FlowLoopNodeComponent } from "./flow-shapes/flow-loop-node.component";
+import { FlowOutputNodeComponent } from "./flow-shapes/flow-output-node.component";
+import { FlowProcessNodeComponent } from "./flow-shapes/flow-process-node.component";
+import { FlowStartNodeComponent } from "./flow-shapes/flow-start-node.component";
+import { FlowSubroutineNodeComponent } from "./flow-shapes/flow-subroutine-node.component";
 import {
   normalizeEdgeStyle,
   toArchitectureDocument,
@@ -497,7 +507,20 @@ mermaid.initialize({
 @Component({
   selector: "app-root",
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    FlowStartNodeComponent,
+    FlowEndNodeComponent,
+    FlowProcessNodeComponent,
+    FlowDecisionNodeComponent,
+    FlowInputNodeComponent,
+    FlowOutputNodeComponent,
+    FlowLoopNodeComponent,
+    FlowSubroutineNodeComponent,
+    FlowDataNodeComponent,
+    FlowDocumentNodeComponent
+  ],
   templateUrl: "./app.component.html"
 })
 export class AppComponent {
@@ -1065,6 +1088,10 @@ export class AppComponent {
 
   isContainerPlusNode(node: CanvasNode): boolean {
     return node.kind === "group-container-plus";
+  }
+
+  isFlowNodeKind(kind: ArchitectureNodeKind): boolean {
+    return kind.startsWith("flow-");
   }
 
   isCollapsibleContainerNode(node: CanvasNode): boolean {
