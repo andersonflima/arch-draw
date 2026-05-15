@@ -121,6 +121,13 @@ const AUTOSAVE_DEBOUNCE_MS = 1200;
 const EDGE_NODE_GAP = 10;
 const MAX_UNDO_HISTORY = 150;
 const DRAG_START_THRESHOLD = 4;
+const EXPORT_EXCLUDED_SELECTORS = [
+  ".canvas-map",
+  ".context-properties-popup",
+  ".canvas-marquee",
+  ".canvas-edge-label-editor",
+  ".node-inline-label-input"
+] as const;
 const CLOUD_PROPERTY_FIELDS: readonly NodePropertyField[] = [
   { key: "provider", label: "Provider", placeholder: "aws, azure, gcp" },
   { key: "accountId", label: "Account ID", placeholder: "123456789012" },
@@ -679,11 +686,15 @@ export class AppComponent {
       if (!this.architecture) return;
       const canvas = this.getExportCanvasElement();
       if (!canvas) throw new Error("Canvas indisponivel para exportacao.");
+      const exportDimensions = this.getExportCanvasDimensions(canvas);
 
       const dataUrl = await toSvg(canvas, {
         cacheBust: true,
-        filter: (node) =>
-          !(node instanceof Element && node.classList.contains("canvas-map"))
+        width: exportDimensions.width,
+        height: exportDimensions.height,
+        canvasWidth: exportDimensions.width,
+        canvasHeight: exportDimensions.height,
+        filter: (node) => this.shouldIncludeNodeInExport(node)
       });
       this.downloadDataUrl(dataUrl, `${this.getExportFileBaseName()}.svg`);
       this.status = "Arquivo SVG exportado";
@@ -695,12 +706,16 @@ export class AppComponent {
       if (!this.architecture) return;
       const canvas = this.getExportCanvasElement();
       if (!canvas) throw new Error("Canvas indisponivel para exportacao.");
+      const exportDimensions = this.getExportCanvasDimensions(canvas);
 
       const dataUrl = await toPng(canvas, {
         cacheBust: true,
         pixelRatio: 2,
-        filter: (node) =>
-          !(node instanceof Element && node.classList.contains("canvas-map"))
+        width: exportDimensions.width,
+        height: exportDimensions.height,
+        canvasWidth: exportDimensions.width,
+        canvasHeight: exportDimensions.height,
+        filter: (node) => this.shouldIncludeNodeInExport(node)
       });
       this.downloadDataUrl(dataUrl, `${this.getExportFileBaseName()}.png`);
       this.status = "Arquivo PNG exportado";
@@ -2655,6 +2670,18 @@ export class AppComponent {
 
   private getExportCanvasElement(): HTMLElement | null {
     return this.canvasShell?.nativeElement ?? null;
+  }
+
+  private getExportCanvasDimensions(canvas: HTMLElement): Readonly<{ width: number; height: number }> {
+    return {
+      width: Math.max(1, Math.floor(canvas.clientWidth)),
+      height: Math.max(1, Math.floor(canvas.clientHeight))
+    };
+  }
+
+  private shouldIncludeNodeInExport(node: Node): boolean {
+    if (!(node instanceof Element)) return true;
+    return !EXPORT_EXCLUDED_SELECTORS.some((selector) => node.closest(selector));
   }
 
   private getExportFileBaseName(): string {
