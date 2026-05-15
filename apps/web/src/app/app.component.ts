@@ -118,11 +118,11 @@ export class AppComponent {
 
   readonly nodeCatalog = nodeCatalog;
   readonly nodeTemplateCategories = nodeTemplateCategories;
-  readonly containerPlusIconKinds: readonly ArchitectureNodeKind[] = [
+  readonly collapsibleIconKinds: readonly ArchitectureNodeKind[] = [
     ...new Set(
       nodeCatalog
         .map((template) => template.kind)
-        .filter((kind) => !kind.startsWith("flow-") && !isContainerNodeKind(kind))
+        .filter((kind) => !kind.startsWith("flow-"))
     )
   ];
   readonly edgePaths: readonly ArchitectureEdgePath[] = ["smoothstep", "step", "straight", "bezier"];
@@ -324,7 +324,10 @@ export class AppComponent {
   }
 
   templatesByCategory(category: NodeTemplateCategory): readonly NodeTemplate[] {
-    return this.nodeCatalog.filter((template) => template.category === category);
+    return this.nodeCatalog.filter((template) =>
+      template.category === category &&
+      !this.isSimpleContainerKind(template.kind)
+    );
   }
 
   filteredTemplatesByCategory(category: NodeTemplateCategory): readonly NodeTemplate[] {
@@ -347,6 +350,13 @@ export class AppComponent {
     return this.nodeTemplateCategories.some((category) => this.hasFilteredTemplates(category));
   }
 
+  getNodeKindOptions(selectedKind: ArchitectureNodeKind): readonly ArchitectureNodeKind[] {
+    const options = this.nodeCatalog
+      .map((template) => template.kind)
+      .filter((kind) => !this.isSimpleContainerKind(kind));
+    return options.includes(selectedKind) ? options : [selectedKind, ...options];
+  }
+
   addNode(template: NodeTemplate, position = this.nextNodePosition()): void {
     const id = `${template.kind}-${crypto.randomUUID()}`;
     const size = getDefaultNodeSize(template.kind);
@@ -364,8 +374,13 @@ export class AppComponent {
       color: template.color,
       position: nodePosition,
       size,
-      collapsed: template.kind === "group-container-plus" ? false : undefined,
-      collapsedIconKind: template.kind === "group-container-plus" ? "system" : undefined,
+      collapsed: isContainerNodeKind(template.kind) ? false : undefined,
+      collapsedIconKind:
+        template.kind === "group-container-plus"
+          ? "system"
+          : isContainerNodeKind(template.kind)
+            ? template.kind
+            : undefined,
       expandedSize: undefined
     };
 
@@ -479,25 +494,6 @@ export class AppComponent {
       this.markViewChanged();
       return;
     }
-
-    if (this.isContainerPlusCollapsedById(nodeId)) {
-      this.setContainerPlusCollapsed(nodeId, false);
-      this.selectedNodeId = nodeId;
-      this.selectedNodeIds = [nodeId];
-      this.selectedEdgeId = null;
-      this.editingEdgeId = null;
-      this.editingEdgeLabelDraft = "";
-      this.editingNodeId = null;
-      this.marqueeState = null;
-      this.resizeEnabledNodeId = nodeId;
-      this.markViewChanged();
-      return;
-    }
-
-    if (event.detail >= 2) {
-      this.startNodeLabelEditing(nodeId, event);
-      return;
-    }
     this.selectedNodeId = nodeId;
     this.selectedNodeIds = [nodeId];
     this.selectedEdgeId = null;
@@ -507,6 +503,25 @@ export class AppComponent {
     this.marqueeState = null;
     this.resizeEnabledNodeId = nodeId;
     this.markViewChanged();
+  }
+
+  onNodeDoubleClick(node: CanvasNode, event: MouseEvent): void {
+    event.stopPropagation();
+    if (this.isContainerCollapsed(node)) {
+      this.setContainerCollapsed(node.id, false);
+      this.selectedNodeId = node.id;
+      this.selectedNodeIds = [node.id];
+      this.selectedEdgeId = null;
+      this.editingEdgeId = null;
+      this.editingEdgeLabelDraft = "";
+      this.editingNodeId = null;
+      this.marqueeState = null;
+      this.resizeEnabledNodeId = node.id;
+      this.markViewChanged();
+      return;
+    }
+
+    this.startNodeLabelEditing(node.id, event);
   }
 
   isEditingNode(nodeId: string): boolean {
@@ -591,14 +606,20 @@ export class AppComponent {
     const size = this.getSizeForKind(selected, kind);
     this.nodes = this.nodes.map((node) => {
       if (node.id === selected.id) {
+        const isContainerKind = isContainerNodeKind(kind);
+        const nextCollapsedIconKind =
+          kind === "group-container-plus"
+            ? node.collapsedIconKind ?? "system"
+            : isContainerKind
+              ? node.collapsedIconKind ?? kind
+              : undefined;
         return {
           ...node,
           kind,
           size,
-          collapsed: kind === "group-container-plus" ? (node.collapsed ?? false) : undefined,
-          collapsedIconKind:
-            kind === "group-container-plus" ? (node.collapsedIconKind ?? "system") : undefined,
-          expandedSize: kind === "group-container-plus" ? node.expandedSize : undefined
+          collapsed: isContainerKind ? (node.collapsed ?? false) : undefined,
+          collapsedIconKind: nextCollapsedIconKind,
+          expandedSize: isContainerKind ? node.expandedSize : undefined
         };
       }
       return node.parentId === selected.id && !isContainerNodeKind(kind)
@@ -612,23 +633,27 @@ export class AppComponent {
     return node.kind === "group-container-plus";
   }
 
-  isContainerPlusCollapsed(node: CanvasNode): boolean {
-    return node.kind === "group-container-plus" && Boolean(node.collapsed);
+  isCollapsibleContainerNode(node: CanvasNode): boolean {
+    return isContainerNodeKind(node.kind);
   }
 
-  setSelectedContainerPlusCollapsed(collapsed: boolean): void {
+  isContainerCollapsed(node: CanvasNode): boolean {
+    return this.isCollapsibleContainerNode(node) && Boolean(node.collapsed);
+  }
+
+  setSelectedContainerCollapsed(collapsed: boolean): void {
     const selected = this.selectedNode;
-    if (!selected || !this.isContainerPlusNode(selected)) return;
-    this.setContainerPlusCollapsed(selected.id, collapsed);
+    if (!selected || !this.isCollapsibleContainerNode(selected)) return;
+    this.setContainerCollapsed(selected.id, collapsed);
     this.selectedNodeId = selected.id;
     this.selectedNodeIds = [selected.id];
     this.resizeEnabledNodeId = collapsed ? null : selected.id;
     this.markViewChanged();
   }
 
-  updateSelectedContainerPlusIcon(kind: ArchitectureNodeKind): void {
+  updateSelectedCollapsedIcon(kind: ArchitectureNodeKind): void {
     const selected = this.selectedNode;
-    if (!selected || !this.isContainerPlusNode(selected)) return;
+    if (!selected || !this.isCollapsibleContainerNode(selected)) return;
     this.updateNode(selected.id, { collapsedIconKind: kind });
   }
 
@@ -798,7 +823,7 @@ export class AppComponent {
   }
 
   onNodePointerDown(event: PointerEvent, node: CanvasNode): void {
-    if ((event.target as HTMLElement).closest(".node-port, .resize-control, .node-inline-label-input")) return;
+    if ((event.target as HTMLElement).closest(".node-port, .resize-control, .node-inline-label-input, .node-collapse-toggle")) return;
     event.stopPropagation();
     const isInSelection = this.selectedNodeIds.includes(node.id);
     const draggedIds =
@@ -829,6 +854,18 @@ export class AppComponent {
       pointerOffsets
     };
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    this.markViewChanged();
+  }
+
+  onNodeCollapseToggle(node: CanvasNode, event: Event): void {
+    event.stopPropagation();
+    if (!this.isCollapsibleContainerNode(node)) return;
+    this.selectedNodeId = node.id;
+    this.selectedNodeIds = [node.id];
+    this.selectedEdgeId = null;
+    this.editingNodeId = null;
+    this.setContainerCollapsed(node.id, !this.isContainerCollapsed(node));
+    this.resizeEnabledNodeId = this.isContainerCollapsedById(node.id) ? null : node.id;
     this.markViewChanged();
   }
 
@@ -1017,20 +1054,20 @@ export class AppComponent {
     const visualGroup = getNodeVisualGroup(node.kind);
     const isContainer = this.rendersAsContainer(node);
     const isIconOnly = isIconOnlyNodeKind(node.kind);
-    const isCollapsedContainerPlus = this.isContainerPlusCollapsed(node);
+    const isCollapsedContainer = this.isContainerCollapsed(node);
     return [
       "architecture-node",
       `architecture-node--${visualGroup}`,
       `architecture-node--${node.kind}`,
-      isCollapsedContainerPlus ? "architecture-node--container-plus-collapsed" : "",
-      isContainer ? "architecture-node--container" : (isIconOnly || isCollapsedContainerPlus) ? "architecture-node--leaf" : "",
+      isCollapsedContainer ? "architecture-node--container-collapsed" : "",
+      isContainer ? "architecture-node--container" : (isIconOnly || isCollapsedContainer) ? "architecture-node--leaf" : "",
       this.selectedNodeIds.includes(node.id) ? "is-selected" : ""
     ].filter(Boolean).join(" ");
   }
 
   canResizeNode(nodeId: string): boolean {
     const node = this.nodes.find((candidate) => candidate.id === nodeId);
-    if (node && this.isContainerPlusCollapsed(node)) return false;
+    if (node && this.isContainerCollapsed(node)) return false;
     return (
       this.selectedNodeIds.length === 1 &&
       this.selectedNodeId === nodeId
@@ -1038,7 +1075,7 @@ export class AppComponent {
   }
 
   isVisibleNode(node: CanvasNode): boolean {
-    return !this.hasCollapsedContainerPlusAncestor(node);
+    return !this.hasCollapsedContainerAncestor(node);
   }
 
   isVisibleEdge(edge: CanvasEdge): boolean {
@@ -1084,7 +1121,7 @@ export class AppComponent {
   }
 
   getNodeIconKind(node: CanvasNode): ArchitectureNodeKind {
-    if (this.isContainerPlusCollapsed(node)) return node.collapsedIconKind ?? "system";
+    if (this.isContainerCollapsed(node)) return node.collapsedIconKind ?? node.kind;
     return node.kind;
   }
 
@@ -1271,22 +1308,26 @@ export class AppComponent {
     this.markViewChanged();
   }
 
-  private isContainerPlusCollapsedById(nodeId: string): boolean {
+  private isContainerCollapsedById(nodeId: string): boolean {
     const node = this.nodes.find((candidate) => candidate.id === nodeId);
-    return node ? this.isContainerPlusCollapsed(node) : false;
+    return node ? this.isContainerCollapsed(node) : false;
   }
 
-  private setContainerPlusCollapsed(nodeId: string, collapsed: boolean): void {
+  private setContainerCollapsed(nodeId: string, collapsed: boolean): void {
     this.nodes = this.sortNodes(
       this.nodes.map((node) => {
-        if (node.id !== nodeId || node.kind !== "group-container-plus") return node;
+        if (node.id !== nodeId || !isContainerNodeKind(node.kind)) return node;
+        const collapsedIconKind =
+          node.collapsedIconKind
+          ?? (node.kind === "group-container-plus" ? "system" : node.kind);
         if (collapsed) {
           if (node.collapsed) return node;
           return {
             ...node,
             collapsed: true,
             expandedSize: node.size,
-            size: getDefaultNodeSize(node.collapsedIconKind ?? "system")
+            collapsedIconKind,
+            size: { width: 136, height: 140 }
           };
         }
 
@@ -1294,7 +1335,7 @@ export class AppComponent {
         return {
           ...node,
           collapsed: false,
-          size: node.expandedSize ?? getDefaultNodeSize("group-container-plus"),
+          size: node.expandedSize ?? getDefaultNodeSize(node.kind),
           expandedSize: undefined
         };
       })
@@ -1312,15 +1353,15 @@ export class AppComponent {
   }
 
   private rendersAsContainer(node: CanvasNode): boolean {
-    return isContainerNodeKind(node.kind) && !this.isContainerPlusCollapsed(node);
+    return isContainerNodeKind(node.kind) && !this.isContainerCollapsed(node);
   }
 
-  private hasCollapsedContainerPlusAncestor(node: CanvasNode): boolean {
+  private hasCollapsedContainerAncestor(node: CanvasNode): boolean {
     let currentParentId = node.parentId;
     while (currentParentId) {
       const parent = this.nodes.find((candidate) => candidate.id === currentParentId);
       if (!parent) return false;
-      if (this.isContainerPlusCollapsed(parent)) return true;
+      if (this.isContainerCollapsed(parent)) return true;
       currentParentId = parent.parentId;
     }
     return false;
@@ -2028,6 +2069,10 @@ export class AppComponent {
       .replaceAll(/[\u0300-\u036f]/g, "")
       .trim()
       .toLowerCase();
+  }
+
+  private isSimpleContainerKind(kind: ArchitectureNodeKind): boolean {
+    return kind === "group-container" || kind === "container";
   }
 
   private markViewChanged(): void {
