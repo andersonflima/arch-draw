@@ -58,6 +58,12 @@ type MarqueeState = Readonly<{
   current: Readonly<{ x: number; y: number }>;
 }>;
 
+type ConnectionDragState = Readonly<{
+  sourceId: string;
+  start: Readonly<{ x: number; y: number }>;
+  current: Readonly<{ x: number; y: number }>;
+}>;
+
 const DEFAULT_MERMAID_SOURCE = `graph LR
   User["User"] --> Api["API"]
   Api --> Db["SQLite"]`;
@@ -122,6 +128,7 @@ export class AppComponent {
   marqueeState: MarqueeState | null = null;
   private suppressCanvasClickClear = false;
   private resizeEnabledNodeId: string | null = null;
+  private connectionDragState: ConnectionDragState | null = null;
   private autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
   private autoSaveInFlight = false;
   private autoSaveQueued = false;
@@ -315,6 +322,7 @@ export class AppComponent {
     this.selectedNodeIds = [];
     this.selectedEdgeId = null;
     this.connectionSourceId = null;
+    this.connectionDragState = null;
     this.marqueeState = null;
     this.resizeEnabledNodeId = null;
     this.markViewChanged();
@@ -420,19 +428,35 @@ export class AppComponent {
     this.markViewChanged();
   }
 
+  onSourcePortPointerDown(event: PointerEvent, nodeId: string): void {
+    this.startConnect(nodeId, event);
+    const point = this.toCanvasPoint(event);
+    this.connectionDragState = {
+      sourceId: nodeId,
+      start: point,
+      current: point
+    };
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    this.markViewChanged();
+  }
+
+  onSourcePortClick(event: Event, nodeId: string): void {
+    this.startConnect(nodeId, event);
+  }
+
+  onTargetPortPointerDown(event: PointerEvent, nodeId: string): void {
+    this.finishConnect(nodeId, event);
+  }
+
+  onTargetPortClick(event: Event, nodeId: string): void {
+    this.finishConnect(nodeId, event);
+  }
+
   finishConnect(nodeId: string, event: Event): void {
     event.stopPropagation();
     if (!this.connectionSourceId || this.connectionSourceId === nodeId) return;
-    const style = normalizeEdgeStyle(undefined);
-    this.edges = [
-      ...this.edges,
-      {
-        id: `edge-${this.connectionSourceId}-${nodeId}-${crypto.randomUUID()}`,
-        from: this.connectionSourceId,
-        to: nodeId,
-        style
-      }
-    ];
+    this.createConnection(this.connectionSourceId, nodeId);
+    this.connectionDragState = null;
     this.connectionSourceId = null;
     this.markViewChanged();
   }
@@ -532,6 +556,15 @@ export class AppComponent {
       return;
     }
 
+    if (this.connectionDragState) {
+      this.connectionDragState = {
+        ...this.connectionDragState,
+        current: this.toCanvasPoint(event)
+      };
+      this.markViewChanged();
+      return;
+    }
+
     if (this.marqueeState) {
       this.marqueeState = {
         ...this.marqueeState,
@@ -562,6 +595,16 @@ export class AppComponent {
       this.marqueeState = null;
       this.suppressCanvasClickClear = true;
       this.resizeEnabledNodeId = null;
+      this.markViewChanged();
+    }
+
+    if (this.connectionDragState) {
+      const targetNodeId = this.getNodeIdFromPointerEvent(event);
+      if (targetNodeId && targetNodeId !== this.connectionDragState.sourceId) {
+        this.createConnection(this.connectionDragState.sourceId, targetNodeId);
+      }
+      this.connectionDragState = null;
+      this.connectionSourceId = null;
       this.markViewChanged();
     }
 
@@ -691,6 +734,17 @@ export class AppComponent {
 
   getEdgeColor(edge: CanvasEdge): string {
     return normalizeEdgeStyle(edge.style).color;
+  }
+
+  getConnectionPreviewPath(): string {
+    const dragState = this.connectionDragState;
+    if (!dragState) return "";
+    const source = this.nodes.find((node) => node.id === dragState.sourceId);
+    if (!source) return "";
+    const start = this.getAnchorTowardPoint(source, dragState.current, EDGE_NODE_GAP);
+    const end = dragState.current;
+    const midX = (start.x + end.x) / 2;
+    return `M ${start.x} ${start.y} C ${midX} ${start.y}, ${midX} ${end.y}, ${end.x} ${end.y}`;
   }
 
   isLiveDashed(edge: CanvasEdge): boolean {
@@ -1052,6 +1106,33 @@ export class AppComponent {
     };
   }
 
+  private getAnchorTowardPoint(
+    from: CanvasNode,
+    target: Readonly<{ x: number; y: number }>,
+    gap: number
+  ): Readonly<{ x: number; y: number }> {
+    const center = this.getNodeCenter(from);
+    const dx = target.x - center.x;
+    const dy = target.y - center.y;
+    const xScale = dx === 0 ? Number.POSITIVE_INFINITY : from.size.width / 2 / Math.abs(dx);
+    const yScale = dy === 0 ? Number.POSITIVE_INFINITY : from.size.height / 2 / Math.abs(dy);
+    const scale = Math.min(xScale, yScale);
+
+    if (!Number.isFinite(scale)) return center;
+
+    const anchor = {
+      x: center.x + dx * scale,
+      y: center.y + dy * scale
+    };
+    const distance = Math.hypot(anchor.x - center.x, anchor.y - center.y);
+    if (distance === 0) return anchor;
+
+    return {
+      x: anchor.x + ((anchor.x - center.x) / distance) * gap,
+      y: anchor.y + ((anchor.y - center.y) / distance) * gap
+    };
+  }
+
   private getAnchorWithGap(
     from: CanvasNode,
     to: CanvasNode,
@@ -1144,6 +1225,30 @@ export class AppComponent {
   private normalizeMermaidError(cause: unknown): string {
     const message = cause instanceof Error ? cause.message : "Mermaid invalido";
     return message.replaceAll(/<[^>]+>/g, "").replaceAll(/\s+/g, " ").trim();
+  }
+
+  private createConnection(from: string, to: string): void {
+    const style = normalizeEdgeStyle(undefined);
+    this.edges = [
+      ...this.edges,
+      {
+        id: `edge-${from}-${to}-${crypto.randomUUID()}`,
+        from,
+        to,
+        style
+      }
+    ];
+  }
+
+  private getNodeIdFromPointerEvent(event: PointerEvent): string | null {
+    const target = event.target as HTMLElement | null;
+    const fromTarget = target?.closest<HTMLElement>("[data-node-id]")?.dataset["nodeId"] ?? null;
+    if (fromTarget) return fromTarget;
+    const fallback = document
+      .elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLElement>("[data-node-id]")
+      ?.dataset["nodeId"] ?? null;
+    return fallback;
   }
 
   private isTypingTarget(target: EventTarget | null): boolean {

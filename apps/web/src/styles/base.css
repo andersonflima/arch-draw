@@ -1862,6 +1862,13 @@ button {
   stroke-width: 4;
 }
 
+.canvas-edge-preview {
+  stroke: #2563eb;
+  stroke-dasharray: 8 6;
+  opacity: 0.9;
+  animation: edge-flow-dash 0.9s linear infinite;
+}
+
 .canvas-edge.is-live-dashed {
   animation: edge-flow-dash 0.9s linear infinite;
 }
@@ -1876,7 +1883,8 @@ button {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .canvas-edge.is-live-dashed {
+  .canvas-edge.is-live-dashed,
+  .canvas-edge-preview {
     animation: none;
   }
 }

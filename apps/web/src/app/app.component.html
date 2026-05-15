@@ -162,6 +162,12 @@
               (click)="selectEdge(edge.id, $event)"
             />
           </g>
+          <path
+            *ngIf="getConnectionPreviewPath() as previewPath"
+            class="canvas-edge canvas-edge-preview"
+            [attr.d]="previewPath"
+            marker-end="url(#edge-arrow)"
+          />
         </svg>
 
         <ng-container *ngFor="let node of nodes">
@@ -177,6 +183,7 @@
         <ng-template #canvasNodeTemplate let-node>
           <div
             [class]="getNodeClass(node)"
+            [attr.data-node-id]="node.id"
             [ngStyle]="getNodeStyle(node)"
             (pointerdown)="onNodePointerDown($event, node)"
             (click)="onNodeClick(node.id, $event)"
@@ -185,8 +192,8 @@
               class="node-port node-port--target"
               type="button"
               title="Conectar aqui"
-              (pointerdown)="finishConnect(node.id, $event)"
-              (click)="finishConnect(node.id, $event)"
+              (pointerdown)="onTargetPortPointerDown($event, node.id)"
+              (click)="onTargetPortClick($event, node.id)"
             ></button>
             <div class="architecture-node__header">
               <span [class]="'node-icon node-icon--' + node.kind" [attr.title]="getNodeIcon(node.kind)">
@@ -200,8 +207,8 @@
               class="node-port node-port--source"
               type="button"
               title="Criar conexao"
-              (pointerdown)="startConnect(node.id, $event)"
-              (click)="startConnect(node.id, $event)"
+              (pointerdown)="onSourcePortPointerDown($event, node.id)"
+              (click)="onSourcePortClick($event, node.id)"
             ></button>
 
             <ng-container *ngIf="canResizeNode(node.id)">
