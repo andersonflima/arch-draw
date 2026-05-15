@@ -2391,13 +2391,15 @@ button {
 .context-properties-popup {
   position: fixed;
   z-index: 60;
-  width: 360px;
+  width: min(360px, calc(100vw - 16px));
   max-height: calc(100vh - 16px);
   border: 2px solid #111827;
   border-radius: 8px;
   background: #fffaf0;
   box-shadow: 3px 3px 0 #111827;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .context-properties-popup .panel-heading {
