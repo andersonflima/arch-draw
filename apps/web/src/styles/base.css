@@ -780,7 +780,7 @@ button {
   justify-content: center;
 }
 
-.architecture-node--leaf .architecture-node__header span:last-child {
+.architecture-node--leaf .architecture-node__kind-label {
   display: none;
 }
 
@@ -2366,7 +2366,7 @@ button {
   word-break: normal;
 }
 
-.architecture-node__header span:last-child {
+.architecture-node__kind-label {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
