@@ -170,30 +170,8 @@ button {
   border-left: 2px solid #111827;
 }
 
-.right-rail.right-rail--mermaid-open {
-  grid-template-rows: 340px minmax(0, 1fr);
-}
-
-.right-rail .inspector,
 .right-rail .mermaid-panel {
   border-right: 0;
-}
-
-.right-rail .inspector {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  min-height: 0;
-  border-bottom: 0;
-}
-
-.right-rail.right-rail--mermaid-open .inspector {
-  border-bottom: 2px solid #111827;
-}
-
-.right-rail .inspector .property-stack {
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
 }
 
 .panel-heading {
@@ -2405,6 +2383,25 @@ button {
   grid-template-columns: 40px 1fr 40px;
   gap: 8px;
   margin-top: 10px;
+}
+
+.context-properties-popup {
+  position: fixed;
+  z-index: 60;
+  width: 360px;
+  max-height: calc(100vh - 16px);
+  border: 2px solid #111827;
+  border-radius: 8px;
+  background: #fffaf0;
+  box-shadow: 3px 3px 0 #111827;
+  overflow: auto;
+}
+
+.context-properties-popup .panel-heading {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #fffaf0;
 }
 
 .zoom-value {

@@ -35,15 +35,6 @@
       <button
         class="icon-button"
         type="button"
-        [title]="isMermaidPanelOpen ? 'Ocultar Mermaid' : 'Mostrar Mermaid'"
-        [attr.aria-label]="isMermaidPanelOpen ? 'Ocultar Mermaid' : 'Mostrar Mermaid'"
-        (click)="toggleMermaidPanel()"
-      >
-        <i class="fa-solid fa-diagram-project" aria-hidden="true"></i>
-      </button>
-      <button
-        class="icon-button"
-        type="button"
         title="Apagar item selecionado ou limpar board"
         aria-label="Apagar item selecionado ou limpar board"
         (click)="onToolbarDeleteClick()"
@@ -137,6 +128,7 @@
       (dragover)="$event.preventDefault()"
       (drop)="onCanvasDrop($event)"
       (wheel)="onCanvasWheel($event)"
+      (contextmenu)="onCanvasContextMenu($event)"
     >
       <div class="canvas-viewport" [ngStyle]="getViewportStyle()">
         <ng-container *ngFor="let node of nodes">
@@ -167,6 +159,7 @@
               [attr.d]="getEdgePath(edge)"
               (click)="onEdgeClick(edge.id, $event)"
               (dblclick)="onEdgeDoubleClick(edge.id, $event)"
+              (contextmenu)="onEdgeContextMenu(edge.id, $event)"
             />
             <path
               class="canvas-edge"
@@ -180,6 +173,7 @@
               marker-end="url(#edge-arrow)"
               (click)="onEdgeClick(edge.id, $event)"
               (dblclick)="onEdgeDoubleClick(edge.id, $event)"
+              (contextmenu)="onEdgeContextMenu(edge.id, $event)"
             />
             <text *ngIf="edge.label && !isEditingEdge(edge.id)" class="canvas-edge-label">
               <textPath [attr.href]="'#edge-path-' + edge.id" startOffset="50%">
@@ -231,6 +225,7 @@
             (pointerdown)="onNodePointerDown($event, node)"
             (click)="onNodeClick(node.id, $event)"
             (dblclick)="onNodeDoubleClick(node, $event)"
+            (contextmenu)="onNodeContextMenu(node.id, $event)"
           >
             <button
               class="node-port node-port--target"
@@ -315,14 +310,18 @@
           <button class="icon-button" type="button" title="Aumentar zoom" (click)="zoomIn()">+</button>
         </div>
       </section>
-    </main>
 
-    <div class="right-rail" [class.right-rail--mermaid-open]="isMermaidPanelOpen">
-      <aside class="inspector" aria-label="Inspector">
+      <section
+        class="context-properties-popup"
+        *ngIf="contextPropertiesPanel && (selectedNode || selectedEdge)"
+        [ngStyle]="getContextPropertiesPanelStyle()"
+        (click)="$event.stopPropagation()"
+        (pointerdown)="$event.stopPropagation()"
+      >
         <div class="panel-heading">
           <div>
             <span>Propriedades</span>
-            <small>{{ selectedNode ? "No selecionado" : selectedEdge ? "Linha selecionada" : "Selecione algo" }}</small>
+            <small>{{ selectedNode ? "No selecionado" : "Linha selecionada" }}</small>
           </div>
         </div>
 
@@ -417,13 +416,11 @@
           </label>
           <button class="danger-action" type="button" (click)="deleteSelectedEdge()">Remover linha</button>
         </div>
+      </section>
+    </main>
 
-        <p class="muted-copy" *ngIf="!selectedNode && !selectedEdge">
-          Use os blocos, conecte nos ou aplique Mermaid para compor a arquitetura.
-        </p>
-      </aside>
-
-      <section class="mermaid-panel" aria-label="Mermaid editor" *ngIf="isMermaidPanelOpen">
+    <div class="right-rail">
+      <section class="mermaid-panel" aria-label="Mermaid editor">
         <div class="panel-heading">
           <div>
             <span>Mermaid</span>
