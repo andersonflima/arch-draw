@@ -143,19 +143,45 @@
             <path
               class="canvas-edge-hit"
               [attr.d]="getEdgePath(edge)"
-              (click)="selectEdge(edge.id, $event)"
+              (click)="onEdgeClick(edge.id, $event)"
+              (dblclick)="onEdgeDoubleClick(edge.id, $event)"
             />
             <path
               class="canvas-edge"
               [class.is-selected]="edge.id === selectedEdgeId"
               [class.is-live]="isLiveEdge(edge)"
+              [attr.id]="'edge-path-' + edge.id"
               [attr.d]="getEdgePath(edge)"
               [attr.stroke]="getEdgeColor(edge)"
               [attr.stroke-dasharray]="getEdgeDash(edge)"
               [attr.marker-start]="isBidirectional(edge) ? 'url(#edge-arrow)' : null"
               marker-end="url(#edge-arrow)"
-              (click)="selectEdge(edge.id, $event)"
+              (click)="onEdgeClick(edge.id, $event)"
+              (dblclick)="onEdgeDoubleClick(edge.id, $event)"
             />
+            <text *ngIf="edge.label && !isEditingEdge(edge.id)" class="canvas-edge-label">
+              <textPath [attr.href]="'#edge-path-' + edge.id" startOffset="50%">
+                {{ edge.label }}
+              </textPath>
+            </text>
+            <foreignObject
+              *ngIf="isEditingEdge(edge.id)"
+              class="canvas-edge-label-editor"
+              [attr.x]="getEdgeLabelPosition(edge).x - 90"
+              [attr.y]="getEdgeLabelPosition(edge).y - 16"
+              width="180"
+              height="32"
+            >
+              <textarea
+                [attr.data-edge-editor-id]="edge.id"
+                [ngModel]="editingEdgeLabelDraft"
+                (ngModelChange)="editingEdgeLabelDraft = $event"
+                (blur)="commitEdgeLabelEditing(edge.id)"
+                (click)="$event.stopPropagation()"
+                (pointerdown)="$event.stopPropagation()"
+                (keydown)="onEdgeLabelEditorKeyDown($event, edge.id)"
+              ></textarea>
+            </foreignObject>
           </g>
           <path
             *ngIf="getConnectionPreviewPath() as previewPath"
