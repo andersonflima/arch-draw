@@ -1035,7 +1035,7 @@ export class AppComponent {
         ...this.connectionDragState,
         current: this.toCanvasPoint(event)
       };
-      this.markViewChanged();
+      this.markInteractionChanged();
       return;
     }
 
@@ -1044,12 +1044,14 @@ export class AppComponent {
         ...this.marqueeState,
         current: this.toCanvasPoint(event)
       };
-      this.markViewChanged();
+      this.markInteractionChanged();
     }
   }
 
   @HostListener("window:pointerup", ["$event"])
   onWindowPointerUp(event: PointerEvent): void {
+    const hadDragState = this.dragState !== null;
+    const hadResizeState = this.resizeState !== null;
     if (this.dragState) {
       const selectedIds = new Set(this.dragState.pointerOffsets.keys());
       const dropPoint = this.toCanvasPoint(event);
@@ -1087,6 +1089,8 @@ export class AppComponent {
 
     this.dragState = null;
     this.resizeState = null;
+
+    if (hadDragState || hadResizeState) this.markViewChanged();
   }
 
   @HostListener("window:keydown", ["$event"])
@@ -1509,7 +1513,7 @@ export class AppComponent {
 
       return { ...node, position };
     });
-    this.markViewChanged();
+    this.markInteractionChanged();
   }
 
   private attachNodeToContainer(
@@ -1534,7 +1538,6 @@ export class AppComponent {
           : node
       )
     );
-    this.markViewChanged();
   }
 
   private findContainingNode(
@@ -1603,7 +1606,12 @@ export class AppComponent {
     const position = parentPosition
       ? { x: absolutePosition.x - parentPosition.x, y: absolutePosition.y - parentPosition.y }
       : absolutePosition;
-    this.updateNode(this.resizeState.nodeId, { position, size: { width, height } });
+    this.nodes = this.nodes.map((candidate) =>
+      candidate.id === this.resizeState?.nodeId
+        ? { ...candidate, position, size: { width, height } }
+        : candidate
+    );
+    this.markInteractionChanged();
   }
 
   private detachNodeFromParent(node: CanvasNode): CanvasNode {
@@ -1921,7 +1929,13 @@ export class AppComponent {
       if (targetNodeId && targetNodeId !== sourceNodeId) return targetNodeId;
     }
 
-    return null;
+    const canvasPoint = this.toCanvasPoint(event);
+    const fallbackTargets = this.nodes
+      .filter((node) => node.id !== sourceNodeId && this.isVisibleNode(node))
+      .filter((node) => this.containsPoint(node, canvasPoint))
+      .sort((left, right) => this.area(left.size) - this.area(right.size));
+
+    return fallbackTargets[0]?.id ?? null;
   }
 
   private isTypingTarget(target: EventTarget | null): boolean {
@@ -2212,6 +2226,10 @@ export class AppComponent {
     this.syncMermaidFromCanvasIfNeeded();
     this.recordHistory();
     this.scheduleAutoSave();
+    this.changeDetectorRef.detectChanges();
+  }
+
+  private markInteractionChanged(): void {
     this.changeDetectorRef.detectChanges();
   }
 }
