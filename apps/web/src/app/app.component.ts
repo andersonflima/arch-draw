@@ -186,6 +186,25 @@ export class AppComponent {
     });
   }
 
+  onToolbarDeleteClick(): void {
+    if (this.selectedEdgeId) {
+      this.deleteSelectedEdge();
+      this.status = "Linha removida";
+      return;
+    }
+
+    if (this.selectedNodeIds.length > 0 || this.selectedNodeId) {
+      this.deleteSelectedNode();
+      this.status = "No removido";
+      return;
+    }
+
+    this.nodes = [];
+    this.edges = [];
+    this.clearSelection();
+    this.status = "Board limpo";
+  }
+
   async exportCurrent(): Promise<void> {
     await this.runSafely(async () => {
       if (!this.architecture) return;

@@ -32,7 +32,13 @@
       <button class="icon-button" type="button" title="Importar" aria-label="Importar" (click)="openImport()">
         <i class="fa-solid fa-file-import" aria-hidden="true"></i>
       </button>
-      <button class="icon-button" type="button" title="Remover arquitetura" aria-label="Remover arquitetura" (click)="deleteCurrent()">
+      <button
+        class="icon-button"
+        type="button"
+        title="Apagar item selecionado ou limpar board"
+        aria-label="Apagar item selecionado ou limpar board"
+        (click)="onToolbarDeleteClick()"
+      >
         <i class="fa-solid fa-trash" aria-hidden="true"></i>
       </button>
     </div>
