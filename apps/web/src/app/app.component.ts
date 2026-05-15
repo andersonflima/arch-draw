@@ -2,6 +2,7 @@ import { CommonModule } from "@angular/common";
 import { ChangeDetectorRef, Component, ElementRef, HostListener, ViewChild } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { DomSanitizer, type SafeHtml } from "@angular/platform-browser";
+import { toPng, toSvg } from "html-to-image";
 import mermaid from "mermaid";
 import {
   architectureFromMermaid,
@@ -200,6 +201,39 @@ export class AppComponent {
       link.click();
       URL.revokeObjectURL(url);
       this.status = "Arquivo de compartilhamento exportado";
+    });
+  }
+
+  async exportSvgCurrent(): Promise<void> {
+    await this.runSafely(async () => {
+      if (!this.architecture) return;
+      const canvas = this.getExportCanvasElement();
+      if (!canvas) throw new Error("Canvas indisponivel para exportacao.");
+
+      const dataUrl = await toSvg(canvas, {
+        cacheBust: true,
+        filter: (node) =>
+          !(node instanceof Element && node.classList.contains("canvas-map"))
+      });
+      this.downloadDataUrl(dataUrl, `${this.getExportFileBaseName()}.svg`);
+      this.status = "Arquivo SVG exportado";
+    });
+  }
+
+  async exportPngCurrent(): Promise<void> {
+    await this.runSafely(async () => {
+      if (!this.architecture) return;
+      const canvas = this.getExportCanvasElement();
+      if (!canvas) throw new Error("Canvas indisponivel para exportacao.");
+
+      const dataUrl = await toPng(canvas, {
+        cacheBust: true,
+        pixelRatio: 2,
+        filter: (node) =>
+          !(node instanceof Element && node.classList.contains("canvas-map"))
+      });
+      this.downloadDataUrl(dataUrl, `${this.getExportFileBaseName()}.png`);
+      this.status = "Arquivo PNG exportado";
     });
   }
 
@@ -1416,6 +1450,28 @@ export class AppComponent {
 
     this.summaries = [summary, ...this.summaries.filter((item) => item.id !== summary.id)]
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  }
+
+  private getExportCanvasElement(): HTMLElement | null {
+    return this.canvasShell?.nativeElement ?? null;
+  }
+
+  private getExportFileBaseName(): string {
+    const title = this.architecture?.title || "architecture";
+    const normalized = title
+      .normalize("NFD")
+      .replaceAll(/[\u0300-\u036f]/g, "")
+      .replaceAll(/[^a-zA-Z0-9]+/g, "-")
+      .replaceAll(/^-+|-+$/g, "")
+      .toLowerCase();
+    return normalized || "architecture";
+  }
+
+  private downloadDataUrl(dataUrl: string, filename: string): void {
+    const link = document.createElement("a");
+    link.href = dataUrl;
+    link.download = filename;
+    link.click();
   }
 
   private markViewChanged(): void {
