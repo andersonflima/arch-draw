@@ -687,7 +687,7 @@ export class AppComponent {
     }
 
     if (this.connectionDragState) {
-      const targetNodeId = this.getNodeIdFromPointerEvent(event);
+      const targetNodeId = this.getTargetPortNodeIdFromPointerEvent(event);
       if (targetNodeId && targetNodeId !== this.connectionDragState.sourceId) {
         this.createConnection(this.connectionDragState.sourceId, targetNodeId);
       }
@@ -1321,6 +1321,10 @@ export class AppComponent {
   }
 
   private createConnection(from: string, to: string): void {
+    if (from === to) return;
+    if (!this.nodes.some((node) => node.id === from) || !this.nodes.some((node) => node.id === to)) return;
+    if (this.edges.some((edge) => edge.from === from && edge.to === to)) return;
+
     const style = normalizeEdgeStyle(undefined);
     this.edges = [
       ...this.edges,
@@ -1333,14 +1337,14 @@ export class AppComponent {
     ];
   }
 
-  private getNodeIdFromPointerEvent(event: PointerEvent): string | null {
+  private getTargetPortNodeIdFromPointerEvent(event: PointerEvent): string | null {
     const target = event.target as HTMLElement | null;
-    const fromTarget = target?.closest<HTMLElement>("[data-node-id]")?.dataset["nodeId"] ?? null;
+    const fromTarget = target?.closest<HTMLElement>("[data-target-port-node-id]")?.dataset["targetPortNodeId"] ?? null;
     if (fromTarget) return fromTarget;
     const fallback = document
       .elementFromPoint(event.clientX, event.clientY)
-      ?.closest<HTMLElement>("[data-node-id]")
-      ?.dataset["nodeId"] ?? null;
+      ?.closest<HTMLElement>("[data-target-port-node-id]")
+      ?.dataset["targetPortNodeId"] ?? null;
     return fallback;
   }
 
