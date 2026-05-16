@@ -160,7 +160,7 @@ const AUTOSAVE_DEBOUNCE_MS = 1200;
 const ERROR_TOAST_DISMISS_MS = 6000;
 const DOUBLE_CLICK_HINT_INTERVAL_MS = 24000;
 const DOUBLE_CLICK_HINT_VISIBLE_MS = 5000;
-const CODE_SNIPPET_COLLAPSED_SIZE = { width: 136, height: 140 } as const;
+const CODE_SNIPPET_COLLAPSED_SIZE = { width: 172, height: 176 } as const;
 const CODE_SNIPPET_EXPANDED_SIZE = { width: 420, height: 260 } as const;
 const EDGE_NODE_GAP = 10;
 const EDGE_MARKER_CLEARANCE = 6;
@@ -2793,37 +2793,37 @@ LIMIT 50;`;
     };
 
     const nodes: CanvasNode[] = [
-      makeNode("n-platform", "group-container-plus", "Platform Architecture", { x: 40, y: 40 }, { width: 1880, height: 1120 }),
-      makeNode("n-vpc", "aws-vpc", "VPC 10.30.0.0/16", { x: 80, y: 80 }, { width: 1720, height: 980 }, "n-platform"),
-      makeNode("n-subnet-edge", "aws-subnet", "Subnet Edge (Public)", { x: 56, y: 70 }, { width: 760, height: 320 }, "n-vpc"),
-      makeNode("n-subnet-app", "aws-subnet", "Subnet App (Private)", { x: 56, y: 430 }, { width: 1120, height: 520 }, "n-vpc"),
-      makeNode("n-subnet-data", "aws-subnet", "Subnet Data", { x: 1210, y: 430 }, { width: 460, height: 520 }, "n-vpc"),
-      makeNode("n-user", "external", "Users", { x: 120, y: 150 }, { width: 136, height: 140 }),
-      makeNode("n-route53", "aws-route53", "Route53", { x: 230, y: 150 }, { width: 136, height: 140 }, "n-subnet-edge"),
-      makeNode("n-apigw", "aws-api-gateway", "API Gateway", { x: 380, y: 150 }, { width: 136, height: 140 }, "n-subnet-edge"),
-      makeNode("n-alb", "aws-alb", "Public ALB", { x: 540, y: 150 }, { width: 136, height: 140 }, "n-subnet-edge"),
+      makeNode("n-platform", "group-container-plus", "Platform Architecture", { x: 40, y: 40 }, { width: 2640, height: 1620 }),
+      makeNode("n-vpc", "aws-vpc", "VPC 10.30.0.0/16", { x: 90, y: 90 }, { width: 2460, height: 1440 }, "n-platform"),
+      makeNode("n-subnet-edge", "aws-subnet", "Subnet Edge (Public)", { x: 70, y: 90 }, { width: 1060, height: 420 }, "n-vpc"),
+      makeNode("n-subnet-app", "aws-subnet", "Subnet App (Private)", { x: 70, y: 580 }, { width: 1560, height: 780 }, "n-vpc"),
+      makeNode("n-subnet-data", "aws-subnet", "Subnet Data", { x: 1680, y: 580 }, { width: 700, height: 780 }, "n-vpc"),
+      makeNode("n-user", "external", "Users", { x: 150, y: 220 }, { width: 172, height: 176 }),
+      makeNode("n-route53", "aws-route53", "Route53", { x: 330, y: 220 }, { width: 172, height: 176 }, "n-subnet-edge"),
+      makeNode("n-apigw", "aws-api-gateway", "API Gateway", { x: 540, y: 220 }, { width: 172, height: 176 }, "n-subnet-edge"),
+      makeNode("n-alb", "aws-alb", "Public ALB", { x: 760, y: 220 }, { width: 172, height: 176 }, "n-subnet-edge"),
       makeNode(
         "n-cluster",
         "cluster",
         "Kubernetes Cluster",
-        { x: 40, y: 30 },
-        { width: 760, height: 460 },
+        { x: 60, y: 50 },
+        { width: 1100, height: 620 },
         "n-subnet-app"
       ),
       makeNode(
         "n-namespace",
         "cluster-namespace",
         "Namespace: orders",
-        { x: 40, y: 60 },
-        { width: 670, height: 360 },
+        { x: 50, y: 90 },
+        { width: 980, height: 480 },
         "n-cluster"
       ),
       makeNode(
         "n-deployment",
         "cluster-deployment",
         "orders-deployment",
-        { x: 28, y: 40 },
-        { width: 360, height: 280 },
+        { x: 42, y: 64 },
+        { width: 500, height: 340 },
         "n-namespace",
         {
           codeLanguage: "yaml",
@@ -2842,8 +2842,8 @@ spec:
         "n-pod-a",
         "cluster-pod",
         "orders-pod-a",
-        { x: 20, y: 42 },
-        { width: 300, height: 210 },
+        { x: 32, y: 56 },
+        { width: 380, height: 250 },
         "n-deployment",
         {
           codeLanguage: "yaml",
@@ -2858,14 +2858,14 @@ spec:
       image: ghcr.io/acme/orders-api:1.0.0`
         }
       ),
-      makeNode("n-pod-a-file", "code-file", "orders.handler.ts", { x: 26, y: 42 }, { width: 136, height: 140 }, "n-pod-a"),
-      makeNode("n-pod-a-query", "query-sql", "Orders SQL", { x: 165, y: 42 }, { width: 136, height: 140 }, "n-pod-a"),
+      makeNode("n-pod-a-file", "code-file", "orders.handler.ts", { x: 32, y: 58 }, { width: 172, height: 176 }, "n-pod-a"),
+      makeNode("n-pod-a-query", "query-sql", "Orders SQL", { x: 228, y: 58 }, { width: 172, height: 176 }, "n-pod-a"),
       makeNode(
         "n-pod-b",
         "cluster-pod",
         "orders-pod-b",
-        { x: 410, y: 70 },
-        { width: 220, height: 220 },
+        { x: 660, y: 110 },
+        { width: 280, height: 290 },
         "n-namespace",
         {
           codeLanguage: "yaml",
@@ -2877,15 +2877,15 @@ metadata:
 spec:
   containers:
     - name: worker
-      image: ghcr.io/acme/orders-worker:1.0.0`
+          image: ghcr.io/acme/orders-worker:1.0.0`
         }
       ),
-      makeNode("n-pod-b-query", "query-nosql", "Orders NoSQL", { x: 36, y: 58 }, { width: 136, height: 140 }, "n-pod-b"),
-      makeNode("n-rabbit", "queue-rabbitmq", "RabbitMQ", { x: 860, y: 48 }, { width: 136, height: 140 }, "n-subnet-app"),
-      makeNode("n-kafka", "queue-kafka", "Kafka", { x: 860, y: 230 }, { width: 136, height: 140 }, "n-subnet-app"),
-      makeNode("n-redis", "cache-redis", "Redis", { x: 860, y: 388 }, { width: 136, height: 140 }, "n-subnet-app"),
-      makeNode("n-mongo", "database-mongodb", "MongoDB", { x: 154, y: 70 }, { width: 136, height: 140 }, "n-subnet-data"),
-      makeNode("n-repo", "code-repository", "orders-repository", { x: 40, y: 980 }, { width: 136, height: 140 }, "n-platform")
+      makeNode("n-pod-b-query", "query-nosql", "Orders NoSQL", { x: 54, y: 78 }, { width: 172, height: 176 }, "n-pod-b"),
+      makeNode("n-rabbit", "queue-rabbitmq", "RabbitMQ", { x: 1240, y: 120 }, { width: 172, height: 176 }, "n-subnet-app"),
+      makeNode("n-kafka", "queue-kafka", "Kafka", { x: 1240, y: 360 }, { width: 172, height: 176 }, "n-subnet-app"),
+      makeNode("n-redis", "cache-redis", "Redis", { x: 1240, y: 620 }, { width: 172, height: 176 }, "n-subnet-app"),
+      makeNode("n-mongo", "database-mongodb", "MongoDB", { x: 230, y: 120 }, { width: 172, height: 176 }, "n-subnet-data"),
+      makeNode("n-repo", "code-repository", "orders-repository", { x: 70, y: 1380 }, { width: 172, height: 176 }, "n-platform")
     ];
 
     const makeEdge = (id: string, from: string, to: string, label?: string): CanvasEdge => ({
@@ -2953,9 +2953,20 @@ spec:
     this.nodeInlineCodeDrafts.clear();
     this.cancelAutoSave();
     this.lastPersistedSignature = this.buildPersistenceSignature();
+    this.applyPreferredInitialViewport(architecture);
     this.resetHistory();
     void this.renderMermaid();
     this.markViewChanged();
+  }
+
+  private applyPreferredInitialViewport(architecture: ArchitectureDocument): void {
+    if (architecture.title === "Exemplo Completo: Macro para Micro") {
+      this.canvasZoom = 0.72;
+      this.canvasPan = DEFAULT_CANVAS_PAN;
+      return;
+    }
+    this.canvasZoom = 1;
+    this.canvasPan = DEFAULT_CANVAS_PAN;
   }
 
   private async runSafely(operation: () => Promise<void>, fallbackStatus?: string): Promise<void> {
