@@ -148,19 +148,6 @@
       (wheel)="onCanvasWheel($event)"
       (contextmenu)="onCanvasContextMenu($event)"
     >
-      <app-maxgraph-canvas
-        *ngIf="useMaxGraphEngine; else classicCanvas"
-        [nodes]="nodes"
-        [edges]="edges"
-        [selectedNodeId]="selectedNodeId"
-        [selectedEdgeId]="selectedEdgeId"
-        (nodesChange)="onMaxGraphNodesChange($event)"
-        (edgesChange)="onMaxGraphEdgesChange($event)"
-        (selectionChange)="onMaxGraphSelectionChange($event)"
-        (connectRequest)="onMaxGraphConnectRequest($event)"
-      ></app-maxgraph-canvas>
-
-      <ng-template #classicCanvas>
       <div class="canvas-viewport" [ngStyle]="getViewportStyle()">
         <ng-container *ngFor="let node of nodes">
           <ng-container *ngIf="isContainerLayerNode(node)">
@@ -396,7 +383,6 @@
           </div>
         </ng-template>
       </div>
-      </ng-template>
 
       <section class="canvas-map" aria-label="Mapa do canvas" (click)="$event.stopPropagation()">
         <div class="mini-map">

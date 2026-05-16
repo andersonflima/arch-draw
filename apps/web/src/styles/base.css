@@ -1,5 +1,4 @@
 @import "@fortawesome/fontawesome-free/css/all.min.css";
-@import "@maxgraph/core/css/common.css";
 
 :root {
   color: #111827;
@@ -364,12 +363,6 @@ button {
     linear-gradient(90deg, rgba(17, 24, 39, 0.03) 1px, transparent 1px),
     #f7f4ed;
   background-size: 24px 24px;
-}
-
-.maxgraph-canvas {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
 }
 
 .canvas-viewport {

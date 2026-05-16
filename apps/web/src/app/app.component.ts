@@ -27,11 +27,6 @@ import { FlowProcessNodeComponent } from "./flow-shapes/flow-process-node.compon
 import { FlowStartNodeComponent } from "./flow-shapes/flow-start-node.component";
 import { FlowSubroutineNodeComponent } from "./flow-shapes/flow-subroutine-node.component";
 import {
-  MaxGraphCanvasComponent,
-  type MaxGraphConnectRequest,
-  type MaxGraphSelectionChange
-} from "./maxgraph-canvas.component";
-import {
   normalizeEdgeStyle,
   toArchitectureDocument,
   toCanvasEdges,
@@ -565,8 +560,7 @@ mermaid.initialize({
     FlowLoopNodeComponent,
     FlowSubroutineNodeComponent,
     FlowDataNodeComponent,
-    FlowDocumentNodeComponent,
-    MaxGraphCanvasComponent
+    FlowDocumentNodeComponent
   ],
   templateUrl: "./app.component.html"
 })
@@ -606,7 +600,6 @@ export class AppComponent {
   lintStatus: "empty" | "valid" | "invalid" = "empty";
   status = "Inicializando";
   error = "";
-  useMaxGraphEngine = false;
   blockSearch = "";
   displayedPaletteGroups: readonly PaletteCategoryGroup[] = [];
   contextPropertiesPanel: ContextPropertiesPanelState | null = null;
@@ -837,34 +830,6 @@ export class AppComponent {
     this.rebuildPaletteGroups();
   }
 
-  onMaxGraphNodesChange(nextNodes: CanvasNode[]): void {
-    this.nodes = this.sortNodes(nextNodes);
-    this.markViewChanged();
-  }
-
-  onMaxGraphEdgesChange(nextEdges: CanvasEdge[]): void {
-    this.edges = nextEdges.map((edge) => ({
-      ...edge,
-      style: normalizeEdgeStyle(edge.style)
-    }));
-    this.markViewChanged();
-  }
-
-  onMaxGraphSelectionChange(selection: MaxGraphSelectionChange): void {
-    this.selectedNodeId = selection.nodeId;
-    this.selectedNodeIds = selection.nodeId ? [selection.nodeId] : [];
-    this.selectedEdgeId = selection.edgeId;
-    this.resizeEnabledNodeId = selection.nodeId;
-    this.connectionSourceId = null;
-    this.connectionDragState = null;
-    this.markViewChanged();
-  }
-
-  onMaxGraphConnectRequest(request: MaxGraphConnectRequest): void {
-    this.createConnection(request.from, request.to);
-    this.markViewChanged();
-  }
-
   getNodeKindOptions(selectedKind: ArchitectureNodeKind): readonly ArchitectureNodeKind[] {
     const options = this.nodeCatalog
       .map((template) => template.kind)
@@ -1026,7 +991,6 @@ export class AppComponent {
   }
 
   onCanvasContextMenu(event: MouseEvent): void {
-    if (this.useMaxGraphEngine) return;
     event.preventDefault();
     const target = event.target as HTMLElement;
     if (target.closest(".architecture-node, .canvas-edge, .canvas-edge-hit")) return;
@@ -1147,7 +1111,6 @@ export class AppComponent {
   }
 
   onCanvasClick(event: MouseEvent): void {
-    if (this.useMaxGraphEngine) return;
     if (this.suppressCanvasClickClear) {
       this.suppressCanvasClickClear = false;
       event.stopPropagation();
@@ -1528,7 +1491,6 @@ export class AppComponent {
   }
 
   onCanvasPointerDown(event: PointerEvent): void {
-    if (this.useMaxGraphEngine) return;
     if (event.button === 1) {
       this.startCanvasPan(event);
       return;
@@ -1554,7 +1516,6 @@ export class AppComponent {
   }
 
   onCanvasWheel(event: WheelEvent): void {
-    if (this.useMaxGraphEngine) return;
     if (!event.ctrlKey && !event.metaKey) return;
     event.preventDefault();
     const direction = event.deltaY < 0 ? 1 : -1;
