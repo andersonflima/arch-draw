@@ -10,6 +10,8 @@ export type NodeTemplateCategory =
   | "AWS Integration"
   | "AWS Security"
   | "AWS Observability"
+  | "Database"
+  | "Queries"
   | "Code"
   | "Software Development"
   | "Devices"
@@ -33,6 +35,11 @@ export const nodeCatalog: readonly NodeTemplate[] = [
   { category: "Core", kind: "queue", label: "Queue", color: "#dcfce7" },
   { category: "Core", kind: "external", label: "External", color: "#fae8ff" },
   { category: "Core", kind: "mermaid", label: "Mermaid block", color: "#fef3c7" },
+
+  { category: "Database", kind: "database-mongodb", label: "MongoDB", color: "#dcfce7" },
+
+  { category: "Queries", kind: "query-sql", label: "SQL Query", color: "#e0f2fe" },
+  { category: "Queries", kind: "query-nosql", label: "NoSQL Query", color: "#fef3c7" },
 
   { category: "Cloud", kind: "cloud-provider", label: "Cloud", color: "#e0f2fe" },
   { category: "Cloud", kind: "cloud-region", label: "Region", color: "#e0e7ff" },
@@ -261,6 +268,8 @@ const codeSnippetKinds = new Set<ArchitectureNodeKind>([
   "code-pipeline",
   "code-repository",
   "code-file",
+  "query-sql",
+  "query-nosql",
   "software-application",
   "software-frontend",
   "software-backend",

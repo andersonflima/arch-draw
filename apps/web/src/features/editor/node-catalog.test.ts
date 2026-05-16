@@ -21,6 +21,8 @@ describe("node catalog", () => {
     expect(nodeCatalog.some((template) => template.category === "Cluster")).toBe(true);
     expect(nodeCatalog.some((template) => template.category === "Flow Diagram")).toBe(true);
     expect(nodeCatalog.some((template) => template.category === "Algorithms")).toBe(true);
+    expect(nodeCatalog.some((template) => template.category === "Database")).toBe(true);
+    expect(nodeCatalog.some((template) => template.category === "Queries")).toBe(true);
     expect(nodeCatalog.some((template) => template.kind === "flow-start")).toBe(true);
     expect(nodeCatalog.some((template) => template.kind === "flow-process")).toBe(true);
     expect(nodeCatalog.some((template) => template.kind === "flow-end")).toBe(true);
@@ -29,6 +31,9 @@ describe("node catalog", () => {
     expect(nodeCatalog.some((template) => template.kind === "cluster-pod")).toBe(true);
     expect(nodeCatalog.some((template) => template.kind === "cluster-kong")).toBe(true);
     expect(nodeCatalog.some((template) => template.kind === "cluster-ingress")).toBe(true);
+    expect(nodeCatalog.some((template) => template.kind === "database-mongodb")).toBe(true);
+    expect(nodeCatalog.some((template) => template.kind === "query-sql")).toBe(true);
+    expect(nodeCatalog.some((template) => template.kind === "query-nosql")).toBe(true);
   });
 
   it("treats core and cloud containers as grouping containers", () => {
@@ -57,5 +62,7 @@ describe("node catalog", () => {
   it("allows flow diagram blocks to hold code snippets", () => {
     expect(isCodeSnippetNodeKind("flow-process")).toBe(true);
     expect(isCodeSnippetNodeKind("flow-decision")).toBe(true);
+    expect(isCodeSnippetNodeKind("query-sql")).toBe(true);
+    expect(isCodeSnippetNodeKind("query-nosql")).toBe(true);
   });
 });

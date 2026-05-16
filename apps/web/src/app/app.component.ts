@@ -1592,6 +1592,30 @@ export class AppComponent implements OnDestroy {
   }
 
   private getDefaultCodeSnippet(kind: ArchitectureNodeKind, language: CodeLanguage): string {
+    if (kind === "query-sql") {
+      const snippet = `SELECT
+  u.id,
+  u.email,
+  COUNT(o.id) AS total_orders
+FROM users u
+LEFT JOIN orders o ON o.user_id = u.id
+WHERE u.status = 'active'
+GROUP BY u.id, u.email
+ORDER BY total_orders DESC
+LIMIT 50;`;
+      return language === "markdown" ? `\`\`\`sql\n${snippet}\n\`\`\`` : snippet;
+    }
+
+    if (kind === "query-nosql") {
+      const snippet = `db.orders.aggregate([
+  { $match: { status: "active" } },
+  { $group: { _id: "$customerId", total: { $sum: "$amount" } } },
+  { $sort: { total: -1 } },
+  { $limit: 20 }
+]);`;
+      return language === "markdown" ? `\`\`\`javascript\n${snippet}\n\`\`\`` : snippet;
+    }
+
     if (kind === "mermaid") {
       const snippet = `graph LR
   Service["Service"]
@@ -4704,6 +4728,7 @@ spec:
 
   private getPreferredCodeLanguageForKind(kind: ArchitectureNodeKind): CodeLanguage {
     if (kind === "mermaid") return "markdown";
+    if (kind === "query-sql" || kind === "query-nosql") return "markdown";
     if (kind === "aws-step-functions") return "javascript";
     if (this.isDeclarativeManifestCodeKind(kind)) return "yaml";
     if (
