@@ -2077,6 +2077,7 @@ LIMIT 50;`;
       this.startCanvasPan(event);
       return;
     }
+    if (event.button !== 0) return;
     if ((event.target as HTMLElement).closest(".node-port, .resize-control, .node-inline-label-input, .node-collapse-toggle, .code-snippet-inline-editor")) return;
     event.stopPropagation();
     const isInSelection = this.selectedNodeIds.includes(node.id);
@@ -2138,6 +2139,7 @@ LIMIT 50;`;
       this.startCanvasPan(event);
       return;
     }
+    if (event.button !== 0) return;
     if (!this.canResizeNode(node.id)) return;
     event.stopPropagation();
     this.selectedNodeId = node.id;
@@ -2155,19 +2157,19 @@ LIMIT 50;`;
   }
 
   onCanvasPointerDown(event: PointerEvent): void {
-    if (event.button === 1) {
+    const target = event.target as HTMLElement;
+    const isInteractiveTarget = Boolean(
+      target.closest(
+        ".architecture-node, .canvas-edge, .canvas-edge-hit, .node-port, .resize-control, .canvas-map"
+      )
+    );
+    if (event.button === 1 || event.button === 2) {
+      if (isInteractiveTarget) return;
       this.startCanvasPan(event);
       return;
     }
     if (event.button !== 0) return;
-    const target = event.target as HTMLElement;
-    if (
-      target.closest(
-        ".architecture-node, .canvas-edge, .canvas-edge-hit, .node-port, .resize-control, .canvas-map"
-      )
-    ) {
-      return;
-    }
+    if (isInteractiveTarget) return;
 
     const point = this.toCanvasPoint(event);
     this.marqueeState = { start: point, current: point };
@@ -3999,6 +4001,7 @@ spec:
       this.startCanvasPan(event);
       return;
     }
+    if (event.button !== 0) return;
     event.stopPropagation();
 
     // If a source is already armed from the previous click, preserve it so
