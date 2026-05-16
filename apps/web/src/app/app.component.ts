@@ -1365,7 +1365,10 @@ export class AppComponent implements OnDestroy {
   }
 
   getNodeCodeLanguage(node: CanvasNode): CodeLanguage {
-    const fromContent = this.detectCodeLanguageFromContent(node.properties?.["codeContent"] ?? "");
+    const draftContent = this.nodeInlineCodeDrafts.get(node.id);
+    const fromContent = this.detectCodeLanguageFromContent(
+      draftContent ?? node.properties?.["codeContent"] ?? ""
+    );
     if (fromContent) return fromContent;
     const raw = (node.properties?.["codeLanguage"] ?? "").trim().toLowerCase();
     if (this.codeLanguageOptions.some((option) => option.value === raw)) {
@@ -1443,9 +1446,19 @@ export class AppComponent implements OnDestroy {
     const source = content.trim();
     if (source.length === 0) return null;
 
+    const fenceMatch = source.match(/^\s*```([a-zA-Z0-9#+._-]+)?/m);
+    if (fenceMatch) {
+      const fencedLanguage = this.getCodeLanguageFromFenceTag(fenceMatch[1] ?? "");
+      if (fencedLanguage) return fencedLanguage;
+    }
+
+    if (/^#!.*\bpython(?:3)?\b/m.test(source)) return "python";
+    if (/^#!.*\bnode\b/m.test(source)) return "nodejs";
+
     if (/^\s*```yaml\b/m.test(source)) return "yaml";
     if (/^\s*```(?:md|markdown)?\b/m.test(source) || /^#{1,6}\s+\S+/m.test(source)) return "markdown";
     if (/^\s*apiVersion:\s*/m.test(source) || /^\s*kind:\s*/m.test(source)) return "yaml";
+    if (/^\s*graph\s+(?:LR|RL|TB|BT|TD)\b/m.test(source) || /^\s*flowchart\s+(?:LR|RL|TB|BT|TD)\b/m.test(source)) return "markdown";
 
     const score = new Map<CodeLanguage, number>([
       ["python", 0],
@@ -1473,26 +1486,34 @@ export class AppComponent implements OnDestroy {
       /\bimport\s+[a-zA-Z_][\w.]*/,
       /\bfrom\s+[a-zA-Z_][\w.]*\s+import\s+/,
       /\bself\b/,
-      /__name__\s*==\s*["']__main__["']/
+      /__name__\s*==\s*["']__main__["']/,
+      /\bprint\s*\(/,
+      /\belif\b/
     ]);
     weigh("javascript", [
       /\bfunction\s+[a-zA-Z_]\w*\s*\(/,
       /=>\s*\{/,
       /\bconsole\.[a-zA-Z]+\s*\(/,
-      /\bmodule\.exports\b/
+      /\bmodule\.exports\b/,
+      /\bexport\s+default\b/,
+      /\bconst\s+[a-zA-Z_$][\w$]*\s*=\s*\([^)]*\)\s*=>/
     ]);
     weigh("nodejs", [
       /\brequire\(["'][^"']+["']\)/,
       /\bprocess\.[a-zA-Z_]\w*/,
       /\bhttp\.createServer\s*\(/,
-      /\b__dirname\b/
+      /\b__dirname\b/,
+      /\bmodule\.exports\b/,
+      /\bExpress\s*\(/
     ]);
     weigh("typescript", [
       /\binterface\s+[A-Z][A-Za-z0-9_]*/,
       /\btype\s+[A-Z][A-Za-z0-9_]*\s*=/,
       /:\s*[A-Za-z_][A-Za-z0-9_<>,\[\]\s|]*\s*(=|;|\)|\{)/,
       /\bPromise<[^>]+>/,
-      /\bunknown\b/
+      /\bunknown\b/,
+      /\bimplements\b/,
+      /\breadonly\b/
     ]);
     weigh("go", [
       /^\s*package\s+\w+/m,
@@ -1536,6 +1557,24 @@ export class AppComponent implements OnDestroy {
 
     if (bestScore > 0) return best;
     if (/^\s*\{[\s\S]*\}\s*$/.test(source) || /^\s*\[[\s\S]*\]\s*$/.test(source)) return "javascript";
+    return null;
+  }
+
+  private getCodeLanguageFromFenceTag(tag: string): CodeLanguage | null {
+    const normalized = tag.trim().toLowerCase();
+    if (!normalized) return null;
+
+    if (["python", "py"].includes(normalized)) return "python";
+    if (["javascript", "js", "mjs", "cjs", "json"].includes(normalized)) return "javascript";
+    if (["node", "nodejs"].includes(normalized)) return "nodejs";
+    if (["typescript", "ts", "tsx"].includes(normalized)) return "typescript";
+    if (["yaml", "yml"].includes(normalized)) return "yaml";
+    if (["markdown", "md", "mdx", "mermaid"].includes(normalized)) return "markdown";
+    if (["go", "golang"].includes(normalized)) return "go";
+    if (["rust", "rs"].includes(normalized)) return "rust";
+    if (["java"].includes(normalized)) return "java";
+    if (["elixir", "ex", "exs"].includes(normalized)) return "elixir";
+
     return null;
   }
 
