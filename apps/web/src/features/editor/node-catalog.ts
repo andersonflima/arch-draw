@@ -12,6 +12,7 @@ export type NodeTemplateCategory =
   | "AWS Observability"
   | "Code"
   | "Software Development"
+  | "Devices"
   | "Cluster"
   | "Flow Diagram"
   | "Algorithms";
@@ -137,6 +138,13 @@ export const nodeCatalog: readonly NodeTemplate[] = [
   { category: "Software Development", kind: "software-bff", label: "BFF", color: "#ede9fe" },
   { category: "Software Development", kind: "software-cli", label: "CLI", color: "#e0e7ff" },
 
+  { category: "Devices", kind: "device-desktop", label: "Desktop", color: "#dbeafe" },
+  { category: "Devices", kind: "device-laptop", label: "Laptop", color: "#bfdbfe" },
+  { category: "Devices", kind: "device-tablet", label: "Tablet", color: "#c7d2fe" },
+  { category: "Devices", kind: "device-phone", label: "Phone", color: "#ddd6fe" },
+  { category: "Devices", kind: "device-server", label: "Server Device", color: "#bae6fd" },
+  { category: "Devices", kind: "device-iot", label: "IoT Device", color: "#a7f3d0" },
+
   { category: "Cluster", kind: "cluster", label: "Cluster", color: "#dbeafe" },
   { category: "Cluster", kind: "cluster-control-plane", label: "Control Plane", color: "#fef3c7" },
   { category: "Cluster", kind: "cluster-node", label: "Node", color: "#f3f4f6" },
@@ -240,6 +248,7 @@ export type NodeVisualGroup =
   | "aws"
   | "code"
   | "software"
+  | "device"
   | "cluster"
   | "flow"
   | "algorithm"
@@ -251,6 +260,7 @@ export const getNodeVisualGroup = (kind: ArchitectureNodeKind): NodeVisualGroup 
   if (kind.startsWith("aws-")) return "aws";
   if (kind.startsWith("code-")) return "code";
   if (kind.startsWith("software-")) return "software";
+  if (kind.startsWith("device-")) return "device";
   if (kind.startsWith("cluster-")) return "cluster";
   if (kind.startsWith("flow-")) return "flow";
   if (kind.startsWith("algorithm")) return "algorithm";

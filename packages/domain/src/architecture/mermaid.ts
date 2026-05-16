@@ -197,6 +197,12 @@ const inferNodeKind = (label: string): ArchitectureNode["kind"] => {
   if (/(metric|monitor|observability)/.test(normalized)) return "monitoring";
   if (/(firewall|waf|security group)/.test(normalized)) return "firewall";
   if (/(container|docker)/.test(normalized)) return "container";
+  if (/(laptop|notebook)/.test(normalized)) return "device-laptop";
+  if (/(desktop|workstation|\bpc\b)/.test(normalized)) return "device-desktop";
+  if (/(tablet|ipad)/.test(normalized)) return "device-tablet";
+  if (/(phone|smartphone|iphone|android)/.test(normalized)) return "device-phone";
+  if (/(iot|sensor|edge device)/.test(normalized)) return "device-iot";
+  if (/(server host|bare metal)/.test(normalized)) return "device-server";
   if (/(ec2|vm|compute|instance)/.test(normalized)) return "compute";
   if (/(aws|azure|gcp|cloud)/.test(normalized)) return "cloud-provider";
   if (/(api|service|worker|app)/.test(normalized)) return "service";
@@ -230,6 +236,12 @@ const inferNodeColor = (label: string): string => {
     secrets: "#fef9c3",
     service: "#ffedd5",
     serverless: "#fef3c7",
+    "device-desktop": "#dbeafe",
+    "device-laptop": "#bfdbfe",
+    "device-tablet": "#c7d2fe",
+    "device-phone": "#ddd6fe",
+    "device-server": "#bae6fd",
+    "device-iot": "#a7f3d0",
     subnet: "#ecfccb",
     system: "#f8fafc"
   };
