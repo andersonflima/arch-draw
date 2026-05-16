@@ -2770,6 +2770,37 @@ app-flow-document-node {
   cursor: pointer;
 }
 
+.hint-balloon {
+  position: fixed;
+  right: 20px;
+  bottom: 86px;
+  max-width: min(380px, calc(100vw - 24px));
+  border: 2px solid #111827;
+  border-radius: 9px;
+  background: #fffbeb;
+  color: #111827;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  padding: 10px 12px;
+  box-shadow: 3px 3px 0 #111827;
+  z-index: 79;
+  overflow-wrap: anywhere;
+}
+
+.hint-balloon::after {
+  content: "";
+  position: absolute;
+  right: 16px;
+  bottom: -10px;
+  width: 14px;
+  height: 14px;
+  border-right: 2px solid #111827;
+  border-bottom: 2px solid #111827;
+  background: #fffbeb;
+  transform: rotate(45deg);
+}
+
 .icon-button.is-active {
   background: #fde68a;
 }
@@ -2924,6 +2955,18 @@ app-flow-document-node {
   border-color: #fca5a5;
   background: #3f1d27;
   box-shadow: 3px 3px 0 #0b1220;
+}
+
+.app-shell.theme-dark .hint-balloon {
+  border-color: #4b5563;
+  background: #1f2937;
+  color: #e5e7eb;
+  box-shadow: 3px 3px 0 #0b1220;
+}
+
+.app-shell.theme-dark .hint-balloon::after {
+  border-color: #4b5563;
+  background: #1f2937;
 }
 
 @media (max-width: 1180px) {

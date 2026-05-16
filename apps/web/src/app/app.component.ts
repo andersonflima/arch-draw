@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { ChangeDetectorRef, Component, ElementRef, HostListener, ViewChild } from "@angular/core";
+import { ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, ViewChild } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { DomSanitizer, type SafeHtml } from "@angular/platform-browser";
 import { toPng, toSvg } from "html-to-image";
@@ -146,6 +146,8 @@ const MINI_MAP_PADDING = 8;
 const DEFAULT_CANVAS_PAN = { x: 0, y: 0 };
 const AUTOSAVE_DEBOUNCE_MS = 1200;
 const ERROR_TOAST_DISMISS_MS = 6000;
+const DOUBLE_CLICK_HINT_INTERVAL_MS = 24000;
+const DOUBLE_CLICK_HINT_VISIBLE_MS = 5000;
 const CODE_SNIPPET_COLLAPSED_SIZE = { width: 136, height: 140 } as const;
 const CODE_SNIPPET_EXPANDED_SIZE = { width: 420, height: 260 } as const;
 const EDGE_NODE_GAP = 10;
@@ -597,7 +599,7 @@ mermaid.initialize({
   ],
   templateUrl: "./app.component.html"
 })
-export class AppComponent {
+export class AppComponent implements OnDestroy {
   @ViewChild("canvasShell") private readonly canvasShell?: ElementRef<HTMLElement>;
   @ViewChild("importInput") private readonly importInput?: ElementRef<HTMLInputElement>;
   @ViewChild("mermaidTextarea") private readonly mermaidTextarea?: ElementRef<HTMLTextAreaElement>;
@@ -634,6 +636,7 @@ export class AppComponent {
   lintStatus: "empty" | "valid" | "invalid" = "empty";
   status = "Inicializando";
   error = "";
+  showDoubleClickHint = false;
   uiTheme: "light" | "dark" = "light";
   blockSearch = "";
   displayedPaletteGroups: readonly PaletteCategoryGroup[] = [];
@@ -650,6 +653,9 @@ export class AppComponent {
   private connectionDragState: ConnectionDragState | null = null;
   private autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
   private errorToastTimer: ReturnType<typeof setTimeout> | null = null;
+  private doubleClickHintBootTimer: ReturnType<typeof setTimeout> | null = null;
+  private doubleClickHintInterval: ReturnType<typeof setInterval> | null = null;
+  private doubleClickHintTimer: ReturnType<typeof setTimeout> | null = null;
   private autoSaveInFlight = false;
   private autoSaveQueued = false;
   private lastPersistedSignature = "";
@@ -667,7 +673,23 @@ export class AppComponent {
   ) {
     this.loadUiThemePreference();
     this.rebuildPaletteGroups();
+    this.startDoubleClickHintLoop();
     void this.boot();
+  }
+
+  ngOnDestroy(): void {
+    if (this.doubleClickHintInterval) {
+      clearInterval(this.doubleClickHintInterval);
+      this.doubleClickHintInterval = null;
+    }
+    if (this.doubleClickHintBootTimer) {
+      clearTimeout(this.doubleClickHintBootTimer);
+      this.doubleClickHintBootTimer = null;
+    }
+    if (this.doubleClickHintTimer) {
+      clearTimeout(this.doubleClickHintTimer);
+      this.doubleClickHintTimer = null;
+    }
   }
 
   get selectedNode(): CanvasNode | null {
@@ -1102,6 +1124,31 @@ export class AppComponent {
       this.marqueeState = null;
       this.resizeEnabledNodeId = node.id;
       this.contextPropertiesPanel = null;
+      this.showDoubleClickHint = false;
+      if (this.doubleClickHintTimer) {
+        clearTimeout(this.doubleClickHintTimer);
+        this.doubleClickHintTimer = null;
+      }
+      this.markViewChanged();
+      return;
+    }
+
+    if (this.isCodeSnippetCollapsed(node)) {
+      this.setCodeSnippetCollapsed(node.id, false);
+      this.selectedNodeId = node.id;
+      this.selectedNodeIds = [node.id];
+      this.selectedEdgeId = null;
+      this.editingEdgeId = null;
+      this.editingEdgeLabelDraft = "";
+      this.editingNodeId = null;
+      this.marqueeState = null;
+      this.resizeEnabledNodeId = node.id;
+      this.contextPropertiesPanel = null;
+      this.showDoubleClickHint = false;
+      if (this.doubleClickHintTimer) {
+        clearTimeout(this.doubleClickHintTimer);
+        this.doubleClickHintTimer = null;
+      }
       this.markViewChanged();
       return;
     }
@@ -3682,6 +3729,13 @@ export class AppComponent {
   }
 
   private markViewChanged(): void {
+    if (this.showDoubleClickHint && !this.hasCollapsedNodeForDoubleClickHint()) {
+      this.showDoubleClickHint = false;
+      if (this.doubleClickHintTimer) {
+        clearTimeout(this.doubleClickHintTimer);
+        this.doubleClickHintTimer = null;
+      }
+    }
     this.syncMermaidFromCanvasIfNeeded();
     this.recordHistory();
     this.scheduleAutoSave();
@@ -3721,6 +3775,36 @@ export class AppComponent {
       this.errorToastTimer = null;
     }
     this.error = "";
+  }
+
+  private startDoubleClickHintLoop(): void {
+    if (this.doubleClickHintInterval) return;
+    this.doubleClickHintBootTimer = setTimeout(() => {
+      this.doubleClickHintBootTimer = null;
+      this.pulseDoubleClickHint();
+    }, 6000);
+    this.doubleClickHintInterval = setInterval(() => {
+      this.pulseDoubleClickHint();
+    }, DOUBLE_CLICK_HINT_INTERVAL_MS);
+  }
+
+  private hasCollapsedNodeForDoubleClickHint(): boolean {
+    return this.nodes.some((node) => this.isContainerCollapsed(node) || this.isCodeSnippetCollapsed(node));
+  }
+
+  private pulseDoubleClickHint(): void {
+    if (this.showDoubleClickHint) return;
+    if (!this.hasCollapsedNodeForDoubleClickHint()) return;
+    this.showDoubleClickHint = true;
+    this.requestViewRender();
+    if (this.doubleClickHintTimer) {
+      clearTimeout(this.doubleClickHintTimer);
+    }
+    this.doubleClickHintTimer = setTimeout(() => {
+      this.doubleClickHintTimer = null;
+      this.showDoubleClickHint = false;
+      this.requestViewRender();
+    }, DOUBLE_CLICK_HINT_VISIBLE_MS);
   }
 
   private requestViewRender(): void {
