@@ -306,12 +306,12 @@ button {
   position: relative;
   min-height: 0;
   overflow: hidden;
-  contain: layout paint style;
+  contain: paint;
   isolation: isolate;
   background:
-    linear-gradient(rgba(17, 24, 39, 0.022) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(17, 24, 39, 0.022) 1px, transparent 1px),
-    #f8f6f1;
+    linear-gradient(rgba(17, 24, 39, 0.016) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(17, 24, 39, 0.016) 1px, transparent 1px),
+    #fcfbf8;
   background-size: 28px 28px;
 }
 
@@ -320,7 +320,6 @@ button {
   inset: 0;
   transform-origin: 0 0;
   will-change: transform;
-  backface-visibility: hidden;
 }
 
 .canvas-marquee {
@@ -793,11 +792,11 @@ button {
   width: 78px;
   min-width: 78px;
   height: 78px;
-  color: color-mix(in srgb, var(--icon-base) 92%, #0f172a 8%);
+  color: color-mix(in srgb, var(--icon-base) 72%, #0f172a 28%);
   border-radius: 18px;
-  background: color-mix(in srgb, #ffffff 86%, var(--icon-base) 14%);
-  border: 2px solid color-mix(in srgb, var(--icon-base) 58%, #0f172a 42%);
-  box-shadow: 2px 2px 0 color-mix(in srgb, var(--icon-base) 48%, #0f172a 52%);
+  background: color-mix(in srgb, #ffffff 93%, var(--icon-base) 7%);
+  border: 2px solid color-mix(in srgb, var(--icon-base) 38%, #0f172a 62%);
+  box-shadow: 1px 1px 0 color-mix(in srgb, var(--icon-base) 28%, #0f172a 72%);
 }
 
 .architecture-node--leaf .node-icon i {
@@ -2195,7 +2194,7 @@ button {
 
 .canvas-edge {
   fill: none;
-  stroke-width: 2.4;
+  stroke-width: 2.2;
   stroke-linecap: round;
   stroke-linejoin: round;
   pointer-events: stroke;
