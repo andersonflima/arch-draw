@@ -530,7 +530,7 @@
               ></textarea>
             </label>
           </ng-container>
-          <ng-container *ngIf="isCollapsibleContainerNode(node)">
+          <ng-container *ngIf="isCollapsibleContainerNode(node) && !isContainerCodeSnippetNode(node)">
             <label class="property-field">
               Icone minimizado
               <select

@@ -1122,8 +1122,8 @@ export class AppComponent implements OnDestroy {
 
   onNodeDoubleClick(node: CanvasNode, event: MouseEvent): void {
     event.stopPropagation();
-    if (this.isContainerCollapsed(node)) {
-      this.setContainerCollapsed(node.id, false);
+    if (this.isCodeSnippetCollapsed(node)) {
+      this.setCodeSnippetCollapsed(node.id, false);
       this.selectedNodeId = node.id;
       this.selectedNodeIds = [node.id];
       this.selectedEdgeId = null;
@@ -1142,8 +1142,8 @@ export class AppComponent implements OnDestroy {
       return;
     }
 
-    if (this.isCodeSnippetCollapsed(node)) {
-      this.setCodeSnippetCollapsed(node.id, false);
+    if (this.isContainerCollapsed(node)) {
+      this.setContainerCollapsed(node.id, false);
       this.selectedNodeId = node.id;
       this.selectedNodeIds = [node.id];
       this.selectedEdgeId = null;
@@ -1303,6 +1303,10 @@ export class AppComponent implements OnDestroy {
 
   isContainerPlusNode(node: CanvasNode): boolean {
     return this.isContainerPlusLikeKind(node.kind);
+  }
+
+  isContainerCodeSnippetNode(node: CanvasNode): boolean {
+    return isContainerNodeKind(node.kind) && isCodeSnippetNodeKind(node.kind);
   }
 
   isFlowNodeKind(kind: ArchitectureNodeKind): boolean {
@@ -1878,7 +1882,10 @@ export class AppComponent implements OnDestroy {
     this.selectedNodeIds = [node.id];
     this.selectedEdgeId = null;
     this.editingNodeId = null;
-    if (this.isCollapsibleContainerNode(node)) {
+    if (this.isCollapsibleCodeSnippetNode(node) && this.isContainerCodeSnippetNode(node)) {
+      this.setCodeSnippetCollapsed(node.id, !this.isCodeSnippetCollapsed(node));
+      this.resizeEnabledNodeId = this.isCodeSnippetCollapsedById(node.id) ? null : node.id;
+    } else if (this.isCollapsibleContainerNode(node)) {
       this.setContainerCollapsed(node.id, !this.isContainerCollapsed(node));
       this.resizeEnabledNodeId = this.isContainerCollapsedById(node.id) ? null : node.id;
     } else {
