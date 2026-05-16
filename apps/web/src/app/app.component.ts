@@ -128,6 +128,7 @@ const MINI_MAP_SIZE = { width: 150, height: 96 };
 const MINI_MAP_PADDING = 8;
 const DEFAULT_CANVAS_PAN = { x: 0, y: 0 };
 const AUTOSAVE_DEBOUNCE_MS = 1200;
+const ERROR_TOAST_DISMISS_MS = 6000;
 const EDGE_NODE_GAP = 10;
 const EDGE_MARKER_CLEARANCE = 6;
 const MAX_UNDO_HISTORY = 150;
@@ -614,6 +615,7 @@ export class AppComponent {
   private resizeEnabledNodeId: string | null = null;
   private connectionDragState: ConnectionDragState | null = null;
   private autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  private errorToastTimer: ReturnType<typeof setTimeout> | null = null;
   private autoSaveInFlight = false;
   private autoSaveQueued = false;
   private lastPersistedSignature = "";
@@ -1949,10 +1951,10 @@ export class AppComponent {
 
   private async runSafely(operation: () => Promise<void>, fallbackStatus?: string): Promise<void> {
     try {
-      this.error = "";
+      this.clearError();
       await operation();
     } catch (cause) {
-      this.error = cause instanceof Error ? cause.message : "Operacao falhou";
+      this.setError(cause instanceof Error ? cause.message : "Operacao falhou");
       if (fallbackStatus) this.status = fallbackStatus;
     } finally {
       this.markViewChanged();
@@ -2725,7 +2727,7 @@ export class AppComponent {
     if (this.autoSaveTimer) clearTimeout(this.autoSaveTimer);
     this.autoSaveTimer = setTimeout(() => {
       this.autoSaveTimer = null;
-      void this.persistCurrent("auto").finally(() => this.markViewChanged());
+      void this.persistCurrent("auto").finally(() => this.requestViewRender());
     }, AUTOSAVE_DEBOUNCE_MS);
   }
 
@@ -2909,7 +2911,7 @@ export class AppComponent {
       return true;
     } catch (cause) {
       if (mode === "manual") throw cause;
-      this.error = cause instanceof Error ? cause.message : "Falha no auto save";
+      this.setError(cause instanceof Error ? cause.message : "Falha no auto save");
       this.status = "Falha no auto save";
       return false;
     } finally {
@@ -3127,6 +3129,37 @@ export class AppComponent {
 
   private markInteractionChanged(): void {
     this.requestViewRender();
+  }
+
+  dismissError(): void {
+    this.clearError();
+    this.requestViewRender();
+  }
+
+  private setError(message: string): void {
+    this.error = message;
+    if (this.errorToastTimer) {
+      clearTimeout(this.errorToastTimer);
+      this.errorToastTimer = null;
+    }
+    if (!message) {
+      this.requestViewRender();
+      return;
+    }
+    this.requestViewRender();
+    this.errorToastTimer = setTimeout(() => {
+      this.errorToastTimer = null;
+      this.error = "";
+      this.requestViewRender();
+    }, ERROR_TOAST_DISMISS_MS);
+  }
+
+  private clearError(): void {
+    if (this.errorToastTimer) {
+      clearTimeout(this.errorToastTimer);
+      this.errorToastTimer = null;
+    }
+    this.error = "";
   }
 
   private requestViewRender(): void {

@@ -2671,12 +2671,31 @@ app-flow-document-node {
   position: fixed;
   right: 18px;
   bottom: 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
   max-width: 420px;
   border: 2px solid #991b1b;
   border-radius: 7px;
   background: #fee2e2;
   padding: 12px;
   box-shadow: 3px 3px 0 #111827;
+  overflow-wrap: anywhere;
+  z-index: 80;
+}
+
+.toast-close {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #111827;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #991b1b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
 }
 
 @media (max-width: 1180px) {

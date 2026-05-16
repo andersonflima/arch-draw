@@ -539,5 +539,10 @@
     </div>
   </div>
 
-  <div class="toast error-text" *ngIf="error">{{ error }}</div>
+  <div class="toast error-text" *ngIf="error">
+    <span>{{ error }}</span>
+    <button class="toast-close" type="button" aria-label="Fechar erro" (click)="dismissError()">
+      <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+    </button>
+  </div>
 </div>
