@@ -373,6 +373,22 @@ const MONGODB_FIELDS: readonly NodePropertyField[] = [
   { key: "storageEngine", label: "Storage Engine", placeholder: "wiredTiger" }
 ];
 
+const SQL_QUERY_FIELDS: readonly NodePropertyField[] = [
+  { key: "dialect", label: "Dialect", placeholder: "postgresql | mysql | sqlite" },
+  { key: "queryType", label: "Query Type", placeholder: "SELECT | INSERT | UPDATE | DELETE" },
+  { key: "schema", label: "Schema", placeholder: "public" },
+  { key: "targetTable", label: "Target Table", placeholder: "orders" },
+  { key: "executionRole", label: "Execution Role", placeholder: "read_only | read_write" }
+];
+
+const NOSQL_QUERY_FIELDS: readonly NodePropertyField[] = [
+  { key: "engine", label: "Engine", placeholder: "mongodb | dynamodb | redis-json" },
+  { key: "operation", label: "Operation", placeholder: "find | aggregate | updateMany" },
+  { key: "collectionOrTable", label: "Collection/Table", placeholder: "orders" },
+  { key: "consistency", label: "Consistency", placeholder: "eventual | strong" },
+  { key: "indexHint", label: "Index Hint", placeholder: "customerId_1_createdAt_-1" }
+];
+
 const CONTAINER_CODE_PROPERTY_KINDS = new Set<ArchitectureNodeKind>([
   "cluster-deployment",
   "cluster-statefulset",
@@ -434,6 +450,8 @@ const NODE_PROPERTY_FIELDS_BY_KIND: Partial<Record<ArchitectureNodeKind, readonl
   "database-mongodb": MONGODB_FIELDS,
   "queue-rabbitmq": RABBITMQ_FIELDS,
   "queue-kafka": KAFKA_FIELDS,
+  "query-sql": SQL_QUERY_FIELDS,
+  "query-nosql": NOSQL_QUERY_FIELDS,
   identity: [
     { key: "identityProvider", label: "Identity Provider", placeholder: "IAM | Cognito | OIDC" },
     { key: "authFlow", label: "Auth Flow", placeholder: "authorization_code" },
