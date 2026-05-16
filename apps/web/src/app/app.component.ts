@@ -955,7 +955,7 @@ export class AppComponent implements OnDestroy {
     this.nodes = this.sortNodes([...this.nodes, node]);
     this.markViewChanged();
     if (this.shouldPulseDoubleClickHintOnNodeAdded(node)) {
-      setTimeout(() => this.pulseDoubleClickHint(), 180);
+      this.scheduleDoubleClickHintAfterNodeAdded();
     }
   }
 
@@ -4507,11 +4507,17 @@ spec:
   }
 
   private markViewChanged(): void {
-    if (this.showDoubleClickHint && !this.hasCollapsedNodeForDoubleClickHint()) {
-      this.showDoubleClickHint = false;
+    if (!this.hasCollapsedNodeForDoubleClickHint()) {
+      if (this.showDoubleClickHint) {
+        this.showDoubleClickHint = false;
+      }
       if (this.doubleClickHintTimer) {
         clearTimeout(this.doubleClickHintTimer);
         this.doubleClickHintTimer = null;
+      }
+      if (this.doubleClickHintBootTimer) {
+        clearTimeout(this.doubleClickHintBootTimer);
+        this.doubleClickHintBootTimer = null;
       }
     }
     this.syncMermaidFromCanvasIfNeeded();
@@ -4557,10 +4563,6 @@ spec:
 
   private startDoubleClickHintLoop(): void {
     if (this.doubleClickHintInterval) return;
-    this.doubleClickHintBootTimer = setTimeout(() => {
-      this.doubleClickHintBootTimer = null;
-      this.pulseDoubleClickHint();
-    }, 6000);
     this.doubleClickHintInterval = setInterval(() => {
       this.pulseDoubleClickHint();
     }, DOUBLE_CLICK_HINT_INTERVAL_MS);
@@ -4572,6 +4574,16 @@ spec:
 
   private shouldPulseDoubleClickHintOnNodeAdded(node: CanvasNode): boolean {
     return this.isCodeSnippetCollapsed(node) || this.isContainerCollapsed(node);
+  }
+
+  private scheduleDoubleClickHintAfterNodeAdded(): void {
+    if (this.doubleClickHintBootTimer) {
+      clearTimeout(this.doubleClickHintBootTimer);
+    }
+    this.doubleClickHintBootTimer = setTimeout(() => {
+      this.doubleClickHintBootTimer = null;
+      this.pulseDoubleClickHint();
+    }, 6000);
   }
 
   private getPreferredCodeLanguageForKind(kind: ArchitectureNodeKind): CodeLanguage {
