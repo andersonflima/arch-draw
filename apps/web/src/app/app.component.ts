@@ -2305,7 +2305,7 @@ export class AppComponent implements OnDestroy {
 
   getEdgeDash(edge: CanvasEdge): string | null {
     const style = normalizeEdgeStyle(edge.style);
-    if (style.line === "solid") return "24 4";
+    if (style.line === "solid") return "34 4";
     const line = style.line;
     if (line === "dashed") return "8 6";
     if (line === "dotted") return "2 6";
