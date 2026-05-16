@@ -656,6 +656,7 @@ export class AppComponent implements OnDestroy {
   private doubleClickHintBootTimer: ReturnType<typeof setTimeout> | null = null;
   private doubleClickHintInterval: ReturnType<typeof setInterval> | null = null;
   private doubleClickHintTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly nodeInlineCodeDrafts = new Map<string, string>();
   private autoSaveInFlight = false;
   private autoSaveQueued = false;
   private lastPersistedSignature = "";
@@ -1375,6 +1376,44 @@ export class AppComponent implements OnDestroy {
     return this.getDefaultCodeSnippet(node.kind, this.getNodeCodeLanguage(node));
   }
 
+  getNodeInlineCodeDraft(node: CanvasNode): string {
+    const draft = this.nodeInlineCodeDrafts.get(node.id);
+    return draft ?? this.getNodeCodeContent(node);
+  }
+
+  onNodeInlineCodeFocus(node: CanvasNode): void {
+    if (!this.nodeInlineCodeDrafts.has(node.id)) {
+      this.nodeInlineCodeDrafts.set(node.id, this.getNodeCodeContent(node));
+    }
+  }
+
+  onNodeInlineCodeDraftChange(nodeId: string, content: string): void {
+    this.nodeInlineCodeDrafts.set(nodeId, content);
+  }
+
+  commitNodeInlineCodeDraft(nodeId: string): void {
+    const node = this.nodes.find((candidate) => candidate.id === nodeId);
+    if (!node) {
+      this.nodeInlineCodeDrafts.delete(nodeId);
+      return;
+    }
+
+    const draft = this.nodeInlineCodeDrafts.get(nodeId);
+    if (draft === undefined) return;
+    this.nodeInlineCodeDrafts.delete(nodeId);
+
+    const nextProperties = { ...(node.properties ?? {}) };
+    if (draft.trim().length === 0) {
+      delete nextProperties["codeContent"];
+    } else {
+      nextProperties["codeContent"] = draft;
+    }
+
+    this.updateNode(nodeId, {
+      properties: Object.keys(nextProperties).length > 0 ? nextProperties : undefined
+    });
+  }
+
   updateSelectedCodeLanguage(language: string): void {
     const normalized = language.trim().toLowerCase();
     const value = this.codeLanguageOptions.some((option) => option.value === normalized)
@@ -1618,7 +1657,7 @@ export class AppComponent implements OnDestroy {
       this.startCanvasPan(event);
       return;
     }
-    if ((event.target as HTMLElement).closest(".node-port, .resize-control, .node-inline-label-input, .node-collapse-toggle")) return;
+    if ((event.target as HTMLElement).closest(".node-port, .resize-control, .node-inline-label-input, .node-collapse-toggle, .code-snippet-inline-editor")) return;
     event.stopPropagation();
     const isInSelection = this.selectedNodeIds.includes(node.id);
     const draggedIds =
@@ -2237,6 +2276,7 @@ export class AppComponent implements OnDestroy {
     this.editingNodeId = null;
     this.marqueeState = null;
     this.resizeEnabledNodeId = null;
+    this.nodeInlineCodeDrafts.clear();
     this.cancelAutoSave();
     this.lastPersistedSignature = this.buildPersistenceSignature();
     this.resetHistory();
@@ -3239,6 +3279,7 @@ export class AppComponent implements OnDestroy {
       this.resizeEnabledNodeId = null;
       this.connectionSourceId = null;
       this.connectionDragState = null;
+      this.nodeInlineCodeDrafts.clear();
       this.status = "Desfeito";
       void this.renderMermaid();
       this.markViewChanged();

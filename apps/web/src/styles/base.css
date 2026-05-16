@@ -2535,7 +2535,7 @@ app-flow-document-node {
   padding: 4px 8px;
 }
 
-.code-snippet-content pre {
+.code-snippet-inline-editor {
   margin: 0;
   height: 100%;
   min-height: 94px;
@@ -2549,6 +2549,12 @@ app-flow-document-node {
   line-height: 1.45;
   white-space: pre;
   padding: 8px 10px;
+  resize: none;
+  outline: none;
+}
+
+.code-snippet-inline-editor:focus {
+  box-shadow: 0 0 0 2px #f59e0b;
 }
 
 .architecture-node__kind-label {

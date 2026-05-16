@@ -369,7 +369,16 @@
                       <strong>{{ node.label }}</strong>
                       <span>{{ getNodeCodeLanguageLabel(node) }}</span>
                     </div>
-                    <pre>{{ getNodeCodeContent(node) }}</pre>
+                    <textarea
+                      class="code-snippet-inline-editor"
+                      [ngModel]="getNodeInlineCodeDraft(node)"
+                      (ngModelChange)="onNodeInlineCodeDraftChange(node.id, $event)"
+                      (focus)="onNodeInlineCodeFocus(node)"
+                      (blur)="commitNodeInlineCodeDraft(node.id)"
+                      (click)="$event.stopPropagation()"
+                      (pointerdown)="$event.stopPropagation()"
+                      (keydown)="$event.stopPropagation()"
+                    ></textarea>
                   </div>
                 </ng-container>
                 <ng-template #defaultTextLabel>
