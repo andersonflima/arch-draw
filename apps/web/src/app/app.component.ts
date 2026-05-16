@@ -16,6 +16,11 @@ import {
 } from "@arch-draw/domain";
 import { api, type ArchitectureSummary } from "../api/client";
 import { parseImportToSharePackage } from "../features/import/diagram-import";
+import {
+  exportArchitectureToDrawIo,
+  exportArchitectureToExcalidraw,
+  exportArchitectureToMermaid
+} from "../features/export/diagram-export";
 import { CodeEditorComponent } from "./code-editor.component";
 import { FlowDataNodeComponent } from "./flow-shapes/flow-data-node.component";
 import { FlowDecisionNodeComponent } from "./flow-shapes/flow-decision-node.component";
@@ -972,6 +977,36 @@ export class AppComponent implements OnDestroy {
       });
       this.downloadDataUrl(dataUrl, `${this.getExportFileBaseName()}.png`);
       this.status = "Arquivo PNG exportado";
+    });
+  }
+
+  async exportDrawIoCurrent(): Promise<void> {
+    await this.runSafely(async () => {
+      const architecture = this.getCurrentArchitectureForExport();
+      if (!architecture) return;
+      const xml = exportArchitectureToDrawIo(architecture);
+      this.downloadTextFile(xml, `${this.getExportFileBaseName()}.drawio`, "application/xml");
+      this.status = "Arquivo draw.io exportado";
+    });
+  }
+
+  async exportExcalidrawCurrent(): Promise<void> {
+    await this.runSafely(async () => {
+      const architecture = this.getCurrentArchitectureForExport();
+      if (!architecture) return;
+      const payload = exportArchitectureToExcalidraw(architecture);
+      this.downloadTextFile(payload, `${this.getExportFileBaseName()}.excalidraw`, "application/json");
+      this.status = "Arquivo Excalidraw exportado";
+    });
+  }
+
+  async exportMermaidCurrent(): Promise<void> {
+    await this.runSafely(async () => {
+      const architecture = this.getCurrentArchitectureForExport();
+      if (!architecture) return;
+      const source = exportArchitectureToMermaid(architecture);
+      this.downloadTextFile(source, `${this.getExportFileBaseName()}.mmd`, "text/plain;charset=utf-8");
+      this.status = "Arquivo Mermaid exportado";
     });
   }
 
@@ -4590,6 +4625,25 @@ spec:
     link.href = dataUrl;
     link.download = filename;
     link.click();
+  }
+
+  private downloadTextFile(content: string, filename: string, mimeType: string): void {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  private getCurrentArchitectureForExport(): ArchitectureDocument | null {
+    if (!this.architecture) return null;
+    return toArchitectureDocument(
+      { ...this.architecture, mermaidSource: this.mermaidDraft },
+      this.nodes,
+      this.edges
+    );
   }
 
   private loadUiThemePreference(): void {
