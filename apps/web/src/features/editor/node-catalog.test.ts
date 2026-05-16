@@ -78,4 +78,12 @@ describe("node catalog", () => {
     expect(isCodeSnippetNodeKind("software-docker")).toBe(true);
     expect(isCodeSnippetNodeKind("cluster-pod")).toBe(false);
   });
+
+  it("ensures each node kind supports code, children, or both", () => {
+    for (const template of nodeCatalog) {
+      const supportsChildren = isContainerNodeKind(template.kind);
+      const supportsCode = isCodeSnippetNodeKind(template.kind);
+      expect(supportsChildren || supportsCode).toBe(true);
+    }
+  });
 });

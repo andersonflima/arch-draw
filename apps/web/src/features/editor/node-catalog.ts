@@ -339,7 +339,7 @@ const codeSnippetKinds = new Set<ArchitectureNodeKind>([
 ]);
 
 export const isCodeSnippetNodeKind = (kind: ArchitectureNodeKind): boolean =>
-  codeSnippetKinds.has(kind);
+  codeSnippetKinds.has(kind) || !isContainerNodeKind(kind);
 
 export const isIconOnlyNodeKind = (kind: ArchitectureNodeKind): boolean =>
   !isContainerNodeKind(kind) && !kind.startsWith("flow-");
