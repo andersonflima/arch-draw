@@ -112,7 +112,38 @@ describe("diagram import parser", () => {
     expect(parsed.architecture.edges.length).toBe(1);
     expect(parsed.architecture.nodes.find((node) => node.id === "excalidraw-node-a")?.kind).toBe("service");
     expect(parsed.architecture.nodes.find((node) => node.id === "excalidraw-node-b")?.kind).toBe("aws-rds");
+    expect(parsed.architecture.nodes.find((node) => node.id === "excalidraw-node-a")?.position).toEqual({
+      x: 120,
+      y: 80
+    });
     expect(parsed.architecture.edges[0]?.from).toBe("excalidraw-node-a");
     expect(parsed.architecture.edges[0]?.to).toBe("excalidraw-node-b");
   });
+
+  it("keeps Excalidraw coordinates at 0 without fallback overlap", async () => {
+    const source = {
+      type: "excalidraw",
+      elements: [
+        {
+          id: "root-zero",
+          type: "rectangle",
+          x: 0,
+          y: 0,
+          width: 140,
+          height: 72,
+          text: "Gateway"
+        }
+      ]
+    };
+
+    const parsed = await parseImportToSharePackage({
+      fileName: "zero.excalidraw",
+      text: JSON.stringify(source),
+      now
+    });
+
+    expect(parsed.architecture.nodes).toHaveLength(1);
+    expect(parsed.architecture.nodes[0]?.position).toEqual({ x: 0, y: 0 });
+  });
+
 });

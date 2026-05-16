@@ -196,7 +196,7 @@ const parseExcalidrawToArchitecture = (
   const nodeElements = liveElements.filter((element) =>
     ["rectangle", "ellipse", "diamond", "frame", "image"].includes(element.type)
   );
-  const nodes = nodeElements.map((element, index) => {
+  const nodes = nodeElements.map((element) => {
     const geometry = normalizeExcalidrawGeometry(element);
     const inferredLabel =
       normalizeExcalidrawLabel(element.text)
@@ -209,8 +209,8 @@ const parseExcalidrawToArchitecture = (
       kind,
       label: inferredLabel || getDefaultLabel(kind),
       position: {
-        x: geometry.x || 120 + (index % 4) * 240,
-        y: geometry.y || 120 + Math.floor(index / 4) * 140
+        x: geometry.x,
+        y: geometry.y
       },
       size,
       color: inferExcalidrawColor(kind, element)
@@ -379,10 +379,13 @@ const inferDrawIoNodeKind = (cell: DrawIoCell): ArchitectureNodeKind => {
   const style = parseStyle(cell.style);
   const value = normalizeText(cell.value);
   const shape = normalizeText(style.shape || "");
-  const resIcon = normalizeText(style.resIcon || "");
-
-  const awsFromIcon = extractAwsKind(resIcon);
-  if (awsFromIcon) return awsFromIcon;
+  const iconMetadata = normalizeText(
+    [style.resIcon, style.image, style.icon, style.iconPath, style.shape]
+      .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+      .join(" ")
+  );
+  const kindFromIcon = inferKindFromIconMetadata(iconMetadata);
+  if (kindFromIcon) return kindFromIcon;
 
   if (isSwimlane(style, shape)) {
     if (value.includes("vpc")) return "aws-vpc";
@@ -577,10 +580,10 @@ const readDrawIoCells = (doc: XMLDocument): readonly DrawIoCell[] => {
       isEdge: cellElement.getAttribute("edge") === "1",
       geometry: geometryElement
         ? {
-            x: parseNumber(geometryElement.getAttribute("x"), 0),
-            y: parseNumber(geometryElement.getAttribute("y"), 0),
-            width: parseNumber(geometryElement.getAttribute("width"), 0),
-            height: parseNumber(geometryElement.getAttribute("height"), 0)
+            x: parseNumber(geometryElement.getAttribute("x"), Number.NaN),
+            y: parseNumber(geometryElement.getAttribute("y"), Number.NaN),
+            width: parseNumber(geometryElement.getAttribute("width"), Number.NaN),
+            height: parseNumber(geometryElement.getAttribute("height"), Number.NaN)
           }
         : undefined
     });
@@ -835,6 +838,40 @@ const extractAwsKind = (resIcon: string): ArchitectureNodeKind | null => {
   const iconToken = normalized.split(".").at(-1)?.replaceAll(/[^a-z0-9_-]/g, "") ?? "";
   if (!iconToken) return null;
   return drawioAwsIconMap[iconToken] ?? null;
+};
+
+const inferKindFromIconMetadata = (iconMetadata: string): ArchitectureNodeKind | null => {
+  if (!iconMetadata) return null;
+  const normalized = iconMetadata
+    .toLowerCase()
+    .replaceAll("%2f", "/")
+    .replaceAll("%5f", "_");
+  const tokens = normalized.split(/[^a-z0-9]+/g).filter((token) => token.length > 0);
+  if (tokens.length === 0) return null;
+
+  const joined = tokens.join(" ");
+  for (const token of tokens) {
+    const awsKind = extractAwsKind(token);
+    if (awsKind) return awsKind;
+  }
+
+  if (joined.includes("route 53")) return "aws-route53";
+  if (joined.includes("step functions")) return "aws-step-functions";
+  if (joined.includes("secrets manager")) return "aws-secrets-manager";
+  if (joined.includes("internet gateway")) return "aws-internet-gateway";
+  if (joined.includes("nat gateway")) return "aws-nat-gateway";
+  if (joined.includes("security group")) return "aws-security-group";
+  if (joined.includes("availability zone")) return "aws-availability-zone";
+  if (joined.includes("api gateway")) return "aws-api-gateway";
+  if (joined.includes("kubernetes") || joined.includes("k8s")) return "kubernetes";
+  if (joined.includes("namespace")) return "cluster-namespace";
+  if (joined.includes("cluster")) return "cluster";
+  if (joined.includes("pod")) return "cluster-pod";
+  if (joined.includes("ingress")) return "cluster-ingress";
+  if (joined.includes("kong")) return "cluster-kong";
+
+  const inferred = inferKindFromLabel(joined);
+  return inferred === "system" ? null : inferred;
 };
 
 const isSwimlane = (style: Record<string, string>, shape: string): boolean =>
