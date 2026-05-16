@@ -45,6 +45,38 @@ type DrawIoVertexCell = DrawIoCell & Readonly<{
   }>;
 }>;
 
+type ExcalidrawBinding = Readonly<{
+  elementId?: string | null;
+}>;
+
+type ExcalidrawPoint = readonly [number, number];
+
+type ExcalidrawElement = Readonly<{
+  id: string;
+  type: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  text?: string;
+  containerId?: string | null;
+  startBinding?: ExcalidrawBinding | null;
+  endBinding?: ExcalidrawBinding | null;
+  points?: readonly ExcalidrawPoint[];
+  strokeColor?: string;
+  backgroundColor?: string;
+  strokeStyle?: string;
+  elbowed?: boolean;
+  startArrowhead?: string | null;
+  endArrowhead?: string | null;
+  isDeleted?: boolean;
+}>;
+
+type ExcalidrawDocument = Readonly<{
+  type: "excalidraw";
+  elements: readonly ExcalidrawElement[];
+}>;
+
 const templateByKind = new Map(nodeCatalog.map((template) => [template.kind, template]));
 const drawioAwsIconMap: Readonly<Record<string, ArchitectureNodeKind>> = {
   "account": "aws-account",
@@ -103,7 +135,7 @@ const mermaidEntryPattern =
 
 const drawIoExtensionPattern = /\.(drawio|xml)$/i;
 const mermaidExtensionPattern = /\.(mmd|mermaid)$/i;
-const jsonExtensionPattern = /\.(json|archdraw)$/i;
+const jsonExtensionPattern = /\.(json|archdraw|excalidraw)$/i;
 
 export const parseImportToSharePackage = async ({
   fileName,
@@ -119,7 +151,7 @@ export const parseImportToSharePackage = async ({
   }
 
   if (isJsonFile(fileName, trimmed)) {
-    return parseJsonImport(trimmed, now);
+    return parseJsonImport(fileName, trimmed, now);
   }
 
   if (isMermaidFile(fileName, trimmed)) {
@@ -127,10 +159,10 @@ export const parseImportToSharePackage = async ({
     return createSharePackage(architecture, now);
   }
 
-  throw new Error("Formato nao suportado. Use .archdraw/.json, .drawio/.xml, .mmd ou .mermaid.");
+  throw new Error("Formato nao suportado. Use .archdraw/.json, .drawio/.xml, .mmd/.mermaid ou .excalidraw.");
 };
 
-const parseJsonImport = (text: string, now: string): ArchitectureSharePackage => {
+const parseJsonImport = (fileName: string, text: string, now: string): ArchitectureSharePackage => {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -140,7 +172,106 @@ const parseJsonImport = (text: string, now: string): ArchitectureSharePackage =>
 
   if (isSharePackage(parsed)) return parsed;
   if (isArchitectureDocument(parsed)) return createSharePackage(parsed, now);
+  if (isExcalidrawDocument(parsed)) {
+    const architecture = parseExcalidrawToArchitecture(fileName, parsed, now);
+    return createSharePackage(architecture, now);
+  }
   throw new Error("JSON nao reconhecido. Exporte um pacote .archdraw ou documento de arquitetura valido.");
+};
+
+const parseExcalidrawToArchitecture = (
+  fileName: string,
+  document: ExcalidrawDocument,
+  now: string
+): ArchitectureDocument => {
+  const liveElements = document.elements.filter((element) => !element.isDeleted);
+  const textByContainer = new Map<string, string>();
+  for (const element of liveElements) {
+    if (element.type !== "text" || !element.containerId) continue;
+    const label = normalizeExcalidrawLabel(element.text);
+    if (!label) continue;
+    if (!textByContainer.has(element.containerId)) textByContainer.set(element.containerId, label);
+  }
+
+  const nodeElements = liveElements.filter((element) =>
+    ["rectangle", "ellipse", "diamond", "frame", "image"].includes(element.type)
+  );
+  const nodes = nodeElements.map((element, index) => {
+    const geometry = normalizeExcalidrawGeometry(element);
+    const inferredLabel =
+      normalizeExcalidrawLabel(element.text)
+      || textByContainer.get(element.id)
+      || "";
+    const kind = inferExcalidrawNodeKind(element, inferredLabel);
+    const size = normalizeNodeSize(kind, geometry);
+    return {
+      id: `excalidraw-${element.id}`,
+      kind,
+      label: inferredLabel || getDefaultLabel(kind),
+      position: {
+        x: geometry.x || 120 + (index % 4) * 240,
+        y: geometry.y || 120 + Math.floor(index / 4) * 140
+      },
+      size,
+      color: inferExcalidrawColor(kind, element)
+    } satisfies ArchitectureNode;
+  });
+
+  const nodeIdByElementId = new Map(nodeElements.map((element) => [element.id, `excalidraw-${element.id}`] as const));
+  const nodeCenters = new Map(nodes.map((node) => [node.id, {
+    x: node.position.x + node.size.width / 2,
+    y: node.position.y + node.size.height / 2
+  }] as const));
+  const edges: ArchitectureEdge[] = [];
+
+  for (const element of liveElements) {
+    if (element.type !== "arrow" && element.type !== "line") continue;
+    const fromBound = element.startBinding?.elementId ? nodeIdByElementId.get(element.startBinding.elementId) : undefined;
+    const toBound = element.endBinding?.elementId ? nodeIdByElementId.get(element.endBinding.elementId) : undefined;
+    const points = element.points ?? [];
+    const firstPoint = points[0];
+    const lastPoint = points.at(-1);
+    const startPoint = firstPoint ? { x: element.x + firstPoint[0], y: element.y + firstPoint[1] } : null;
+    const endPoint = lastPoint ? { x: element.x + lastPoint[0], y: element.y + lastPoint[1] } : null;
+    const from = fromBound ?? (startPoint ? findNearestNodeId(startPoint, nodeCenters) : null);
+    const to = toBound ?? (endPoint ? findNearestNodeId(endPoint, nodeCenters, from ?? undefined) : null);
+    if (!from || !to || from === to) continue;
+
+    const style: ArchitectureEdgeStyle = {
+      path: element.elbowed ? "step" : "smoothstep",
+      line:
+        element.strokeStyle === "dashed"
+          ? "dashed"
+          : element.strokeStyle === "dotted"
+            ? "dotted"
+            : "solid",
+      color: /^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/.test(element.strokeColor ?? "")
+        ? (element.strokeColor as string)
+        : "#111827",
+      animated: false,
+      bidirectional: Boolean(element.startArrowhead && element.endArrowhead)
+    };
+
+    edges.push({
+      id: `excalidraw-edge-${element.id}`,
+      from,
+      to,
+      label: normalizeExcalidrawLabel(element.text) || undefined,
+      style
+    });
+  }
+
+  return {
+    version: ARCHITECTURE_DOCUMENT_VERSION,
+    id: `import-excalidraw-${crypto.randomUUID()}`,
+    title: importTitleFromFile(fileName, "Import Excalidraw"),
+    description: "",
+    nodes,
+    edges,
+    mermaidSource: "",
+    createdAt: now,
+    updatedAt: now
+  };
 };
 
 const parseMermaidToArchitecture = ({
@@ -607,6 +738,79 @@ const isArchitectureDocument = (value: unknown): value is ArchitectureDocument =
     typeof candidate.createdAt === "string" &&
     typeof candidate.updatedAt === "string"
   );
+};
+
+const isExcalidrawDocument = (value: unknown): value is ExcalidrawDocument => {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Partial<ExcalidrawDocument>;
+  return candidate.type === "excalidraw" && Array.isArray(candidate.elements);
+};
+
+const normalizeExcalidrawLabel = (value: string | undefined): string => {
+  if (typeof value !== "string") return "";
+  return value
+    .replaceAll(/<[^>]*>/g, " ")
+    .replaceAll(/\s+/g, " ")
+    .trim();
+};
+
+const normalizeExcalidrawGeometry = (
+  element: ExcalidrawElement
+): Readonly<{ x: number; y: number; width: number; height: number }> => ({
+  x: Number.isFinite(element.x) ? element.x : 0,
+  y: Number.isFinite(element.y) ? element.y : 0,
+  width: Number.isFinite(element.width) ? Math.abs(element.width) : 0,
+  height: Number.isFinite(element.height) ? Math.abs(element.height) : 0
+});
+
+const inferExcalidrawNodeKind = (
+  element: ExcalidrawElement,
+  label: string
+): ArchitectureNodeKind => {
+  const normalizedLabel = normalizeText(label);
+
+  if (element.type === "diamond") return "flow-decision";
+
+  if (element.type === "ellipse") {
+    if (/(start|inicio)/.test(normalizedLabel)) return "flow-start";
+    if (/(end|fim|stop)/.test(normalizedLabel)) return "flow-end";
+    if (/(external|user|client)/.test(normalizedLabel)) return "external";
+  }
+
+  if (element.type === "frame") {
+    const inferred = inferKindFromLabel(normalizedLabel);
+    return isContainerNodeKind(inferred) ? inferred : "group-container-plus";
+  }
+
+  return inferKindFromLabel(normalizedLabel);
+};
+
+const inferExcalidrawColor = (kind: ArchitectureNodeKind, element: ExcalidrawElement): string => {
+  const backgroundColor = element.backgroundColor?.trim();
+  if (backgroundColor && /^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/.test(backgroundColor)) return backgroundColor;
+  return templateByKind.get(kind)?.color ?? "#f8fafc";
+};
+
+const findNearestNodeId = (
+  point: Readonly<{ x: number; y: number }>,
+  centers: ReadonlyMap<string, Readonly<{ x: number; y: number }>>,
+  excludeId?: string
+): string | null => {
+  let closestId: string | null = null;
+  let closestDistance = Number.POSITIVE_INFINITY;
+
+  for (const [nodeId, center] of centers.entries()) {
+    if (excludeId && nodeId === excludeId) continue;
+    const dx = point.x - center.x;
+    const dy = point.y - center.y;
+    const distance = dx * dx + dy * dy;
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closestId = nodeId;
+    }
+  }
+
+  return closestId;
 };
 
 const isDrawIoVertexCell = (cell: DrawIoCell): cell is DrawIoVertexCell =>

@@ -59,4 +59,60 @@ describe("diagram import parser", () => {
     expect(parsed.architecture.nodes.find((node) => node.id === "Api")?.color).toBe("#ffedd5");
     expect(parsed.architecture.nodes.find((node) => node.id === "Db")?.color).toBe("#e0f2fe");
   });
+
+  it("imports Excalidraw JSON and converts elements into nodes and edges", async () => {
+    const source = {
+      type: "excalidraw",
+      elements: [
+        {
+          id: "node-a",
+          type: "rectangle",
+          x: 120,
+          y: 80,
+          width: 140,
+          height: 72,
+          text: "API"
+        },
+        {
+          id: "node-b",
+          type: "rectangle",
+          x: 420,
+          y: 80,
+          width: 140,
+          height: 72,
+          text: "RDS"
+        },
+        {
+          id: "edge-1",
+          type: "arrow",
+          x: 0,
+          y: 0,
+          width: 0,
+          height: 0,
+          startBinding: { elementId: "node-a" },
+          endBinding: { elementId: "node-b" },
+          points: [
+            [190, 116],
+            [420, 116]
+          ],
+          strokeColor: "#334155"
+        }
+      ]
+    };
+
+    const parsed = await parseImportToSharePackage({
+      fileName: "example.excalidraw",
+      text: JSON.stringify(source),
+      now
+    });
+
+    expect(parsed.schema).toBe("arch-draw.share");
+    expect(parsed.architecture.title).toBe("example");
+    expect(parsed.architecture.nodes.length).toBe(2);
+    expect(parsed.architecture.edges.length).toBe(1);
+    expect(parsed.architecture.nodes.find((node) => node.id === "excalidraw-node-a")?.kind).toBe("service");
+    expect(parsed.architecture.nodes.find((node) => node.id === "excalidraw-node-b")?.kind).toBe("aws-rds");
+    expect(parsed.architecture.edges[0]?.from).toBe("excalidraw-node-a");
+    expect(parsed.architecture.edges[0]?.to).toBe("excalidraw-node-b");
+  });
 });
