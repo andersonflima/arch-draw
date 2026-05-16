@@ -2080,8 +2080,9 @@ export class AppComponent implements OnDestroy {
     const baseZIndex = rendersAsContainer ? 0 : 2;
     const dragZIndex = isDescendantOfDragged ? 31 : isBeingDragged ? 30 : baseZIndex;
     const nestedInsideContainer = Boolean(node.parentId);
+    const isCodeNode = node.kind.startsWith("code-");
     const nodeTextColor = this.isDarkMode
-      ? (rendersAsContainer || nestedInsideContainer ? "#111827" : "#f8fafc")
+      ? (isCodeNode || rendersAsContainer || nestedInsideContainer ? "#111827" : "#f8fafc")
       : "#111827";
     return {
       left: `${position.x}px`,
