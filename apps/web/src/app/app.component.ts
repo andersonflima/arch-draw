@@ -3630,7 +3630,12 @@ spec:
     if (!geometry) return null;
     const basePolyline = this.getBaseEdgePolyline(geometry);
     const obstacleRects = this.getEdgeObstacleRects(geometry.sourceId, geometry.targetId);
-    const routed = this.routePolylineAroundObstacles(basePolyline, obstacleRects);
+    const routed = this.routePolylineAroundObstacles(
+      basePolyline,
+      obstacleRects,
+      geometry.sourceId,
+      geometry.targetId
+    );
     if (routed.length < 2) return null;
     return {
       points: routed,
@@ -3686,6 +3691,10 @@ spec:
         path += ` L ${current.x} ${current.y}`;
         continue;
       }
+      if (index === 1 || index === points.length - 2) {
+        path += ` L ${current.x} ${current.y}`;
+        continue;
+      }
 
       const inDx = current.x - previous.x;
       const inDy = current.y - previous.y;
@@ -3728,8 +3737,7 @@ spec:
       .filter((node) => !this.rendersAsContainer(node))
       .map((node) => {
         const absolute = this.getAbsolutePosition(node);
-        const isEndpointNode = node.id === sourceId || node.id === targetId;
-        const padding = isEndpointNode ? 0 : EDGE_OBSTACLE_PADDING;
+        const padding = EDGE_OBSTACLE_PADDING;
         return {
           id: node.id,
           left: absolute.x - padding,
@@ -3742,7 +3750,9 @@ spec:
 
   private routePolylineAroundObstacles(
     points: readonly EdgePoint[],
-    obstacles: readonly EdgeObstacleRect[]
+    obstacles: readonly EdgeObstacleRect[],
+    sourceId: string,
+    targetId: string
   ): readonly EdgePoint[] {
     let routed = this.compactPolyline(points);
     if (routed.length < 2 || obstacles.length === 0) return routed;
@@ -3756,8 +3766,13 @@ spec:
         const start = routed[index];
         const end = routed[index + 1];
         if (!start || !end) continue;
-
-        const blocking = obstacles.find((rect) => this.segmentIntersectsExpandedRect(start, end, rect));
+        const isFirstSegment = index === 0;
+        const isLastSegment = index === routed.length - 2;
+        const blocking = obstacles.find((rect) => {
+          if (isFirstSegment && rect.id === sourceId) return false;
+          if (isLastSegment && rect.id === targetId) return false;
+          return this.segmentIntersectsExpandedRect(start, end, rect);
+        });
         if (!blocking) continue;
         const detour = this.buildSegmentDetour(start, end, blocking, obstacles);
         if (detour.length === 0) continue;
