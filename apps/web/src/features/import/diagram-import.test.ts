@@ -180,6 +180,78 @@ describe("diagram import parser", () => {
     expect(parsed.architecture.edges[0]?.to).toBe("database-main");
   });
 
+  it("resolves arrow bindings that target bound text container elements", async () => {
+    const source = {
+      type: "excalidraw",
+      elements: [
+        {
+          id: "node-a",
+          type: "rectangle",
+          x: 120,
+          y: 80,
+          width: 140,
+          height: 72,
+          text: "API"
+        },
+        {
+          id: "text-a",
+          type: "text",
+          x: 136,
+          y: 96,
+          width: 60,
+          height: 24,
+          text: "API",
+          containerId: "node-a"
+        },
+        {
+          id: "node-b",
+          type: "rectangle",
+          x: 420,
+          y: 80,
+          width: 140,
+          height: 72,
+          text: "DB"
+        },
+        {
+          id: "text-b",
+          type: "text",
+          x: 446,
+          y: 96,
+          width: 36,
+          height: 24,
+          text: "DB",
+          containerId: "node-b"
+        },
+        {
+          id: "edge-1",
+          type: "arrow",
+          x: 0,
+          y: 0,
+          width: 0,
+          height: 0,
+          startBinding: { elementId: "text-a" },
+          endBinding: { elementId: "text-b" },
+          points: [
+            [190, 116],
+            [420, 116]
+          ],
+          strokeColor: "#334155"
+        }
+      ]
+    };
+
+    const parsed = await parseImportToSharePackage({
+      fileName: "bound-text.excalidraw",
+      text: JSON.stringify(source),
+      now
+    });
+
+    expect(parsed.architecture.nodes).toHaveLength(2);
+    expect(parsed.architecture.edges).toHaveLength(1);
+    expect(parsed.architecture.edges[0]?.from).toBe("excalidraw-node-a");
+    expect(parsed.architecture.edges[0]?.to).toBe("excalidraw-node-b");
+  });
+
   it("keeps Excalidraw coordinates at 0 without fallback overlap", async () => {
     const source = {
       type: "excalidraw",

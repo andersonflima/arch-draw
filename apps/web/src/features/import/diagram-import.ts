@@ -227,6 +227,19 @@ const parseExcalidrawToArchitecture = (
     if (!element || !node) continue;
     nodeIdByElementId.set(element.id, node.id);
   }
+  const textContainerElementByTextId = new Map<string, string>();
+  for (const element of liveElements) {
+    if (element.type !== "text" || !element.containerId) continue;
+    textContainerElementByTextId.set(element.id, element.containerId);
+  }
+  const resolveBoundNodeId = (boundElementId: string | undefined): string | undefined => {
+    if (!boundElementId) return undefined;
+    const direct = nodeIdByElementId.get(boundElementId);
+    if (direct) return direct;
+    const containerElementId = textContainerElementByTextId.get(boundElementId);
+    if (!containerElementId) return undefined;
+    return nodeIdByElementId.get(containerElementId);
+  };
   const nodeCenters = new Map(nodes.map((node) => [node.id, {
     x: node.position.x + node.size.width / 2,
     y: node.position.y + node.size.height / 2
@@ -238,8 +251,8 @@ const parseExcalidrawToArchitecture = (
     const customData = getExcalidrawCustomData(element);
     const fromCustom = resolveExcalidrawEdgeEndpointFromCustomData(customData?.archDrawFrom, nodes);
     const toCustom = resolveExcalidrawEdgeEndpointFromCustomData(customData?.archDrawTo, nodes);
-    const fromBound = element.startBinding?.elementId ? nodeIdByElementId.get(element.startBinding.elementId) : undefined;
-    const toBound = element.endBinding?.elementId ? nodeIdByElementId.get(element.endBinding.elementId) : undefined;
+    const fromBound = resolveBoundNodeId(element.startBinding?.elementId ?? undefined);
+    const toBound = resolveBoundNodeId(element.endBinding?.elementId ?? undefined);
     const points = element.points ?? [];
     const firstPoint = points[0];
     const lastPoint = points.at(-1);
