@@ -163,6 +163,7 @@ const CODE_SNIPPET_EXPANDED_SIZE = { width: 420, height: 260 } as const;
 const EDGE_NODE_GAP = 10;
 const EDGE_MARKER_CLEARANCE = 6;
 const EDGE_ENDPOINT_STUB = 22;
+const FOCUS_Z_INDEX_BASE = 50;
 const MAX_UNDO_HISTORY = 150;
 const DRAG_START_THRESHOLD = 4;
 const UI_THEME_STORAGE_KEY = "arch-draw.ui-theme";
@@ -2153,8 +2154,16 @@ export class AppComponent implements OnDestroy {
     const rendersAsContainer = this.rendersAsContainer(node);
     const isBeingDragged = this.dragState?.pointerOffsets.has(node.id) ?? false;
     const isDescendantOfDragged = this.hasDraggedAncestor(node);
+    const isFocused = this.selectedNodeIds.includes(node.id);
+    const isDescendantOfFocused = this.hasSelectedAncestor(node);
     const baseZIndex = rendersAsContainer ? 0 : 2;
     const dragZIndex = isDescendantOfDragged ? 31 : isBeingDragged ? 30 : baseZIndex;
+    const focusZIndex = isDescendantOfFocused
+      ? FOCUS_Z_INDEX_BASE + 1
+      : isFocused
+        ? FOCUS_Z_INDEX_BASE
+        : baseZIndex;
+    const resolvedZIndex = Math.max(dragZIndex, focusZIndex);
     const nestedInsideContainer = Boolean(node.parentId);
     const isExpandedCodeSnippet = this.isCodeSnippetExpanded(node);
     const prefersDarkTextInDarkMode =
@@ -2169,7 +2178,7 @@ export class AppComponent implements OnDestroy {
       height: `${node.size.height}px`,
       "--node-bg": node.color,
       "--node-text-color": nodeTextColor,
-      zIndex: dragZIndex
+      zIndex: resolvedZIndex
     };
   }
 
@@ -2701,6 +2710,19 @@ export class AppComponent implements OnDestroy {
     let currentParentId = node.parentId;
     while (currentParentId) {
       if (this.dragState.pointerOffsets.has(currentParentId)) return true;
+      const parent = this.nodes.find((candidate) => candidate.id === currentParentId);
+      if (!parent) return false;
+      currentParentId = parent.parentId;
+    }
+    return false;
+  }
+
+  private hasSelectedAncestor(node: CanvasNode): boolean {
+    if (this.selectedNodeIds.length === 0) return false;
+    const selected = new Set(this.selectedNodeIds);
+    let currentParentId = node.parentId;
+    while (currentParentId) {
+      if (selected.has(currentParentId)) return true;
       const parent = this.nodes.find((candidate) => candidate.id === currentParentId);
       if (!parent) return false;
       currentParentId = parent.parentId;
