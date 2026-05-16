@@ -968,7 +968,10 @@ export class AppComponent {
   onNodeClick(nodeId: string, event: MouseEvent): void {
     event.stopPropagation();
     if (this.connectionSourceId && this.connectionSourceId !== nodeId) {
-      this.createConnection(this.connectionSourceId, nodeId);
+      const targetNode = this.nodes.find((node) => node.id === nodeId);
+      if (targetNode && this.isImplicitConnectionTargetNode(targetNode)) {
+        this.createConnection(this.connectionSourceId, nodeId);
+      }
       this.connectionDragState = null;
       this.connectionSourceId = null;
       this.markViewChanged();
@@ -2641,7 +2644,13 @@ export class AppComponent {
 
     const fromTargetNode =
       target?.closest<HTMLElement>("[data-node-id]")?.dataset["nodeId"] ?? null;
-    if (fromTargetNode && !isImplicitlyInvalidTarget(fromTargetNode)) return fromTargetNode;
+    if (
+      fromTargetNode &&
+      !isImplicitlyInvalidTarget(fromTargetNode) &&
+      this.isImplicitConnectionTargetNodeId(fromTargetNode)
+    ) {
+      return fromTargetNode;
+    }
 
     const hoveredElements = document.elementsFromPoint(event.clientX, event.clientY);
     for (const hoveredElement of hoveredElements) {
@@ -2655,16 +2664,32 @@ export class AppComponent {
     for (const hoveredElement of hoveredElements) {
       const hovered = hoveredElement as HTMLElement;
       const targetNodeId = hovered.closest<HTMLElement>("[data-node-id]")?.dataset["nodeId"] ?? null;
-      if (targetNodeId && !isImplicitlyInvalidTarget(targetNodeId)) return targetNodeId;
+      if (
+        targetNodeId &&
+        !isImplicitlyInvalidTarget(targetNodeId) &&
+        this.isImplicitConnectionTargetNodeId(targetNodeId)
+      ) {
+        return targetNodeId;
+      }
     }
 
     const canvasPoint = this.toCanvasPoint(event);
     const fallbackTargets = this.nodes
       .filter((node) => !isImplicitlyInvalidTarget(node.id) && this.isVisibleNode(node))
+      .filter((node) => this.isImplicitConnectionTargetNode(node))
       .filter((node) => this.containsPoint(node, canvasPoint))
       .sort((left, right) => this.area(left.size) - this.area(right.size));
 
     return fallbackTargets[0]?.id ?? null;
+  }
+
+  private isImplicitConnectionTargetNodeId(nodeId: string): boolean {
+    const node = this.nodes.find((candidate) => candidate.id === nodeId);
+    return node ? this.isImplicitConnectionTargetNode(node) : false;
+  }
+
+  private isImplicitConnectionTargetNode(node: CanvasNode): boolean {
+    return !this.rendersAsContainer(node);
   }
 
   private isAncestorOfNode(ancestorNodeId: string, nodeId: string): boolean {
