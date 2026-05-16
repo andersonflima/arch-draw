@@ -227,6 +227,7 @@ const containerKinds = new Set<ArchitectureNodeKind>([
   "aws-vpc",
   "aws-subnet",
   "aws-ec2",
+  "aws-ecs",
   "aws-eks",
   "cluster",
   "cluster-namespace",

@@ -49,6 +49,8 @@ describe("node catalog", () => {
     expect(isContainerNodeKind("cluster-deployment")).toBe(true);
     expect(isContainerNodeKind("container")).toBe(true);
     expect(isContainerNodeKind("aws-ec2")).toBe(true);
+    expect(isContainerNodeKind("aws-ecs")).toBe(true);
+    expect(isContainerNodeKind("aws-eks")).toBe(true);
     expect(getDefaultNodeSize("group-container")).toEqual(getDefaultNodeSize("container"));
   });
 

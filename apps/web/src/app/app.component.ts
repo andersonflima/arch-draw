@@ -394,6 +394,8 @@ const NOSQL_QUERY_FIELDS: readonly NodePropertyField[] = [
 ];
 
 const CONTAINER_CODE_PROPERTY_KINDS = new Set<ArchitectureNodeKind>([
+  "aws-ecs",
+  "aws-eks",
   "cluster-deployment",
   "cluster-statefulset",
   "cluster-daemonset",
@@ -4215,6 +4217,8 @@ spec:
       "aws-route53",
       "aws-security-group",
       "aws-step-functions",
+      "aws-ecs",
+      "aws-eks",
       "cluster-deployment",
       "cluster-statefulset",
       "cluster-daemonset",
@@ -4387,6 +4391,56 @@ spec:
     }
   }
 }`;
+    }
+
+    if (kind === "aws-ecs") {
+      return `Resources:
+  OrdersCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: orders-cluster
+
+  OrdersTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: orders-api
+      Cpu: "512"
+      Memory: "1024"
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ContainerDefinitions:
+        - Name: orders-api
+          Image: 123456789012.dkr.ecr.us-east-1.amazonaws.com/orders-api:latest
+          PortMappings:
+            - ContainerPort: 8080
+
+  OrdersService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref OrdersCluster
+      DesiredCount: 2
+      LaunchType: FARGATE
+      TaskDefinition: !Ref OrdersTaskDefinition`;
+    }
+
+    if (kind === "aws-eks") {
+      return `apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: platform-cluster
+  region: us-east-1
+  version: "1.30"
+managedNodeGroups:
+  - name: apps
+    instanceType: t3.large
+    desiredCapacity: 2
+    minSize: 2
+    maxSize: 6
+addons:
+  - name: vpc-cni
+  - name: coredns
+  - name: kube-proxy`;
     }
 
     if (kind === "cluster-configmap") {
