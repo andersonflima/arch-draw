@@ -305,7 +305,7 @@ button {
 
 .palette-search {
   display: block;
-  padding: 10px 12px 0;
+  padding: 10px 12px 6px;
 }
 
 .palette-search input {
@@ -2972,7 +2972,7 @@ app-flow-document-node {
 .app-shell.theme-dark .mermaid-panel textarea {
   background: #0f172a;
   color: #e5e7eb;
-  border-color: #4b5563;
+  border-color: #f59e0b;
 }
 
 .app-shell.theme-dark .palette-search input:focus,
