@@ -385,14 +385,14 @@
               </button>
             </div>
             <div
-              *ngIf="showDoubleClickHint && (isContainerCollapsed(node) || isCodeSnippetCollapsed(node))"
+              *ngIf="showDoubleClickHint && (isContainerCollapsed(node) || (isCodeSnippetCollapsed(node) && !isFlowNodeKind(node.kind)))"
               class="node-maximize-hint"
               aria-hidden="true"
             >
               <span>Click twice, maximize me!</span>
             </div>
             <ng-container *ngIf="!isEditingNode(node.id); else nodeLabelEditor">
-              <ng-container *ngIf="isCodeSnippetExpanded(node); else nodeDisplay">
+              <ng-container *ngIf="isCodeSnippetExpanded(node) && !isFlowNodeKind(node.kind); else nodeDisplay">
                 <div class="code-snippet-content">
                   <div class="code-snippet-content__meta">
                     <strong>{{ node.label }}</strong>
@@ -569,6 +569,7 @@
               ></textarea>
             </label>
             <button
+              *ngIf="!isFlowNodeKind(node.kind)"
               class="secondary-action"
               type="button"
               (click)="setSelectedCodeSnippetCollapsed(!isCodeSnippetCollapsed(node))"

@@ -1122,7 +1122,7 @@ export class AppComponent implements OnDestroy {
 
   onNodeDoubleClick(node: CanvasNode, event: MouseEvent): void {
     event.stopPropagation();
-    if (this.isCodeSnippetCollapsed(node)) {
+    if (this.isCodeSnippetCollapsed(node) && !this.isFlowNodeKind(node.kind)) {
       this.setCodeSnippetCollapsed(node.id, false);
       this.selectedNodeId = node.id;
       this.selectedNodeIds = [node.id];
@@ -2190,10 +2190,10 @@ export class AppComponent implements OnDestroy {
   getNodeClass(node: CanvasNode): string {
     const visualGroup = getNodeVisualGroup(node.kind);
     const isContainer = this.rendersAsContainer(node);
-    const isExpandedCodeSnippet = this.isCodeSnippetExpanded(node);
+    const isExpandedCodeSnippet = this.isCodeSnippetExpanded(node) && !this.isFlowNodeKind(node.kind);
     const isIconOnly = isIconOnlyNodeKind(node.kind) && !isExpandedCodeSnippet;
     const isCollapsedContainer = this.isContainerCollapsed(node);
-    const isCollapsedCodeSnippet = this.isCodeSnippetCollapsed(node);
+    const isCollapsedCodeSnippet = this.isCodeSnippetCollapsed(node) && !this.isFlowNodeKind(node.kind);
     const usesLeafCollapsedCodeStyle = isCollapsedCodeSnippet && !this.isFlowNodeKind(node.kind);
     return [
       "architecture-node",
@@ -4665,11 +4665,14 @@ spec:
   }
 
   private hasCollapsedNodeForDoubleClickHint(): boolean {
-    return this.nodes.some((node) => this.isContainerCollapsed(node) || this.isCodeSnippetCollapsed(node));
+    return this.nodes.some((node) =>
+      this.isContainerCollapsed(node) ||
+      (this.isCodeSnippetCollapsed(node) && !this.isFlowNodeKind(node.kind))
+    );
   }
 
   private shouldPulseDoubleClickHintOnNodeAdded(node: CanvasNode): boolean {
-    return this.isCodeSnippetCollapsed(node) || this.isContainerCollapsed(node);
+    return (this.isCodeSnippetCollapsed(node) && !this.isFlowNodeKind(node.kind)) || this.isContainerCollapsed(node);
   }
 
   private scheduleDoubleClickHintAfterNodeAdded(): void {
