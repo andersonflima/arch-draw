@@ -2330,9 +2330,12 @@ app-flow-document-node {
   fill: #111827;
   font-size: 12px;
   font-weight: 700;
+  letter-spacing: 0.24px;
+  font-kerning: normal;
+  text-rendering: geometricPrecision;
   paint-order: stroke;
   stroke: #fffaf0;
-  stroke-width: 4px;
+  stroke-width: 2.2px;
   stroke-linejoin: round;
   pointer-events: none;
 }
