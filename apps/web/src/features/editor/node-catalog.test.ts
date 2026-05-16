@@ -50,6 +50,7 @@ describe("node catalog", () => {
     expect(isContainerNodeKind("container")).toBe(true);
     expect(isContainerNodeKind("aws-ec2")).toBe(true);
     expect(isContainerNodeKind("aws-ecs")).toBe(true);
+    expect(isContainerNodeKind("aws-ecr")).toBe(true);
     expect(isContainerNodeKind("aws-eks")).toBe(true);
     expect(getDefaultNodeSize("group-container")).toEqual(getDefaultNodeSize("container"));
   });

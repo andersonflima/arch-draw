@@ -395,6 +395,7 @@ const NOSQL_QUERY_FIELDS: readonly NodePropertyField[] = [
 
 const CONTAINER_CODE_PROPERTY_KINDS = new Set<ArchitectureNodeKind>([
   "aws-ecs",
+  "aws-ecr",
   "aws-eks",
   "cluster-deployment",
   "cluster-statefulset",
@@ -4218,6 +4219,7 @@ spec:
       "aws-security-group",
       "aws-step-functions",
       "aws-ecs",
+      "aws-ecr",
       "aws-eks",
       "cluster-deployment",
       "cluster-statefulset",
@@ -4422,6 +4424,35 @@ spec:
       DesiredCount: 2
       LaunchType: FARGATE
       TaskDefinition: !Ref OrdersTaskDefinition`;
+    }
+
+    if (kind === "aws-ecr") {
+      return `Resources:
+  OrdersRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: orders-api
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      ImageTagMutability: IMMUTABLE
+      EncryptionConfiguration:
+        EncryptionType: AES256
+      LifecyclePolicy:
+        LifecyclePolicyText: >
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 30 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 30
+                },
+                "action": { "type": "expire" }
+              }
+            ]
+          }`;
     }
 
     if (kind === "aws-eks") {
