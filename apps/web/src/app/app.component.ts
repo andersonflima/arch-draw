@@ -790,17 +790,18 @@ export class AppComponent {
   async exportSvgCurrent(): Promise<void> {
     await this.runSafely(async () => {
       if (!this.architecture) return;
-      const canvas = this.getExportCanvasElement();
-      if (!canvas) throw new Error("Canvas indisponivel para exportacao.");
-      const exportDimensions = this.getExportCanvasDimensions(canvas);
-
-      const dataUrl = await toSvg(canvas, {
-        cacheBust: true,
-        width: exportDimensions.width,
-        height: exportDimensions.height,
-        canvasWidth: exportDimensions.width,
-        canvasHeight: exportDimensions.height,
-        filter: (node) => this.shouldIncludeNodeInExport(node)
+      const dataUrl = await this.withDefaultExportViewport(async () => {
+        const canvas = this.getExportCanvasElement();
+        if (!canvas) throw new Error("Canvas indisponivel para exportacao.");
+        const exportDimensions = this.getExportCanvasDimensions(canvas);
+        return toSvg(canvas, {
+          cacheBust: true,
+          width: exportDimensions.width,
+          height: exportDimensions.height,
+          canvasWidth: exportDimensions.width,
+          canvasHeight: exportDimensions.height,
+          filter: (node) => this.shouldIncludeNodeInExport(node)
+        });
       });
       this.downloadDataUrl(dataUrl, `${this.getExportFileBaseName()}.svg`);
       this.status = "Arquivo SVG exportado";
@@ -810,18 +811,19 @@ export class AppComponent {
   async exportPngCurrent(): Promise<void> {
     await this.runSafely(async () => {
       if (!this.architecture) return;
-      const canvas = this.getExportCanvasElement();
-      if (!canvas) throw new Error("Canvas indisponivel para exportacao.");
-      const exportDimensions = this.getExportCanvasDimensions(canvas);
-
-      const dataUrl = await toPng(canvas, {
-        cacheBust: true,
-        pixelRatio: 2,
-        width: exportDimensions.width,
-        height: exportDimensions.height,
-        canvasWidth: exportDimensions.width,
-        canvasHeight: exportDimensions.height,
-        filter: (node) => this.shouldIncludeNodeInExport(node)
+      const dataUrl = await this.withDefaultExportViewport(async () => {
+        const canvas = this.getExportCanvasElement();
+        if (!canvas) throw new Error("Canvas indisponivel para exportacao.");
+        const exportDimensions = this.getExportCanvasDimensions(canvas);
+        return toPng(canvas, {
+          cacheBust: true,
+          pixelRatio: 2,
+          width: exportDimensions.width,
+          height: exportDimensions.height,
+          canvasWidth: exportDimensions.width,
+          canvasHeight: exportDimensions.height,
+          filter: (node) => this.shouldIncludeNodeInExport(node)
+        });
       });
       this.downloadDataUrl(dataUrl, `${this.getExportFileBaseName()}.png`);
       this.status = "Arquivo PNG exportado";
@@ -3174,6 +3176,39 @@ export class AppComponent {
       .replaceAll(/^-+|-+$/g, "")
       .toLowerCase();
     return normalized || "architecture";
+  }
+
+  private async withDefaultExportViewport<T>(operation: () => Promise<T>): Promise<T> {
+    const previousZoom = this.canvasZoom;
+    const previousPan = this.canvasPan;
+    const needsReset =
+      previousZoom !== 1 ||
+      previousPan.x !== DEFAULT_CANVAS_PAN.x ||
+      previousPan.y !== DEFAULT_CANVAS_PAN.y;
+
+    if (needsReset) {
+      this.canvasZoom = 1;
+      this.canvasPan = DEFAULT_CANVAS_PAN;
+      this.markInteractionChanged();
+      await this.waitForNextFrame();
+    }
+
+    try {
+      return await operation();
+    } finally {
+      if (needsReset) {
+        this.canvasZoom = previousZoom;
+        this.canvasPan = previousPan;
+        this.markInteractionChanged();
+        await this.waitForNextFrame();
+      }
+    }
+  }
+
+  private waitForNextFrame(): Promise<void> {
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => resolve());
+    });
   }
 
   private downloadDataUrl(dataUrl: string, filename: string): void {
