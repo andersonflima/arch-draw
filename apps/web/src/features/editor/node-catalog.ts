@@ -149,6 +149,7 @@ export const nodeCatalog: readonly NodeTemplate[] = [
   { category: "Software Development", kind: "software-worker", label: "Worker", color: "#fee2e2" },
   { category: "Software Development", kind: "software-bff", label: "BFF", color: "#ede9fe" },
   { category: "Software Development", kind: "software-cli", label: "CLI", color: "#e0e7ff" },
+  { category: "Software Development", kind: "software-docker", label: "Docker", color: "#bfdbfe" },
 
   { category: "Devices", kind: "device-desktop", label: "Desktop", color: "#dbeafe" },
   { category: "Devices", kind: "device-laptop", label: "Laptop", color: "#bfdbfe" },
@@ -296,6 +297,7 @@ const codeSnippetKinds = new Set<ArchitectureNodeKind>([
   "software-worker",
   "software-bff",
   "software-cli",
+  "software-docker",
   "aws-api-gateway",
   "aws-sqs",
   "aws-sns",

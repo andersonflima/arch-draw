@@ -38,6 +38,7 @@ describe("node catalog", () => {
     expect(nodeCatalog.some((template) => template.kind === "queue-kafka")).toBe(true);
     expect(nodeCatalog.some((template) => template.kind === "query-sql")).toBe(true);
     expect(nodeCatalog.some((template) => template.kind === "query-nosql")).toBe(true);
+    expect(nodeCatalog.some((template) => template.kind === "software-docker")).toBe(true);
   });
 
   it("treats core and cloud containers as grouping containers", () => {
@@ -74,6 +75,7 @@ describe("node catalog", () => {
     expect(isCodeSnippetNodeKind("query-sql")).toBe(true);
     expect(isCodeSnippetNodeKind("query-nosql")).toBe(true);
     expect(isCodeSnippetNodeKind("queue-kafka")).toBe(true);
+    expect(isCodeSnippetNodeKind("software-docker")).toBe(true);
     expect(isCodeSnippetNodeKind("cluster-pod")).toBe(false);
   });
 });

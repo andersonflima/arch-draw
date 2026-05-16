@@ -109,6 +109,7 @@ export type ArchitectureNodeKind =
   | "software-worker"
   | "software-bff"
   | "software-cli"
+  | "software-docker"
   | "device-desktop"
   | "device-laptop"
   | "device-tablet"

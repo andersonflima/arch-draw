@@ -393,6 +393,14 @@ const NOSQL_QUERY_FIELDS: readonly NodePropertyField[] = [
   { key: "indexHint", label: "Index Hint", placeholder: "customerId_1_createdAt_-1" }
 ];
 
+const DOCKER_FIELDS: readonly NodePropertyField[] = [
+  { key: "image", label: "Image", placeholder: "node:22-alpine" },
+  { key: "tag", label: "Tag", placeholder: "latest" },
+  { key: "containerName", label: "Container Name", placeholder: "orders-api" },
+  { key: "ports", label: "Port Mappings", placeholder: "3000:3000,9229:9229" },
+  { key: "volumes", label: "Volumes", placeholder: "./src:/app/src", multiline: true }
+];
+
 const CONTAINER_CODE_PROPERTY_KINDS = new Set<ArchitectureNodeKind>([
   "aws-ecs",
   "aws-ecr",
@@ -459,6 +467,7 @@ const NODE_PROPERTY_FIELDS_BY_KIND: Partial<Record<ArchitectureNodeKind, readonl
   "queue-kafka": KAFKA_FIELDS,
   "query-sql": SQL_QUERY_FIELDS,
   "query-nosql": NOSQL_QUERY_FIELDS,
+  "software-docker": DOCKER_FIELDS,
   identity: [
     { key: "identityProvider", label: "Identity Provider", placeholder: "IAM | Cognito | OIDC" },
     { key: "authFlow", label: "Auth Flow", placeholder: "authorization_code" },
@@ -1791,6 +1800,19 @@ LIMIT 50;`;
       return language === "markdown"
         ? `\`\`\`mermaid\n${snippet}\n\`\`\``
         : snippet;
+    }
+
+    if (kind === "software-docker") {
+      const snippet = `services:
+  app:
+    image: node:22-alpine
+    working_dir: /app
+    command: ["npm", "run", "dev"]
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/app`;
+      return language === "markdown" ? `\`\`\`yaml\n${snippet}\n\`\`\`` : snippet;
     }
 
     if (this.isDeclarativeManifestCodeKind(kind)) {
@@ -4202,6 +4224,8 @@ spec:
         return "software-api";
       case "software-cli":
         return "code-file";
+      case "software-docker":
+        return "code-file";
       default:
         return kind;
     }
@@ -5168,6 +5192,7 @@ spec:
     if (kind === "mermaid") return "mermaid";
     if (kind === "query-sql") return "sql";
     if (kind === "query-nosql") return "javascript";
+    if (kind === "software-docker") return "yaml";
     if (kind === "queue-rabbitmq" || kind === "queue-kafka" || kind === "cache-redis" || kind === "database-mongodb") {
       return "markdown";
     }

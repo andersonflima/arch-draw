@@ -200,7 +200,8 @@ const inferNodeKind = (label: string): ArchitectureNode["kind"] => {
   if (/(log|logging)/.test(normalized)) return "logging";
   if (/(metric|monitor|observability)/.test(normalized)) return "monitoring";
   if (/(firewall|waf|security group)/.test(normalized)) return "firewall";
-  if (/(container|docker)/.test(normalized)) return "container";
+  if (/(docker)/.test(normalized)) return "software-docker";
+  if (/(container)/.test(normalized)) return "container";
   if (/(laptop|notebook)/.test(normalized)) return "device-laptop";
   if (/(desktop|workstation|\bpc\b)/.test(normalized)) return "device-desktop";
   if (/(tablet|ipad)/.test(normalized)) return "device-tablet";
@@ -226,6 +227,7 @@ const inferNodeColor = (label: string): string => {
     "cloud-vpc": "#dcfce7",
     compute: "#ffedd5",
     container: "#ccfbf1",
+    "software-docker": "#bfdbfe",
     database: "#e0f2fe",
     "database-mongodb": "#dcfce7",
     "cache-redis": "#fee2e2",

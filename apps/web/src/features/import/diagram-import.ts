@@ -533,7 +533,8 @@ const inferKindFromLabel = (label: string): ArchitectureNodeKind => {
   if (/(log|logging)/.test(normalized)) return "logging";
   if (/(metric|monitor|observability)/.test(normalized)) return "monitoring";
   if (/(firewall)/.test(normalized)) return "firewall";
-  if (/(container|docker)/.test(normalized)) return "container";
+  if (/(docker)/.test(normalized)) return "software-docker";
+  if (/(container)/.test(normalized)) return "container";
   if (/(laptop|notebook)/.test(normalized)) return "device-laptop";
   if (/(desktop|workstation|\bpc\b)/.test(normalized)) return "device-desktop";
   if (/(tablet|ipad)/.test(normalized)) return "device-tablet";
