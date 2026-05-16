@@ -644,37 +644,6 @@
       </section>
     </main>
 
-    <div class="right-rail">
-      <section class="mermaid-panel" aria-label="Mermaid editor">
-        <div class="panel-heading">
-          <div>
-            <span>Mermaid</span>
-            <small>Renderiza e transforma em nos editaveis.</small>
-          </div>
-          <button class="primary-action" type="button" [disabled]="lintStatus !== 'valid'" (click)="applyMermaid()">
-            Aplicar
-          </button>
-        </div>
-        <textarea
-          #mermaidTextarea
-          [ngModel]="mermaidDraft"
-          spellcheck="false"
-          autocapitalize="off"
-          autocomplete="off"
-          autocorrect="off"
-          (ngModelChange)="onMermaidChange($event)"
-          (keydown)="onMermaidKeyDown($event)"
-          placeholder='graph LR&#10;  User["User"] --> Api["API"]&#10;  Api --> Db["SQLite"]'
-        ></textarea>
-        <div class="mermaid-preview">
-          <p class="error-text" *ngIf="mermaidError; else mermaidOk">{{ mermaidError }}</p>
-          <ng-template #mermaidOk>
-            <p class="lint-text">{{ lintStatus === "valid" ? "Mermaid valido" : "Informe um diagrama Mermaid" }}</p>
-            <div class="mermaid-preview__diagram" [innerHTML]="mermaidSvg"></div>
-          </ng-template>
-        </div>
-      </section>
-    </div>
   </div>
 
   <div class="toast error-text" *ngIf="error">

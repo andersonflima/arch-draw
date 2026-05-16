@@ -170,7 +170,7 @@ button {
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(180px, 220px) minmax(180px, 210px) minmax(0, 1fr) minmax(300px, 360px);
+  grid-template-columns: minmax(180px, 220px) minmax(180px, 210px) minmax(0, 1fr);
   width: 100%;
   max-width: 100vw;
   min-height: 0;
@@ -273,20 +273,6 @@ button {
   overflow: hidden;
   position: relative;
   z-index: 40;
-}
-
-.right-rail {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr);
-  min-height: 0;
-  overflow: hidden;
-  border-left: 2px solid #111827;
-  position: relative;
-  z-index: 40;
-}
-
-.right-rail .mermaid-panel {
-  border-right: 0;
 }
 
 .panel-heading {
@@ -3239,23 +3225,12 @@ app-flow-document-node {
 
   .workspace {
     grid-template-columns: 1fr;
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto minmax(0, 1fr);
   }
 
   .sidebar,
-  .palette,
-  .right-rail {
+  .palette {
     border-right: 0;
     border-bottom: 2px solid #111827;
-  }
-
-  .right-rail {
-    grid-template-rows: auto;
-    border-left: 0;
-  }
-
-  .right-rail.right-rail--mermaid-open {
-    grid-template-rows: auto minmax(0, 1fr);
-    border-left: 0;
   }
 }
