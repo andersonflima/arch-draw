@@ -18,6 +18,9 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -34,8 +37,12 @@ button {
 
 .app-shell {
   display: grid;
-  grid-template-rows: 64px calc(100vh - 64px);
+  grid-template-rows: 64px minmax(0, 1fr);
   min-height: 100vh;
+  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .topbar {
@@ -153,6 +160,7 @@ button {
   display: grid;
   grid-template-columns: 220px 210px minmax(420px, 1fr) 360px;
   min-height: 0;
+  overflow: hidden;
 }
 
 .sidebar,
@@ -160,14 +168,28 @@ button {
 .inspector,
 .mermaid-panel {
   min-width: 0;
+  min-height: 0;
   border-right: 2px solid #111827;
   background: #fffaf0;
+}
+
+.sidebar {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.palette {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  overflow: hidden;
 }
 
 .right-rail {
   display: grid;
   grid-template-rows: minmax(0, 1fr);
   min-height: 0;
+  overflow: hidden;
   border-left: 2px solid #111827;
 }
 
@@ -199,7 +221,8 @@ button {
 
 .file-list,
 .palette-list {
-  max-height: calc(100vh - 150px);
+  max-height: none;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -2523,6 +2546,7 @@ app-flow-document-node {
   z-index: 60;
   width: min(360px, calc(100vw - 16px));
   max-height: calc(100vh - 16px);
+  max-height: calc(100dvh - 16px);
   border: 2px solid #111827;
   border-radius: 8px;
   background: #fffaf0;
