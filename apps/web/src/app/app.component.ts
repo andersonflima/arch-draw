@@ -927,9 +927,11 @@ export class AppComponent implements OnDestroy {
 
   addNode(template: NodeTemplate, position = this.nextNodePosition()): void {
     const id = `${template.kind}-${crypto.randomUUID()}`;
-    const size = getDefaultNodeSize(template.kind);
+    const defaultSize = getDefaultNodeSize(template.kind);
     const isContainerKind = isContainerNodeKind(template.kind);
     const isCodeSnippetKind = isCodeSnippetNodeKind(template.kind);
+    const startsCollapsed = isCodeSnippetKind ? true : isContainerKind ? false : undefined;
+    const size = startsCollapsed ? { ...CODE_SNIPPET_COLLAPSED_SIZE } : defaultSize;
     const parent = this.findContainingNode(position, size, this.nodes);
     const parentPosition = parent ? this.getAbsolutePosition(parent) : null;
     const nodePosition = parentPosition
@@ -944,12 +946,7 @@ export class AppComponent implements OnDestroy {
       color: template.color,
       position: nodePosition,
       size,
-      collapsed:
-        isContainerKind
-          ? false
-          : isCodeSnippetKind
-            ? true
-            : undefined,
+      collapsed: startsCollapsed,
       collapsedIconKind:
         isContainerKind
           ? this.getDefaultCollapsedIconKind(template.kind)
@@ -1281,6 +1278,7 @@ export class AppComponent implements OnDestroy {
       if (node.id === selected.id) {
         const isContainerKind = isContainerNodeKind(kind);
         const isCodeSnippetKind = isCodeSnippetNodeKind(kind);
+        const startsCollapsed = isCodeSnippetKind ? true : isContainerKind ? false : undefined;
         const nextCollapsedIconKind =
           isContainerKind
             ? node.collapsedIconKind ?? this.getDefaultCollapsedIconKind(kind)
@@ -1290,13 +1288,8 @@ export class AppComponent implements OnDestroy {
         return {
           ...node,
           kind,
-          size,
-          collapsed:
-            isContainerKind
-              ? (node.collapsed ?? false)
-              : isCodeSnippetKind
-                ? (node.collapsed ?? true)
-                : undefined,
+          size: startsCollapsed ? { ...CODE_SNIPPET_COLLAPSED_SIZE } : size,
+          collapsed: startsCollapsed,
           collapsedIconKind: nextCollapsedIconKind,
           expandedSize:
             isContainerKind || isCodeSnippetKind
