@@ -16,30 +16,32 @@
     />
 
     <div class="toolbar">
-      <button class="icon-button" type="button" title="Nova arquitetura" (click)="createArchitecture()">+</button>
+      <button class="icon-button" type="button" title="Nova arquitetura" aria-label="Nova arquitetura" (click)="createArchitecture()">
+        <i class="fa-solid fa-file-circle-plus" aria-hidden="true"></i>
+      </button>
       <button class="icon-button" type="button" title="Salvar" aria-label="Salvar" (click)="saveCurrent()">
         <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
       </button>
       <button class="icon-button" type="button" title="Exportar JSON" aria-label="Exportar JSON" (click)="exportCurrent()">
-        <i class="fa-solid fa-file-export" aria-hidden="true"></i>
-      </button>
-      <button class="icon-button" type="button" title="Exportar draw.io" aria-label="Exportar draw.io" (click)="exportDrawIoCurrent()">
-        <i class="fa-solid fa-diagram-project" aria-hidden="true"></i>
-      </button>
-      <button class="icon-button" type="button" title="Exportar Excalidraw" aria-label="Exportar Excalidraw" (click)="exportExcalidrawCurrent()">
-        <i class="fa-solid fa-draw-polygon" aria-hidden="true"></i>
-      </button>
-      <button class="icon-button" type="button" title="Exportar Mermaid" aria-label="Exportar Mermaid" (click)="exportMermaidCurrent()">
-        <i class="fa-solid fa-wave-square" aria-hidden="true"></i>
-      </button>
-      <button class="icon-button" type="button" title="Exportar SVG" aria-label="Exportar SVG" (click)="exportSvgCurrent()">
         <i class="fa-solid fa-file-code" aria-hidden="true"></i>
       </button>
+      <button class="icon-button" type="button" title="Exportar draw.io" aria-label="Exportar draw.io" (click)="exportDrawIoCurrent()">
+        <i class="fa-solid fa-project-diagram" aria-hidden="true"></i>
+      </button>
+      <button class="icon-button" type="button" title="Exportar Excalidraw" aria-label="Exportar Excalidraw" (click)="exportExcalidrawCurrent()">
+        <i class="fa-solid fa-pen-ruler" aria-hidden="true"></i>
+      </button>
+      <button class="icon-button" type="button" title="Exportar Mermaid" aria-label="Exportar Mermaid" (click)="exportMermaidCurrent()">
+        <i class="fa-solid fa-code-branch" aria-hidden="true"></i>
+      </button>
+      <button class="icon-button" type="button" title="Exportar SVG" aria-label="Exportar SVG" (click)="exportSvgCurrent()">
+        <i class="fa-solid fa-bezier-curve" aria-hidden="true"></i>
+      </button>
       <button class="icon-button" type="button" title="Exportar PNG" aria-label="Exportar PNG" (click)="exportPngCurrent()">
-        <i class="fa-solid fa-file-image" aria-hidden="true"></i>
+        <i class="fa-solid fa-image" aria-hidden="true"></i>
       </button>
       <button class="icon-button" type="button" title="Importar" aria-label="Importar" (click)="openImport()">
-        <i class="fa-solid fa-file-import" aria-hidden="true"></i>
+        <i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i>
       </button>
       <button
         class="icon-button"
@@ -58,7 +60,7 @@
         aria-label="Apagar item selecionado ou limpar board"
         (click)="onToolbarDeleteClick()"
       >
-        <i class="fa-solid fa-trash" aria-hidden="true"></i>
+        <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
       </button>
     </div>
 
