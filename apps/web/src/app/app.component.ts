@@ -1423,28 +1423,38 @@ export class AppComponent implements OnDestroy {
   }
 
   private getDefaultCodeSnippet(kind: ArchitectureNodeKind, language: CodeLanguage): string {
-    const symbol = this.getCodeSymbolName(kind);
+    if (this.isDeclarativeManifestCodeKind(kind)) {
+      const manifest = this.getDeclarativeManifestSnippet(kind);
+      if (language === "markdown") {
+        const fence = kind === "aws-step-functions" ? "json" : "yaml";
+        return `\`\`\`${fence}\n${manifest}\n\`\`\``;
+      }
+      return manifest;
+    }
+
+    const snippetKind = this.getNormalizedSnippetKind(kind);
+    const symbol = this.getCodeSymbolName(snippetKind);
     const variable = symbol.charAt(0).toLowerCase() + symbol.slice(1);
     const repo = symbol.toLowerCase();
     switch (language) {
       case "python":
-        return this.getPythonSnippet(kind, symbol, variable, repo);
+        return this.getPythonSnippet(snippetKind, symbol, variable, repo);
       case "javascript":
-        return this.getJavaScriptSnippet(kind, symbol, variable);
+        return this.getJavaScriptSnippet(snippetKind, symbol, variable);
       case "nodejs":
-        return this.getNodeSnippet(kind, symbol, variable);
+        return this.getNodeSnippet(snippetKind, symbol, variable);
       case "typescript":
-        return this.getTypeScriptSnippet(kind, symbol, variable);
+        return this.getTypeScriptSnippet(snippetKind, symbol, variable);
       case "markdown":
         return `# ${symbol}\n\n\`\`\`text\nTODO: document ${symbol}\n\`\`\``;
       case "go":
-        return this.getGoSnippet(kind, symbol, variable);
+        return this.getGoSnippet(snippetKind, symbol, variable);
       case "rust":
-        return this.getRustSnippet(kind, symbol, variable);
+        return this.getRustSnippet(snippetKind, symbol, variable);
       case "java":
-        return this.getJavaSnippet(kind, symbol, variable);
+        return this.getJavaSnippet(snippetKind, symbol, variable);
       case "elixir":
-        return this.getElixirSnippet(kind, symbol, variable, repo);
+        return this.getElixirSnippet(snippetKind, symbol, variable, repo);
       default:
         return `// TODO: ${symbol}`;
     }
@@ -3429,6 +3439,218 @@ export class AppComponent implements OnDestroy {
     } catch {
       // Ignore storage failures (private mode / blocked storage).
     }
+  }
+
+  private getNormalizedSnippetKind(kind: ArchitectureNodeKind): ArchitectureNodeKind {
+    switch (kind) {
+      case "code-method":
+      case "code-hook":
+      case "code-middleware":
+      case "code-pipeline":
+        return "code-function";
+      case "code-port":
+        return "code-interface";
+      case "code-component":
+      case "code-controller":
+      case "code-use-case":
+      case "code-adapter":
+        return "code-class";
+      case "code-entity":
+      case "code-value-object":
+      case "code-schema":
+        return "code-type";
+      case "software-application":
+      case "software-frontend":
+      case "software-backend":
+      case "software-mobile":
+        return "code-class";
+      case "software-bff":
+        return "software-api";
+      case "software-cli":
+        return "code-file";
+      default:
+        return kind;
+    }
+  }
+
+  private isDeclarativeManifestCodeKind(kind: ArchitectureNodeKind): boolean {
+    return kind === "aws-step-functions" || [
+      "cluster-deployment",
+      "cluster-statefulset",
+      "cluster-daemonset",
+      "cluster-pod",
+      "cluster-service",
+      "cluster-ingress",
+      "cluster-kong",
+      "cluster-configmap",
+      "cluster-job",
+      "cluster-cronjob"
+    ].includes(kind);
+  }
+
+  private getDeclarativeManifestSnippet(kind: ArchitectureNodeKind): string {
+    if (kind === "aws-step-functions") {
+      return `{
+  "Comment": "State machine example",
+  "StartAt": "InvokeWorker",
+  "States": {
+    "InvokeWorker": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "worker-handler",
+        "Payload.$": "$"
+      },
+      "End": true
+    }
+  }
+}`;
+    }
+
+    if (kind === "cluster-configmap") {
+      return `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  APP_ENV: production
+  LOG_LEVEL: info`;
+    }
+
+    if (kind === "cluster-service") {
+      return `apiVersion: v1
+kind: Service
+metadata:
+  name: app-service
+spec:
+  selector:
+    app: app
+  ports:
+    - port: 80
+      targetPort: 8080`;
+    }
+
+    if (kind === "cluster-ingress" || kind === "cluster-kong") {
+      return `apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-ingress
+spec:
+  rules:
+    - host: app.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: app-service
+                port:
+                  number: 80`;
+    }
+
+    if (kind === "cluster-job") {
+      return `apiVersion: batch/v1
+kind: Job
+metadata:
+  name: data-job
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: job
+          image: busybox
+          command: ["sh", "-c", "echo processing"]`;
+    }
+
+    if (kind === "cluster-cronjob") {
+      return `apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: nightly-job
+spec:
+  schedule: "0 2 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: cron
+              image: busybox
+              command: ["sh", "-c", "echo run"]`;
+    }
+
+    if (kind === "cluster-pod") {
+      return `apiVersion: v1
+kind: Pod
+metadata:
+  name: app-pod
+  labels:
+    app: app
+spec:
+  containers:
+    - name: app
+      image: nginx:stable`;
+    }
+
+    if (kind === "cluster-daemonset") {
+      return `apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-agent
+spec:
+  selector:
+    matchLabels:
+      app: node-agent
+  template:
+    metadata:
+      labels:
+        app: node-agent
+    spec:
+      containers:
+        - name: agent
+          image: busybox`;
+    }
+
+    if (kind === "cluster-statefulset") {
+      return `apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: app-stateful
+spec:
+  serviceName: app-service
+  selector:
+    matchLabels:
+      app: app
+  template:
+    metadata:
+      labels:
+        app: app
+    spec:
+      containers:
+        - name: app
+          image: nginx:stable`;
+    }
+
+    return `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: app
+  template:
+    metadata:
+      labels:
+        app: app
+    spec:
+      containers:
+        - name: app
+          image: nginx:stable`;
   }
 
   private getCodeSymbolName(kind: ArchitectureNodeKind): string {
