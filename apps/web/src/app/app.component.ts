@@ -1507,7 +1507,7 @@ export class AppComponent implements OnDestroy {
   }
 
   hasOmniConnectionPorts(node: CanvasNode): boolean {
-    return node.kind === "flow-decision" || node.kind === "algorithm-condition";
+    return node.kind === "flow-decision";
   }
 
   isCollapsibleContainerNode(node: CanvasNode): boolean {
