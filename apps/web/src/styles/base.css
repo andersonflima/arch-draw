@@ -337,8 +337,10 @@ button {
   justify-content: center;
   width: 30px;
   height: 30px;
-  border: 2px solid #111827;
-  border-radius: 999px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .palette-item__label {
@@ -857,10 +859,10 @@ app-flow-document-node {
   width: 78px;
   min-width: 78px;
   height: 78px;
-  color: color-mix(in srgb, var(--icon-base) 88%, #ffffff 12%);
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--icon-base) 44%, #000000 56%);
-  border: 2px solid color-mix(in srgb, var(--icon-base) 34%, #000000 66%);
+  color: var(--icon-base);
+  border-radius: 0;
+  background: transparent;
+  border: 0;
   box-shadow: none;
 }
 

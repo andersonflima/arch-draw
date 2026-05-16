@@ -116,7 +116,6 @@
           >
             <span
               [class]="'node-icon palette-item__icon node-icon--' + template.kind"
-              [style.background]="template.color"
               [attr.title]="getNodeIcon(template.kind)"
             >
               <ng-container *ngIf="getNodeIconAsset(template.kind) as iconAsset; else paletteFontIcon">
