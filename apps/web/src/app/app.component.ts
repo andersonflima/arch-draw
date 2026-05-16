@@ -3582,7 +3582,13 @@ export class AppComponent {
   }
 
   private isContainerPlusLikeKind(kind: ArchitectureNodeKind): boolean {
-    return kind === "group-container-plus" || kind === "cluster" || kind === "cluster-namespace";
+    return (
+      kind === "group-container-plus"
+      || kind === "cluster"
+      || kind === "cluster-namespace"
+      || kind === "cloud-region"
+      || kind === "aws-region"
+    );
   }
 
   private rebuildPaletteGroups(): void {
