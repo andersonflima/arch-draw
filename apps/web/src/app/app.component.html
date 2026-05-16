@@ -117,6 +117,7 @@
           >
             <span
               [class]="'node-icon palette-item__icon node-icon--' + template.kind"
+              [style.--icon-color]="getIconColor(template.color)"
               [attr.title]="getNodeIcon(template.kind)"
             >
               <ng-container *ngIf="getNodeIconAsset(template.kind) as iconAsset; else paletteFontIcon">
@@ -306,7 +307,7 @@
             <div class="architecture-node__header">
               <span
                 [class]="'node-icon node-icon--' + getNodeIconKind(node)"
-                [style.--icon-color]="node.color"
+                [style.--icon-color]="getIconColor(node.color)"
                 [attr.title]="getNodeIcon(getNodeIconKind(node))"
               >
                 <ng-container *ngIf="getNodeIconAsset(getNodeIconKind(node)) as iconAsset; else boardFontIcon">
