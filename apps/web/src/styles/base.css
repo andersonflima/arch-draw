@@ -2372,7 +2372,7 @@ app-flow-document-node {
 }
 
 .canvas-edge-flow--reverse {
-  animation: edge-flow-dash-reverse 0.22s linear infinite;
+  animation: edge-flow-dash 0.22s linear infinite;
 }
 
 @keyframes edge-flow-dash {
@@ -2381,15 +2381,6 @@ app-flow-document-node {
   }
   to {
     stroke-dashoffset: -14;
-  }
-}
-
-@keyframes edge-flow-dash-reverse {
-  from {
-    stroke-dashoffset: 0;
-  }
-  to {
-    stroke-dashoffset: 14;
   }
 }
 
