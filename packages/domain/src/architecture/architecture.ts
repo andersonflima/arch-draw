@@ -1,4 +1,17 @@
 export const ARCHITECTURE_DOCUMENT_VERSION = 1;
+const MAX_ARCHITECTURE_TITLE_LENGTH = 180;
+const MAX_ARCHITECTURE_DESCRIPTION_LENGTH = 4000;
+const MAX_MERMAID_SOURCE_LENGTH = 200000;
+const MAX_NODE_COUNT = 1500;
+const MAX_EDGE_COUNT = 4000;
+const MAX_NODE_ID_LENGTH = 128;
+const MAX_EDGE_ID_LENGTH = 128;
+const MAX_NODE_LABEL_LENGTH = 240;
+const MAX_EDGE_LABEL_LENGTH = 240;
+const MAX_NODE_PROPERTIES = 60;
+const MAX_TOTAL_PROPERTIES = 20000;
+const MAX_PROPERTY_KEY_LENGTH = 120;
+const MAX_PROPERTY_VALUE_LENGTH = 4000;
 
 export type ArchitectureNodeKind =
   | "system"
@@ -234,9 +247,9 @@ export const createEmptyArchitecture = ({
   now
 }: CreateArchitectureInput): ArchitectureDocument => ({
   version: ARCHITECTURE_DOCUMENT_VERSION,
-  id,
+  id: sanitizeToken(id, MAX_NODE_ID_LENGTH) ?? "",
   title: normalizeTitle(title),
-  description: description.trim(),
+  description: sanitizeMultilineText(description, MAX_ARCHITECTURE_DESCRIPTION_LENGTH),
   nodes: [],
   edges: [],
   mermaidSource: "",
@@ -245,7 +258,7 @@ export const createEmptyArchitecture = ({
 });
 
 export const normalizeTitle = (title: string): string => {
-  const normalized = title.trim();
+  const normalized = sanitizeSingleLineText(title, MAX_ARCHITECTURE_TITLE_LENGTH);
   return normalized.length > 0 ? normalized : "Untitled architecture";
 };
 
@@ -267,7 +280,7 @@ export const replaceArchitectureCanvas = (
   ...architecture,
   nodes: canvas.nodes.map(normalizeNode),
   edges: canvas.edges.map(normalizeEdge),
-  mermaidSource: canvas.mermaidSource,
+  mermaidSource: sanitizeMultilineText(canvas.mermaidSource, MAX_MERMAID_SOURCE_LENGTH),
   updatedAt: now
 });
 
@@ -280,6 +293,7 @@ export const validateArchitecture = (
       : null,
     architecture.id.trim().length === 0 ? "Architecture id is required" : null,
     architecture.title.trim().length === 0 ? "Architecture title is required" : null,
+    ...validateArchitectureLimits(architecture),
     ...validateUniqueIds("node", architecture.nodes.map((node) => node.id)),
     ...validateUniqueIds("edge", architecture.edges.map((edge) => edge.id)),
     ...validateParentsReferenceExistingNodes(architecture),
@@ -295,16 +309,18 @@ export const normalizeArchitecture = (
 ): ArchitectureDocument => ({
   ...architecture,
   title: normalizeTitle(architecture.title),
-  description: architecture.description.trim(),
+  description: sanitizeMultilineText(architecture.description, MAX_ARCHITECTURE_DESCRIPTION_LENGTH),
+  mermaidSource: sanitizeMultilineText(architecture.mermaidSource, MAX_MERMAID_SOURCE_LENGTH),
   nodes: architecture.nodes.map(normalizeNode),
   edges: architecture.edges.map(normalizeEdge)
 });
 
 const normalizeNode = (node: ArchitectureNode): ArchitectureNode => ({
   ...node,
-  label: node.label.trim() || "Untitled node",
-  parentId: node.parentId?.trim() || undefined,
-  color: node.color.trim() || "#f8fafc",
+  id: sanitizeToken(node.id, MAX_NODE_ID_LENGTH) ?? "",
+  label: sanitizeSingleLineText(node.label, MAX_NODE_LABEL_LENGTH) || "Untitled node",
+  parentId: sanitizeToken(node.parentId, MAX_NODE_ID_LENGTH),
+  color: sanitizeSingleLineText(node.color, 32) || "#f8fafc",
   properties: normalizeNodeProperties(node.properties),
   collapsed: node.collapsed ?? false,
   collapsedIconKind: node.collapsedIconKind,
@@ -325,7 +341,11 @@ const normalizeNodeProperties = (
 ): Readonly<Record<string, string>> | undefined => {
   if (!properties) return undefined;
   const entries = Object.entries(properties)
-    .map(([key, value]) => [key.trim(), value.trim()] as const)
+    .slice(0, MAX_NODE_PROPERTIES)
+    .map(([key, value]) => [
+      sanitizeSingleLineText(key, MAX_PROPERTY_KEY_LENGTH),
+      sanitizeMultilineText(value, MAX_PROPERTY_VALUE_LENGTH)
+    ] as const)
     .filter(([key, value]) => key.length > 0 && value.length > 0);
 
   return entries.length > 0
@@ -335,9 +355,12 @@ const normalizeNodeProperties = (
 
 const normalizeEdge = (edge: ArchitectureEdge): ArchitectureEdge => ({
   ...edge,
+  id: sanitizeToken(edge.id, MAX_EDGE_ID_LENGTH) ?? "",
+  from: sanitizeToken(edge.from, MAX_NODE_ID_LENGTH) ?? "",
+  to: sanitizeToken(edge.to, MAX_NODE_ID_LENGTH) ?? "",
   sourcePort: normalizeEdgePortSide(edge.sourcePort),
   targetPort: normalizeEdgePortSide(edge.targetPort),
-  label: edge.label?.trim() || undefined,
+  label: sanitizeOptionalSingleLineText(edge.label, MAX_EDGE_LABEL_LENGTH),
   style: normalizeEdgeStyle(edge.style)
 });
 
@@ -355,14 +378,104 @@ const normalizeEdgeStyle = (
 ): ArchitectureEdgeStyle => ({
   path: style?.path ?? "smoothstep",
   line: style?.line ?? "solid",
-  color: style?.color?.trim() || "#111827",
+  color: sanitizeSingleLineText(style?.color, 32) || "#111827",
   animated: style?.animated ?? false,
   bidirectional: style?.bidirectional ?? false
 });
 
+const sanitizeOptionalSingleLineText = (
+  value: string | undefined,
+  maxLength: number
+): string | undefined => {
+  if (!value) return undefined;
+  const normalized = sanitizeSingleLineText(value, maxLength);
+  return normalized.length > 0 ? normalized : undefined;
+};
+
+const sanitizeSingleLineText = (value: string | undefined, maxLength: number): string => {
+  if (!value) return "";
+  return value
+    .replaceAll(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .replaceAll(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLength);
+};
+
+const sanitizeMultilineText = (value: string | undefined, maxLength: number): string => {
+  if (!value) return "";
+  return value
+    .replaceAll(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .trim()
+    .slice(0, maxLength);
+};
+
+const sanitizeToken = (value: string | undefined, maxLength: number): string | undefined => {
+  if (!value) return undefined;
+  const normalized = sanitizeSingleLineText(value, maxLength);
+  return normalized.length > 0 ? normalized : undefined;
+};
+
 const validateUniqueIds = (entity: string, ids: readonly string[]): readonly string[] => {
   const duplicated = ids.filter((id, index) => ids.indexOf(id) !== index);
   return [...new Set(duplicated)].map((id) => `Duplicated ${entity} id: ${id}`);
+};
+
+const validateArchitectureLimits = (
+  architecture: ArchitectureDocument
+): readonly string[] => {
+  const errors: string[] = [];
+  if (architecture.nodes.length > MAX_NODE_COUNT) {
+    errors.push(`Architecture exceeds maximum node count (${MAX_NODE_COUNT})`);
+  }
+  if (architecture.edges.length > MAX_EDGE_COUNT) {
+    errors.push(`Architecture exceeds maximum edge count (${MAX_EDGE_COUNT})`);
+  }
+  if (architecture.title.length > MAX_ARCHITECTURE_TITLE_LENGTH) {
+    errors.push(`Architecture title exceeds ${MAX_ARCHITECTURE_TITLE_LENGTH} characters`);
+  }
+  if (architecture.description.length > MAX_ARCHITECTURE_DESCRIPTION_LENGTH) {
+    errors.push(`Architecture description exceeds ${MAX_ARCHITECTURE_DESCRIPTION_LENGTH} characters`);
+  }
+  if (architecture.mermaidSource.length > MAX_MERMAID_SOURCE_LENGTH) {
+    errors.push(`Architecture mermaid source exceeds ${MAX_MERMAID_SOURCE_LENGTH} characters`);
+  }
+
+  const totalProperties = architecture.nodes.reduce((total, node) => total + Object.keys(node.properties ?? {}).length, 0);
+  if (totalProperties > MAX_TOTAL_PROPERTIES) {
+    errors.push(`Architecture exceeds maximum properties count (${MAX_TOTAL_PROPERTIES})`);
+  }
+
+  for (const node of architecture.nodes) {
+    if (node.id.length > MAX_NODE_ID_LENGTH) {
+      errors.push(`Node id ${node.id} exceeds ${MAX_NODE_ID_LENGTH} characters`);
+    }
+    if (node.label.length > MAX_NODE_LABEL_LENGTH) {
+      errors.push(`Node ${node.id} label exceeds ${MAX_NODE_LABEL_LENGTH} characters`);
+    }
+    const properties = Object.entries(node.properties ?? {});
+    if (properties.length > MAX_NODE_PROPERTIES) {
+      errors.push(`Node ${node.id} exceeds maximum properties (${MAX_NODE_PROPERTIES})`);
+    }
+    for (const [key, value] of properties) {
+      if (key.length > MAX_PROPERTY_KEY_LENGTH) {
+        errors.push(`Node ${node.id} property key exceeds ${MAX_PROPERTY_KEY_LENGTH} characters`);
+      }
+      if (value.length > MAX_PROPERTY_VALUE_LENGTH) {
+        errors.push(`Node ${node.id} property value exceeds ${MAX_PROPERTY_VALUE_LENGTH} characters`);
+      }
+    }
+  }
+
+  for (const edge of architecture.edges) {
+    if (edge.id.length > MAX_EDGE_ID_LENGTH) {
+      errors.push(`Edge id ${edge.id} exceeds ${MAX_EDGE_ID_LENGTH} characters`);
+    }
+    if ((edge.label?.length ?? 0) > MAX_EDGE_LABEL_LENGTH) {
+      errors.push(`Edge ${edge.id} label exceeds ${MAX_EDGE_LABEL_LENGTH} characters`);
+    }
+  }
+
+  return errors;
 };
 
 const validateEdgesReferenceExistingNodes = (

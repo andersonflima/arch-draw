@@ -134,11 +134,64 @@ describe("session-scoped architectures", () => {
       method: "POST",
       url: "/architectures/import",
       headers: {
-        origin: TEST_WEB_ORIGIN
+        origin: TEST_WEB_ORIGIN,
+        "content-type": "application/json"
       },
-      payload: "not-an-object"
+      payload: { bad: true }
     });
-    expect([400, 415]).toContain(invalidImport.statusCode);
+    expect(invalidImport.statusCode).toBe(400);
+
+    const metrics = await app.inject({
+      method: "GET",
+      url: "/security/metrics",
+      headers: {
+        origin: TEST_WEB_ORIGIN
+      }
+    });
+    expect(metrics.statusCode).toBe(200);
+    const parsedMetrics = JSON.parse(metrics.body) as {
+      ok: boolean;
+      metrics: { invalid_id: number; invalid_body: number };
+    };
+    expect(parsedMetrics.ok).toBe(true);
+    expect(parsedMetrics.metrics.invalid_id).toBeGreaterThan(0);
+    expect(parsedMetrics.metrics.invalid_body).toBeGreaterThan(0);
+  });
+
+  it("applies rate limiting and records the event", async () => {
+    ({ app, tempDir } = await createTestServer());
+
+    let rateLimited = false;
+    for (let index = 0; index < 260; index += 1) {
+      const response = await app.inject({
+        method: "GET",
+        url: "/health",
+        headers: {
+          origin: TEST_WEB_ORIGIN
+        }
+      });
+      if (response.statusCode === 429) {
+        rateLimited = true;
+        break;
+      }
+    }
+
+    expect(rateLimited).toBe(true);
+
+    const metrics = await app.inject({
+      method: "GET",
+      url: "/security/metrics",
+      headers: {
+        origin: TEST_WEB_ORIGIN
+      }
+    });
+    expect(metrics.statusCode).toBe(200);
+    const parsedMetrics = JSON.parse(metrics.body) as {
+      ok: boolean;
+      metrics: { rate_limited: number };
+    };
+    expect(parsedMetrics.ok).toBe(true);
+    expect(parsedMetrics.metrics.rate_limited).toBeGreaterThan(0);
   });
 });
 

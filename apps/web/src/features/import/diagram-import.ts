@@ -137,12 +137,17 @@ const mermaidEntryPattern =
 const drawIoExtensionPattern = /\.(drawio|xml)$/i;
 const mermaidExtensionPattern = /\.(mmd|mermaid)$/i;
 const jsonExtensionPattern = /\.(json|archdraw|excalidraw)$/i;
+const MAX_IMPORT_TEXT_LENGTH = 5 * 1024 * 1024;
+const MAX_IMPORT_LABEL_LENGTH = 240;
 
 export const parseImportToSharePackage = async ({
   fileName,
   text,
   now
 }: ImportInput): Promise<ArchitectureSharePackage> => {
+  if (text.length > MAX_IMPORT_TEXT_LENGTH) {
+    throw new Error("Arquivo excede limite de importacao (5MB)");
+  }
   const trimmed = text.trim();
   if (trimmed.length === 0) throw new Error("Arquivo vazio");
 
@@ -633,7 +638,11 @@ const readDrawIoCells = (doc: XMLDocument): readonly DrawIoCell[] => {
 const extractTextValue = (value: string): string => {
   const decoded = decodeHtmlEntities(value);
   const withoutTags = decoded.replaceAll(/<[^>]*>/g, " ");
-  return withoutTags.replaceAll(/\s+/g, " ").trim();
+  return withoutTags
+    .replaceAll(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .replaceAll(/\s+/g, " ")
+    .trim()
+    .slice(0, MAX_IMPORT_LABEL_LENGTH);
 };
 
 const decodeHtmlEntities = (value: string): string =>
@@ -828,8 +837,10 @@ const normalizeExcalidrawLabel = (value: string | undefined): string => {
   if (typeof value !== "string") return "";
   return value
     .replaceAll(/<[^>]*>/g, " ")
+    .replaceAll(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
     .replaceAll(/\s+/g, " ")
-    .trim();
+    .trim()
+    .slice(0, MAX_IMPORT_LABEL_LENGTH);
 };
 
 const normalizeExcalidrawGeometry = (

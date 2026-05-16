@@ -207,4 +207,28 @@ describe("architecture domain", () => {
       'graph LR\n  n1["API Gateway"]\n  n2["End"]\n  n1 --> n2'
     );
   });
+
+  it("sanitizes control chars and enforces size constraints", () => {
+    const largeNodeList = Array.from({ length: 1501 }, (_, index) => ({
+      id: `node-${index}`,
+      kind: "service" as const,
+      label: `svc-${index}`,
+      position: { x: index, y: index },
+      size: { width: 136, height: 140 },
+      color: "#ffedd5"
+    }));
+    const architecture = {
+      ...createEmptyArchitecture({
+        id: "arch-5\u0000",
+        title: "  Title \u0000 with   spaces ",
+        now: "2026-05-15T10:00:00.000Z"
+      }),
+      nodes: largeNodeList
+    };
+
+    const parsed = parseSharePackage(createSharePackage(architecture, "2026-05-15T10:02:00.000Z"));
+    expect(parsed.ok).toBe(false);
+    if (parsed.ok) return;
+    expect(parsed.errors).toContain("Architecture exceeds maximum node count (1500)");
+  });
 });

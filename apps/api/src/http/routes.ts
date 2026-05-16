@@ -11,6 +11,7 @@ import type { ArchitectureRepository } from "../application/contracts/architectu
 import type { Clock } from "../application/contracts/clock";
 import type { IdGenerator } from "../application/contracts/id-generator";
 import { resolveSessionToken } from "./session-token";
+import { getSecurityMetricsSnapshot, recordSecurityEvent } from "./security-observability";
 
 type RouteDependencies = Readonly<{
   repository: ArchitectureRepository;
@@ -50,6 +51,7 @@ export const registerRoutes = async (
   );
 
   app.get("/health", async () => ({ ok: true }));
+  app.get("/security/metrics", async () => ({ ok: true, metrics: getSecurityMetricsSnapshot() }));
 
   app.get("/architectures", async (request, reply) =>
     listArchitectures(resolveSessionToken(request, reply))
@@ -59,15 +61,21 @@ export const registerRoutes = async (
     "/architectures",
     async (request, reply) => {
       if (request.body !== undefined && !isObject(request.body)) {
+        recordSecurityEvent("invalid_body");
+        request.log.warn({ event: "invalid_body", route: "/architectures" }, "Rejected non-object payload");
         return reply.code(400).send({ errors: ["Request body must be a JSON object"] });
       }
       const body = isObject(request.body) ? request.body : {};
       const title = normalizeOptionalString(body["title"], MAX_TITLE_LENGTH);
       if (title === null) {
+        recordSecurityEvent("invalid_body");
+        request.log.warn({ event: "invalid_body", route: "/architectures", field: "title" }, "Rejected invalid title");
         return reply.code(400).send({ errors: [`Title must be a string with up to ${MAX_TITLE_LENGTH} characters`] });
       }
       const description = normalizeOptionalString(body["description"], MAX_DESCRIPTION_LENGTH);
       if (description === null) {
+        recordSecurityEvent("invalid_body");
+        request.log.warn({ event: "invalid_body", route: "/architectures", field: "description" }, "Rejected invalid description");
         return reply.code(400).send({ errors: [`Description must be a string with up to ${MAX_DESCRIPTION_LENGTH} characters`] });
       }
 
@@ -84,6 +92,8 @@ export const registerRoutes = async (
 
   app.get<{ Params: IdParams }>("/architectures/:id", async (request, reply) => {
     if (!isSafeArchitectureId(request.params.id)) {
+      recordSecurityEvent("invalid_id");
+      request.log.warn({ event: "invalid_id", route: "/architectures/:id", id: request.params.id }, "Rejected invalid architecture id");
       return reply.code(400).send({ errors: ["Invalid architecture id"] });
     }
     const architecture = await readArchitecture(
@@ -97,16 +107,24 @@ export const registerRoutes = async (
     "/architectures/:id",
     async (request, reply) => {
       if (!isSafeArchitectureId(request.params.id)) {
+        recordSecurityEvent("invalid_id");
+        request.log.warn({ event: "invalid_id", route: "/architectures/:id", id: request.params.id }, "Rejected invalid route id");
         return reply.code(400).send({ errors: ["Invalid architecture id"] });
       }
       if (!isObject(request.body)) {
+        recordSecurityEvent("invalid_body");
+        request.log.warn({ event: "invalid_body", route: "/architectures/:id" }, "Rejected non-object payload");
         return reply.code(400).send({ errors: ["Request body must be a JSON object"] });
       }
       const bodyId = normalizeRequiredString(request.body["id"]);
       if (!bodyId) {
+        recordSecurityEvent("invalid_body");
+        request.log.warn({ event: "invalid_body", route: "/architectures/:id", field: "id" }, "Rejected missing body id");
         return reply.code(400).send({ errors: ["Architecture body id is required"] });
       }
       if (!isSafeArchitectureId(bodyId)) {
+        recordSecurityEvent("invalid_id");
+        request.log.warn({ event: "invalid_id", route: "/architectures/:id", bodyId }, "Rejected invalid body id");
         return reply.code(400).send({ errors: ["Invalid architecture id in body"] });
       }
       if (request.params.id !== bodyId) {
@@ -125,6 +143,8 @@ export const registerRoutes = async (
 
   app.delete<{ Params: IdParams }>("/architectures/:id", async (request, reply) => {
     if (!isSafeArchitectureId(request.params.id)) {
+      recordSecurityEvent("invalid_id");
+      request.log.warn({ event: "invalid_id", route: "/architectures/:id", id: request.params.id }, "Rejected invalid delete id");
       return reply.code(400).send({ errors: ["Invalid architecture id"] });
     }
     const deleted = await deleteArchitecture(
@@ -136,6 +156,8 @@ export const registerRoutes = async (
 
   app.get<{ Params: IdParams }>("/architectures/:id/export", async (request, reply) => {
     if (!isSafeArchitectureId(request.params.id)) {
+      recordSecurityEvent("invalid_id");
+      request.log.warn({ event: "invalid_id", route: "/architectures/:id/export", id: request.params.id }, "Rejected invalid export id");
       return reply.code(400).send({ errors: ["Invalid architecture id"] });
     }
     const sharePackage = await exportArchitecture(
@@ -155,6 +177,8 @@ export const registerRoutes = async (
 
   app.post<{ Body: unknown }>("/architectures/import", async (request, reply) => {
     if (!isObject(request.body)) {
+      recordSecurityEvent("invalid_body");
+      request.log.warn({ event: "invalid_body", route: "/architectures/import" }, "Rejected non-object import payload");
       return reply.code(400).send({ errors: ["Request body must be a JSON object"] });
     }
     const result = await importArchitecture(

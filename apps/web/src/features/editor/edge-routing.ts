@@ -13,6 +13,19 @@ type EdgeRoutingConfig = Readonly<{
   obstacleClearance: number;
 }>;
 
+type GraphNode = Readonly<{
+  key: string;
+  point: EdgePoint;
+}>;
+
+type GraphEdge = Readonly<{
+  to: string;
+  cost: number;
+}>;
+
+const EPSILON = 0.001;
+const MAX_AXIS_VALUES = 84;
+
 export const routePolylineAroundObstacles = (
   points: readonly EdgePoint[],
   obstacles: readonly EdgeObstacleRect[],
@@ -32,16 +45,20 @@ export const routePolylineAroundObstacles = (
       const start = routed[index];
       const end = routed[index + 1];
       if (!start || !end) continue;
+
       const isFirstSegment = index === 0;
       const isLastSegment = index === routed.length - 2;
-      const blocking = obstacles.find((rect) => {
-        if (isFirstSegment && rect.id === sourceId) return false;
-        if (isLastSegment && rect.id === targetId) return false;
-        return segmentIntersectsRect(start, end, rect);
-      });
+      const segmentObstacles = getSegmentObstacles(obstacles, sourceId, targetId, isFirstSegment, isLastSegment);
+      const blocking = segmentObstacles.find((rect) => segmentIntersectsRect(start, end, rect));
       if (!blocking) continue;
-      const detour = buildSegmentDetour(start, end, blocking, obstacles, config.obstacleClearance);
+
+      const astarPath = routeSegmentWithAStar(start, end, segmentObstacles, config.obstacleClearance);
+      const detour = astarPath
+        ? astarPath.slice(1, Math.max(1, astarPath.length - 1))
+        : buildSegmentDetour(start, end, blocking, segmentObstacles, config.obstacleClearance);
+
       if (detour.length === 0) continue;
+
       routed = compactPolyline([
         ...routed.slice(0, index + 1),
         ...detour,
@@ -56,6 +73,271 @@ export const routePolylineAroundObstacles = (
 
   return routed;
 };
+
+const getSegmentObstacles = (
+  obstacles: readonly EdgeObstacleRect[],
+  sourceId: string,
+  targetId: string,
+  isFirstSegment: boolean,
+  isLastSegment: boolean
+): readonly EdgeObstacleRect[] =>
+  obstacles.filter((rect) => {
+    if (isFirstSegment && rect.id === sourceId) return false;
+    if (isLastSegment && rect.id === targetId) return false;
+    return true;
+  });
+
+const routeSegmentWithAStar = (
+  start: EdgePoint,
+  end: EdgePoint,
+  obstacles: readonly EdgeObstacleRect[],
+  clearance: number
+): readonly EdgePoint[] | null => {
+  const graph = buildOrthogonalVisibilityGraph(start, end, obstacles, clearance);
+  if (!graph) return null;
+
+  const pathKeys = aStarSearch(graph.nodesByKey, graph.edgesByKey, graph.startKey, graph.endKey);
+  if (!pathKeys) return null;
+
+  return compactPolyline(
+    pathKeys
+      .map((key) => graph.nodesByKey.get(key)?.point)
+      .filter((point): point is EdgePoint => Boolean(point))
+  );
+};
+
+const buildOrthogonalVisibilityGraph = (
+  start: EdgePoint,
+  end: EdgePoint,
+  obstacles: readonly EdgeObstacleRect[],
+  clearance: number
+): Readonly<{
+  startKey: string;
+  endKey: string;
+  nodesByKey: ReadonlyMap<string, GraphNode>;
+  edgesByKey: ReadonlyMap<string, readonly GraphEdge[]>;
+}> | null => {
+  const requiredX = new Set<number>([start.x, end.x]);
+  const requiredY = new Set<number>([start.y, end.y]);
+
+  const xCandidates = new Set<number>([start.x, end.x]);
+  const yCandidates = new Set<number>([start.y, end.y]);
+
+  for (const obstacle of obstacles) {
+    xCandidates.add(obstacle.left - clearance);
+    xCandidates.add(obstacle.right + clearance);
+
+    yCandidates.add(obstacle.top - clearance);
+    yCandidates.add(obstacle.bottom + clearance);
+  }
+
+  const xs = reduceAxisValues([...xCandidates].sort((left, right) => left - right), requiredX, MAX_AXIS_VALUES);
+  const ys = reduceAxisValues([...yCandidates].sort((left, right) => left - right), requiredY, MAX_AXIS_VALUES);
+
+  const nodesByKey = new Map<string, GraphNode>();
+
+  for (const x of xs) {
+    for (const y of ys) {
+      const point = { x, y };
+      if (isPointInsideObstacleInterior(point, obstacles)) continue;
+      const key = toKey(point);
+      nodesByKey.set(key, { key, point });
+    }
+  }
+
+  const startKey = toKey(start);
+  const endKey = toKey(end);
+  if (!nodesByKey.has(startKey) || !nodesByKey.has(endKey)) return null;
+
+  const edgesByKey = new Map<string, GraphEdge[]>();
+  for (const key of nodesByKey.keys()) {
+    edgesByKey.set(key, []);
+  }
+
+  for (const y of ys) {
+    const row = xs
+      .map((x) => nodesByKey.get(toKey({ x, y })))
+      .filter((node): node is GraphNode => Boolean(node));
+    connectAdjacentNodes(row, edgesByKey, obstacles);
+  }
+
+  for (const x of xs) {
+    const column = ys
+      .map((y) => nodesByKey.get(toKey({ x, y })))
+      .filter((node): node is GraphNode => Boolean(node));
+    connectAdjacentNodes(column, edgesByKey, obstacles);
+  }
+
+  return {
+    startKey,
+    endKey,
+    nodesByKey,
+    edgesByKey
+  };
+};
+
+const reduceAxisValues = (
+  values: readonly number[],
+  required: ReadonlySet<number>,
+  maxValues: number
+): readonly number[] => {
+  if (values.length <= maxValues) return values;
+
+  const uniqueValues = [...new Set(values)];
+  const selected = new Set<number>([...required]);
+  selected.add(uniqueValues[0] ?? 0);
+  selected.add(uniqueValues[uniqueValues.length - 1] ?? 0);
+
+  if (selected.size >= maxValues) {
+    return [...selected].sort((left, right) => left - right);
+  }
+
+  const availableSlots = maxValues - selected.size;
+  const step = Math.max(1, Math.floor(uniqueValues.length / Math.max(1, availableSlots)));
+  for (let index = 0; index < uniqueValues.length && selected.size < maxValues; index += step) {
+    selected.add(uniqueValues[index] ?? 0);
+  }
+
+  return [...selected].sort((left, right) => left - right);
+};
+
+const connectAdjacentNodes = (
+  nodes: readonly GraphNode[],
+  edgesByKey: Map<string, GraphEdge[]>,
+  obstacles: readonly EdgeObstacleRect[]
+): void => {
+  for (let index = 0; index < nodes.length - 1; index += 1) {
+    const left = nodes[index];
+    const right = nodes[index + 1];
+    if (!left || !right) continue;
+
+    if (!isOrthogonalSegmentClear(left.point, right.point, obstacles)) continue;
+
+    const cost = Math.hypot(right.point.x - left.point.x, right.point.y - left.point.y);
+    edgesByKey.get(left.key)?.push({ to: right.key, cost });
+    edgesByKey.get(right.key)?.push({ to: left.key, cost });
+  }
+};
+
+const isOrthogonalSegmentClear = (
+  start: EdgePoint,
+  end: EdgePoint,
+  obstacles: readonly EdgeObstacleRect[]
+): boolean => {
+  for (const obstacle of obstacles) {
+    if (orthogonalSegmentCrossesObstacleInterior(start, end, obstacle)) return false;
+  }
+  return true;
+};
+
+const orthogonalSegmentCrossesObstacleInterior = (
+  start: EdgePoint,
+  end: EdgePoint,
+  rect: EdgeObstacleRect
+): boolean => {
+  if (Math.abs(start.x - end.x) <= EPSILON) {
+    const x = start.x;
+    if (!(x > rect.left + EPSILON && x < rect.right - EPSILON)) return false;
+
+    const minY = Math.min(start.y, end.y);
+    const maxY = Math.max(start.y, end.y);
+    const overlap = Math.min(maxY, rect.bottom - EPSILON) - Math.max(minY, rect.top + EPSILON);
+    return overlap > EPSILON;
+  }
+
+  if (Math.abs(start.y - end.y) <= EPSILON) {
+    const y = start.y;
+    if (!(y > rect.top + EPSILON && y < rect.bottom - EPSILON)) return false;
+
+    const minX = Math.min(start.x, end.x);
+    const maxX = Math.max(start.x, end.x);
+    const overlap = Math.min(maxX, rect.right - EPSILON) - Math.max(minX, rect.left + EPSILON);
+    return overlap > EPSILON;
+  }
+
+  return segmentIntersectsRect(start, end, rect);
+};
+
+const aStarSearch = (
+  nodesByKey: ReadonlyMap<string, GraphNode>,
+  edgesByKey: ReadonlyMap<string, readonly GraphEdge[]>,
+  startKey: string,
+  endKey: string
+): readonly string[] | null => {
+  const open = new Set<string>([startKey]);
+  const cameFrom = new Map<string, string>();
+  const gScore = new Map<string, number>([[startKey, 0]]);
+  const fScore = new Map<string, number>([[startKey, heuristic(nodesByKey, startKey, endKey)]]);
+
+  while (open.size > 0) {
+    const current = getLowestScoreKey(open, fScore);
+    if (!current) break;
+    if (current === endKey) {
+      return reconstructPath(cameFrom, current);
+    }
+
+    open.delete(current);
+
+    const neighbors = edgesByKey.get(current) ?? [];
+    for (const neighbor of neighbors) {
+      const tentativeG = (gScore.get(current) ?? Number.POSITIVE_INFINITY) + neighbor.cost;
+      if (tentativeG >= (gScore.get(neighbor.to) ?? Number.POSITIVE_INFINITY)) continue;
+
+      cameFrom.set(neighbor.to, current);
+      gScore.set(neighbor.to, tentativeG);
+      fScore.set(neighbor.to, tentativeG + heuristic(nodesByKey, neighbor.to, endKey));
+      open.add(neighbor.to);
+    }
+  }
+
+  return null;
+};
+
+const heuristic = (
+  nodesByKey: ReadonlyMap<string, GraphNode>,
+  fromKey: string,
+  toKey: string
+): number => {
+  const from = nodesByKey.get(fromKey)?.point;
+  const to = nodesByKey.get(toKey)?.point;
+  if (!from || !to) return Number.POSITIVE_INFINITY;
+  return Math.abs(from.x - to.x) + Math.abs(from.y - to.y);
+};
+
+const getLowestScoreKey = (open: ReadonlySet<string>, fScore: ReadonlyMap<string, number>): string | null => {
+  let bestKey: string | null = null;
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  for (const candidate of open) {
+    const score = fScore.get(candidate) ?? Number.POSITIVE_INFINITY;
+    if (score < bestScore) {
+      bestScore = score;
+      bestKey = candidate;
+    }
+  }
+
+  return bestKey;
+};
+
+const reconstructPath = (cameFrom: ReadonlyMap<string, string>, current: string): readonly string[] => {
+  const path = [current];
+  let cursor = current;
+  while (cameFrom.has(cursor)) {
+    cursor = cameFrom.get(cursor) ?? cursor;
+    path.unshift(cursor);
+  }
+  return path;
+};
+
+const isPointInsideObstacleInterior = (point: EdgePoint, obstacles: readonly EdgeObstacleRect[]): boolean =>
+  obstacles.some((obstacle) =>
+    point.x > obstacle.left + EPSILON
+    && point.x < obstacle.right - EPSILON
+    && point.y > obstacle.top + EPSILON
+    && point.y < obstacle.bottom - EPSILON
+  );
+
+const toKey = (point: EdgePoint): string => `${point.x}:${point.y}`;
 
 const buildSegmentDetour = (
   start: EdgePoint,
@@ -149,7 +431,7 @@ const compactPolyline = (points: readonly EdgePoint[]): readonly EdgePoint[] => 
   const compacted: EdgePoint[] = [];
   for (const point of points) {
     const previous = compacted[compacted.length - 1];
-    if (previous && Math.abs(previous.x - point.x) < 0.001 && Math.abs(previous.y - point.y) < 0.001) {
+    if (previous && Math.abs(previous.x - point.x) < EPSILON && Math.abs(previous.y - point.y) < EPSILON) {
       continue;
     }
     compacted.push(point);
@@ -163,7 +445,7 @@ const compactPolyline = (points: readonly EdgePoint[]): readonly EdgePoint[] => 
     const bcX = c.x - b.x;
     const bcY = c.y - b.y;
     const cross = abX * bcY - abY * bcX;
-    if (Math.abs(cross) <= 0.001) {
+    if (Math.abs(cross) <= EPSILON) {
       compacted.splice(compacted.length - 2, 1);
     }
   }
@@ -196,14 +478,13 @@ const pointInsideRect = (point: EdgePoint, rect: EdgeObstacleRect): boolean =>
   point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
 
 const segmentsIntersect = (a: EdgePoint, b: EdgePoint, c: EdgePoint, d: EdgePoint): boolean => {
-  const epsilon = 0.001;
   const orientation = (p: EdgePoint, q: EdgePoint, r: EdgePoint): number =>
     (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
   const onSegment = (p: EdgePoint, q: EdgePoint, r: EdgePoint): boolean =>
-    q.x <= Math.max(p.x, r.x) + epsilon
-    && q.x + epsilon >= Math.min(p.x, r.x)
-    && q.y <= Math.max(p.y, r.y) + epsilon
-    && q.y + epsilon >= Math.min(p.y, r.y);
+    q.x <= Math.max(p.x, r.x) + EPSILON
+    && q.x + EPSILON >= Math.min(p.x, r.x)
+    && q.y <= Math.max(p.y, r.y) + EPSILON
+    && q.y + EPSILON >= Math.min(p.y, r.y);
 
   const o1 = orientation(a, b, c);
   const o2 = orientation(a, b, d);
@@ -213,9 +494,9 @@ const segmentsIntersect = (a: EdgePoint, b: EdgePoint, c: EdgePoint, d: EdgePoin
   if ((o1 > 0 && o2 < 0 || o1 < 0 && o2 > 0) && (o3 > 0 && o4 < 0 || o3 < 0 && o4 > 0)) {
     return true;
   }
-  if (Math.abs(o1) <= epsilon && onSegment(a, c, b)) return true;
-  if (Math.abs(o2) <= epsilon && onSegment(a, d, b)) return true;
-  if (Math.abs(o3) <= epsilon && onSegment(c, a, d)) return true;
-  if (Math.abs(o4) <= epsilon && onSegment(c, b, d)) return true;
+  if (Math.abs(o1) <= EPSILON && onSegment(a, c, b)) return true;
+  if (Math.abs(o2) <= EPSILON && onSegment(a, d, b)) return true;
+  if (Math.abs(o3) <= EPSILON && onSegment(c, a, d)) return true;
+  if (Math.abs(o4) <= EPSILON && onSegment(c, b, d)) return true;
   return false;
 };
