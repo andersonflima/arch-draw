@@ -74,3 +74,11 @@ cp .env.example .env
 
 - O build do frontend emite aviso de chunk grande porque Mermaid traz muitos renderizadores. O próximo passo técnico natural é carregar Mermaid por `dynamic import`.
 - O parser Mermaid inicial cobre fluxos comuns com conexões `A --> B`; sintaxes Mermaid avançadas renderizam no preview, mas podem precisar de evolução no conversor para virarem nós editáveis.
+
+## Licença
+
+Este projeto está licenciado sob a MIT License. Consulte [LICENSE](./LICENSE).
+
+## Copyright
+
+Copyright (c) 2026 Anderson Faustino Lima. Consulte [COPYRIGHT](./COPYRIGHT).

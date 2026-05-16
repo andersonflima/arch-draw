@@ -2,6 +2,8 @@
   "name": "arch-draw",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
+  "author": "Anderson Faustino Lima",
   "description": "Local-first architecture drawing workspace with Mermaid import, draw.io style drag and drop, and Excalidraw-inspired visuals.",
   "type": "module",
   "packageManager": "npm@11.12.1",
