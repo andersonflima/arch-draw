@@ -227,6 +227,7 @@ export const isContainerNodeKind = (kind: ArchitectureNodeKind): boolean =>
   containerKinds.has(kind);
 
 const codeSnippetKinds = new Set<ArchitectureNodeKind>([
+  "mermaid",
   "code-class",
   "code-interface",
   "code-function",
@@ -257,7 +258,15 @@ const codeSnippetKinds = new Set<ArchitectureNodeKind>([
   "software-worker",
   "software-bff",
   "software-cli",
+  "aws-api-gateway",
+  "aws-sqs",
+  "aws-sns",
+  "aws-eventbridge",
+  "aws-kinesis",
   "aws-step-functions",
+  "aws-iam",
+  "aws-route53",
+  "aws-security-group",
   "cluster-deployment",
   "cluster-statefulset",
   "cluster-daemonset",
@@ -266,6 +275,9 @@ const codeSnippetKinds = new Set<ArchitectureNodeKind>([
   "cluster-ingress",
   "cluster-kong",
   "cluster-configmap",
+  "cluster-secret",
+  "cluster-pvc",
+  "cluster-hpa",
   "cluster-job",
   "cluster-cronjob"
 ]);

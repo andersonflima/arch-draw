@@ -953,6 +953,9 @@ export class AppComponent implements OnDestroy {
 
     this.nodes = this.sortNodes([...this.nodes, node]);
     this.markViewChanged();
+    if (this.shouldPulseDoubleClickHintOnNodeAdded(node)) {
+      setTimeout(() => this.pulseDoubleClickHint(), 180);
+    }
   }
 
   onPaletteDragStart(event: DragEvent, template: NodeTemplate): void {
@@ -1368,7 +1371,7 @@ export class AppComponent implements OnDestroy {
     if (this.codeLanguageOptions.some((option) => option.value === raw)) {
       return raw as CodeLanguage;
     }
-    return "typescript";
+    return this.getPreferredCodeLanguageForKind(node.kind);
   }
 
   getNodeCodeLanguageLabel(node: CanvasNode): string {
@@ -1537,6 +1540,19 @@ export class AppComponent implements OnDestroy {
   }
 
   private getDefaultCodeSnippet(kind: ArchitectureNodeKind, language: CodeLanguage): string {
+    if (kind === "mermaid") {
+      const snippet = `graph LR
+  Service["Service"]
+  Worker["Worker"]
+  Queue["Queue"]
+
+  Service --> Queue
+  Queue --> Worker`;
+      return language === "markdown"
+        ? `\`\`\`mermaid\n${snippet}\n\`\`\``
+        : snippet;
+    }
+
     if (this.isDeclarativeManifestCodeKind(kind)) {
       const manifest = this.getDeclarativeManifestSnippet(kind);
       if (language === "markdown") {
@@ -3624,7 +3640,16 @@ export class AppComponent implements OnDestroy {
   }
 
   private isDeclarativeManifestCodeKind(kind: ArchitectureNodeKind): boolean {
-    return kind === "aws-step-functions" || [
+    return [
+      "aws-api-gateway",
+      "aws-sqs",
+      "aws-sns",
+      "aws-eventbridge",
+      "aws-kinesis",
+      "aws-iam",
+      "aws-route53",
+      "aws-security-group",
+      "aws-step-functions",
       "cluster-deployment",
       "cluster-statefulset",
       "cluster-daemonset",
@@ -3633,12 +3658,154 @@ export class AppComponent implements OnDestroy {
       "cluster-ingress",
       "cluster-kong",
       "cluster-configmap",
+      "cluster-secret",
+      "cluster-pvc",
+      "cluster-hpa",
       "cluster-job",
       "cluster-cronjob"
     ].includes(kind);
   }
 
   private getDeclarativeManifestSnippet(kind: ArchitectureNodeKind): string {
+    if (kind === "aws-api-gateway") {
+      return `Resources:
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: orders-api
+      ProtocolType: HTTP
+
+  OrdersIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: arn:aws:lambda:us-east-1:123456789012:function:orders-handler
+      PayloadFormatVersion: "2.0"
+
+  OrdersRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: "ANY /orders/{proxy+}"
+      Target: !Join ["/", ["integrations", !Ref OrdersIntegration]]`;
+    }
+
+    if (kind === "aws-sqs") {
+      return `Resources:
+  OrdersQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: orders-events
+      VisibilityTimeout: 45
+      MessageRetentionPeriod: 345600`;
+    }
+
+    if (kind === "aws-sns") {
+      return `Resources:
+  OrdersTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: orders-topic
+
+  OrdersSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref OrdersTopic
+      Protocol: sqs
+      Endpoint: arn:aws:sqs:us-east-1:123456789012:orders-events`;
+    }
+
+    if (kind === "aws-eventbridge") {
+      return `Resources:
+  OrdersRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: orders-created-rule
+      State: ENABLED
+      EventPattern:
+        source:
+          - app.orders
+        detail-type:
+          - order.created
+      Targets:
+        - Arn: arn:aws:lambda:us-east-1:123456789012:function:orders-handler
+          Id: OrdersHandlerTarget`;
+    }
+
+    if (kind === "aws-kinesis") {
+      return `Resources:
+  OrdersStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: orders-stream
+      StreamModeDetails:
+        StreamMode: ON_DEMAND
+      RetentionPeriodHours: 24`;
+    }
+
+    if (kind === "aws-iam") {
+      return `Resources:
+  OrdersServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: orders-service-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: orders-service-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                Resource: "*"`;
+    }
+
+    if (kind === "aws-route53") {
+      return `Resources:
+  PublicHostedZone:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      Name: example.com
+
+  ApiRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneName: example.com.
+      Name: api.example.com.
+      Type: CNAME
+      TTL: "60"
+      ResourceRecords:
+        - d-123456abcdef8.cloudfront.net`;
+    }
+
+    if (kind === "aws-security-group") {
+      return `Resources:
+  WebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP/HTTPS traffic
+      VpcId: vpc-123456
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0`;
+    }
+
     if (kind === "aws-step-functions") {
       return `{
   "Comment": "State machine example",
@@ -3665,6 +3832,52 @@ metadata:
 data:
   APP_ENV: production
   LOG_LEVEL: info`;
+    }
+
+    if (kind === "cluster-secret") {
+      return `apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secrets
+type: Opaque
+stringData:
+  DATABASE_URL: postgres://user:password@db:5432/app
+  JWT_SECRET: change-me`;
+    }
+
+    if (kind === "cluster-pvc") {
+      return `apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: app-storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: gp3`;
+    }
+
+    if (kind === "cluster-hpa") {
+      return `apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: app-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: app-deployment
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 65`;
     }
 
     if (kind === "cluster-service") {
@@ -4283,6 +4496,25 @@ spec:
 
   private hasCollapsedNodeForDoubleClickHint(): boolean {
     return this.nodes.some((node) => this.isContainerCollapsed(node) || this.isCodeSnippetCollapsed(node));
+  }
+
+  private shouldPulseDoubleClickHintOnNodeAdded(node: CanvasNode): boolean {
+    return this.isCodeSnippetCollapsed(node) || this.isContainerCollapsed(node);
+  }
+
+  private getPreferredCodeLanguageForKind(kind: ArchitectureNodeKind): CodeLanguage {
+    if (kind === "mermaid") return "markdown";
+    if (kind === "aws-step-functions") return "javascript";
+    if (this.isDeclarativeManifestCodeKind(kind)) return "yaml";
+    if (
+      kind === "code-repository" ||
+      kind === "code-workspace" ||
+      kind === "code-package" ||
+      kind === "code-folder"
+    ) {
+      return "markdown";
+    }
+    return "typescript";
   }
 
   private pulseDoubleClickHint(): void {
