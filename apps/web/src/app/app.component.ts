@@ -660,6 +660,7 @@ export class AppComponent {
   async deleteCurrent(): Promise<void> {
     await this.runSafely(async () => {
       this.cancelAutoSave();
+      await this.waitForPersistenceIdle();
       if (!this.architecture) return;
       await api.deleteArchitecture(this.architecture.id);
       const remaining = await api.listArchitectures();
@@ -680,6 +681,7 @@ export class AppComponent {
     if (!confirmed) return;
     await this.runSafely(async () => {
       this.cancelAutoSave();
+      await this.waitForPersistenceIdle();
       await api.deleteArchitecture(id);
       const remaining = await api.listArchitectures();
       this.summaries = remaining;
@@ -2758,6 +2760,16 @@ export class AppComponent {
       this.autoSaveTimer = null;
     }
     this.autoSaveQueued = false;
+  }
+
+  private async waitForPersistenceIdle(timeoutMs = 5000): Promise<void> {
+    const startedAt = Date.now();
+    while (this.autoSaveInFlight) {
+      if (Date.now() - startedAt >= timeoutMs) {
+        throw new Error("Persistencia em andamento. Tente novamente em alguns segundos.");
+      }
+      await new Promise<void>((resolve) => setTimeout(resolve, 25));
+    }
   }
 
   private buildPersistenceSignature(): string {
