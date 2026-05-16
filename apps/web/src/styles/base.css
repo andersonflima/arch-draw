@@ -708,7 +708,7 @@ button {
 }
 
 /* Flow Diagram nodes rendered by dedicated shape components */
-.architecture-node[class*="architecture-node--flow-"] {
+.architecture-node[class*="architecture-node--flow-"]:not(.architecture-node--code-snippet) {
   display: flex;
   align-items: stretch;
   justify-content: stretch;
@@ -717,12 +717,12 @@ button {
   transform: none;
 }
 
-.architecture-node[class*="architecture-node--flow-"] .architecture-node__header {
+.architecture-node[class*="architecture-node--flow-"]:not(.architecture-node--code-snippet) .architecture-node__header {
   display: none;
 }
 
-.architecture-node[class*="architecture-node--flow-"]::before,
-.architecture-node[class*="architecture-node--flow-"]::after {
+.architecture-node[class*="architecture-node--flow-"]:not(.architecture-node--code-snippet)::before,
+.architecture-node[class*="architecture-node--flow-"]:not(.architecture-node--code-snippet)::after {
   content: none;
 }
 

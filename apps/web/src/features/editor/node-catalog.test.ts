@@ -53,4 +53,9 @@ describe("node catalog", () => {
     expect(isCodeSnippetNodeKind("algorithm")).toBe(true);
     expect(isCodeSnippetNodeKind("algorithm-graph")).toBe(true);
   });
+
+  it("allows flow diagram blocks to hold code snippets", () => {
+    expect(isCodeSnippetNodeKind("flow-process")).toBe(true);
+    expect(isCodeSnippetNodeKind("flow-decision")).toBe(true);
+  });
 });

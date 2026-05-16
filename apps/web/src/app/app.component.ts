@@ -2194,6 +2194,7 @@ export class AppComponent implements OnDestroy {
     const isIconOnly = isIconOnlyNodeKind(node.kind) && !isExpandedCodeSnippet;
     const isCollapsedContainer = this.isContainerCollapsed(node);
     const isCollapsedCodeSnippet = this.isCodeSnippetCollapsed(node);
+    const usesLeafCollapsedCodeStyle = isCollapsedCodeSnippet && !this.isFlowNodeKind(node.kind);
     return [
       "architecture-node",
       `architecture-node--${visualGroup}`,
@@ -2201,7 +2202,7 @@ export class AppComponent implements OnDestroy {
       isCollapsedContainer ? "architecture-node--container-collapsed" : "",
       isExpandedCodeSnippet ? "architecture-node--code-snippet" : "",
       isCollapsedCodeSnippet ? "architecture-node--code-snippet-collapsed" : "",
-      isContainer ? "architecture-node--container" : (isIconOnly || isCollapsedContainer || isCollapsedCodeSnippet) ? "architecture-node--leaf" : "",
+      isContainer ? "architecture-node--container" : (isIconOnly || isCollapsedContainer || usesLeafCollapsedCodeStyle) ? "architecture-node--leaf" : "",
       this.selectedNodeIds.includes(node.id) ? "is-selected" : ""
     ].filter(Boolean).join(" ");
   }

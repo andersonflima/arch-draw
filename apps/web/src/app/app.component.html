@@ -392,37 +392,37 @@
               <span>Click twice, maximize me!</span>
             </div>
             <ng-container *ngIf="!isEditingNode(node.id); else nodeLabelEditor">
-              <ng-container *ngIf="isFlowNodeKind(node.kind); else defaultNodeLabel">
-                <ng-container [ngSwitch]="node.kind">
-                  <app-flow-start-node *ngSwitchCase="'flow-start'" [label]="node.label"></app-flow-start-node>
-                  <app-flow-end-node *ngSwitchCase="'flow-end'" [label]="node.label"></app-flow-end-node>
-                  <app-flow-process-node *ngSwitchCase="'flow-process'" [label]="node.label"></app-flow-process-node>
-                  <app-flow-decision-node *ngSwitchCase="'flow-decision'" [label]="node.label"></app-flow-decision-node>
-                  <app-flow-input-node *ngSwitchCase="'flow-input'" [label]="node.label"></app-flow-input-node>
-                  <app-flow-output-node *ngSwitchCase="'flow-output'" [label]="node.label"></app-flow-output-node>
-                  <app-flow-loop-node *ngSwitchCase="'flow-loop'" [label]="node.label"></app-flow-loop-node>
-                  <app-flow-subroutine-node *ngSwitchCase="'flow-subroutine'" [label]="node.label"></app-flow-subroutine-node>
-                  <app-flow-data-node *ngSwitchCase="'flow-data'" [label]="node.label"></app-flow-data-node>
-                  <app-flow-document-node *ngSwitchCase="'flow-document'" [label]="node.label"></app-flow-document-node>
-                  <strong *ngSwitchDefault>{{ node.label }}</strong>
-                </ng-container>
-              </ng-container>
-              <ng-template #defaultNodeLabel>
-                <ng-container *ngIf="isCodeSnippetExpanded(node); else defaultTextLabel">
-                  <div class="code-snippet-content">
-                    <div class="code-snippet-content__meta">
-                      <strong>{{ node.label }}</strong>
-                      <span>{{ getNodeCodeLanguageLabel(node) }}</span>
-                    </div>
-                    <app-code-editor
-                      class="code-snippet-inline-editor"
-                      [value]="getNodeInlineCodeDraft(node)"
-                      [language]="getNodeCodeLanguage(node)"
-                      (valueChange)="onNodeInlineCodeDraftChange(node.id, $event)"
-                      (editorBlur)="commitNodeInlineCodeDraft(node.id)"
-                      (pointerdown)="$event.stopPropagation()"
-                    ></app-code-editor>
+              <ng-container *ngIf="isCodeSnippetExpanded(node); else nodeDisplay">
+                <div class="code-snippet-content">
+                  <div class="code-snippet-content__meta">
+                    <strong>{{ node.label }}</strong>
+                    <span>{{ getNodeCodeLanguageLabel(node) }}</span>
                   </div>
+                  <app-code-editor
+                    class="code-snippet-inline-editor"
+                    [value]="getNodeInlineCodeDraft(node)"
+                    [language]="getNodeCodeLanguage(node)"
+                    (valueChange)="onNodeInlineCodeDraftChange(node.id, $event)"
+                    (editorBlur)="commitNodeInlineCodeDraft(node.id)"
+                    (pointerdown)="$event.stopPropagation()"
+                  ></app-code-editor>
+                </div>
+              </ng-container>
+              <ng-template #nodeDisplay>
+                <ng-container *ngIf="isFlowNodeKind(node.kind); else defaultTextLabel">
+                  <ng-container [ngSwitch]="node.kind">
+                    <app-flow-start-node *ngSwitchCase="'flow-start'" [label]="node.label"></app-flow-start-node>
+                    <app-flow-end-node *ngSwitchCase="'flow-end'" [label]="node.label"></app-flow-end-node>
+                    <app-flow-process-node *ngSwitchCase="'flow-process'" [label]="node.label"></app-flow-process-node>
+                    <app-flow-decision-node *ngSwitchCase="'flow-decision'" [label]="node.label"></app-flow-decision-node>
+                    <app-flow-input-node *ngSwitchCase="'flow-input'" [label]="node.label"></app-flow-input-node>
+                    <app-flow-output-node *ngSwitchCase="'flow-output'" [label]="node.label"></app-flow-output-node>
+                    <app-flow-loop-node *ngSwitchCase="'flow-loop'" [label]="node.label"></app-flow-loop-node>
+                    <app-flow-subroutine-node *ngSwitchCase="'flow-subroutine'" [label]="node.label"></app-flow-subroutine-node>
+                    <app-flow-data-node *ngSwitchCase="'flow-data'" [label]="node.label"></app-flow-data-node>
+                    <app-flow-document-node *ngSwitchCase="'flow-document'" [label]="node.label"></app-flow-document-node>
+                    <strong *ngSwitchDefault>{{ node.label }}</strong>
+                  </ng-container>
                 </ng-container>
                 <ng-template #defaultTextLabel>
                   <strong>{{ node.label }}</strong>
