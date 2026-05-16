@@ -2681,6 +2681,7 @@ export class AppComponent implements OnDestroy {
   }
 
   private rendersAsContainer(node: CanvasNode): boolean {
+    if (this.isCodeSnippetExpanded(node)) return false;
     return isContainerNodeKind(node.kind) && !this.isContainerCollapsed(node);
   }
 
