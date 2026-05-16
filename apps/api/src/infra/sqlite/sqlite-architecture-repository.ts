@@ -19,8 +19,10 @@ export const makeSqliteArchitectureRepository = (
   connection: SqliteConnection
 ): ArchitectureRepository => {
   return {
-    findAll: async (sessionToken) =>
-      selectRows(
+    findAll: async (sessionToken) => {
+      claimLegacyRows(connection, sessionToken);
+
+      return selectRows(
         connection,
         `
           SELECT id, session_token, title, description, document_json, created_at, updated_at
@@ -29,8 +31,11 @@ export const makeSqliteArchitectureRepository = (
           ORDER BY updated_at DESC
         `,
         { $sessionToken: sessionToken }
-      ).map(toSummary),
+      ).map(toSummary);
+    },
     findById: async (id, sessionToken) => {
+      claimLegacyRows(connection, sessionToken);
+
       const row = selectRows(
         connection,
         `
@@ -44,6 +49,8 @@ export const makeSqliteArchitectureRepository = (
       return row ? parseDocument(row.document_json) : null;
     },
     save: async (architecture, sessionToken) => {
+      claimLegacyRows(connection, sessionToken);
+
       const existing = selectRows(
         connection,
         `
@@ -87,6 +94,8 @@ export const makeSqliteArchitectureRepository = (
       return architecture;
     },
     deleteById: async (id, sessionToken) => {
+      claimLegacyRows(connection, sessionToken);
+
       const existing = selectRows(
         connection,
         `
@@ -108,6 +117,21 @@ export const makeSqliteArchitectureRepository = (
       return true;
     }
   };
+};
+
+const claimLegacyRows = (connection: SqliteConnection, sessionToken: string): void => {
+  const modifiedRows = runStatement(
+    connection,
+    `
+      UPDATE architectures
+      SET session_token = $sessionToken
+      WHERE session_token IS NULL
+    `,
+    { $sessionToken: sessionToken }
+  );
+  if (modifiedRows > 0) {
+    connection.persist();
+  }
 };
 
 const toSummary = (row: ArchitectureRow): ArchitectureSummary => {
@@ -150,11 +174,12 @@ const runStatement = (
   connection: SqliteConnection,
   sql: string,
   params: Record<string, string>
-): void => {
+): number => {
   const statement = connection.db.prepare(sql);
 
   try {
     statement.run(params);
+    return connection.db.getRowsModified();
   } finally {
     statement.free();
   }
