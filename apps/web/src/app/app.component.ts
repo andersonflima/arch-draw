@@ -2876,7 +2876,72 @@ LIMIT 50;`;
           TargetGroupArn: !Ref OrdersTargetGroup`
         }
       ),
-      makeNode("n-ecr", "aws-ecr", "ECR", { x: 1440, y: 210 }, { width: 172, height: 176 }, "n-subnet-edge"),
+      makeNode(
+        "n-ecr",
+        "aws-ecr",
+        "ECR",
+        { x: 1440, y: 210 },
+        { width: 460, height: 360 },
+        "n-subnet-edge",
+        {
+          codeLanguage: "yaml",
+          codeContent: `repositories:
+  - name: orders-api
+    scanOnPush: true
+  - name: orders-worker
+    scanOnPush: true
+  - name: reports-job
+    scanOnPush: true`
+        }
+      ),
+      makeNode(
+        "n-ecr-img-api",
+        "software-docker",
+        "orders-api:2.0.0",
+        { x: 24, y: 56 },
+        { width: 172, height: 176 },
+        "n-ecr",
+        {
+          codeLanguage: "yaml",
+          codeContent: `image:
+  repository: 123456789012.dkr.ecr.us-east-1.amazonaws.com/orders-api
+  tag: "2.0.0"
+  digest: sha256:1f62fdac95a4e8f8
+  pullPolicy: IfNotPresent`
+        }
+      ),
+      makeNode(
+        "n-ecr-img-worker",
+        "software-docker",
+        "orders-worker:2.0.0",
+        { x: 214, y: 56 },
+        { width: 172, height: 176 },
+        "n-ecr",
+        {
+          codeLanguage: "yaml",
+          codeContent: `image:
+  repository: 123456789012.dkr.ecr.us-east-1.amazonaws.com/orders-worker
+  tag: "2.0.0"
+  digest: sha256:f2814a83d0ad74ce
+  pullPolicy: IfNotPresent`
+        }
+      ),
+      makeNode(
+        "n-ecr-img-reports",
+        "software-docker",
+        "reports-job:1.3.4",
+        { x: 119, y: 228 },
+        { width: 172, height: 176 },
+        "n-ecr",
+        {
+          codeLanguage: "yaml",
+          codeContent: `image:
+  repository: 123456789012.dkr.ecr.us-east-1.amazonaws.com/reports-job
+  tag: "1.3.4"
+  digest: sha256:90de61f2bc58a2d1
+  pullPolicy: Always`
+        }
+      ),
       makeNode("n-eks", "aws-eks", "EKS Cluster", { x: 90, y: 80 }, { width: 1080, height: 760 }, "n-subnet-app"),
       makeNode("n-namespace", "cluster-namespace", "Namespace: orders", { x: 70, y: 100 }, { width: 910, height: 560 }, "n-eks"),
       makeNode(
@@ -2992,7 +3057,9 @@ spec:
       makeEdge("e-repo-pipeline", "n-repo", "n-pipeline", "CI"),
       makeEdge("e-pipeline-ecr", "n-pipeline", "n-ecr", "push image"),
       makeEdge("e-pipeline-deploy", "n-pipeline", "n-deployment", "deploy"),
-      makeEdge("e-ecr-pod-api", "n-ecr", "n-pod-api", "image source"),
+      makeEdge("e-ecr-api", "n-ecr-img-api", "n-pod-api", "image source"),
+      makeEdge("e-ecr-worker", "n-ecr-img-worker", "n-pod-worker", "image source"),
+      makeEdge("e-ecr-reports", "n-ecr-img-reports", "n-lambda-reports", "job image"),
       makeEdge("e-secrets-pod-api", "n-secrets", "n-pod-api", "runtime secrets"),
       makeEdge("e-cloudwatch-apigw", "n-cloudwatch", "n-apigw", "monitor"),
       makeEdge("e-cloudwatch-mongo", "n-cloudwatch", "n-mongo", "metrics"),
