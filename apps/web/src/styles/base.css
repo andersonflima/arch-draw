@@ -2345,11 +2345,11 @@ app-flow-document-node {
   stroke: #2563eb;
   stroke-dasharray: 8 6;
   opacity: 0.9;
-  animation: edge-flow-dash 0.35s linear infinite;
+  animation: edge-flow-dash 0.22s linear infinite;
 }
 
 .canvas-edge.is-live {
-  animation: edge-flow-dash 0.35s linear infinite;
+  animation: edge-flow-dash 0.22s linear infinite;
 }
 
 .canvas-edge-flow {
@@ -2357,11 +2357,11 @@ app-flow-document-node {
 }
 
 .canvas-edge-flow--forward {
-  animation: edge-flow-dash 0.35s linear infinite;
+  animation: edge-flow-dash 0.22s linear infinite;
 }
 
 .canvas-edge-flow--reverse {
-  animation: edge-flow-dash-reverse 0.35s linear infinite;
+  animation: edge-flow-dash-reverse 0.22s linear infinite;
 }
 
 @keyframes edge-flow-dash {
@@ -3010,6 +3010,21 @@ app-flow-document-node {
 
 .app-shell.theme-dark .mermaid-preview {
   background: #020617;
+}
+
+.app-shell.theme-dark .mermaid-preview__diagram .edgePath .path,
+.app-shell.theme-dark .mermaid-preview__diagram .flowchart-link,
+.app-shell.theme-dark .mermaid-preview__diagram .relationshipLine,
+.app-shell.theme-dark .mermaid-preview__diagram .relation,
+.app-shell.theme-dark .mermaid-preview__diagram .messageLine0,
+.app-shell.theme-dark .mermaid-preview__diagram .messageLine1 {
+  stroke: #f8fafc !important;
+}
+
+.app-shell.theme-dark .mermaid-preview__diagram .arrowheadPath,
+.app-shell.theme-dark .mermaid-preview__diagram marker path {
+  fill: #f8fafc !important;
+  stroke: #f8fafc !important;
 }
 
 .app-shell.theme-dark .error-text {
