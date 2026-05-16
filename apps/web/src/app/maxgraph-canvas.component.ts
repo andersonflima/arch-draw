@@ -172,6 +172,10 @@ export class MaxGraphCanvasComponent implements AfterViewInit, OnChanges, OnDest
       this.edgeStyleById.set(edge.id, normalizeEdgeStyle(edge.style));
     }
 
+    const nodeById = new Map(this.nodes.map((node) => [node.id, node] as const));
+    const visibleNodes = this.nodes.filter((node) => this.isVisibleNode(node, nodeById));
+    const visibleNodeIds = new Set(visibleNodes.map((node) => node.id));
+
     this.graph.batchUpdate(() => {
       const parent = this.graph?.getDefaultParent();
       if (!parent) return;
@@ -181,7 +185,7 @@ export class MaxGraphCanvasComponent implements AfterViewInit, OnChanges, OnDest
       }
 
       const insertedById = new Map<string, Cell>();
-      const pending = [...this.nodes];
+      const pending = [...visibleNodes];
       let remaining = pending.length;
       let guard = 0;
       while (pending.length > 0 && guard < remaining + 2) {
@@ -213,6 +217,7 @@ export class MaxGraphCanvasComponent implements AfterViewInit, OnChanges, OnDest
       }
 
       for (const edge of this.edges) {
+        if (!visibleNodeIds.has(edge.from) || !visibleNodeIds.has(edge.to)) continue;
         const source = insertedById.get(edge.from);
         const target = insertedById.get(edge.to);
         if (!source || !target) continue;
@@ -309,9 +314,37 @@ export class MaxGraphCanvasComponent implements AfterViewInit, OnChanges, OnDest
       });
     }
 
+    const inputNodeById = new Map(this.nodes.map((node) => [node.id, node] as const));
+    const visibleInputNodeIds = new Set(
+      this.nodes
+        .filter((node) => this.isVisibleNode(node, inputNodeById))
+        .map((node) => node.id)
+    );
+    const mergedNodes = this.nodes.map((node) =>
+      visibleInputNodeIds.has(node.id) ? (nodeMap.get(node.id) ?? node) : node
+    );
+    for (const [id, node] of nodeMap.entries()) {
+      if (mergedNodes.some((current) => current.id === id)) continue;
+      mergedNodes.push(node);
+    }
+
+    const visibleInputEdgeIds = new Set(
+      this.edges
+        .filter((edge) => visibleInputNodeIds.has(edge.from) && visibleInputNodeIds.has(edge.to))
+        .map((edge) => edge.id)
+    );
+    const edgeById = new Map(edgeList.map((edge) => [edge.id, edge] as const));
+    const mergedEdges = this.edges.map((edge) =>
+      visibleInputEdgeIds.has(edge.id) ? (edgeById.get(edge.id) ?? edge) : edge
+    );
+    for (const [id, edge] of edgeById.entries()) {
+      if (mergedEdges.some((current) => current.id === id)) continue;
+      mergedEdges.push(edge);
+    }
+
     return {
-      nodes: [...nodeMap.values()],
-      edges: edgeList
+      nodes: mergedNodes,
+      edges: mergedEdges
     };
   }
 
@@ -321,25 +354,26 @@ export class MaxGraphCanvasComponent implements AfterViewInit, OnChanges, OnDest
   }
 
   private getVertexStyle(node: CanvasNode): CellStyle {
-    const isContainer =
+    const isContainerKind =
       node.kind === "group-container-plus"
       || node.kind === "group-container"
       || node.kind === "cloud-vpc"
       || node.kind === "aws-vpc"
       || node.kind === "cluster"
       || node.kind === "cluster-namespace";
+    const isCollapsedContainer = isContainerKind && Boolean(node.collapsed);
     const base: CellStyle = {
       fillColor: node.color,
       strokeColor: "#111827",
       strokeWidth: 2,
-      rounded: !isContainer,
+      rounded: !isContainerKind || isCollapsedContainer,
       whiteSpace: "wrap",
       fontColor: "#111827",
       fontStyle: 1,
       fontSize: 13
     };
 
-    if (isContainer) {
+    if (isContainerKind && !isCollapsedContainer) {
       base.rounded = true;
       base.dashed = true;
       base.shape = "rectangle";
@@ -364,6 +398,20 @@ export class MaxGraphCanvasComponent implements AfterViewInit, OnChanges, OnDest
     }
 
     return base;
+  }
+
+  private isVisibleNode(
+    node: CanvasNode,
+    nodeById: ReadonlyMap<string, CanvasNode>
+  ): boolean {
+    let parentId = node.parentId;
+    while (parentId) {
+      const parent = nodeById.get(parentId);
+      if (!parent) return true;
+      if (parent.collapsed) return false;
+      parentId = parent.parentId;
+    }
+    return true;
   }
 
   private getEdgeStyle(edge: CanvasEdge): CellStyle {
