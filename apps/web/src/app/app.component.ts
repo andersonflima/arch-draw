@@ -16,6 +16,7 @@ import {
 } from "@arch-draw/domain";
 import { api, type ArchitectureSummary } from "../api/client";
 import { parseImportToSharePackage } from "../features/import/diagram-import";
+import { CodeEditorComponent } from "./code-editor.component";
 import { FlowDataNodeComponent } from "./flow-shapes/flow-data-node.component";
 import { FlowDecisionNodeComponent } from "./flow-shapes/flow-decision-node.component";
 import { FlowDocumentNodeComponent } from "./flow-shapes/flow-document-node.component";
@@ -586,6 +587,7 @@ mermaid.initialize({
   imports: [
     CommonModule,
     FormsModule,
+    CodeEditorComponent,
     FlowStartNodeComponent,
     FlowEndNodeComponent,
     FlowProcessNodeComponent,
@@ -1379,12 +1381,6 @@ export class AppComponent implements OnDestroy {
   getNodeInlineCodeDraft(node: CanvasNode): string {
     const draft = this.nodeInlineCodeDrafts.get(node.id);
     return draft ?? this.getNodeCodeContent(node);
-  }
-
-  onNodeInlineCodeFocus(node: CanvasNode): void {
-    if (!this.nodeInlineCodeDrafts.has(node.id)) {
-      this.nodeInlineCodeDrafts.set(node.id, this.getNodeCodeContent(node));
-    }
   }
 
   onNodeInlineCodeDraftChange(nodeId: string, content: string): void {

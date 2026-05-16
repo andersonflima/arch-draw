@@ -369,16 +369,14 @@
                       <strong>{{ node.label }}</strong>
                       <span>{{ getNodeCodeLanguageLabel(node) }}</span>
                     </div>
-                    <textarea
+                    <app-code-editor
                       class="code-snippet-inline-editor"
-                      [ngModel]="getNodeInlineCodeDraft(node)"
-                      (ngModelChange)="onNodeInlineCodeDraftChange(node.id, $event)"
-                      (focus)="onNodeInlineCodeFocus(node)"
-                      (blur)="commitNodeInlineCodeDraft(node.id)"
-                      (click)="$event.stopPropagation()"
+                      [value]="getNodeInlineCodeDraft(node)"
+                      [language]="getNodeCodeLanguage(node)"
+                      (valueChange)="onNodeInlineCodeDraftChange(node.id, $event)"
+                      (editorBlur)="commitNodeInlineCodeDraft(node.id)"
                       (pointerdown)="$event.stopPropagation()"
-                      (keydown)="$event.stopPropagation()"
-                    ></textarea>
+                    ></app-code-editor>
                   </div>
                 </ng-container>
                 <ng-template #defaultTextLabel>
