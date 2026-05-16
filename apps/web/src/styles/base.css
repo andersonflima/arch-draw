@@ -2826,22 +2826,23 @@ app-flow-document-node {
 
 .node-maximize-hint {
   position: absolute;
-  top: -44px;
+  top: -52px;
   left: 50%;
   transform: translateX(-50%);
-  max-width: min(220px, calc(100% + 48px));
-  border: 2px solid #111827;
+  max-width: min(250px, calc(100% + 56px));
+  border: 2px solid #7c2d12;
   border-radius: 8px;
-  background: #fffbeb;
-  color: #111827;
-  font-size: 11px;
-  font-weight: 800;
+  background: #fef08a;
+  color: #7c2d12;
+  font-size: 12px;
+  font-weight: 900;
   line-height: 1.2;
-  padding: 6px 10px;
-  box-shadow: 2px 2px 0 #111827;
+  padding: 7px 12px;
+  box-shadow: 3px 3px 0 #7c2d12;
   white-space: nowrap;
   pointer-events: none;
   z-index: 8;
+  animation: maximize-hint-pulse 1.1s ease-in-out infinite;
 }
 
 .node-maximize-hint::after {
@@ -2852,10 +2853,22 @@ app-flow-document-node {
   width: 12px;
   height: 12px;
   margin-left: -6px;
-  border-right: 2px solid #111827;
-  border-bottom: 2px solid #111827;
-  background: #fffbeb;
+  border-right: 2px solid #7c2d12;
+  border-bottom: 2px solid #7c2d12;
+  background: #fef08a;
   transform: rotate(45deg);
+}
+
+@keyframes maximize-hint-pulse {
+  0% {
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    transform: translateX(-50%) scale(1.06);
+  }
+  100% {
+    transform: translateX(-50%) scale(1);
+  }
 }
 
 .icon-button.is-active {
@@ -3062,14 +3075,14 @@ app-flow-document-node {
 
 .app-shell.theme-dark .node-maximize-hint {
   border-color: #4b5563;
-  background: #1f2937;
-  color: #e5e7eb;
+  background: #fde047;
+  color: #111827;
   box-shadow: 2px 2px 0 #0b1220;
 }
 
 .app-shell.theme-dark .node-maximize-hint::after {
   border-color: #4b5563;
-  background: #1f2937;
+  background: #fde047;
 }
 
 @media (max-width: 1180px) {
