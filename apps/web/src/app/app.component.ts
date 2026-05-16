@@ -154,6 +154,7 @@ const CODE_SNIPPET_COLLAPSED_SIZE = { width: 136, height: 140 } as const;
 const CODE_SNIPPET_EXPANDED_SIZE = { width: 420, height: 260 } as const;
 const EDGE_NODE_GAP = 10;
 const EDGE_MARKER_CLEARANCE = 6;
+const EDGE_ENDPOINT_STUB = 22;
 const MAX_UNDO_HISTORY = 150;
 const DRAG_START_THRESHOLD = 4;
 const UI_THEME_STORAGE_KEY = "arch-draw.ui-theme";
@@ -1122,7 +1123,7 @@ export class AppComponent implements OnDestroy {
 
   onNodeDoubleClick(node: CanvasNode, event: MouseEvent): void {
     event.stopPropagation();
-    if (this.isCodeSnippetCollapsed(node) && !this.isFlowNodeKind(node.kind)) {
+    if (this.isCodeSnippetCollapsed(node)) {
       this.setCodeSnippetCollapsed(node.id, false);
       this.selectedNodeId = node.id;
       this.selectedNodeIds = [node.id];
@@ -2190,11 +2191,11 @@ export class AppComponent implements OnDestroy {
   getNodeClass(node: CanvasNode): string {
     const visualGroup = getNodeVisualGroup(node.kind);
     const isContainer = this.rendersAsContainer(node);
-    const isExpandedCodeSnippet = this.isCodeSnippetExpanded(node) && !this.isFlowNodeKind(node.kind);
+    const isExpandedCodeSnippet = this.isCodeSnippetExpanded(node);
     const isIconOnly = isIconOnlyNodeKind(node.kind) && !isExpandedCodeSnippet;
     const isCollapsedContainer = this.isContainerCollapsed(node);
-    const isCollapsedCodeSnippet = this.isCodeSnippetCollapsed(node) && !this.isFlowNodeKind(node.kind);
-    const usesLeafCollapsedCodeStyle = isCollapsedCodeSnippet && !this.isFlowNodeKind(node.kind);
+    const isCollapsedCodeSnippet = this.isCodeSnippetCollapsed(node);
+    const usesLeafCollapsedCodeStyle = isCollapsedCodeSnippet;
     return [
       "architecture-node",
       `architecture-node--${visualGroup}`,
@@ -2297,8 +2298,8 @@ export class AppComponent implements OnDestroy {
   getEdgePath(edge: CanvasEdge): string {
     const geometry = this.getEdgeGeometry(edge);
     if (!geometry) return "";
-    const { start, end, style } = geometry;
-    return this.buildFullEdgePath(start, end, style.path);
+    const { start, startLead, end, endLead, style } = geometry;
+    return this.buildFullEdgePath(start, startLead, endLead, end, style.path);
   }
 
   getEdgeLabelPosition(edge: CanvasEdge): Readonly<{ x: number; y: number }> {
@@ -2314,8 +2315,8 @@ export class AppComponent implements OnDestroy {
   getBidirectionalFlowPath(edge: CanvasEdge, direction: EdgeFlowDirection): string {
     const geometry = this.getEdgeGeometry(edge);
     if (!geometry) return "";
-    const { start, end, style } = geometry;
-    return this.buildEdgeHalfPath(start, end, style.path, direction);
+    const { start, startLead, end, endLead, style } = geometry;
+    return this.buildEdgeHalfPath(start, startLead, endLead, end, style.path, direction);
   }
 
   getEdgeDash(edge: CanvasEdge): string | null {
@@ -2756,7 +2757,9 @@ export class AppComponent implements OnDestroy {
     edge: CanvasEdge
   ): Readonly<{
     start: Readonly<{ x: number; y: number }>;
+    startLead: Readonly<{ x: number; y: number }>;
     end: Readonly<{ x: number; y: number }>;
+    endLead: Readonly<{ x: number; y: number }>;
     style: ArchitectureEdgeStyle;
   }> | null {
     const source = this.nodes.find((node) => node.id === edge.from);
@@ -2764,50 +2767,64 @@ export class AppComponent implements OnDestroy {
     if (!source || !target) return null;
     const rawStart = this.getAnchorWithGap(source, target, EDGE_NODE_GAP);
     const rawEnd = this.getAnchorWithGap(target, source, EDGE_NODE_GAP);
+    const sourceCenter = this.getNodeCenter(source);
+    const targetCenter = this.getNodeCenter(target);
+    const startAxis = this.getEdgeTerminalAxis(source, rawStart, sourceCenter);
+    const endAxis = this.getEdgeTerminalAxis(target, rawEnd, targetCenter);
     const style = normalizeEdgeStyle(edge.style);
     const { start, end } = this.applyEdgeMarkerClearance(rawStart, rawEnd, style.bidirectional);
-    return { start, end, style };
+    const startLead = this.getEdgeLeadPoint(start, sourceCenter, startAxis, EDGE_ENDPOINT_STUB);
+    const endLead = this.getEdgeLeadPoint(end, targetCenter, endAxis, EDGE_ENDPOINT_STUB);
+    return { start, startLead, end, endLead, style };
   }
 
   private buildFullEdgePath(
     start: Readonly<{ x: number; y: number }>,
+    startLead: Readonly<{ x: number; y: number }>,
+    endLead: Readonly<{ x: number; y: number }>,
     end: Readonly<{ x: number; y: number }>,
     path: ArchitectureEdgePath
   ): string {
-    const midX = (start.x + end.x) / 2;
-    if (path === "straight") return `M ${start.x} ${start.y} L ${end.x} ${end.y}`;
-    if (path === "step") {
-      return `M ${start.x} ${start.y} L ${midX} ${start.y} L ${midX} ${end.y} L ${end.x} ${end.y}`;
+    const midX = (startLead.x + endLead.x) / 2;
+    if (path === "straight") {
+      return `M ${start.x} ${start.y} L ${startLead.x} ${startLead.y} L ${endLead.x} ${endLead.y} L ${end.x} ${end.y}`;
     }
-    return `M ${start.x} ${start.y} C ${midX} ${start.y}, ${midX} ${end.y}, ${end.x} ${end.y}`;
+    if (path === "step") {
+      return `M ${start.x} ${start.y} L ${startLead.x} ${startLead.y} L ${midX} ${startLead.y} L ${midX} ${endLead.y} L ${endLead.x} ${endLead.y} L ${end.x} ${end.y}`;
+    }
+    return `M ${start.x} ${start.y} L ${startLead.x} ${startLead.y} C ${midX} ${startLead.y}, ${midX} ${endLead.y}, ${endLead.x} ${endLead.y} L ${end.x} ${end.y}`;
   }
 
   private buildEdgeHalfPath(
     start: Readonly<{ x: number; y: number }>,
+    startLead: Readonly<{ x: number; y: number }>,
+    endLead: Readonly<{ x: number; y: number }>,
     end: Readonly<{ x: number; y: number }>,
     path: ArchitectureEdgePath,
     direction: EdgeFlowDirection
   ): string {
-    const midX = (start.x + end.x) / 2;
-    const center = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
+    const midX = (startLead.x + endLead.x) / 2;
+    const center = { x: (startLead.x + endLead.x) / 2, y: (startLead.y + endLead.y) / 2 };
     if (path === "straight") {
-      const target = direction === "forward" ? end : start;
-      return `M ${center.x} ${center.y} L ${target.x} ${target.y}`;
+      if (direction === "forward") {
+        return `M ${center.x} ${center.y} L ${endLead.x} ${endLead.y} L ${end.x} ${end.y}`;
+      }
+      return `M ${center.x} ${center.y} L ${startLead.x} ${startLead.y} L ${start.x} ${start.y}`;
     }
 
     if (path === "step") {
-      const centerStep = { x: midX, y: (start.y + end.y) / 2 };
+      const centerStep = { x: midX, y: (startLead.y + endLead.y) / 2 };
       if (direction === "forward") {
-        return `M ${centerStep.x} ${centerStep.y} L ${midX} ${end.y} L ${end.x} ${end.y}`;
+        return `M ${centerStep.x} ${centerStep.y} L ${midX} ${endLead.y} L ${endLead.x} ${endLead.y} L ${end.x} ${end.y}`;
       }
-      return `M ${centerStep.x} ${centerStep.y} L ${midX} ${start.y} L ${start.x} ${start.y}`;
+      return `M ${centerStep.x} ${centerStep.y} L ${midX} ${startLead.y} L ${startLead.x} ${startLead.y} L ${start.x} ${start.y}`;
     }
 
-    // Split the cubic curve at t=0.5 so each half can animate from the middle outward.
-    const p0 = start;
-    const p1 = { x: midX, y: start.y };
-    const p2 = { x: midX, y: end.y };
-    const p3 = end;
+    // Split the cubic core (between endpoint stubs) at t=0.5 so each half can animate from the middle outward.
+    const p0 = startLead;
+    const p1 = { x: midX, y: startLead.y };
+    const p2 = { x: midX, y: endLead.y };
+    const p3 = endLead;
     const p01 = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 };
     const p12 = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
     const p23 = { x: (p2.x + p3.x) / 2, y: (p2.y + p3.y) / 2 };
@@ -2816,9 +2833,38 @@ export class AppComponent implements OnDestroy {
     const p0123 = { x: (p012.x + p123.x) / 2, y: (p012.y + p123.y) / 2 };
 
     if (direction === "forward") {
-      return `M ${p0123.x} ${p0123.y} C ${p123.x} ${p123.y}, ${p23.x} ${p23.y}, ${p3.x} ${p3.y}`;
+      return `M ${p0123.x} ${p0123.y} C ${p123.x} ${p123.y}, ${p23.x} ${p23.y}, ${p3.x} ${p3.y} L ${end.x} ${end.y}`;
     }
-    return `M ${p0123.x} ${p0123.y} C ${p012.x} ${p012.y}, ${p01.x} ${p01.y}, ${p0.x} ${p0.y}`;
+    return `M ${p0123.x} ${p0123.y} C ${p012.x} ${p012.y}, ${p01.x} ${p01.y}, ${p0.x} ${p0.y} L ${start.x} ${start.y}`;
+  }
+
+  private getEdgeTerminalAxis(
+    node: CanvasNode,
+    anchor: Readonly<{ x: number; y: number }>,
+    center: Readonly<{ x: number; y: number }>
+  ): "horizontal" | "vertical" {
+    const halfWidth = node.size.width / 2;
+    const halfHeight = node.size.height / 2;
+    const dx = Math.abs(anchor.x - center.x);
+    const dy = Math.abs(anchor.y - center.y);
+    const verticalEdgeDistance = Math.abs(dx - halfWidth);
+    const horizontalEdgeDistance = Math.abs(dy - halfHeight);
+    return verticalEdgeDistance <= horizontalEdgeDistance ? "horizontal" : "vertical";
+  }
+
+  private getEdgeLeadPoint(
+    point: Readonly<{ x: number; y: number }>,
+    center: Readonly<{ x: number; y: number }>,
+    axis: "horizontal" | "vertical",
+    distance: number
+  ): Readonly<{ x: number; y: number }> {
+    if (axis === "horizontal") {
+      const direction = Math.sign(point.x - center.x) || 1;
+      return { x: point.x + direction * distance, y: point.y };
+    }
+
+    const direction = Math.sign(point.y - center.y) || 1;
+    return { x: point.x, y: point.y + direction * distance };
   }
 
   private applyEdgeMarkerClearance(
@@ -4665,14 +4711,11 @@ spec:
   }
 
   private hasCollapsedNodeForDoubleClickHint(): boolean {
-    return this.nodes.some((node) =>
-      this.isContainerCollapsed(node) ||
-      (this.isCodeSnippetCollapsed(node) && !this.isFlowNodeKind(node.kind))
-    );
+    return this.nodes.some((node) => this.isContainerCollapsed(node) || this.isCodeSnippetCollapsed(node));
   }
 
   private shouldPulseDoubleClickHintOnNodeAdded(node: CanvasNode): boolean {
-    return (this.isCodeSnippetCollapsed(node) && !this.isFlowNodeKind(node.kind)) || this.isContainerCollapsed(node);
+    return this.isCodeSnippetCollapsed(node) || this.isContainerCollapsed(node);
   }
 
   private scheduleDoubleClickHintAfterNodeAdded(): void {
