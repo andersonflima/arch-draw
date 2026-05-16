@@ -3726,15 +3726,16 @@ spec:
     return this.nodes
       .filter((node) => this.isVisibleNode(node))
       .filter((node) => !this.rendersAsContainer(node))
-      .filter((node) => node.id !== sourceId && node.id !== targetId)
       .map((node) => {
         const absolute = this.getAbsolutePosition(node);
+        const isEndpointNode = node.id === sourceId || node.id === targetId;
+        const padding = isEndpointNode ? 0 : EDGE_OBSTACLE_PADDING;
         return {
           id: node.id,
-          left: absolute.x - EDGE_OBSTACLE_PADDING,
-          top: absolute.y - EDGE_OBSTACLE_PADDING,
-          right: absolute.x + node.size.width + EDGE_OBSTACLE_PADDING,
-          bottom: absolute.y + node.size.height + EDGE_OBSTACLE_PADDING
+          left: absolute.x - padding,
+          top: absolute.y - padding,
+          right: absolute.x + node.size.width + padding,
+          bottom: absolute.y + node.size.height + padding
         };
       });
   }
