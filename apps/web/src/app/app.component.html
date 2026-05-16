@@ -319,7 +319,7 @@
               </span>
               <span class="architecture-node__kind-label">{{ getNodeLabel(node.kind) }}</span>
               <button
-                *ngIf="isCollapsibleContainerNode(node)"
+                *ngIf="isCollapsibleContainerNode(node) && !isContainerCollapsed(node)"
                 class="node-collapse-toggle"
                 type="button"
                 [title]="isContainerCollapsed(node) ? 'Expandir container' : 'Minimizar para icone'"
