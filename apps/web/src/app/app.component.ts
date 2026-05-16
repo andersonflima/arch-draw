@@ -3308,23 +3308,27 @@ export class AppComponent implements OnDestroy {
     return false;
   }
 
-  private getContainerAncestors(node: CanvasNode): readonly string[] {
-    const ancestors: string[] = [];
+  private getContainerContextLineage(node: CanvasNode): readonly string[] {
+    const lineage: string[] = [];
     let current: CanvasNode | null = node;
-    while (current?.parentId) {
-      ancestors.push(current.parentId);
-      current = this.nodes.find((candidate) => candidate.id === current?.parentId) ?? null;
+    while (current) {
+      if (isContainerNodeKind(current.kind)) {
+        lineage.push(current.id);
+      }
+      current = current.parentId
+        ? this.nodes.find((candidate) => candidate.id === current?.parentId) ?? null
+        : null;
     }
-    return ancestors;
+    return lineage;
   }
 
   private isEdgeInsideContainerContext(fromNode: CanvasNode, toNode: CanvasNode): boolean {
-    const fromAncestors = this.getContainerAncestors(fromNode);
-    const toAncestors = this.getContainerAncestors(toNode);
-    if (fromAncestors.length === 0 || toAncestors.length === 0) return false;
+    const fromLineage = this.getContainerContextLineage(fromNode);
+    const toLineage = this.getContainerContextLineage(toNode);
+    if (fromLineage.length === 0 || toLineage.length === 0) return false;
 
-    const toSet = new Set(toAncestors);
-    return fromAncestors.some((ancestor) => toSet.has(ancestor));
+    const toSet = new Set(toLineage);
+    return fromLineage.some((containerId) => toSet.has(containerId));
   }
 
   private isTypingTarget(target: EventTarget | null): boolean {
