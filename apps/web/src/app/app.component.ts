@@ -286,22 +286,6 @@ const KMS_FIELDS: readonly NodePropertyField[] = [
   { key: "multiRegion", label: "Multi-Region", placeholder: "true | false" }
 ];
 
-const CLUSTER_FIELDS: readonly NodePropertyField[] = [
-  { key: "clusterName", label: "Cluster Name", placeholder: "platform-cluster" },
-  { key: "kubernetesVersion", label: "Kubernetes Version", placeholder: "1.30" },
-  { key: "regionOrZone", label: "Region/Zone", placeholder: "us-east-1" },
-  { key: "networkCidr", label: "Pod CIDR", placeholder: "10.244.0.0/16" },
-  { key: "serviceCidr", label: "Service CIDR", placeholder: "10.96.0.0/12" },
-  { key: "nodePools", label: "Node Pools", placeholder: "system-pool,apps-pool", multiline: true }
-];
-
-const CLUSTER_NAMESPACE_FIELDS: readonly NodePropertyField[] = [
-  { key: "namespace", label: "Namespace", placeholder: "payments" },
-  { key: "team", label: "Owner Team", placeholder: "platform-squad" },
-  { key: "resourceQuota", label: "Resource Quota", placeholder: "cpu=8,memory=16Gi,pods=50", multiline: true },
-  { key: "limitRange", label: "Limit Range", placeholder: "requests.cpu=100m,limits.cpu=500m", multiline: true }
-];
-
 const NODE_PROPERTY_FIELDS_BY_KIND: Partial<Record<ArchitectureNodeKind, readonly NodePropertyField[]>> = {
   "cloud-provider": [
     { key: "providerName", label: "Provider Name", placeholder: "AWS" },
@@ -322,7 +306,6 @@ const NODE_PROPERTY_FIELDS_BY_KIND: Partial<Record<ArchitectureNodeKind, readonl
     { key: "portMappings", label: "Port Mappings", placeholder: "8080:8080,9090:9090" },
     { key: "desiredCount", label: "Desired Count", placeholder: "2" }
   ],
-  cluster: CLUSTER_FIELDS,
   kubernetes: [
     { key: "clusterName", label: "Cluster Name", placeholder: "my-eks-cluster" },
     { key: "kubernetesVersion", label: "Kubernetes Version", placeholder: "1.30" },
@@ -509,7 +492,6 @@ const NODE_PROPERTY_FIELDS_BY_KIND: Partial<Record<ArchitectureNodeKind, readonl
     { key: "rotationLambdaArn", label: "Rotation Lambda ARN", placeholder: "arn:aws:lambda:..." }
   ],
   "aws-kms": KMS_FIELDS,
-  "cluster-namespace": CLUSTER_NAMESPACE_FIELDS,
   "aws-cloudwatch": [
     { key: "logGroupName", label: "Log Group Name", placeholder: "/aws/lambda/orders" },
     { key: "kmsKeyId", label: "KMS Key ID", placeholder: "arn:aws:kms:...:key/..." },
@@ -660,7 +642,6 @@ export class AppComponent {
   async deleteCurrent(): Promise<void> {
     await this.runSafely(async () => {
       this.cancelAutoSave();
-      await this.waitForPersistenceIdle();
       if (!this.architecture) return;
       await api.deleteArchitecture(this.architecture.id);
       const remaining = await api.listArchitectures();
@@ -681,7 +662,6 @@ export class AppComponent {
     if (!confirmed) return;
     await this.runSafely(async () => {
       this.cancelAutoSave();
-      await this.waitForPersistenceIdle();
       await api.deleteArchitecture(id);
       const remaining = await api.listArchitectures();
       this.summaries = remaining;
@@ -891,7 +871,7 @@ export class AppComponent {
       size,
       collapsed: isContainerNodeKind(template.kind) ? false : undefined,
       collapsedIconKind:
-        this.isContainerPlusLikeKind(template.kind)
+        template.kind === "group-container-plus"
           ? "system"
           : isContainerNodeKind(template.kind)
             ? template.kind
@@ -1192,7 +1172,7 @@ export class AppComponent {
       if (node.id === selected.id) {
         const isContainerKind = isContainerNodeKind(kind);
         const nextCollapsedIconKind =
-          this.isContainerPlusLikeKind(kind)
+          kind === "group-container-plus"
             ? node.collapsedIconKind ?? "system"
             : isContainerKind
               ? node.collapsedIconKind ?? kind
@@ -1214,7 +1194,7 @@ export class AppComponent {
   }
 
   isContainerPlusNode(node: CanvasNode): boolean {
-    return this.isContainerPlusLikeKind(node.kind);
+    return node.kind === "group-container-plus";
   }
 
   isFlowNodeKind(kind: ArchitectureNodeKind): boolean {
@@ -2027,7 +2007,7 @@ export class AppComponent {
         if (node.id !== nodeId || !isContainerNodeKind(node.kind)) return node;
         const collapsedIconKind =
           node.collapsedIconKind
-          ?? (this.isContainerPlusLikeKind(node.kind) ? "system" : node.kind);
+          ?? (node.kind === "group-container-plus" ? "system" : node.kind);
         if (collapsed) {
           if (node.collapsed) return node;
           return {
@@ -2762,16 +2742,6 @@ export class AppComponent {
     this.autoSaveQueued = false;
   }
 
-  private async waitForPersistenceIdle(timeoutMs = 5000): Promise<void> {
-    const startedAt = Date.now();
-    while (this.autoSaveInFlight) {
-      if (Date.now() - startedAt >= timeoutMs) {
-        throw new Error("Persistencia em andamento. Tente novamente em alguns segundos.");
-      }
-      await new Promise<void>((resolve) => setTimeout(resolve, 25));
-    }
-  }
-
   private buildPersistenceSignature(): string {
     if (!this.architecture) return "";
     return JSON.stringify({
@@ -3006,10 +2976,6 @@ export class AppComponent {
 
   private isSimpleContainerKind(kind: ArchitectureNodeKind): boolean {
     return kind === "group-container" || kind === "container";
-  }
-
-  private isContainerPlusLikeKind(kind: ArchitectureNodeKind): boolean {
-    return kind === "group-container-plus" || kind === "cluster" || kind === "cluster-namespace";
   }
 
   private rebuildPaletteGroups(): void {

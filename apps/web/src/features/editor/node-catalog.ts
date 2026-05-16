@@ -11,8 +11,6 @@ export type NodeTemplateCategory =
   | "AWS Security"
   | "AWS Observability"
   | "Code"
-  | "Software Development"
-  | "Cluster"
   | "Flow Diagram"
   | "Algorithms";
 
@@ -128,33 +126,6 @@ export const nodeCatalog: readonly NodeTemplate[] = [
   { category: "Code", kind: "code-schema", label: "Schema", color: "#e0f2fe" },
   { category: "Code", kind: "code-pipeline", label: "Pipeline", color: "#f3f4f6" },
 
-  { category: "Software Development", kind: "software-application", label: "Application", color: "#dbeafe" },
-  { category: "Software Development", kind: "software-frontend", label: "Frontend", color: "#fae8ff" },
-  { category: "Software Development", kind: "software-backend", label: "Backend", color: "#dcfce7" },
-  { category: "Software Development", kind: "software-mobile", label: "Mobile App", color: "#fef3c7" },
-  { category: "Software Development", kind: "software-api", label: "API Service", color: "#cffafe" },
-  { category: "Software Development", kind: "software-worker", label: "Worker", color: "#fee2e2" },
-  { category: "Software Development", kind: "software-bff", label: "BFF", color: "#ede9fe" },
-  { category: "Software Development", kind: "software-cli", label: "CLI", color: "#e0e7ff" },
-
-  { category: "Cluster", kind: "cluster", label: "Cluster", color: "#dbeafe" },
-  { category: "Cluster", kind: "cluster-control-plane", label: "Control Plane", color: "#fef3c7" },
-  { category: "Cluster", kind: "cluster-node", label: "Node", color: "#f3f4f6" },
-  { category: "Cluster", kind: "cluster-namespace", label: "Namespace", color: "#e0e7ff" },
-  { category: "Cluster", kind: "cluster-deployment", label: "Deployment", color: "#dbeafe" },
-  { category: "Cluster", kind: "cluster-statefulset", label: "StatefulSet", color: "#dcfce7" },
-  { category: "Cluster", kind: "cluster-daemonset", label: "DaemonSet", color: "#fee2e2" },
-  { category: "Cluster", kind: "cluster-pod", label: "Pod", color: "#cffafe" },
-  { category: "Cluster", kind: "cluster-service", label: "Service", color: "#ecfccb" },
-  { category: "Cluster", kind: "cluster-ingress", label: "Ingress", color: "#fae8ff" },
-  { category: "Cluster", kind: "cluster-kong", label: "Kong", color: "#f5d0fe" },
-  { category: "Cluster", kind: "cluster-configmap", label: "ConfigMap", color: "#fef9c3" },
-  { category: "Cluster", kind: "cluster-secret", label: "Secret", color: "#fde68a" },
-  { category: "Cluster", kind: "cluster-pvc", label: "PVC", color: "#bfdbfe" },
-  { category: "Cluster", kind: "cluster-hpa", label: "HPA", color: "#fca5a5" },
-  { category: "Cluster", kind: "cluster-job", label: "Job", color: "#fecaca" },
-  { category: "Cluster", kind: "cluster-cronjob", label: "CronJob", color: "#e9d5ff" },
-
   { category: "Flow Diagram", kind: "flow-start", label: "Start", color: "#dcfce7" },
   { category: "Flow Diagram", kind: "flow-end", label: "End", color: "#fee2e2" },
   { category: "Flow Diagram", kind: "flow-process", label: "Process", color: "#e0f2fe" },
@@ -207,8 +178,6 @@ const containerKinds = new Set<ArchitectureNodeKind>([
   "aws-vpc",
   "aws-subnet",
   "aws-eks",
-  "cluster",
-  "cluster-namespace",
   "code-workspace",
   "code-package",
   "code-module",
@@ -221,23 +190,12 @@ export const isContainerNodeKind = (kind: ArchitectureNodeKind): boolean =>
 export const isIconOnlyNodeKind = (kind: ArchitectureNodeKind): boolean =>
   !isContainerNodeKind(kind) && !kind.startsWith("flow-");
 
-export type NodeVisualGroup =
-  | "container"
-  | "aws"
-  | "code"
-  | "software"
-  | "cluster"
-  | "flow"
-  | "algorithm"
-  | "cloud"
-  | "core";
+export type NodeVisualGroup = "container" | "aws" | "code" | "flow" | "algorithm" | "cloud" | "core";
 
 export const getNodeVisualGroup = (kind: ArchitectureNodeKind): NodeVisualGroup => {
   if (isContainerNodeKind(kind)) return "container";
   if (kind.startsWith("aws-")) return "aws";
   if (kind.startsWith("code-")) return "code";
-  if (kind.startsWith("software-")) return "software";
-  if (kind.startsWith("cluster-")) return "cluster";
   if (kind.startsWith("flow-")) return "flow";
   if (kind.startsWith("algorithm")) return "algorithm";
   if (
