@@ -2734,10 +2734,21 @@ LIMIT 50;`;
       } else {
         const firstExisting = existing[0];
         if (!firstExisting) return;
-        await this.loadArchitecture(firstExisting.id);
+        if (this.shouldSeedFirstAccessTemplate(firstExisting)) {
+          const current = await api.readArchitecture(firstExisting.id);
+          const seeded = this.createFirstAccessArchitectureTemplate(current);
+          const saved = await api.saveArchitecture(seeded);
+          await this.loadArchitecture(saved.id);
+        } else {
+          await this.loadArchitecture(firstExisting.id);
+        }
       }
       await this.refreshSummaries();
     }, "API indisponível");
+  }
+
+  private shouldSeedFirstAccessTemplate(summary: ArchitectureSummary): boolean {
+    return summary.nodeCount === 0 && summary.edgeCount === 0;
   }
 
   private createFirstAccessArchitectureTemplate(base: ArchitectureDocument): ArchitectureDocument {
