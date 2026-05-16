@@ -179,6 +179,7 @@ const DOUBLE_CLICK_HINT_INTERVAL_MS = 24000;
 const DOUBLE_CLICK_HINT_VISIBLE_MS = 5000;
 const CODE_SNIPPET_COLLAPSED_SIZE = { width: 172, height: 176 } as const;
 const CODE_SNIPPET_EXPANDED_SIZE = { width: 420, height: 260 } as const;
+const CONTAINER_COLLAPSED_SIZE = { width: 136, height: 140 } as const;
 const EDGE_NODE_GAP = 10;
 const EDGE_MARKER_CLEARANCE = 6;
 const EDGE_ENDPOINT_STUB = 8;
@@ -3272,28 +3273,70 @@ spec:
     let changed = false;
     const nextNodes: ArchitectureNode[] = architecture.nodes.map((node) => {
       const supportsCode = isCodeSnippetNodeKind(node.kind) || CONTAINER_CODE_PROPERTY_KINDS.has(node.kind);
-      if (!supportsCode) return node;
-
       const nextProperties: Record<string, string> = { ...(node.properties ?? {}) };
-      const currentContent = (nextProperties["codeContent"] ?? "").trim();
-      const normalizedLanguage = this.normalizeCodeLanguageValue(nextProperties["codeLanguage"]);
+      let nodeChanged = false;
 
-      if (currentContent.length === 0) {
-        const fallbackLanguage = normalizedLanguage ?? this.getPreferredCodeLanguageForKind(node.kind);
-        nextProperties["codeLanguage"] = fallbackLanguage;
-        nextProperties["codeContent"] = this.getDefaultCodeSnippet(node.kind, fallbackLanguage);
-        changed = true;
-        return { ...node, properties: nextProperties };
+      if (supportsCode) {
+        const currentContent = (nextProperties["codeContent"] ?? "").trim();
+        const normalizedLanguage = this.normalizeCodeLanguageValue(nextProperties["codeLanguage"]);
+
+        if (currentContent.length === 0) {
+          const fallbackLanguage = normalizedLanguage ?? this.getPreferredCodeLanguageForKind(node.kind);
+          nextProperties["codeLanguage"] = fallbackLanguage;
+          nextProperties["codeContent"] = this.getDefaultCodeSnippet(node.kind, fallbackLanguage);
+          nodeChanged = true;
+        } else if (!normalizedLanguage) {
+          const detected = this.detectCodeLanguageFromContent(currentContent) ?? this.getPreferredCodeLanguageForKind(node.kind);
+          nextProperties["codeLanguage"] = detected;
+          nodeChanged = true;
+        }
       }
 
-      if (!normalizedLanguage) {
-        const detected = this.detectCodeLanguageFromContent(currentContent) ?? this.getPreferredCodeLanguageForKind(node.kind);
-        nextProperties["codeLanguage"] = detected;
-        changed = true;
-        return { ...node, properties: nextProperties };
+      const isCodeSnippetKind = isCodeSnippetNodeKind(node.kind);
+      const isCodeContainerKind = isContainerNodeKind(node.kind) && CONTAINER_CODE_PROPERTY_KINDS.has(node.kind);
+
+      if (isCodeSnippetKind) {
+        const nextExpandedSize = node.expandedSize ?? node.size;
+        const hasCollapsedSize =
+          Math.abs(node.size.width - CODE_SNIPPET_COLLAPSED_SIZE.width) < 0.001
+          && Math.abs(node.size.height - CODE_SNIPPET_COLLAPSED_SIZE.height) < 0.001;
+        if (node.collapsed === false || !hasCollapsedSize || !node.expandedSize || !node.collapsedIconKind) {
+          nodeChanged = true;
+          changed = true;
+          return {
+            ...node,
+            collapsed: true,
+            collapsedIconKind: node.collapsedIconKind ?? node.kind,
+            expandedSize: nextExpandedSize,
+            size: { ...CODE_SNIPPET_COLLAPSED_SIZE },
+            properties: Object.keys(nextProperties).length > 0 ? nextProperties : undefined
+          };
+        }
+      } else if (isCodeContainerKind) {
+        const nextExpandedSize = node.expandedSize ?? node.size;
+        const hasCollapsedSize =
+          Math.abs(node.size.width - CONTAINER_COLLAPSED_SIZE.width) < 0.001
+          && Math.abs(node.size.height - CONTAINER_COLLAPSED_SIZE.height) < 0.001;
+        if (!node.collapsed || !hasCollapsedSize || !node.expandedSize || !node.collapsedIconKind) {
+          nodeChanged = true;
+          changed = true;
+          return {
+            ...node,
+            collapsed: true,
+            collapsedIconKind: node.collapsedIconKind ?? this.getDefaultCollapsedIconKind(node.kind),
+            expandedSize: nextExpandedSize,
+            size: { ...CONTAINER_COLLAPSED_SIZE },
+            properties: Object.keys(nextProperties).length > 0 ? nextProperties : undefined
+          };
+        }
       }
 
-      return node;
+      if (!nodeChanged) return node;
+      changed = true;
+      return {
+        ...node,
+        properties: Object.keys(nextProperties).length > 0 ? nextProperties : undefined
+      };
     });
 
     if (!changed) return architecture;
