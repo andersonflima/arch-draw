@@ -176,8 +176,14 @@ button {
 
 .sidebar {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
+}
+
+.sidebar-footer {
+  padding: 10px 12px 12px;
+  border-top: 1px dashed #9ca3af;
+  background: #fffaf0;
 }
 
 .palette {
@@ -2918,6 +2924,11 @@ app-flow-document-node {
 
 .app-shell.theme-dark .palette-list {
   background: #111827;
+}
+
+.app-shell.theme-dark .sidebar-footer {
+  background: #111827;
+  border-top-color: #374151;
 }
 
 .app-shell.theme-dark .palette-group h3 {

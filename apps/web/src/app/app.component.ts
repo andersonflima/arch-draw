@@ -631,6 +631,7 @@ export class AppComponent implements OnDestroy {
   readonly edgeLines: readonly ArchitectureEdgeLineStyle[] = ["solid", "dashed", "dotted"];
   readonly edgeDirections: readonly EdgeDirection[] = ["left-to-right", "right-to-left", "both"];
   readonly codeLanguageOptions: readonly CodeLanguageOption[] = CODE_LANGUAGE_OPTIONS;
+  readonly currentYear = new Date().getFullYear();
 
   summaries: readonly ArchitectureSummary[] = [];
   architecture: ArchitectureDocument | null = null;
