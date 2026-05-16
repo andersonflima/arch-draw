@@ -1963,12 +1963,17 @@ export class AppComponent implements OnDestroy {
     const isDescendantOfDragged = this.hasDraggedAncestor(node);
     const baseZIndex = rendersAsContainer ? 0 : 2;
     const dragZIndex = isDescendantOfDragged ? 31 : isBeingDragged ? 30 : baseZIndex;
+    const nestedInsideContainer = Boolean(node.parentId);
+    const nodeTextColor = this.isDarkMode
+      ? (nestedInsideContainer ? "#111827" : "#f8fafc")
+      : "#111827";
     return {
       left: `${position.x}px`,
       top: `${position.y}px`,
       width: `${node.size.width}px`,
       height: `${node.size.height}px`,
       "--node-bg": node.color,
+      "--node-text-color": nodeTextColor,
       zIndex: dragZIndex
     };
   }
@@ -2136,7 +2141,18 @@ export class AppComponent implements OnDestroy {
   }
 
   getEdgeColor(edge: CanvasEdge): string {
-    return normalizeEdgeStyle(edge.style).color;
+    const color = normalizeEdgeStyle(edge.style).color;
+    if (!this.isDarkMode) return color;
+
+    const normalized = this.normalizeHexColor(color);
+    if (!normalized) return "#e5e7eb";
+    if (normalized === "#111827") return "#e5e7eb";
+
+    const rgb = this.hexToRgb(normalized);
+    if (!rgb) return "#e5e7eb";
+
+    const { l } = this.rgbToHsl(rgb.r, rgb.g, rgb.b);
+    return l < 0.35 ? "#e5e7eb" : normalized;
   }
 
   getConnectionPreviewPath(): string {

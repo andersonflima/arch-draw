@@ -391,7 +391,7 @@ button {
   padding: 12px;
   border: 0;
   background: transparent;
-  color: #111827;
+  color: var(--node-text-color, #111827);
   transform: rotate(-0.35deg);
   user-select: none;
   touch-action: none;
@@ -743,7 +743,7 @@ app-flow-document-node {
   align-items: center;
   justify-content: center;
   padding: 12px 18px;
-  color: #065f46;
+  color: var(--node-text-color, #065f46);
   border: 2px solid #065f46;
   background-color: var(--node-bg, #ffffff);
   box-shadow: 3px 3px 0 #065f46;
@@ -2459,7 +2459,7 @@ app-flow-document-node {
   align-items: center;
   gap: 7px;
   margin-bottom: 10px;
-  color: #4b5563;
+  color: var(--node-text-color, #4b5563);
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
@@ -2842,8 +2842,7 @@ app-flow-document-node {
 .app-shell.theme-dark .panel-heading small,
 .app-shell.theme-dark .file-item span,
 .app-shell.theme-dark .muted-copy,
-.app-shell.theme-dark .palette-group h3,
-.app-shell.theme-dark .architecture-node__header {
+.app-shell.theme-dark .palette-group h3 {
   color: #9ca3af;
 }
 
