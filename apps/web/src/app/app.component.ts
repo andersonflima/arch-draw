@@ -2783,33 +2783,35 @@ LIMIT 50;`;
     ): CanvasNode => {
       const isContainerKind = isContainerNodeKind(kind);
       const isCodeKind = isCodeSnippetNodeKind(kind);
-      const collapsed = isCodeKind ? true : isContainerKind ? false : undefined;
+      const startsCollapsed = isContainerKind || isCodeKind;
       return {
         id,
         kind,
         label,
         parentId,
         position,
-        size: isCodeKind ? { ...CODE_SNIPPET_COLLAPSED_SIZE } : size,
+        size: startsCollapsed ? { ...CODE_SNIPPET_COLLAPSED_SIZE } : size,
         color: getNodeKindColor(kind),
-        collapsed,
+        collapsed: startsCollapsed ? true : undefined,
         collapsedIconKind: isContainerKind
           ? this.getDefaultCollapsedIconKind(kind)
           : isCodeKind
             ? kind
             : undefined,
-        expandedSize: isCodeKind ? { ...CODE_SNIPPET_EXPANDED_SIZE } : undefined,
+        expandedSize: startsCollapsed
+          ? (isCodeKind ? { ...CODE_SNIPPET_EXPANDED_SIZE } : { ...size })
+          : undefined,
         properties
       };
     };
 
     const nodes: CanvasNode[] = [
-      makeNode("n-platform", "group-container-plus", "Reference Architecture", { x: 40, y: 40 }, { width: 3520, height: 2320 }),
-      makeNode("n-vpc", "aws-vpc", "VPC 10.30.0.0/16", { x: 100, y: 90 }, { width: 3320, height: 2080 }, "n-platform"),
-      makeNode("n-subnet-edge", "aws-subnet", "Subnet Edge (Public)", { x: 90, y: 90 }, { width: 3140, height: 420 }, "n-vpc"),
-      makeNode("n-subnet-app", "aws-subnet", "Subnet App (Private)", { x: 90, y: 570 }, { width: 1980, height: 930 }, "n-vpc"),
-      makeNode("n-subnet-data", "aws-subnet", "Subnet Data", { x: 2140, y: 570 }, { width: 1090, height: 930 }, "n-vpc"),
-      makeNode("n-subnet-ops", "aws-subnet", "Subnet Ops / Observability", { x: 90, y: 1550 }, { width: 3140, height: 540 }, "n-vpc"),
+      makeNode("n-platform", "group-container-plus", "Reference Architecture", { x: 40, y: 40 }, { width: 4120, height: 2680 }),
+      makeNode("n-vpc", "aws-vpc", "VPC 10.30.0.0/16", { x: 100, y: 90 }, { width: 3920, height: 2440 }, "n-platform"),
+      makeNode("n-subnet-edge", "aws-subnet", "Subnet Edge (Public)", { x: 90, y: 90 }, { width: 3740, height: 440 }, "n-vpc"),
+      makeNode("n-subnet-app", "aws-subnet", "Subnet App (Private)", { x: 90, y: 600 }, { width: 2220, height: 1040 }, "n-vpc"),
+      makeNode("n-subnet-data", "aws-subnet", "Subnet Data", { x: 2380, y: 600 }, { width: 1450, height: 1040 }, "n-vpc"),
+      makeNode("n-subnet-ops", "aws-subnet", "Subnet Ops / Observability", { x: 90, y: 1710 }, { width: 3740, height: 740 }, "n-vpc"),
       makeNode("n-user", "external", "Users", { x: -120, y: 210 }, { width: 172, height: 176 }),
       makeNode("n-route53", "aws-route53", "Route53", { x: 360, y: 210 }, { width: 172, height: 176 }, "n-subnet-edge"),
       makeNode("n-waf", "aws-waf", "WAF", { x: 630, y: 210 }, { width: 172, height: 176 }, "n-subnet-edge"),
@@ -2884,11 +2886,18 @@ spec:
       makeNode("n-rabbit", "queue-rabbitmq", "RabbitMQ", { x: 1410, y: 130 }, { width: 172, height: 176 }, "n-subnet-app"),
       makeNode("n-kafka", "queue-kafka", "Kafka", { x: 1410, y: 390 }, { width: 172, height: 176 }, "n-subnet-app"),
       makeNode("n-redis", "cache-redis", "Redis", { x: 1410, y: 650 }, { width: 172, height: 176 }, "n-subnet-app"),
+      makeNode("n-sqs", "aws-sqs", "SQS", { x: 1710, y: 130 }, { width: 172, height: 176 }, "n-subnet-app"),
+      makeNode("n-eventbridge", "aws-eventbridge", "EventBridge", { x: 1710, y: 390 }, { width: 172, height: 176 }, "n-subnet-app"),
+      makeNode("n-lambda-reports", "aws-lambda", "Reports Lambda", { x: 1710, y: 650 }, { width: 172, height: 176 }, "n-subnet-app"),
+      makeNode("n-ecs-batch", "aws-ecs", "ECS Batch", { x: 2010, y: 390 }, { width: 172, height: 176 }, "n-subnet-app"),
       makeNode("n-mongo", "database-mongodb", "MongoDB", { x: 180, y: 140 }, { width: 172, height: 176 }, "n-subnet-data"),
       makeNode("n-rds", "aws-rds", "RDS Orders", { x: 430, y: 140 }, { width: 172, height: 176 }, "n-subnet-data"),
       makeNode("n-s3", "aws-s3", "S3 Artifacts", { x: 680, y: 140 }, { width: 172, height: 176 }, "n-subnet-data"),
+      makeNode("n-dynamo", "aws-dynamodb", "DynamoDB", { x: 930, y: 140 }, { width: 172, height: 176 }, "n-subnet-data"),
+      makeNode("n-opensearch", "aws-opensearch", "OpenSearch", { x: 1180, y: 140 }, { width: 172, height: 176 }, "n-subnet-data"),
       makeNode("n-cloudwatch", "aws-cloudwatch", "CloudWatch", { x: 220, y: 170 }, { width: 172, height: 176 }, "n-subnet-ops"),
       makeNode("n-cloudtrail", "aws-cloudtrail", "CloudTrail", { x: 500, y: 170 }, { width: 172, height: 176 }, "n-subnet-ops"),
+      makeNode("n-secrets", "aws-secrets-manager", "Secrets Manager", { x: 780, y: 170 }, { width: 172, height: 176 }, "n-subnet-ops"),
       makeNode("n-repo", "code-repository", "orders-repository", { x: 2650, y: 170 }, { width: 172, height: 176 }, "n-subnet-ops"),
       makeNode("n-pipeline", "code-pipeline", "delivery-pipeline", { x: 2920, y: 170 }, { width: 172, height: 176 }, "n-subnet-ops")
     ];
@@ -2910,15 +2919,22 @@ spec:
       makeEdge("e-pod-api-rabbit", "n-pod-api", "n-rabbit", "publish"),
       makeEdge("e-rabbit-pod-worker", "n-rabbit", "n-pod-worker", "consume"),
       makeEdge("e-pod-worker-kafka", "n-pod-worker", "n-kafka", "events"),
+      makeEdge("e-pod-worker-sqs", "n-pod-worker", "n-sqs", "enqueue"),
+      makeEdge("e-sqs-lambda", "n-sqs", "n-lambda-reports", "trigger"),
+      makeEdge("e-lambda-eventbridge", "n-lambda-reports", "n-eventbridge", "emit"),
+      makeEdge("e-eventbridge-ecs", "n-eventbridge", "n-ecs-batch", "start task"),
       makeEdge("e-pod-api-redis", "n-pod-api", "n-redis", "cache"),
       makeEdge("e-pod-api-rds", "n-pod-api", "n-rds", "transactional"),
       makeEdge("e-pod-api-s3", "n-pod-api", "n-s3", "files"),
+      makeEdge("e-pod-worker-dynamo", "n-pod-worker", "n-dynamo", "projections"),
+      makeEdge("e-pod-worker-opensearch", "n-pod-worker", "n-opensearch", "index"),
       makeEdge("e-sql-mongo", "n-pod-api-query", "n-mongo", "read-model"),
       makeEdge("e-nosql-mongo", "n-pod-worker-query", "n-mongo", "aggregate"),
       makeEdge("e-repo-pipeline", "n-repo", "n-pipeline", "CI"),
       makeEdge("e-pipeline-ecr", "n-pipeline", "n-ecr", "push image"),
       makeEdge("e-pipeline-deploy", "n-pipeline", "n-deployment", "deploy"),
       makeEdge("e-ecr-pod-api", "n-ecr", "n-pod-api", "image source"),
+      makeEdge("e-secrets-pod-api", "n-secrets", "n-pod-api", "runtime secrets"),
       makeEdge("e-cloudwatch-apigw", "n-cloudwatch", "n-apigw", "monitor"),
       makeEdge("e-cloudwatch-mongo", "n-cloudwatch", "n-mongo", "metrics"),
       makeEdge("e-cloudtrail-waf", "n-cloudtrail", "n-waf", "audit")
@@ -2977,7 +2993,7 @@ spec:
 
   private applyPreferredInitialViewport(architecture: ArchitectureDocument): void {
     if (architecture.title === "Exemplo Completo: Macro para Micro") {
-      this.canvasZoom = 0.62;
+      this.canvasZoom = 0.56;
       this.canvasPan = DEFAULT_CANVAS_PAN;
       return;
     }
