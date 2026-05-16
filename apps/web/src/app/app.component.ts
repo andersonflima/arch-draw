@@ -190,7 +190,7 @@ const EDGE_ROUTE_MAX_PASSES = 6;
 const MAX_UNDO_HISTORY = 150;
 const DRAG_START_THRESHOLD = 4;
 const UI_THEME_STORAGE_KEY = "arch-draw.ui-theme";
-const FIRST_ACCESS_TEMPLATE_SEEN_KEY = "arch-draw.first-access-template-seen";
+const DEMO_TEMPLATE_TITLE = "Exemplo Completo: Macro para Micro";
 const CONTAINER_CHILD_PADDING_LEFT = 16;
 const CONTAINER_CHILD_PADDING_RIGHT = 16;
 const CONTAINER_CHILD_PADDING_TOP = 56;
@@ -875,13 +875,15 @@ export class AppComponent implements OnDestroy {
       if (!this.architecture) return;
       await api.deleteArchitecture(this.architecture.id);
       const remaining = await api.listArchitectures();
-      this.summaries = remaining;
-      if (remaining[0]) {
-        await this.loadArchitecture(remaining[0].id);
+      const ensured = await this.ensureDemoTemplateArchitectureExists(remaining);
+      this.summaries = ensured;
+      if (ensured[0]) {
+        await this.loadArchitecture(ensured[0].id);
+        this.status = "Diagrama excluido";
         return;
       }
       this.clearCurrentArchitecture();
-      this.status = "Todos os diagramas foram removidos";
+      this.status = "Nenhum diagrama encontrado";
     });
   }
 
@@ -893,10 +895,11 @@ export class AppComponent implements OnDestroy {
       await this.waitForPersistenceIdle();
       await api.deleteArchitecture(id);
       const remaining = await api.listArchitectures();
-      this.summaries = remaining;
+      const ensured = await this.ensureDemoTemplateArchitectureExists(remaining);
+      this.summaries = ensured;
 
       if (this.architecture?.id === id) {
-        const fallback = remaining[0];
+        const fallback = ensured[0];
         if (fallback) {
           await this.loadArchitecture(fallback.id);
         } else {
@@ -2836,37 +2839,37 @@ LIMIT 50;`;
   private async boot(): Promise<void> {
     await this.runSafely(async () => {
       const existing = await api.listArchitectures();
-      if (existing.length === 0) {
-        const shouldSeedTemplate = !this.hasSeenFirstAccessTemplate();
-        const created = await api.createArchitecture("Arquitetura local");
-        if (shouldSeedTemplate) {
-          const seeded = this.createFirstAccessArchitectureTemplate(created);
-          const saved = await api.saveArchitecture(seeded);
-          this.markFirstAccessTemplateAsSeen();
-          await this.loadArchitecture(saved.id);
-        } else {
-          await this.loadArchitecture(created.id);
-        }
-      } else {
-        const firstExisting = existing[0];
-        if (!firstExisting) return;
-        if (this.shouldSeedFirstAccessTemplate(firstExisting) && !this.hasSeenFirstAccessTemplate()) {
-          const current = await api.readArchitecture(firstExisting.id);
-          const seeded = this.createFirstAccessArchitectureTemplate(current);
-          const saved = await api.saveArchitecture(seeded);
-          this.markFirstAccessTemplateAsSeen();
-          await this.loadArchitecture(saved.id);
-        } else {
-          this.markFirstAccessTemplateAsSeen();
-          await this.loadArchitecture(firstExisting.id);
-        }
+      const preferredId = existing[0]?.id ?? null;
+      const ensured = await this.ensureDemoTemplateArchitectureExists(existing);
+      const fallbackId = ensured[0]?.id ?? null;
+      const targetId =
+        preferredId && ensured.some((summary) => summary.id === preferredId)
+          ? preferredId
+          : fallbackId;
+      if (!targetId) {
+        this.clearCurrentArchitecture();
+        this.status = "Nenhum diagrama encontrado";
+        return;
       }
-      await this.refreshSummaries();
+      this.summaries = ensured;
+      await this.loadArchitecture(targetId);
     }, "API indisponível");
   }
 
-  private shouldSeedFirstAccessTemplate(summary: ArchitectureSummary): boolean {
-    return summary.nodeCount === 0 && summary.edgeCount === 0;
+  private async ensureDemoTemplateArchitectureExists(
+    summaries?: readonly ArchitectureSummary[]
+  ): Promise<readonly ArchitectureSummary[]> {
+    const current = summaries ?? await api.listArchitectures();
+    if (current.some((summary) => this.isDemoTemplateSummary(summary))) return current;
+
+    const created = await api.createArchitecture(DEMO_TEMPLATE_TITLE);
+    const seeded = this.createFirstAccessArchitectureTemplate(created);
+    await api.saveArchitecture(seeded);
+    return api.listArchitectures();
+  }
+
+  private isDemoTemplateSummary(summary: ArchitectureSummary): boolean {
+    return summary.title.trim().toLowerCase() === DEMO_TEMPLATE_TITLE.toLowerCase();
   }
 
   private createFirstAccessArchitectureTemplate(base: ArchitectureDocument): ArchitectureDocument {
@@ -3193,7 +3196,7 @@ spec:
 
     return {
       ...base,
-      title: "Exemplo Completo: Macro para Micro",
+      title: DEMO_TEMPLATE_TITLE,
       description: "Modelo em camadas com borda publica, app, dados e observabilidade.",
       mermaidSource: `graph LR
   User["Users"] --> DNS["Route53"]
@@ -3309,7 +3312,7 @@ spec:
   }
 
   private applyPreferredInitialViewport(architecture: ArchitectureDocument): void {
-    if (architecture.title === "Exemplo Completo: Macro para Micro") {
+    if (architecture.title === DEMO_TEMPLATE_TITLE) {
       this.canvasZoom = 0.56;
       this.canvasPan = DEFAULT_CANVAS_PAN;
       return;
@@ -5104,22 +5107,6 @@ spec:
   private persistUiThemePreference(): void {
     try {
       localStorage.setItem(UI_THEME_STORAGE_KEY, this.uiTheme);
-    } catch {
-      // Ignore storage failures (private mode / blocked storage).
-    }
-  }
-
-  private hasSeenFirstAccessTemplate(): boolean {
-    try {
-      return localStorage.getItem(FIRST_ACCESS_TEMPLATE_SEEN_KEY) === "true";
-    } catch {
-      return false;
-    }
-  }
-
-  private markFirstAccessTemplateAsSeen(): void {
-    try {
-      localStorage.setItem(FIRST_ACCESS_TEMPLATE_SEEN_KEY, "true");
     } catch {
       // Ignore storage failures (private mode / blocked storage).
     }
