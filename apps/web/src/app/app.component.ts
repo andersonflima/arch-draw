@@ -2144,8 +2144,10 @@ export class AppComponent implements OnDestroy {
     const dragZIndex = isDescendantOfDragged ? 31 : isBeingDragged ? 30 : baseZIndex;
     const nestedInsideContainer = Boolean(node.parentId);
     const isExpandedCodeSnippet = this.isCodeSnippetExpanded(node);
+    const prefersDarkTextInDarkMode =
+      this.isFlowNodeKind(node.kind) || rendersAsContainer || nestedInsideContainer || isExpandedCodeSnippet;
     const nodeTextColor = this.isDarkMode
-      ? (rendersAsContainer || nestedInsideContainer || isExpandedCodeSnippet ? "#111827" : "#f8fafc")
+      ? (prefersDarkTextInDarkMode ? "#111827" : "#f8fafc")
       : "#111827";
     return {
       left: `${position.x}px`,
