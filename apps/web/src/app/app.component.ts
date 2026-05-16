@@ -3281,6 +3281,13 @@ export class AppComponent {
         return "ExampleRepository";
       case "code-file":
         return "example-file";
+      case "aws-lambda":
+      case "serverless":
+        return "lambda_handler";
+      case "software-api":
+        return "ApiHandler";
+      case "software-worker":
+        return "WorkerHandler";
       default:
         return "ExampleSymbol";
     }
@@ -3309,6 +3316,13 @@ export class AppComponent {
         return `class ${symbol}:\n    def save(self, item: dict) -> None:\n        print("save", item)`;
       case "code-file":
         return `# ${repo}.py\n\nif __name__ == "__main__":\n    print("hello")`;
+      case "aws-lambda":
+      case "serverless":
+        return `def lambda_handler(event, context):\n    return {\n        "statusCode": 200,\n        "body": "ok"\n    }`;
+      case "software-api":
+        return `def ${variable}(event, context):\n    return {\n        "statusCode": 200,\n        "body": "api response"\n    }`;
+      case "software-worker":
+        return `def ${variable}(event, context):\n    for record in event.get("Records", []):\n        print(record)\n    return {"processed": len(event.get("Records", []))}`;
       default:
         return `# ${symbol}`;
     }
@@ -3332,6 +3346,13 @@ export class AppComponent {
         return `class ${symbol} {\n  save(item) {\n    return item;\n  }\n}`;
       case "code-file":
         return `export function main() {\n  console.log("hello");\n}`;
+      case "aws-lambda":
+      case "serverless":
+        return `export const handler = async (event) => {\n  return { statusCode: 200, body: "ok" };\n};`;
+      case "software-api":
+        return `export function ${variable}(req, res) {\n  res.status(200).json({ ok: true });\n}`;
+      case "software-worker":
+        return `export async function ${variable}(event) {\n  for (const record of event.Records ?? []) {\n    console.log(record);\n  }\n}`;
       default:
         return `// ${symbol}`;
     }
@@ -3343,6 +3364,13 @@ export class AppComponent {
         return `import http from "node:http";\n\nhttp.createServer((_req, res) => {\n  res.writeHead(200);\n  res.end("ok");\n}).listen(3000);`;
       case "code-repository":
         return `export class ${symbol} {\n  async findById(id) {\n    return { id };\n  }\n}`;
+      case "aws-lambda":
+      case "serverless":
+        return `export const handler = async (event) => {\n  console.log(JSON.stringify(event));\n  return { statusCode: 200, body: "ok" };\n};`;
+      case "software-api":
+        return `export function ${variable}(req, res) {\n  res.statusCode = 200;\n  res.end("ok");\n}`;
+      case "software-worker":
+        return `export async function ${variable}(event) {\n  for (const record of event.Records ?? []) {\n    console.log(record);\n  }\n}`;
       default:
         return this.getJavaScriptSnippet(kind, symbol, variable);
     }
@@ -3366,6 +3394,13 @@ export class AppComponent {
         return `export class ${symbol} {\n  save<T>(item: T): T {\n    return item;\n  }\n}`;
       case "code-file":
         return `export function bootstrap(): void {\n  console.log("hello");\n}`;
+      case "aws-lambda":
+      case "serverless":
+        return `export const handler = async (event: unknown): Promise<{ statusCode: number; body: string }> => {\n  return { statusCode: 200, body: "ok" };\n};`;
+      case "software-api":
+        return `type ApiResponse = { statusCode: number; body: string };\n\nexport const ${variable} = async (): Promise<ApiResponse> => ({\n  statusCode: 200,\n  body: "api response"\n});`;
+      case "software-worker":
+        return `export const ${variable} = async (event: { Records?: unknown[] }): Promise<void> => {\n  for (const record of event.Records ?? []) {\n    console.log(record);\n  }\n};`;
       default:
         return `// ${symbol}`;
     }
@@ -3388,6 +3423,13 @@ export class AppComponent {
         return `type ${symbol} struct{}\n\nfunc (r *${symbol}) Save(item any) error {\n\treturn nil\n}`;
       case "code-file":
         return `package main\n\nfunc main() {\n\tprintln("hello")\n}`;
+      case "aws-lambda":
+      case "serverless":
+        return `package main\n\nimport \"github.com/aws/aws-lambda-go/lambda\"\n\ntype Response struct {\n\tStatusCode int    \`json:\"statusCode\"\`\n\tBody       string \`json:\"body\"\`\n}\n\nfunc handler() (Response, error) {\n\treturn Response{StatusCode: 200, Body: "ok"}, nil\n}\n\nfunc main() {\n\tlambda.Start(handler)\n}`;
+      case "software-api":
+        return `func ${symbol}(request string) string {\n\treturn "api response"\n}`;
+      case "software-worker":
+        return `func ${symbol}(records []any) {\n\tfor _, record := range records {\n\t\t_ = record\n\t}\n}`;
       default:
         return `// ${symbol}`;
     }
@@ -3410,6 +3452,13 @@ export class AppComponent {
         return `pub struct ${symbol};\n\nimpl ${symbol} {\n    pub fn save(&self) {}\n}`;
       case "code-file":
         return `fn main() {\n    println!("hello");\n}`;
+      case "aws-lambda":
+      case "serverless":
+        return `pub async fn handler() -> Result<String, Box<dyn std::error::Error>> {\n    Ok("ok".to_string())\n}`;
+      case "software-api":
+        return `pub fn ${variable}() -> &'static str {\n    "api response"\n}`;
+      case "software-worker":
+        return `pub fn ${variable}(records: Vec<String>) {\n    for record in records {\n        println!("{}", record);\n    }\n}`;
       default:
         return `// ${symbol}`;
     }
@@ -3433,6 +3482,13 @@ export class AppComponent {
         return `public class ${symbol} {\n    public void save(Object item) { }\n}`;
       case "code-file":
         return `public class Main {\n    public static void main(String[] args) {\n        System.out.println("hello");\n    }\n}`;
+      case "aws-lambda":
+      case "serverless":
+        return `public class Handler {\n    public String handleRequest(Object event) {\n        return "ok";\n    }\n}`;
+      case "software-api":
+        return `public class ${symbol} {\n    public String execute() {\n        return "api response";\n    }\n}`;
+      case "software-worker":
+        return `public class ${symbol} {\n    public void execute(java.util.List<Object> records) {\n        for (Object record : records) {\n            System.out.println(record);\n        }\n    }\n}`;
       default:
         return `// ${symbol}`;
     }
@@ -3460,6 +3516,13 @@ export class AppComponent {
         return `defmodule ${symbol} do\n  def save(item), do: {:ok, item}\nend`;
       case "code-file":
         return `# ${repo}.ex\nIO.puts("hello")`;
+      case "aws-lambda":
+      case "serverless":
+        return `defmodule Handler do\n  def handle(event, _context) do\n    {:ok, %{statusCode: 200, body: "ok", event: event}}\n  end\nend`;
+      case "software-api":
+        return `defmodule ${symbol} do\n  def execute(), do: %{status: 200, body: "api response"}\nend`;
+      case "software-worker":
+        return `defmodule ${symbol} do\n  def execute(records) do\n    Enum.each(records, &IO.inspect/1)\n  end\nend`;
       default:
         return `# ${symbol}`;
     }

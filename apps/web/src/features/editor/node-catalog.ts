@@ -234,7 +234,11 @@ const codeSnippetKinds = new Set<ArchitectureNodeKind>([
   "code-enum",
   "code-type",
   "code-repository",
-  "code-file"
+  "code-file",
+  "aws-lambda",
+  "serverless",
+  "software-api",
+  "software-worker"
 ]);
 
 export const isCodeSnippetNodeKind = (kind: ArchitectureNodeKind): boolean =>
