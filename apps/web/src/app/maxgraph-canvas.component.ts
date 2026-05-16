@@ -320,9 +320,18 @@ export class MaxGraphCanvasComponent implements AfterViewInit, OnChanges, OnDest
         .filter((node) => this.isVisibleNode(node, inputNodeById))
         .map((node) => node.id)
     );
-    const mergedNodes = this.nodes.map((node) =>
-      visibleInputNodeIds.has(node.id) ? (nodeMap.get(node.id) ?? node) : node
-    );
+    const mergedNodes = this.nodes.map((node) => {
+      if (!visibleInputNodeIds.has(node.id)) return node;
+      const graphNode = nodeMap.get(node.id);
+      if (!graphNode) return node;
+      return {
+        ...node,
+        label: graphNode.label,
+        position: graphNode.position,
+        size: graphNode.size,
+        parentId: graphNode.parentId
+      };
+    });
     for (const [id, node] of nodeMap.entries()) {
       if (mergedNodes.some((current) => current.id === id)) continue;
       mergedNodes.push(node);
@@ -334,9 +343,17 @@ export class MaxGraphCanvasComponent implements AfterViewInit, OnChanges, OnDest
         .map((edge) => edge.id)
     );
     const edgeById = new Map(edgeList.map((edge) => [edge.id, edge] as const));
-    const mergedEdges = this.edges.map((edge) =>
-      visibleInputEdgeIds.has(edge.id) ? (edgeById.get(edge.id) ?? edge) : edge
-    );
+    const mergedEdges = this.edges.map((edge) => {
+      if (!visibleInputEdgeIds.has(edge.id)) return edge;
+      const graphEdge = edgeById.get(edge.id);
+      if (!graphEdge) return edge;
+      return {
+        ...edge,
+        from: graphEdge.from,
+        to: graphEdge.to,
+        label: graphEdge.label
+      };
+    });
     for (const [id, edge] of edgeById.entries()) {
       if (mergedEdges.some((current) => current.id === id)) continue;
       mergedEdges.push(edge);
