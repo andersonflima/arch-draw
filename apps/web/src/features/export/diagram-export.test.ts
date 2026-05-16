@@ -98,6 +98,8 @@ describe("diagram export formats", () => {
 
     expect(parsed.architecture.nodes.length).toBeGreaterThanOrEqual(3);
     expect(parsed.architecture.edges.length).toBe(1);
+    expect(parsed.architecture.edges[0]?.from).toBe("svc-1");
+    expect(parsed.architecture.edges[0]?.to).toBe("db-1");
   });
 
   it("exports mermaid source from architecture graph", () => {

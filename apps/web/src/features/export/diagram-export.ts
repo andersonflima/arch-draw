@@ -35,12 +35,26 @@ export const exportArchitectureToDrawIo = (architecture: ArchitectureDocument): 
 
 export const exportArchitectureToExcalidraw = (architecture: ArchitectureDocument): string => {
   const absolutePositionByNodeId = buildAbsolutePositionByNodeId(architecture.nodes);
-  const nodeElements = architecture.nodes.flatMap((node) =>
-    toExcalidrawNodeElements(node, absolutePositionByNodeId.get(node.id))
-  );
   const edgeElements = architecture.edges
     .map((edge) => toExcalidrawEdgeElement(edge, architecture.nodes, absolutePositionByNodeId))
     .filter((edge): edge is ExcalidrawElement => Boolean(edge));
+  const boundArrowIdsByNodeId = new Map<string, string[]>();
+  for (const edge of architecture.edges) {
+    const edgeElementId = `edge-${edge.id}`;
+    const fromList = boundArrowIdsByNodeId.get(edge.from) ?? [];
+    fromList.push(edgeElementId);
+    boundArrowIdsByNodeId.set(edge.from, fromList);
+    const toList = boundArrowIdsByNodeId.get(edge.to) ?? [];
+    toList.push(edgeElementId);
+    boundArrowIdsByNodeId.set(edge.to, toList);
+  }
+  const nodeElements = architecture.nodes.flatMap((node) =>
+    toExcalidrawNodeElements(
+      node,
+      absolutePositionByNodeId.get(node.id),
+      boundArrowIdsByNodeId.get(node.id) ?? []
+    )
+  );
 
   const payload = {
     type: "excalidraw",
@@ -144,7 +158,8 @@ const buildDrawIoEdgeStyle = (edge: ArchitectureEdge): string => {
 
 const toExcalidrawNodeElements = (
   node: ArchitectureNode,
-  absolutePosition: Readonly<{ x: number; y: number }> | undefined
+  absolutePosition: Readonly<{ x: number; y: number }> | undefined,
+  boundArrowIds: readonly string[]
 ): readonly ExcalidrawElement[] => {
   const x = toFiniteNumber(absolutePosition?.x ?? node.position.x);
   const y = toFiniteNumber(absolutePosition?.y ?? node.position.y);
@@ -183,11 +198,17 @@ const toExcalidrawNodeElements = (
     version: 1,
     versionNonce: hashToSeed(`${node.id}-nonce`),
     isDeleted: false,
-    boundElements: [{ type: "text", id: textId }],
+    boundElements: [
+      { type: "text", id: textId },
+      ...boundArrowIds.map((id) => ({ type: "arrow", id }))
+    ],
     updated: Date.now(),
     link: null,
     locked: false,
-    text: node.label
+    text: node.label,
+    customData: {
+      archDrawNodeId: node.id
+    }
   };
 
   const text = {
@@ -299,7 +320,12 @@ const toExcalidrawEdgeElement = (
     elbowed: style?.path === "step",
     startArrowhead: style?.bidirectional ? "arrow" : null,
     endArrowhead: "arrow",
-    text: edge.label ?? ""
+    text: edge.label ?? "",
+    customData: {
+      archDrawEdgeId: edge.id,
+      archDrawFrom: edge.from,
+      archDrawTo: edge.to
+    }
   };
 };
 

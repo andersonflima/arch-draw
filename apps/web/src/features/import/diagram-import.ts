@@ -70,6 +70,7 @@ type ExcalidrawElement = Readonly<{
   startArrowhead?: string | null;
   endArrowhead?: string | null;
   isDeleted?: boolean;
+  customData?: unknown;
 }>;
 
 type ExcalidrawDocument = Readonly<{
@@ -196,6 +197,7 @@ const parseExcalidrawToArchitecture = (
   const nodeElements = liveElements.filter((element) =>
     ["rectangle", "ellipse", "diamond", "frame", "image"].includes(element.type)
   );
+  const usedNodeIds = new Set<string>();
   const nodes = nodeElements.map((element) => {
     const geometry = normalizeExcalidrawGeometry(element);
     const inferredLabel =
@@ -204,8 +206,9 @@ const parseExcalidrawToArchitecture = (
       || "";
     const kind = inferExcalidrawNodeKind(element, inferredLabel);
     const size = normalizeNodeSize(kind, geometry);
+    const nodeId = resolveImportedExcalidrawNodeId(element, usedNodeIds);
     return {
-      id: `excalidraw-${element.id}`,
+      id: nodeId,
       kind,
       label: inferredLabel || getDefaultLabel(kind),
       position: {
@@ -217,7 +220,13 @@ const parseExcalidrawToArchitecture = (
     } satisfies ArchitectureNode;
   });
 
-  const nodeIdByElementId = new Map(nodeElements.map((element) => [element.id, `excalidraw-${element.id}`] as const));
+  const nodeIdByElementId = new Map<string, string>();
+  for (let index = 0; index < nodeElements.length; index += 1) {
+    const element = nodeElements[index];
+    const node = nodes[index];
+    if (!element || !node) continue;
+    nodeIdByElementId.set(element.id, node.id);
+  }
   const nodeCenters = new Map(nodes.map((node) => [node.id, {
     x: node.position.x + node.size.width / 2,
     y: node.position.y + node.size.height / 2
@@ -226,6 +235,9 @@ const parseExcalidrawToArchitecture = (
 
   for (const element of liveElements) {
     if (element.type !== "arrow" && element.type !== "line") continue;
+    const customData = getExcalidrawCustomData(element);
+    const fromCustom = resolveExcalidrawEdgeEndpointFromCustomData(customData?.archDrawFrom, nodes);
+    const toCustom = resolveExcalidrawEdgeEndpointFromCustomData(customData?.archDrawTo, nodes);
     const fromBound = element.startBinding?.elementId ? nodeIdByElementId.get(element.startBinding.elementId) : undefined;
     const toBound = element.endBinding?.elementId ? nodeIdByElementId.get(element.endBinding.elementId) : undefined;
     const points = element.points ?? [];
@@ -233,8 +245,8 @@ const parseExcalidrawToArchitecture = (
     const lastPoint = points.at(-1);
     const startPoint = firstPoint ? { x: element.x + firstPoint[0], y: element.y + firstPoint[1] } : null;
     const endPoint = lastPoint ? { x: element.x + lastPoint[0], y: element.y + lastPoint[1] } : null;
-    const from = fromBound ?? (startPoint ? findNearestNodeId(startPoint, nodeCenters) : null);
-    const to = toBound ?? (endPoint ? findNearestNodeId(endPoint, nodeCenters, from ?? undefined) : null);
+    const from = fromCustom ?? fromBound ?? (startPoint ? findNearestNodeId(startPoint, nodeCenters) : null);
+    const to = toCustom ?? toBound ?? (endPoint ? findNearestNodeId(endPoint, nodeCenters, from ?? undefined) : null);
     if (!from || !to || from === to) continue;
 
     const style: ArchitectureEdgeStyle = {
@@ -760,6 +772,43 @@ const isExcalidrawDocument = (value: unknown): value is ExcalidrawDocument => {
   if (typeof value !== "object" || value === null) return false;
   const candidate = value as Partial<ExcalidrawDocument>;
   return candidate.type === "excalidraw" && Array.isArray(candidate.elements);
+};
+
+const getExcalidrawCustomData = (
+  element: ExcalidrawElement
+): Readonly<Record<string, unknown>> | null => {
+  if (typeof element.customData !== "object" || element.customData === null) return null;
+  return element.customData as Readonly<Record<string, unknown>>;
+};
+
+const resolveImportedExcalidrawNodeId = (
+  element: ExcalidrawElement,
+  usedNodeIds: Set<string>
+): string => {
+  const customData = getExcalidrawCustomData(element);
+  const preferredId = typeof customData?.archDrawNodeId === "string"
+    ? customData.archDrawNodeId.trim()
+    : "";
+  const fallbackId = `excalidraw-${element.id}`;
+  const baseId = preferredId.length > 0 ? preferredId : fallbackId;
+  let candidate = baseId;
+  let suffix = 2;
+  while (usedNodeIds.has(candidate)) {
+    candidate = `${baseId}-${suffix}`;
+    suffix += 1;
+  }
+  usedNodeIds.add(candidate);
+  return candidate;
+};
+
+const resolveExcalidrawEdgeEndpointFromCustomData = (
+  reference: unknown,
+  nodes: readonly ArchitectureNode[]
+): string | null => {
+  if (typeof reference !== "string") return null;
+  const candidate = reference.trim();
+  if (candidate.length === 0) return null;
+  return nodes.some((node) => node.id === candidate) ? candidate : null;
 };
 
 const normalizeExcalidrawLabel = (value: string | undefined): string => {

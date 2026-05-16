@@ -120,6 +120,66 @@ describe("diagram import parser", () => {
     expect(parsed.architecture.edges[0]?.to).toBe("excalidraw-node-b");
   });
 
+  it("prioritizes Excalidraw customData links for edge endpoints", async () => {
+    const source = {
+      type: "excalidraw",
+      elements: [
+        {
+          id: "node-a",
+          type: "rectangle",
+          x: 120,
+          y: 80,
+          width: 140,
+          height: 72,
+          text: "API",
+          customData: {
+            archDrawNodeId: "service-api"
+          }
+        },
+        {
+          id: "node-b",
+          type: "rectangle",
+          x: 420,
+          y: 80,
+          width: 140,
+          height: 72,
+          text: "DB",
+          customData: {
+            archDrawNodeId: "database-main"
+          }
+        },
+        {
+          id: "edge-1",
+          type: "arrow",
+          x: 0,
+          y: 0,
+          width: 0,
+          height: 0,
+          points: [
+            [0, 0],
+            [1, 1]
+          ],
+          customData: {
+            archDrawFrom: "service-api",
+            archDrawTo: "database-main"
+          }
+        }
+      ]
+    };
+
+    const parsed = await parseImportToSharePackage({
+      fileName: "custom.excalidraw",
+      text: JSON.stringify(source),
+      now
+    });
+
+    expect(parsed.architecture.nodes.find((node) => node.id === "service-api")).toBeDefined();
+    expect(parsed.architecture.nodes.find((node) => node.id === "database-main")).toBeDefined();
+    expect(parsed.architecture.edges).toHaveLength(1);
+    expect(parsed.architecture.edges[0]?.from).toBe("service-api");
+    expect(parsed.architecture.edges[0]?.to).toBe("database-main");
+  });
+
   it("keeps Excalidraw coordinates at 0 without fallback overlap", async () => {
     const source = {
       type: "excalidraw",
