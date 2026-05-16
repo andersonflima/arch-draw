@@ -3006,9 +3006,18 @@ export class AppComponent implements OnDestroy {
   }
 
   private nextNodePosition(): Readonly<{ x: number; y: number }> {
+    const visibleRect = this.getVisibleCanvasRect();
+    const margin = 48;
+    const staggerX = (this.nodes.length % 3) * 220;
+    const staggerY = Math.floor(this.nodes.length / 3) * 140;
+    const rawX = visibleRect.left + margin + staggerX;
+    const rawY = visibleRect.top + margin + staggerY;
+    const maxX = visibleRect.left + Math.max(margin, visibleRect.width - margin);
+    const maxY = visibleRect.top + Math.max(margin, visibleRect.height - margin);
+
     return {
-      x: 120 + (this.nodes.length % 3) * 220,
-      y: 120 + Math.floor(this.nodes.length / 3) * 140
+      x: Math.max(visibleRect.left + margin, Math.min(rawX, maxX)),
+      y: Math.max(visibleRect.top + margin, Math.min(rawY, maxY))
     };
   }
 
@@ -3017,6 +3026,18 @@ export class AppComponent implements OnDestroy {
     return {
       x: (event.clientX - (rect?.left ?? 0) - this.canvasPan.x) / this.canvasZoom,
       y: (event.clientY - (rect?.top ?? 0) - this.canvasPan.y) / this.canvasZoom
+    };
+  }
+
+  private getVisibleCanvasRect(): Readonly<{ left: number; top: number; width: number; height: number }> {
+    const rect = this.canvasShell?.nativeElement.getBoundingClientRect();
+    const width = Math.max(320, (rect?.width ?? 960) / this.canvasZoom);
+    const height = Math.max(220, (rect?.height ?? 640) / this.canvasZoom);
+    return {
+      left: -this.canvasPan.x / this.canvasZoom,
+      top: -this.canvasPan.y / this.canvasZoom,
+      width,
+      height
     };
   }
 
