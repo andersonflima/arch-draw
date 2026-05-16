@@ -88,6 +88,15 @@ Se precisar sobrescrever host, porta ou origens permitidas:
 cp .env.example .env
 ```
 
+Variáveis relevantes de autenticação e segurança:
+
+- `TRUST_PROXY=true` para respeitar `x-forwarded-proto` atrás de proxy/reverse proxy.
+- `SECURITY_METRICS_TOKEN` para proteger `GET /security/metrics`.
+- `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI` para habilitar SSO Google.
+- `AUTH_POST_LOGIN_REDIRECT` para definir rota padrão após login.
+
+Quando as três variáveis `GOOGLE_OAUTH_*` estiverem definidas, a API passa a exigir autenticação para rotas de arquitetura (`/architectures...`) e o frontend exibe a tela de login.
+
 ## Licença
 
 Este projeto está licenciado sob a MIT License. Consulte [LICENSE](./LICENSE).

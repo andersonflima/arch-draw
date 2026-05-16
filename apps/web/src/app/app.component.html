@@ -1,3 +1,4 @@
+<ng-container *ngIf="authChecked && (!authEnabled || isAuthenticated); else loginGate">
 <div class="app-shell" [class.theme-dark]="isDarkMode">
   <header class="topbar">
     <div class="brand-lockup">
@@ -61,6 +62,17 @@
         (click)="onToolbarDeleteClick()"
       >
         <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+      </button>
+      <button
+        *ngIf="authEnabled && authenticatedUser"
+        class="secondary-action toolbar-auth-action"
+        type="button"
+        title="Encerrar sessao"
+        aria-label="Encerrar sessao"
+        (click)="logoutFromSession()"
+      >
+        <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+        <span>{{ authenticatedUser.name }}</span>
       </button>
     </div>
 
@@ -673,3 +685,49 @@
   </div>
 
 </div>
+</ng-container>
+
+<ng-template #loginGate>
+  <div class="auth-screen" [class.theme-dark]="isDarkMode">
+    <header class="auth-screen__topbar">
+      <div class="brand-lockup">
+        <span class="brand-icon">AD</span>
+        <div>
+          <strong>Arch Draw</strong>
+          <span>Workspace protegido por SSO</span>
+        </div>
+      </div>
+      <button
+        class="icon-button"
+        type="button"
+        [title]="isDarkMode ? 'Desativar dark mode' : 'Ativar dark mode'"
+        [attr.aria-label]="isDarkMode ? 'Desativar dark mode' : 'Ativar dark mode'"
+        [class.is-active]="isDarkMode"
+        (click)="toggleDarkMode()"
+      >
+        <i [class]="isDarkMode ? 'fa-solid fa-sun' : 'fa-solid fa-moon'" aria-hidden="true"></i>
+      </button>
+    </header>
+
+    <main class="auth-card">
+      <p class="auth-kicker">Secure Access</p>
+      <h1>Faça login para acessar seus diagramas</h1>
+      <p class="auth-copy">
+        Use sua conta Google para entrar com segurança no ambiente de arquitetura.
+      </p>
+
+      <p class="auth-copy" *ngIf="!authChecked">Validando sessão...</p>
+      <p class="error-text" *ngIf="loginError">{{ loginError }}</p>
+
+      <button
+        class="primary-action auth-login-button"
+        type="button"
+        [disabled]="!authChecked || authActionInFlight"
+        (click)="startGoogleLogin()"
+      >
+        <i class="fa-brands fa-google" aria-hidden="true"></i>
+        <span>{{ authActionInFlight ? "Redirecionando..." : "Entrar com Google" }}</span>
+      </button>
+    </main>
+  </div>
+</ng-template>

@@ -10,6 +10,10 @@ services:
       WEB_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
       TRUST_PROXY: "true"
       SECURITY_METRICS_TOKEN: ${SECURITY_METRICS_TOKEN:-}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      GOOGLE_OAUTH_REDIRECT_URI: ${GOOGLE_OAUTH_REDIRECT_URI:-}
+      AUTH_POST_LOGIN_REDIRECT: ${AUTH_POST_LOGIN_REDIRECT:-/}
     volumes:
       - arch_draw_data:/app/data
     restart: unless-stopped

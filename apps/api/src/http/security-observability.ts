@@ -4,7 +4,8 @@ export type SecurityEventType =
   | "invalid_content_type"
   | "rate_limited"
   | "payload_too_large"
-  | "unauthorized_metrics_access";
+  | "unauthorized_metrics_access"
+  | "unauthorized_request";
 
 const counters = new Map<SecurityEventType, number>();
 
@@ -14,7 +15,8 @@ for (const event of [
   "invalid_content_type",
   "rate_limited",
   "payload_too_large",
-  "unauthorized_metrics_access"
+  "unauthorized_metrics_access",
+  "unauthorized_request"
 ] as const) {
   counters.set(event, 0);
 }
@@ -30,5 +32,6 @@ export const getSecurityMetricsSnapshot = (): Readonly<Record<SecurityEventType,
   invalid_content_type: counters.get("invalid_content_type") ?? 0,
   rate_limited: counters.get("rate_limited") ?? 0,
   payload_too_large: counters.get("payload_too_large") ?? 0,
-  unauthorized_metrics_access: counters.get("unauthorized_metrics_access") ?? 0
+  unauthorized_metrics_access: counters.get("unauthorized_metrics_access") ?? 0,
+  unauthorized_request: counters.get("unauthorized_request") ?? 0
 });

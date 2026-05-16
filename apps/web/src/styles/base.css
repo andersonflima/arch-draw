@@ -115,6 +115,19 @@ button {
   width: 40px;
 }
 
+.toolbar-auth-action {
+  min-height: 40px;
+  padding: 0 12px;
+  max-width: 220px;
+}
+
+.toolbar-auth-action span {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .icon-button i {
   font-size: 14px;
   pointer-events: none;
@@ -164,6 +177,70 @@ button {
   overflow: hidden;
   position: relative;
   isolation: isolate;
+}
+
+.auth-screen {
+  display: grid;
+  grid-template-rows: 64px minmax(0, 1fr);
+  min-height: 100vh;
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at 16% 18%, rgba(250, 204, 21, 0.26) 0, rgba(250, 204, 21, 0) 44%),
+    radial-gradient(circle at 84% 14%, rgba(59, 130, 246, 0.18) 0, rgba(59, 130, 246, 0) 38%),
+    #f7f4ed;
+}
+
+.auth-screen__topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 18px;
+  border-bottom: 2px solid #111827;
+  background: #fffaf0;
+}
+
+.auth-card {
+  align-self: center;
+  justify-self: center;
+  width: min(540px, calc(100vw - 32px));
+  border: 2px solid #111827;
+  border-radius: 12px;
+  background: #fffef8;
+  box-shadow: 6px 6px 0 #111827;
+  padding: 30px 26px;
+  display: grid;
+  gap: 14px;
+}
+
+.auth-kicker {
+  margin: 0;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 800;
+  color: #6b7280;
+}
+
+.auth-card h1 {
+  margin: 0;
+  font-size: clamp(26px, 3.3vw, 38px);
+  line-height: 1.1;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.auth-copy {
+  margin: 0;
+  color: #374151;
+}
+
+.auth-login-button {
+  justify-content: center;
+  min-height: 44px;
+}
+
+.auth-login-button i {
+  font-size: 16px;
 }
 
 .sidebar,
@@ -2905,6 +2982,38 @@ app-flow-document-node {
 
 .app-shell.theme-dark {
   color: #e5e7eb;
+}
+
+.auth-screen.theme-dark {
+  background:
+    radial-gradient(circle at 16% 18%, rgba(250, 204, 21, 0.2) 0, rgba(250, 204, 21, 0) 44%),
+    radial-gradient(circle at 84% 14%, rgba(96, 165, 250, 0.16) 0, rgba(96, 165, 250, 0) 38%),
+    #111827;
+}
+
+.auth-screen.theme-dark .auth-screen__topbar {
+  background: #151c2d;
+  border-bottom-color: #f8fafc;
+}
+
+.auth-screen.theme-dark .brand-lockup strong {
+  color: #f8fafc;
+}
+
+.auth-screen.theme-dark .brand-lockup span {
+  color: #9ca3af;
+}
+
+.auth-screen.theme-dark .auth-card {
+  background: #1f2937;
+  border-color: #f8fafc;
+  box-shadow: 6px 6px 0 #0b1220;
+  color: #f8fafc;
+}
+
+.auth-screen.theme-dark .auth-kicker,
+.auth-screen.theme-dark .auth-copy {
+  color: #cbd5e1;
 }
 
 .app-shell.theme-dark .topbar,

@@ -7,6 +7,7 @@ import { createSqliteConnection } from "./infra/sqlite/connection";
 import { runMigrations } from "./infra/sqlite/migrations";
 import { makeSqliteArchitectureRepository } from "./infra/sqlite/sqlite-architecture-repository";
 import { registerRoutes } from "./http/routes";
+import { createGoogleAuth } from "./http/google-auth";
 import { recordSecurityEvent } from "./http/security-observability";
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
@@ -23,6 +24,7 @@ export const createServer = async (config: AppConfig) => {
     keepAliveTimeout: 10_000
   });
   const rateByIp = new Map<string, RateLimitState>();
+  const googleAuth = createGoogleAuth(config);
   const connection = await createSqliteConnection(config.databasePath);
 
   runMigrations(connection);
@@ -39,6 +41,28 @@ export const createServer = async (config: AppConfig) => {
     idGenerator: cryptoIdGenerator
   });
 
+  app.get("/auth/session", async (request) => {
+    const session = googleAuth.resolveSession(request);
+    return {
+      ok: true,
+      authEnabled: session.authEnabled,
+      authenticated: session.authenticated,
+      user: session.user
+    };
+  });
+
+  app.get("/auth/google/start", async (request, reply) => {
+    await googleAuth.start(request, reply);
+  });
+
+  app.get("/auth/google/callback", async (request, reply) => {
+    await googleAuth.callback(request, reply);
+  });
+
+  app.post("/auth/logout", async (request, reply) => {
+    await googleAuth.logout(request, reply);
+  });
+
   app.addHook("onSend", async (_request, reply, payload) => {
     reply.header("x-content-type-options", "nosniff");
     reply.header("x-frame-options", "DENY");
@@ -48,7 +72,8 @@ export const createServer = async (config: AppConfig) => {
   });
 
   app.addHook("onRequest", async (request, reply) => {
-    const isSecurityMetricsRoute = request.url === "/security/metrics";
+    const requestPath = getRequestPathname(request.url);
+    const isSecurityMetricsRoute = requestPath === "/security/metrics";
     if (isSecurityMetricsRoute) {
       if (!config.securityMetricsToken) {
         await reply.code(404).send({ error: "Not found" });
@@ -81,6 +106,20 @@ export const createServer = async (config: AppConfig) => {
       "Rate limit exceeded"
     );
     await reply.code(429).send({ errors: ["Too many requests, retry later"] });
+    return;
+  });
+
+  app.addHook("onRequest", async (request, reply) => {
+    if (!googleAuth.isEnabled()) return;
+    const requestPath = getRequestPathname(request.url);
+    if (!isProtectedRoute(requestPath)) return;
+
+    const user = googleAuth.resolveAuthenticatedUser(request);
+    if (user) return;
+
+    recordSecurityEvent("unauthorized_request");
+    request.log.warn({ event: "unauthenticated_request", route: requestPath }, "Rejected unauthenticated request");
+    await reply.code(401).send({ errors: ["Authentication required"] });
   });
 
   app.setErrorHandler(async (error, request, reply) => {
@@ -116,6 +155,17 @@ export const createServer = async (config: AppConfig) => {
 
   return app;
 };
+
+const getRequestPathname = (value: string): string => {
+  try {
+    return new URL(value, "http://localhost").pathname;
+  } catch {
+    return value;
+  }
+};
+
+const isProtectedRoute = (path: string): boolean =>
+  path.startsWith("/architectures");
 
 const extractMetricsToken = (
   authorization: string | undefined,

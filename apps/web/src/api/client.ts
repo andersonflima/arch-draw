@@ -18,7 +18,39 @@ export type ArchitectureSummary = Readonly<{
   edgeCount: number;
 }>;
 
+export type AuthenticatedUser = Readonly<{
+  id: string;
+  email: string;
+  name: string;
+  picture?: string;
+}>;
+
+export type AuthSession = Readonly<{
+  authEnabled: boolean;
+  authenticated: boolean;
+  user: AuthenticatedUser | null;
+}>;
+
 export const api = {
+  getAuthSession: async () => {
+    const response = await request<{
+      ok: boolean;
+      authEnabled: boolean;
+      authenticated: boolean;
+      user: AuthenticatedUser | null;
+    }>("/auth/session");
+    return {
+      authEnabled: response.authEnabled,
+      authenticated: response.authenticated,
+      user: response.user
+    } satisfies AuthSession;
+  },
+  buildGoogleLoginUrl: (returnTo = window.location.pathname) =>
+    `${API_URL}/auth/google/start?returnTo=${encodeURIComponent(returnTo)}`,
+  logout: () =>
+    request<void>("/auth/logout", {
+      method: "POST"
+    }),
   listArchitectures: () =>
     request<readonly ArchitectureSummary[]>("/architectures"),
   createArchitecture: (title: string) =>

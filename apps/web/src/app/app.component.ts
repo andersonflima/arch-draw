@@ -14,7 +14,7 @@ import {
   type ArchitectureNode,
   type ArchitectureNodeKind
 } from "@arch-draw/domain";
-import { api, type ArchitectureSummary } from "../api/client";
+import { api, type ArchitectureSummary, type AuthenticatedUser } from "../api/client";
 import { parseImportToSharePackage } from "../features/import/diagram-import";
 import {
   exportArchitectureToDrawIo,
@@ -786,6 +786,12 @@ export class AppComponent implements OnDestroy {
   lintStatus: "empty" | "valid" | "invalid" = "empty";
   status = "Inicializando";
   error = "";
+  authChecked = false;
+  authEnabled = false;
+  isAuthenticated = false;
+  authenticatedUser: AuthenticatedUser | null = null;
+  authActionInFlight = false;
+  loginError = "";
   showDoubleClickHint = false;
   uiTheme: "light" | "dark" = "light";
   blockSearch = "";
@@ -860,6 +866,28 @@ export class AppComponent implements OnDestroy {
     this.persistUiThemePreference();
     this.status = this.isDarkMode ? "Dark mode ativado" : "Dark mode desativado";
     void this.renderMermaid();
+    this.markViewChanged();
+  }
+
+  async startGoogleLogin(): Promise<void> {
+    this.authActionInFlight = true;
+    this.markViewChanged();
+    window.location.assign(api.buildGoogleLoginUrl(window.location.pathname));
+  }
+
+  async logoutFromSession(): Promise<void> {
+    await this.runSafely(async () => {
+      this.authActionInFlight = true;
+      await api.logout();
+      this.authChecked = false;
+      this.authEnabled = false;
+      this.isAuthenticated = false;
+      this.authenticatedUser = null;
+      this.clearCurrentArchitecture();
+      await this.boot();
+      this.status = "Sessao encerrada";
+    });
+    this.authActionInFlight = false;
     this.markViewChanged();
   }
 
@@ -2878,6 +2906,14 @@ LIMIT 50;`;
 
   private async boot(): Promise<void> {
     await this.runSafely(async () => {
+      this.captureAuthErrorFromUrl();
+      await this.refreshAuthSession();
+      if (this.authEnabled && !this.isAuthenticated) {
+        this.clearCurrentArchitecture();
+        this.status = "Login necessario";
+        return;
+      }
+
       const existing = await api.listArchitectures();
       const preferredId = existing[0]?.id ?? null;
       const ensured = await this.ensureDemoTemplateArchitectureExists(existing);
@@ -2894,6 +2930,37 @@ LIMIT 50;`;
       this.summaries = ensured;
       await this.loadArchitecture(targetId);
     }, "API indisponível");
+  }
+
+  private async refreshAuthSession(): Promise<void> {
+    const session = await api.getAuthSession();
+    this.authChecked = true;
+    this.authEnabled = session.authEnabled;
+    this.isAuthenticated = session.authenticated;
+    this.authenticatedUser = session.user;
+    if (session.authenticated) this.loginError = "";
+  }
+
+  private captureAuthErrorFromUrl(): void {
+    const locationUrl = new URL(window.location.href);
+    const authError = locationUrl.searchParams.get("auth_error");
+    if (!authError) return;
+    this.loginError = this.resolveLoginErrorMessage(authError);
+    locationUrl.searchParams.delete("auth_error");
+    window.history.replaceState({}, "", locationUrl.toString());
+  }
+
+  private resolveLoginErrorMessage(code: string): string {
+    switch (code) {
+      case "missing_code_or_state":
+        return "Login interrompido: codigo de autorizacao ausente.";
+      case "invalid_state":
+        return "Login invalido: estado de seguranca expirou.";
+      case "oauth_failure":
+        return "Nao foi possivel concluir o login com Google.";
+      default:
+        return "Falha de autenticacao.";
+    }
   }
 
   private async ensureDemoTemplateArchitectureExists(

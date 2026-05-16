@@ -5,6 +5,10 @@ export type AppConfig = Readonly<{
   webOrigins: readonly string[];
   trustProxy: boolean;
   securityMetricsToken?: string;
+  googleOAuthClientId?: string;
+  googleOAuthClientSecret?: string;
+  googleOAuthRedirectUri?: string;
+  authPostLoginRedirect: string;
 }>;
 
 export const loadConfig = (env: NodeJS.ProcessEnv = process.env): AppConfig => ({
@@ -13,7 +17,11 @@ export const loadConfig = (env: NodeJS.ProcessEnv = process.env): AppConfig => (
   databasePath: env.DATABASE_PATH ?? "./data/arch-draw.sqlite",
   webOrigins: parseWebOrigins(env.WEB_ORIGINS ?? env.WEB_ORIGIN),
   trustProxy: parseBoolean(env.TRUST_PROXY, false),
-  securityMetricsToken: parseOptionalNonEmptyValue(env.SECURITY_METRICS_TOKEN)
+  securityMetricsToken: parseOptionalNonEmptyValue(env.SECURITY_METRICS_TOKEN),
+  googleOAuthClientId: parseOptionalNonEmptyValue(env.GOOGLE_OAUTH_CLIENT_ID),
+  googleOAuthClientSecret: parseOptionalNonEmptyValue(env.GOOGLE_OAUTH_CLIENT_SECRET),
+  googleOAuthRedirectUri: parseOptionalNonEmptyValue(env.GOOGLE_OAUTH_REDIRECT_URI),
+  authPostLoginRedirect: normalizeRedirectPath(env.AUTH_POST_LOGIN_REDIRECT)
 });
 
 const parseWebOrigins = (value: string | undefined): readonly string[] =>
@@ -34,4 +42,11 @@ const parseOptionalNonEmptyValue = (value: string | undefined): string | undefin
   if (value === undefined) return undefined;
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : undefined;
+};
+
+const normalizeRedirectPath = (value: string | undefined): string => {
+  const normalized = (value ?? "/").trim();
+  if (!normalized.startsWith("/")) return "/";
+  if (normalized.startsWith("//")) return "/";
+  return normalized;
 };

@@ -213,9 +213,59 @@ describe("session-scoped architectures", () => {
     });
     expect(unauthorized.statusCode).toBe(401);
   });
+
+  it("requires authenticated user for architectures when google auth is enabled", async () => {
+    ({ app, tempDir } = await createTestServer({ enableGoogleAuth: true }));
+
+    const session = await app.inject({
+      method: "GET",
+      url: "/auth/session",
+      headers: {
+        origin: TEST_WEB_ORIGIN
+      }
+    });
+    expect(session.statusCode).toBe(200);
+    const parsedSession = JSON.parse(session.body) as {
+      ok: boolean;
+      authEnabled: boolean;
+      authenticated: boolean;
+      user: unknown;
+    };
+    expect(parsedSession.ok).toBe(true);
+    expect(parsedSession.authEnabled).toBe(true);
+    expect(parsedSession.authenticated).toBe(false);
+    expect(parsedSession.user).toBeNull();
+
+    const unauthorizedArchitectures = await app.inject({
+      method: "GET",
+      url: "/architectures",
+      headers: {
+        origin: TEST_WEB_ORIGIN
+      }
+    });
+    expect(unauthorizedArchitectures.statusCode).toBe(401);
+
+    const metrics = await app.inject({
+      method: "GET",
+      url: "/security/metrics",
+      headers: {
+        origin: TEST_WEB_ORIGIN,
+        "x-security-metrics-token": TEST_METRICS_TOKEN
+      }
+    });
+    expect(metrics.statusCode).toBe(200);
+    const parsedMetrics = JSON.parse(metrics.body) as {
+      ok: boolean;
+      metrics: { unauthorized_request: number };
+    };
+    expect(parsedMetrics.ok).toBe(true);
+    expect(parsedMetrics.metrics.unauthorized_request).toBeGreaterThan(0);
+  });
 });
 
-const createTestServer = async (): Promise<{
+const createTestServer = async (
+  options: Readonly<{ enableGoogleAuth?: boolean }> = {}
+): Promise<{
   app: FastifyInstance;
   tempDir: string;
 }> => {
@@ -227,7 +277,13 @@ const createTestServer = async (): Promise<{
     databasePath,
     webOrigins: [TEST_WEB_ORIGIN],
     trustProxy: true,
-    securityMetricsToken: TEST_METRICS_TOKEN
+    securityMetricsToken: TEST_METRICS_TOKEN,
+    authPostLoginRedirect: "/",
+    googleOAuthClientId: options.enableGoogleAuth ? "test-client-id" : undefined,
+    googleOAuthClientSecret: options.enableGoogleAuth ? "test-client-secret" : undefined,
+    googleOAuthRedirectUri: options.enableGoogleAuth
+      ? "http://127.0.0.1:3333/auth/google/callback"
+      : undefined
   });
 
   return { app, tempDir };
