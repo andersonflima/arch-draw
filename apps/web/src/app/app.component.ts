@@ -3675,7 +3675,7 @@ spec:
     const geometry = this.getEdgeGeometry(edge);
     if (!geometry) return null;
     const basePolyline = this.getBaseEdgePolyline(geometry);
-    const obstacleRects = this.getEdgeObstacleRects(geometry.sourceId, geometry.targetId);
+    const obstacleRects = this.getEdgeObstacleRects(edge, geometry.sourceId, geometry.targetId);
     const routed = this.routePolylineAroundObstacles(
       basePolyline,
       obstacleRects,
@@ -3777,10 +3777,24 @@ spec:
     return path;
   }
 
-  private getEdgeObstacleRects(sourceId: string, targetId: string): readonly EdgeObstacleRect[] {
+  private getEdgeObstacleRects(
+    edge: CanvasEdge,
+    sourceId: string,
+    targetId: string
+  ): readonly EdgeObstacleRect[] {
+    const passthroughOpenContainers = new Set<string>([
+      ...this.getOpenAncestorContainerIds(edge.from),
+      ...this.getOpenAncestorContainerIds(edge.to)
+    ]);
+
     return this.nodes
       .filter((node) => this.isVisibleNode(node))
-      .filter((node) => !this.rendersAsContainer(node))
+      .filter((node) => {
+        const isOpenContainer = this.rendersAsContainer(node);
+        if (!isOpenContainer) return true;
+        // Open containers block edge routes unless this edge is linked to an element inside them.
+        return !passthroughOpenContainers.has(node.id);
+      })
       .map((node) => {
         const absolute = this.getAbsolutePosition(node);
         const padding = EDGE_OBSTACLE_PADDING;
@@ -3792,6 +3806,18 @@ spec:
           bottom: absolute.y + node.size.height + padding
         };
       });
+  }
+
+  private getOpenAncestorContainerIds(nodeId: string): readonly string[] {
+    const ids: string[] = [];
+    let currentParentId = this.nodes.find((node) => node.id === nodeId)?.parentId;
+    while (currentParentId) {
+      const parent = this.nodes.find((node) => node.id === currentParentId);
+      if (!parent) break;
+      if (this.rendersAsContainer(parent)) ids.push(parent.id);
+      currentParentId = parent.parentId;
+    }
+    return ids;
   }
 
   private routePolylineAroundObstacles(
