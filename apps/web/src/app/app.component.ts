@@ -152,6 +152,7 @@ const EDGE_NODE_GAP = 10;
 const EDGE_MARKER_CLEARANCE = 6;
 const MAX_UNDO_HISTORY = 150;
 const DRAG_START_THRESHOLD = 4;
+const UI_THEME_STORAGE_KEY = "arch-draw.ui-theme";
 const EXPORT_EXCLUDED_SELECTORS = [
   ".canvas-map",
   ".context-properties-popup",
@@ -633,6 +634,7 @@ export class AppComponent {
   lintStatus: "empty" | "valid" | "invalid" = "empty";
   status = "Inicializando";
   error = "";
+  uiTheme: "light" | "dark" = "light";
   blockSearch = "";
   displayedPaletteGroups: readonly PaletteCategoryGroup[] = [];
   contextPropertiesPanel: ContextPropertiesPanelState | null = null;
@@ -663,6 +665,7 @@ export class AppComponent {
     private readonly changeDetectorRef: ChangeDetectorRef,
     private readonly sanitizer: DomSanitizer
   ) {
+    this.loadUiThemePreference();
     this.rebuildPaletteGroups();
     void this.boot();
   }
@@ -673,6 +676,17 @@ export class AppComponent {
 
   get selectedEdge(): CanvasEdge | null {
     return this.edges.find((edge) => edge.id === this.selectedEdgeId) ?? null;
+  }
+
+  get isDarkMode(): boolean {
+    return this.uiTheme === "dark";
+  }
+
+  toggleDarkMode(): void {
+    this.uiTheme = this.isDarkMode ? "light" : "dark";
+    this.persistUiThemePreference();
+    this.status = this.isDarkMode ? "Dark mode ativado" : "Dark mode desativado";
+    this.markViewChanged();
   }
 
   async createArchitecture(): Promise<void> {
@@ -3167,6 +3181,23 @@ export class AppComponent {
     link.href = dataUrl;
     link.download = filename;
     link.click();
+  }
+
+  private loadUiThemePreference(): void {
+    try {
+      const value = localStorage.getItem(UI_THEME_STORAGE_KEY);
+      this.uiTheme = value === "dark" ? "dark" : "light";
+    } catch {
+      this.uiTheme = "light";
+    }
+  }
+
+  private persistUiThemePreference(): void {
+    try {
+      localStorage.setItem(UI_THEME_STORAGE_KEY, this.uiTheme);
+    } catch {
+      // Ignore storage failures (private mode / blocked storage).
+    }
   }
 
   private getCodeSymbolName(kind: ArchitectureNodeKind): string {

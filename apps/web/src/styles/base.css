@@ -2770,6 +2770,162 @@ app-flow-document-node {
   cursor: pointer;
 }
 
+.icon-button.is-active {
+  background: #fde68a;
+}
+
+.app-shell.theme-dark {
+  color: #e5e7eb;
+}
+
+.app-shell.theme-dark .topbar,
+.app-shell.theme-dark .sidebar,
+.app-shell.theme-dark .palette,
+.app-shell.theme-dark .mermaid-panel,
+.app-shell.theme-dark .canvas-map,
+.app-shell.theme-dark .context-properties-popup {
+  background: #111827;
+  border-color: #374151;
+}
+
+.app-shell.theme-dark .panel-heading span,
+.app-shell.theme-dark .brand-lockup strong,
+.app-shell.theme-dark .title-input,
+.app-shell.theme-dark .file-item strong,
+.app-shell.theme-dark .palette-item__label,
+.app-shell.theme-dark .zoom-value,
+.app-shell.theme-dark .property-stack label,
+.app-shell.theme-dark .property-stack .property-field {
+  color: #e5e7eb;
+}
+
+.app-shell.theme-dark .brand-lockup span,
+.app-shell.theme-dark .panel-heading small,
+.app-shell.theme-dark .file-item span,
+.app-shell.theme-dark .muted-copy,
+.app-shell.theme-dark .palette-group h3,
+.app-shell.theme-dark .architecture-node__header {
+  color: #9ca3af;
+}
+
+.app-shell.theme-dark .title-input {
+  border-bottom-color: #e5e7eb;
+}
+
+.app-shell.theme-dark .icon-button,
+.app-shell.theme-dark .primary-action,
+.app-shell.theme-dark .danger-action,
+.app-shell.theme-dark .secondary-action,
+.app-shell.theme-dark .file-item,
+.app-shell.theme-dark .palette-item,
+.app-shell.theme-dark .file-delete-button,
+.app-shell.theme-dark .zoom-value,
+.app-shell.theme-dark .toast-close {
+  background: #1f2937;
+  color: #e5e7eb;
+  border-color: #4b5563;
+  box-shadow: 2px 2px 0 #0b1220;
+}
+
+.app-shell.theme-dark .file-item-row.is-active .file-item,
+.app-shell.theme-dark .icon-button.is-active {
+  background: #374151;
+}
+
+.app-shell.theme-dark .file-delete-button {
+  color: #fca5a5;
+}
+
+.app-shell.theme-dark .file-delete-button:hover {
+  background: #3f1d27;
+}
+
+.app-shell.theme-dark .palette-search input,
+.app-shell.theme-dark .node-inline-label-input,
+.app-shell.theme-dark .canvas-edge-label-editor textarea,
+.app-shell.theme-dark .property-stack input,
+.app-shell.theme-dark .property-stack select,
+.app-shell.theme-dark .mermaid-panel textarea {
+  background: #0f172a;
+  color: #e5e7eb;
+  border-color: #4b5563;
+}
+
+.app-shell.theme-dark .palette-search input:focus,
+.app-shell.theme-dark .node-inline-label-input:focus,
+.app-shell.theme-dark .canvas-edge-label-editor textarea:focus {
+  box-shadow: 0 0 0 2px #f59e0b;
+}
+
+.app-shell.theme-dark .canvas-shell {
+  background:
+    linear-gradient(rgba(148, 163, 184, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.1) 1px, transparent 1px),
+    #020617;
+  background-size: 24px 24px;
+}
+
+.app-shell.theme-dark .mini-map {
+  border-color: #4b5563;
+  background:
+    linear-gradient(rgba(148, 163, 184, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.1) 1px, transparent 1px),
+    #0f172a;
+}
+
+.app-shell.theme-dark .canvas-edge-label {
+  fill: #f9fafb;
+  stroke: #0f172a;
+}
+
+.app-shell.theme-dark .node-port::before {
+  border-color: #9ca3af;
+  background: #1f2937;
+  box-shadow: 1px 1px 0 #0b1220;
+}
+
+.app-shell.theme-dark .node-port::after {
+  background: rgba(148, 163, 184, 0.25);
+}
+
+.app-shell.theme-dark .node-collapse-toggle,
+.app-shell.theme-dark .resize-control {
+  border-color: #9ca3af;
+  color: #e5e7eb;
+  box-shadow: 1px 1px 0 #0b1220;
+}
+
+.app-shell.theme-dark .node-collapse-toggle {
+  background: #334155;
+}
+
+.app-shell.theme-dark .resize-control {
+  background: #f59e0b;
+  color: #111827;
+}
+
+.app-shell.theme-dark .context-properties-popup .panel-heading {
+  background: #111827;
+}
+
+.app-shell.theme-dark .mermaid-preview {
+  background: #020617;
+}
+
+.app-shell.theme-dark .error-text {
+  color: #fecaca;
+}
+
+.app-shell.theme-dark .lint-text {
+  color: #86efac;
+}
+
+.app-shell.theme-dark .toast {
+  border-color: #fca5a5;
+  background: #3f1d27;
+  box-shadow: 3px 3px 0 #0b1220;
+}
+
 @media (max-width: 1180px) {
   .app-shell {
     grid-template-rows: auto 1fr;

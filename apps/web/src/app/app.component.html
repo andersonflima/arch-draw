@@ -1,4 +1,4 @@
-<div class="app-shell">
+<div class="app-shell" [class.theme-dark]="isDarkMode">
   <header class="topbar">
     <div class="brand-lockup">
       <span class="brand-icon">AD</span>
@@ -31,6 +31,16 @@
       </button>
       <button class="icon-button" type="button" title="Importar" aria-label="Importar" (click)="openImport()">
         <i class="fa-solid fa-file-import" aria-hidden="true"></i>
+      </button>
+      <button
+        class="icon-button"
+        type="button"
+        [title]="isDarkMode ? 'Desativar dark mode' : 'Ativar dark mode'"
+        [attr.aria-label]="isDarkMode ? 'Desativar dark mode' : 'Ativar dark mode'"
+        [class.is-active]="isDarkMode"
+        (click)="toggleDarkMode()"
+      >
+        <i [class]="isDarkMode ? 'fa-solid fa-sun' : 'fa-solid fa-moon'" aria-hidden="true"></i>
       </button>
       <button
         class="icon-button"
