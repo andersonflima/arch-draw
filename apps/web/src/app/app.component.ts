@@ -2144,15 +2144,69 @@ export class AppComponent implements OnDestroy {
   applyMermaid(): void {
     if (!this.architecture || this.lintStatus !== "valid") return;
     const generated = architectureFromMermaid(this.architecture, this.mermaidDraft, new Date().toISOString());
-    const next = {
+    const generatedWithColors = {
       ...generated,
       nodes: generated.nodes.map((node) => ({
         ...node,
         color: getNodeKindColor(node.kind)
       }))
     };
-    this.updateCurrent(next);
-    this.status = "Mermaid aplicado ao canvas";
+    const incomingNodes = toCanvasNodes(generatedWithColors);
+    const incomingEdges = toCanvasEdges(generatedWithColors);
+
+    const existingNodeIds = new Set(this.nodes.map((node) => node.id));
+    const mergedNodeIds = new Set(existingNodeIds);
+    const nodeIdMap = new Map<string, string>();
+    const appendedNodes: CanvasNode[] = [];
+
+    for (const node of incomingNodes) {
+      if (existingNodeIds.has(node.id)) {
+        nodeIdMap.set(node.id, node.id);
+        continue;
+      }
+
+      nodeIdMap.set(node.id, node.id);
+      mergedNodeIds.add(node.id);
+      appendedNodes.push({ ...node });
+    }
+
+    this.nodes = this.sortNodes([...this.nodes, ...appendedNodes]);
+
+    const existingEdgeIds = new Set(this.edges.map((edge) => edge.id));
+    const existingEdgeSignatures = new Set(this.edges.map((edge) => this.getEdgeMergeSignature(edge)));
+    const appendedEdges: CanvasEdge[] = [];
+
+    for (const edge of incomingEdges) {
+      const mappedFrom = nodeIdMap.get(edge.from) ?? edge.from;
+      const mappedTo = nodeIdMap.get(edge.to) ?? edge.to;
+      if (!mergedNodeIds.has(mappedFrom) || !mergedNodeIds.has(mappedTo)) continue;
+
+      const style = normalizeEdgeStyle(edge.style);
+      const candidate: CanvasEdge = {
+        ...edge,
+        id: this.ensureUniqueEdgeId(edge.id, existingEdgeIds),
+        from: mappedFrom,
+        to: mappedTo,
+        style
+      };
+      const signature = this.getEdgeMergeSignature(candidate);
+      if (existingEdgeSignatures.has(signature)) continue;
+
+      existingEdgeSignatures.add(signature);
+      appendedEdges.push(candidate);
+    }
+
+    if (appendedEdges.length > 0) {
+      this.edges = [...this.edges, ...appendedEdges];
+    }
+
+    this.architecture = {
+      ...this.architecture,
+      mermaidSource: this.mermaidDraft,
+      updatedAt: new Date().toISOString()
+    };
+    this.status = `Mermaid aplicado: +${appendedNodes.length} nos, +${appendedEdges.length} vinculos`;
+    this.markViewChanged();
   }
 
   private async boot(): Promise<void> {
@@ -2874,6 +2928,36 @@ export class AppComponent implements OnDestroy {
   private normalizeMermaidError(cause: unknown): string {
     const message = cause instanceof Error ? cause.message : "Mermaid invalido";
     return message.replaceAll(/<[^>]+>/g, "").replaceAll(/\s+/g, " ").trim();
+  }
+
+  private ensureUniqueEdgeId(baseId: string, occupiedIds: Set<string>): string {
+    if (!occupiedIds.has(baseId)) {
+      occupiedIds.add(baseId);
+      return baseId;
+    }
+
+    let counter = 2;
+    let candidate = `${baseId}-${counter}`;
+    while (occupiedIds.has(candidate)) {
+      counter += 1;
+      candidate = `${baseId}-${counter}`;
+    }
+    occupiedIds.add(candidate);
+    return candidate;
+  }
+
+  private getEdgeMergeSignature(edge: Pick<CanvasEdge, "from" | "to" | "label" | "style">): string {
+    const style = normalizeEdgeStyle(edge.style);
+    return JSON.stringify({
+      from: edge.from,
+      to: edge.to,
+      label: edge.label ?? "",
+      path: style.path,
+      line: style.line,
+      color: style.color,
+      animated: style.animated,
+      bidirectional: style.bidirectional
+    });
   }
 
   private startConnectDrag(nodeId: string, event: PointerEvent): void {
