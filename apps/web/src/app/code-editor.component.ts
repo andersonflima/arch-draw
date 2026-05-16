@@ -30,6 +30,7 @@ import { javascript } from "@codemirror/lang-javascript";
 import { markdown } from "@codemirror/lang-markdown";
 import { python } from "@codemirror/lang-python";
 import { rust } from "@codemirror/lang-rust";
+import { yaml } from "@codemirror/lang-yaml";
 import { elixir } from "codemirror-lang-elixir";
 
 @Component({
@@ -150,6 +151,8 @@ export class CodeEditorComponent implements AfterViewInit, OnChanges, OnDestroy 
         return javascript({ typescript: true });
       case "markdown":
         return markdown();
+      case "yaml":
+        return yaml();
       case "go":
         return go();
       case "rust":

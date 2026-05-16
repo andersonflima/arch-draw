@@ -124,6 +124,7 @@ type CodeLanguage =
   | "javascript"
   | "nodejs"
   | "typescript"
+  | "yaml"
   | "markdown"
   | "go"
   | "rust"
@@ -180,6 +181,7 @@ const CODE_LANGUAGE_OPTIONS: readonly CodeLanguageOption[] = [
   { value: "javascript", label: "JavaScript" },
   { value: "nodejs", label: "Node.js" },
   { value: "typescript", label: "TypeScript" },
+  { value: "yaml", label: "YAML" },
   { value: "markdown", label: "Markdown" },
   { value: "go", label: "Go" },
   { value: "rust", label: "Rust" },
@@ -1438,14 +1440,16 @@ export class AppComponent implements OnDestroy {
     const source = content.trim();
     if (source.length === 0) return null;
 
-    if (/^\s*```/m.test(source) || /^#{1,6}\s+\S+/m.test(source)) return "markdown";
-    if (/^\s*apiVersion:\s*/m.test(source) || /^\s*kind:\s*/m.test(source)) return "markdown";
+    if (/^\s*```yaml\b/m.test(source)) return "yaml";
+    if (/^\s*```(?:md|markdown)?\b/m.test(source) || /^#{1,6}\s+\S+/m.test(source)) return "markdown";
+    if (/^\s*apiVersion:\s*/m.test(source) || /^\s*kind:\s*/m.test(source)) return "yaml";
 
     const score = new Map<CodeLanguage, number>([
       ["python", 0],
       ["javascript", 0],
       ["nodejs", 0],
       ["typescript", 0],
+      ["yaml", 0],
       ["markdown", 0],
       ["go", 0],
       ["rust", 0],
@@ -1511,6 +1515,12 @@ export class AppComponent implements OnDestroy {
       /\bEnum\.[a-zA-Z_]+\b/,
       /\bIO\.[a-zA-Z_]+\b/
     ]);
+    weigh("yaml", [
+      /^\s*[a-zA-Z_][\w-]*:\s*(?:[^\n#]+)?$/m,
+      /^\s*-\s+[a-zA-Z_][\w-]*:\s*(?:[^\n#]+)?$/m,
+      /^\s*[a-zA-Z_][\w-]*:\s*$/m,
+      /^\s*---\s*$/m
+    ]);
 
     let best: CodeLanguage | null = null;
     let bestScore = 0;
@@ -1549,6 +1559,8 @@ export class AppComponent implements OnDestroy {
         return this.getNodeSnippet(snippetKind, symbol, variable);
       case "typescript":
         return this.getTypeScriptSnippet(snippetKind, symbol, variable);
+      case "yaml":
+        return `${symbol}:\n  enabled: true\n  owner: platform`;
       case "markdown":
         return `# ${symbol}\n\n\`\`\`text\nTODO: document ${symbol}\n\`\`\``;
       case "go":
