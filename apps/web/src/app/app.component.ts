@@ -1805,6 +1805,14 @@ export class AppComponent {
       return;
     }
 
+    const isSelectAllShortcut = (event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "a";
+    if (isSelectAllShortcut) {
+      if (this.isTypingTarget(event.target)) return;
+      event.preventDefault();
+      this.selectAllVisibleBoardNodes();
+      return;
+    }
+
     if (event.key === "Escape" && this.contextPropertiesPanel) {
       this.contextPropertiesPanel = null;
       this.markInteractionChanged();
@@ -1824,6 +1832,26 @@ export class AppComponent {
       event.preventDefault();
       this.deleteSelectedNode();
     }
+  }
+
+  private selectAllVisibleBoardNodes(): void {
+    const visibleNodeIds = this.nodes
+      .filter((node) => this.isVisibleNode(node))
+      .map((node) => node.id);
+    if (visibleNodeIds.length === 0) return;
+
+    this.selectedNodeIds = visibleNodeIds;
+    this.selectedNodeId = visibleNodeIds.length === 1 ? (visibleNodeIds[0] ?? null) : null;
+    this.selectedEdgeId = null;
+    this.connectionSourceId = null;
+    this.connectionDragState = null;
+    this.editingEdgeId = null;
+    this.editingEdgeLabelDraft = "";
+    this.editingNodeId = null;
+    this.marqueeState = null;
+    this.resizeEnabledNodeId = null;
+    this.contextPropertiesPanel = null;
+    this.markViewChanged();
   }
 
   @HostListener("window:resize")
