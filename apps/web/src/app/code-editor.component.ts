@@ -31,6 +31,7 @@ import { javascript } from "@codemirror/lang-javascript";
 import { markdown } from "@codemirror/lang-markdown";
 import { python } from "@codemirror/lang-python";
 import { rust } from "@codemirror/lang-rust";
+import { sql } from "@codemirror/lang-sql";
 import { yaml } from "@codemirror/lang-yaml";
 import { elixir } from "codemirror-lang-elixir";
 
@@ -151,6 +152,9 @@ export class CodeEditorComponent implements AfterViewInit, OnChanges, OnDestroy 
       case "nodejs":
       case "typescript":
         return javascript({ typescript: true });
+      case "sql":
+        return sql();
+      case "mermaid":
       case "markdown":
         return markdown();
       case "yaml":

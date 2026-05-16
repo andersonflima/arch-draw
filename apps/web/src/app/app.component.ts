@@ -132,7 +132,9 @@ type CodeLanguage =
   | "javascript"
   | "nodejs"
   | "typescript"
+  | "sql"
   | "yaml"
+  | "mermaid"
   | "markdown"
   | "go"
   | "rust"
@@ -191,7 +193,9 @@ const CODE_LANGUAGE_OPTIONS: readonly CodeLanguageOption[] = [
   { value: "javascript", label: "JavaScript" },
   { value: "nodejs", label: "Node.js" },
   { value: "typescript", label: "TypeScript" },
+  { value: "sql", label: "SQL" },
   { value: "yaml", label: "YAML" },
+  { value: "mermaid", label: "Mermaid" },
   { value: "markdown", label: "Markdown" },
   { value: "go", label: "Go" },
   { value: "rust", label: "Rust" },
@@ -1563,16 +1567,20 @@ export class AppComponent implements OnDestroy {
     if (/^#!.*\bnode\b/m.test(source)) return "nodejs";
 
     if (/^\s*```yaml\b/m.test(source)) return "yaml";
+    if (/^\s*```sql\b/m.test(source)) return "sql";
+    if (/^\s*```mermaid\b/m.test(source)) return "mermaid";
     if (/^\s*```(?:md|markdown)?\b/m.test(source) || /^#{1,6}\s+\S+/m.test(source)) return "markdown";
     if (/^\s*apiVersion:\s*/m.test(source) || /^\s*kind:\s*/m.test(source)) return "yaml";
-    if (/^\s*graph\s+(?:LR|RL|TB|BT|TD)\b/m.test(source) || /^\s*flowchart\s+(?:LR|RL|TB|BT|TD)\b/m.test(source)) return "markdown";
+    if (/^\s*graph\s+(?:LR|RL|TB|BT|TD)\b/m.test(source) || /^\s*flowchart\s+(?:LR|RL|TB|BT|TD)\b/m.test(source)) return "mermaid";
 
     const score = new Map<CodeLanguage, number>([
       ["python", 0],
       ["javascript", 0],
       ["nodejs", 0],
       ["typescript", 0],
+      ["sql", 0],
       ["yaml", 0],
+      ["mermaid", 0],
       ["markdown", 0],
       ["go", 0],
       ["rust", 0],
@@ -1652,6 +1660,23 @@ export class AppComponent implements OnDestroy {
       /^\s*[a-zA-Z_][\w-]*:\s*$/m,
       /^\s*---\s*$/m
     ]);
+    weigh("sql", [
+      /\bSELECT\b[\s\S]*\bFROM\b/i,
+      /\bINSERT\s+INTO\b/i,
+      /\bUPDATE\s+\w+\s+SET\b/i,
+      /\bDELETE\s+FROM\b/i,
+      /\bGROUP\s+BY\b/i,
+      /\bORDER\s+BY\b/i,
+      /\bJOIN\b/i
+    ]);
+    weigh("mermaid", [
+      /^\s*graph\s+(?:LR|RL|TB|BT|TD)\b/m,
+      /^\s*flowchart\s+(?:LR|RL|TB|BT|TD)\b/m,
+      /^\s*sequenceDiagram\b/m,
+      /^\s*stateDiagram(?:-v2)?\b/m,
+      /^\s*erDiagram\b/m,
+      /^\s*gantt\b/m
+    ]);
 
     let best: CodeLanguage | null = null;
     let bestScore = 0;
@@ -1675,8 +1700,10 @@ export class AppComponent implements OnDestroy {
     if (["javascript", "js", "mjs", "cjs", "json"].includes(normalized)) return "javascript";
     if (["node", "nodejs"].includes(normalized)) return "nodejs";
     if (["typescript", "ts", "tsx"].includes(normalized)) return "typescript";
+    if (["sql", "postgresql", "postgres", "mysql", "sqlite"].includes(normalized)) return "sql";
     if (["yaml", "yml"].includes(normalized)) return "yaml";
-    if (["markdown", "md", "mdx", "mermaid"].includes(normalized)) return "markdown";
+    if (["mermaid", "mmd"].includes(normalized)) return "mermaid";
+    if (["markdown", "md", "mdx"].includes(normalized)) return "markdown";
     if (["go", "golang"].includes(normalized)) return "go";
     if (["rust", "rs"].includes(normalized)) return "rust";
     if (["java"].includes(normalized)) return "java";
@@ -1785,8 +1812,12 @@ LIMIT 50;`;
         return this.getNodeSnippet(snippetKind, symbol, variable);
       case "typescript":
         return this.getTypeScriptSnippet(snippetKind, symbol, variable);
+      case "sql":
+        return `SELECT *\nFROM ${symbol.toLowerCase()}\nLIMIT 50;`;
       case "yaml":
         return `${symbol}:\n  enabled: true\n  owner: platform`;
+      case "mermaid":
+        return `graph LR\n  A["${symbol}"] --> B["Next"]`;
       case "markdown":
         return `# ${symbol}\n\n\`\`\`text\nTODO: document ${symbol}\n\`\`\``;
       case "go":
@@ -5049,8 +5080,9 @@ spec:
   }
 
   private getPreferredCodeLanguageForKind(kind: ArchitectureNodeKind): CodeLanguage {
-    if (kind === "mermaid") return "markdown";
-    if (kind === "query-sql" || kind === "query-nosql") return "markdown";
+    if (kind === "mermaid") return "mermaid";
+    if (kind === "query-sql") return "sql";
+    if (kind === "query-nosql") return "javascript";
     if (kind === "queue-rabbitmq" || kind === "queue-kafka" || kind === "cache-redis" || kind === "database-mongodb") {
       return "markdown";
     }
