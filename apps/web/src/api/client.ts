@@ -47,10 +47,14 @@ export const api = {
 };
 
 const request = async <T>(path: string, init: RequestInit = {}): Promise<T> => {
+  const hasBody = typeof init.body === "string" && init.body.length > 0;
+  const defaultHeaders: Record<string, string> = hasBody
+    ? { "content-type": "application/json" }
+    : {};
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
     headers: {
-      "content-type": "application/json",
+      ...defaultHeaders,
       ...init.headers
     }
   });
@@ -62,6 +66,8 @@ const request = async <T>(path: string, init: RequestInit = {}): Promise<T> => {
   if (!response.ok) {
     const message = Array.isArray(payload?.errors)
       ? payload.errors.join("; ")
+      : typeof payload?.message === "string"
+        ? payload.message
       : typeof payload?.error === "string"
         ? payload.error
         : `Unexpected API error (${response.status})`;
