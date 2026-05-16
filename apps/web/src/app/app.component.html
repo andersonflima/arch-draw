@@ -63,7 +63,7 @@
       </div>
       <div class="file-list">
         <button
-          *ngFor="let summary of summaries"
+          *ngFor="let summary of summaries; trackBy: trackBySummaryId"
           [class]="summary.id === architecture?.id ? 'file-item is-active' : 'file-item'"
           type="button"
           (click)="loadArchitecture(summary.id)"
@@ -90,14 +90,14 @@
         />
       </label>
       <div class="palette-list">
-        <ng-container *ngFor="let group of displayedPaletteGroups">
+        <ng-container *ngFor="let group of displayedPaletteGroups; trackBy: trackByPaletteCategory">
           <section class="palette-group">
           <h3>{{ group.category }}</h3>
           <button
             class="palette-item"
             draggable="true"
             type="button"
-            *ngFor="let template of group.templates"
+            *ngFor="let template of group.templates; trackBy: trackByTemplateKind"
             (click)="addNode(template)"
             (dragstart)="onPaletteDragStart($event, template)"
           >
@@ -131,7 +131,7 @@
       (contextmenu)="onCanvasContextMenu($event)"
     >
       <div class="canvas-viewport" [ngStyle]="getViewportStyle()">
-        <ng-container *ngFor="let node of nodes">
+        <ng-container *ngFor="let node of nodes; trackBy: trackByNodeId">
           <ng-container *ngIf="isContainerLayerNode(node)">
             <ng-container
               *ngTemplateOutlet="canvasNodeTemplate; context: { $implicit: node }"
@@ -143,17 +143,17 @@
           <defs>
             <marker
               id="edge-arrow"
-              markerWidth="10"
-              markerHeight="10"
-              refX="9"
-              refY="5"
+              markerWidth="9"
+              markerHeight="9"
+              refX="8"
+              refY="4.5"
               orient="auto-start-reverse"
-              markerUnits="userSpaceOnUse"
+              markerUnits="strokeWidth"
             >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"></path>
+              <path d="M 0 0 L 9 4.5 L 0 9 z" fill="context-stroke"></path>
             </marker>
           </defs>
-          <g *ngFor="let edge of edges" [attr.display]="isVisibleEdge(edge) ? null : 'none'">
+          <g *ngFor="let edge of edges; trackBy: trackByEdgeId" [attr.display]="isVisibleEdge(edge) ? null : 'none'">
             <path
               class="canvas-edge-hit"
               [attr.d]="getEdgePath(edge)"
@@ -221,7 +221,7 @@
           />
         </svg>
 
-        <ng-container *ngFor="let node of nodes">
+        <ng-container *ngFor="let node of nodes; trackBy: trackByNodeId">
           <ng-container *ngIf="isLeafLayerNode(node)">
             <ng-container
               *ngTemplateOutlet="canvasNodeTemplate; context: { $implicit: node }"
@@ -363,7 +363,7 @@
 
       <section class="canvas-map" aria-label="Mapa do canvas" (click)="$event.stopPropagation()">
         <div class="mini-map">
-          <ng-container *ngFor="let node of nodes">
+          <ng-container *ngFor="let node of nodes; trackBy: trackByNodeId">
             <span
               *ngIf="isVisibleNode(node)"
               [class]="isContainerLayerNode(node) ? 'mini-map-node mini-map-node--container' : 'mini-map-node'"
@@ -400,7 +400,7 @@
           <label class="property-field">
             Tipo
             <select [ngModel]="node.kind" (ngModelChange)="updateNodeKind($event)">
-              <option *ngFor="let kind of getNodeKindOptions(node.kind)" [ngValue]="kind">
+              <option *ngFor="let kind of getNodeKindOptions(node.kind); trackBy: trackByStringValue" [ngValue]="kind">
                 {{ getNodeLabel(kind) }}
               </option>
             </select>
@@ -409,7 +409,7 @@
             Cor
             <input class="property-color-input" type="color" [ngModel]="node.color" (ngModelChange)="updateNodeColor($event)" />
           </label>
-          <ng-container *ngFor="let field of getNodePropertyFields(node)">
+          <ng-container *ngFor="let field of getNodePropertyFields(node); trackBy: trackByFieldKey">
             <label class="property-field">
               {{ field.label }}
               <input
@@ -434,7 +434,7 @@
                 [ngModel]="node.collapsedIconKind || (isContainerPlusNode(node) ? 'system' : node.kind)"
                 (ngModelChange)="updateSelectedCollapsedIcon($event)"
               >
-                <option *ngFor="let kind of collapsibleIconKinds" [ngValue]="kind">
+                <option *ngFor="let kind of collapsibleIconKinds; trackBy: trackByStringValue" [ngValue]="kind">
                   {{ getNodeLabel(kind) }}
                 </option>
               </select>
@@ -458,19 +458,19 @@
           <label class="property-field">
             Caminho
             <select [ngModel]="edge.style.path" (ngModelChange)="updateSelectedEdgeStyle({ path: $event })">
-              <option *ngFor="let path of edgePaths" [ngValue]="path">{{ path }}</option>
+              <option *ngFor="let path of edgePaths; trackBy: trackByStringValue" [ngValue]="path">{{ path }}</option>
             </select>
           </label>
           <label class="property-field">
             Traco
             <select [ngModel]="edge.style.line" (ngModelChange)="updateSelectedEdgeStyle({ line: $event })">
-              <option *ngFor="let line of edgeLines" [ngValue]="line">{{ line }}</option>
+              <option *ngFor="let line of edgeLines; trackBy: trackByStringValue" [ngValue]="line">{{ line }}</option>
             </select>
           </label>
           <label class="property-field">
             Direction
             <select [ngModel]="getSelectedEdgeDirection(edge)" (ngModelChange)="updateSelectedEdgeDirection($event)">
-              <option *ngFor="let direction of edgeDirections" [ngValue]="direction">{{ direction }}</option>
+              <option *ngFor="let direction of edgeDirections; trackBy: trackByStringValue" [ngValue]="direction">{{ direction }}</option>
             </select>
           </label>
           <label class="property-field">

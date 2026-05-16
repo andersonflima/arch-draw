@@ -306,17 +306,21 @@ button {
   position: relative;
   min-height: 0;
   overflow: hidden;
+  contain: layout paint style;
+  isolation: isolate;
   background:
-    linear-gradient(rgba(17, 24, 39, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(17, 24, 39, 0.03) 1px, transparent 1px),
-    #f7f4ed;
-  background-size: 24px 24px;
+    linear-gradient(rgba(17, 24, 39, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(17, 24, 39, 0.022) 1px, transparent 1px),
+    #f8f6f1;
+  background-size: 28px 28px;
 }
 
 .canvas-viewport {
   position: absolute;
   inset: 0;
   transform-origin: 0 0;
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 .canvas-marquee {
@@ -789,15 +793,15 @@ button {
   width: 78px;
   min-width: 78px;
   height: 78px;
-  color: color-mix(in srgb, var(--icon-base) 88%, #ffffff 12%);
+  color: color-mix(in srgb, var(--icon-base) 92%, #0f172a 8%);
   border-radius: 18px;
-  background: color-mix(in srgb, var(--icon-base) 44%, #000000 56%);
-  border: 2px solid color-mix(in srgb, var(--icon-base) 34%, #000000 66%);
-  box-shadow: none;
+  background: color-mix(in srgb, #ffffff 86%, var(--icon-base) 14%);
+  border: 2px solid color-mix(in srgb, var(--icon-base) 58%, #0f172a 42%);
+  box-shadow: 2px 2px 0 color-mix(in srgb, var(--icon-base) 48%, #0f172a 52%);
 }
 
 .architecture-node--leaf .node-icon i {
-  font-size: 34px;
+  font-size: 32px;
 }
 
 .architecture-node--leaf strong {
@@ -842,14 +846,14 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  min-width: 34px;
-  height: 30px;
+  width: 36px;
+  min-width: 36px;
+  height: 32px;
   color: #111827;
   border: 2px solid currentColor;
   border-radius: 8px 7px 9px 6px;
-  background: #ffffff;
-  box-shadow: 2px 2px 0 rgba(17, 24, 39, 0.82);
+  background: color-mix(in srgb, #ffffff 90%, var(--icon-color, #111827) 10%);
+  box-shadow: 1px 1px 0 rgba(17, 24, 39, 0.72);
 }
 
 .node-icon::after {
@@ -867,7 +871,7 @@ button {
 }
 
 .node-icon i {
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1;
   pointer-events: none;
 }
@@ -2192,12 +2196,13 @@ button {
 .canvas-edge {
   fill: none;
   stroke-width: 2.4;
-  stroke-linecap: butt;
+  stroke-linecap: round;
+  stroke-linejoin: round;
   pointer-events: stroke;
 }
 
 .canvas-edge.is-selected {
-  stroke-width: 4;
+  stroke-width: 3.4;
 }
 
 .canvas-edge-label {
@@ -2206,7 +2211,7 @@ button {
   font-weight: 700;
   paint-order: stroke;
   stroke: #fffaf0;
-  stroke-width: 4px;
+  stroke-width: 2.6px;
   stroke-linejoin: round;
   pointer-events: none;
 }
@@ -2245,11 +2250,11 @@ button {
   stroke: #2563eb;
   stroke-dasharray: 8 6;
   opacity: 0.9;
-  animation: edge-flow-dash 0.9s linear infinite;
+  animation: edge-flow-dash 1.6s linear infinite;
 }
 
 .canvas-edge.is-live {
-  animation: edge-flow-dash 0.9s linear infinite;
+  animation: edge-flow-dash 1.6s linear infinite;
 }
 
 .canvas-edge-flow {
@@ -2257,11 +2262,11 @@ button {
 }
 
 .canvas-edge-flow--forward {
-  animation: edge-flow-dash 0.9s linear infinite;
+  animation: edge-flow-dash 1.6s linear infinite;
 }
 
 .canvas-edge-flow--reverse {
-  animation: edge-flow-dash-reverse 0.9s linear infinite;
+  animation: edge-flow-dash-reverse 1.6s linear infinite;
 }
 
 @keyframes edge-flow-dash {
@@ -2279,6 +2284,15 @@ button {
   }
   to {
     stroke-dashoffset: 14;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .canvas-edge-preview,
+  .canvas-edge.is-live,
+  .canvas-edge-flow--forward,
+  .canvas-edge-flow--reverse {
+    animation: none;
   }
 }
 
@@ -2367,9 +2381,10 @@ button {
   align-items: center;
   gap: 7px;
   margin-bottom: 10px;
-  color: #4b5563;
+  color: #475569;
   font-size: 11px;
   font-weight: 800;
+  letter-spacing: 0.2px;
   text-transform: uppercase;
 }
 
@@ -2425,9 +2440,10 @@ button {
   width: 174px;
   border: 2px solid #111827;
   border-radius: 8px;
-  background: #fffaf0;
+  background: color-mix(in srgb, #fffaf0 86%, #ffffff 14%);
   box-shadow: 3px 3px 0 #111827;
   padding: 10px;
+  backdrop-filter: blur(2px);
 }
 
 .mini-map {
@@ -2438,10 +2454,10 @@ button {
   border: 1px dashed #9ca3af;
   border-radius: 6px;
   background:
-    linear-gradient(rgba(17, 24, 39, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(17, 24, 39, 0.04) 1px, transparent 1px),
+    linear-gradient(rgba(17, 24, 39, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(17, 24, 39, 0.028) 1px, transparent 1px),
     #ffffff;
-  background-size: 12px 12px;
+  background-size: 14px 14px;
 }
 
 .mini-map-node {
