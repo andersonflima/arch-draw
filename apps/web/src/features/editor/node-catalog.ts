@@ -218,6 +218,20 @@ const containerKinds = new Set<ArchitectureNodeKind>([
 export const isContainerNodeKind = (kind: ArchitectureNodeKind): boolean =>
   containerKinds.has(kind);
 
+const codeSnippetKinds = new Set<ArchitectureNodeKind>([
+  "code-class",
+  "code-interface",
+  "code-function",
+  "code-variable",
+  "code-enum",
+  "code-type",
+  "code-repository",
+  "code-file"
+]);
+
+export const isCodeSnippetNodeKind = (kind: ArchitectureNodeKind): boolean =>
+  codeSnippetKinds.has(kind);
+
 export const isIconOnlyNodeKind = (kind: ArchitectureNodeKind): boolean =>
   !isContainerNodeKind(kind) && !kind.startsWith("flow-");
 

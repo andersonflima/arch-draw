@@ -39,6 +39,7 @@ import {
   getNodeKindColor,
   getNodeKindLabel,
   getNodeVisualGroup,
+  isCodeSnippetNodeKind,
   isIconOnlyNodeKind,
   isContainerNodeKind,
   nodeCatalog,
@@ -117,6 +118,22 @@ type ContextPropertiesPanelState = Readonly<{
   maxHeight: number;
 }>;
 
+type CodeLanguage =
+  | "python"
+  | "javascript"
+  | "nodejs"
+  | "typescript"
+  | "markdown"
+  | "go"
+  | "rust"
+  | "java"
+  | "elixir";
+
+type CodeLanguageOption = Readonly<{
+  value: CodeLanguage;
+  label: string;
+}>;
+
 const DEFAULT_MERMAID_SOURCE = `graph LR
   User["User"] --> Api["API"]
   Api --> Db["SQLite"]`;
@@ -129,6 +146,8 @@ const MINI_MAP_PADDING = 8;
 const DEFAULT_CANVAS_PAN = { x: 0, y: 0 };
 const AUTOSAVE_DEBOUNCE_MS = 1200;
 const ERROR_TOAST_DISMISS_MS = 6000;
+const CODE_SNIPPET_COLLAPSED_SIZE = { width: 136, height: 140 } as const;
+const CODE_SNIPPET_EXPANDED_SIZE = { width: 420, height: 260 } as const;
 const EDGE_NODE_GAP = 10;
 const EDGE_MARKER_CLEARANCE = 6;
 const MAX_UNDO_HISTORY = 150;
@@ -150,6 +169,18 @@ const CLOUD_PROPERTY_FIELDS: readonly NodePropertyField[] = [
 ];
 const GENERIC_NODE_PROPERTY_FIELDS: readonly NodePropertyField[] = [
   { key: "description", label: "Descricao", placeholder: "Resumo tecnico", multiline: true }
+];
+
+const CODE_LANGUAGE_OPTIONS: readonly CodeLanguageOption[] = [
+  { value: "python", label: "Python" },
+  { value: "javascript", label: "JavaScript" },
+  { value: "nodejs", label: "Node.js" },
+  { value: "typescript", label: "TypeScript" },
+  { value: "markdown", label: "Markdown" },
+  { value: "go", label: "Go" },
+  { value: "rust", label: "Rust" },
+  { value: "java", label: "Java" },
+  { value: "elixir", label: "Elixir" }
 ];
 
 const VPC_FIELDS: readonly NodePropertyField[] = [
@@ -582,6 +613,7 @@ export class AppComponent {
   readonly edgePaths: readonly ArchitectureEdgePath[] = ["smoothstep", "step", "straight", "bezier"];
   readonly edgeLines: readonly ArchitectureEdgeLineStyle[] = ["solid", "dashed", "dotted"];
   readonly edgeDirections: readonly EdgeDirection[] = ["left-to-right", "right-to-left", "both"];
+  readonly codeLanguageOptions: readonly CodeLanguageOption[] = CODE_LANGUAGE_OPTIONS;
 
   summaries: readonly ArchitectureSummary[] = [];
   architecture: ArchitectureDocument | null = null;
@@ -842,6 +874,8 @@ export class AppComponent {
   addNode(template: NodeTemplate, position = this.nextNodePosition()): void {
     const id = `${template.kind}-${crypto.randomUUID()}`;
     const size = getDefaultNodeSize(template.kind);
+    const isContainerKind = isContainerNodeKind(template.kind);
+    const isCodeSnippetKind = isCodeSnippetNodeKind(template.kind);
     const parent = this.findContainingNode(position, size, this.nodes);
     const parentPosition = parent ? this.getAbsolutePosition(parent) : null;
     const nodePosition = parentPosition
@@ -856,12 +890,22 @@ export class AppComponent {
       color: template.color,
       position: nodePosition,
       size,
-      collapsed: isContainerNodeKind(template.kind) ? false : undefined,
+      collapsed:
+        isContainerKind
+          ? false
+          : isCodeSnippetKind
+            ? true
+            : undefined,
       collapsedIconKind:
-        isContainerNodeKind(template.kind)
+        isContainerKind
           ? this.getDefaultCollapsedIconKind(template.kind)
+          : isCodeSnippetKind
+            ? template.kind
           : undefined,
-      expandedSize: undefined
+      expandedSize:
+        isCodeSnippetKind
+          ? { ...CODE_SNIPPET_EXPANDED_SIZE }
+          : undefined
     };
 
     this.nodes = this.sortNodes([...this.nodes, node]);
@@ -1154,17 +1198,28 @@ export class AppComponent {
     this.nodes = this.nodes.map((node) => {
       if (node.id === selected.id) {
         const isContainerKind = isContainerNodeKind(kind);
+        const isCodeSnippetKind = isCodeSnippetNodeKind(kind);
         const nextCollapsedIconKind =
           isContainerKind
             ? node.collapsedIconKind ?? this.getDefaultCollapsedIconKind(kind)
+            : isCodeSnippetKind
+              ? node.collapsedIconKind ?? kind
             : undefined;
         return {
           ...node,
           kind,
           size,
-          collapsed: isContainerKind ? (node.collapsed ?? false) : undefined,
+          collapsed:
+            isContainerKind
+              ? (node.collapsed ?? false)
+              : isCodeSnippetKind
+                ? (node.collapsed ?? true)
+                : undefined,
           collapsedIconKind: nextCollapsedIconKind,
-          expandedSize: isContainerKind ? node.expandedSize : undefined
+          expandedSize:
+            isContainerKind || isCodeSnippetKind
+              ? (node.expandedSize ?? (isCodeSnippetKind ? { ...CODE_SNIPPET_EXPANDED_SIZE } : undefined))
+              : undefined
         };
       }
       return node.parentId === selected.id && !isContainerNodeKind(kind)
@@ -1190,14 +1245,36 @@ export class AppComponent {
     return isContainerNodeKind(node.kind);
   }
 
+  isCollapsibleCodeSnippetNode(node: CanvasNode): boolean {
+    return isCodeSnippetNodeKind(node.kind);
+  }
+
   isContainerCollapsed(node: CanvasNode): boolean {
     return this.isCollapsibleContainerNode(node) && Boolean(node.collapsed);
+  }
+
+  isCodeSnippetCollapsed(node: CanvasNode): boolean {
+    return this.isCollapsibleCodeSnippetNode(node) && node.collapsed !== false;
+  }
+
+  isCodeSnippetExpanded(node: CanvasNode): boolean {
+    return this.isCollapsibleCodeSnippetNode(node) && !this.isCodeSnippetCollapsed(node);
   }
 
   setSelectedContainerCollapsed(collapsed: boolean): void {
     const selected = this.selectedNode;
     if (!selected || !this.isCollapsibleContainerNode(selected)) return;
     this.setContainerCollapsed(selected.id, collapsed);
+    this.selectedNodeId = selected.id;
+    this.selectedNodeIds = [selected.id];
+    this.resizeEnabledNodeId = collapsed ? null : selected.id;
+    this.markViewChanged();
+  }
+
+  setSelectedCodeSnippetCollapsed(collapsed: boolean): void {
+    const selected = this.selectedNode;
+    if (!selected || !this.isCollapsibleCodeSnippetNode(selected)) return;
+    this.setCodeSnippetCollapsed(selected.id, collapsed);
     this.selectedNodeId = selected.id;
     this.selectedNodeIds = [selected.id];
     this.resizeEnabledNodeId = collapsed ? null : selected.id;
@@ -1214,6 +1291,65 @@ export class AppComponent {
     const selected = this.selectedNode;
     if (!selected) return;
     this.updateNode(selected.id, { color });
+  }
+
+  getNodeCodeLanguage(node: CanvasNode): CodeLanguage {
+    const raw = (node.properties?.["codeLanguage"] ?? "").trim().toLowerCase();
+    if (this.codeLanguageOptions.some((option) => option.value === raw)) {
+      return raw as CodeLanguage;
+    }
+    return "typescript";
+  }
+
+  getNodeCodeLanguageLabel(node: CanvasNode): string {
+    const language = this.getNodeCodeLanguage(node);
+    return this.codeLanguageOptions.find((option) => option.value === language)?.label ?? "TypeScript";
+  }
+
+  getNodeCodeContent(node: CanvasNode): string {
+    const current = node.properties?.["codeContent"] ?? "";
+    if (current.trim().length > 0) return current;
+    return this.getDefaultCodeSnippet(node.kind, this.getNodeCodeLanguage(node));
+  }
+
+  updateSelectedCodeLanguage(language: string): void {
+    const normalized = language.trim().toLowerCase();
+    const value = this.codeLanguageOptions.some((option) => option.value === normalized)
+      ? normalized
+      : "typescript";
+    this.updateSelectedNodeProperty("codeLanguage", value);
+  }
+
+  updateSelectedCodeContent(content: string): void {
+    this.updateSelectedNodeProperty("codeContent", content);
+  }
+
+  private getDefaultCodeSnippet(kind: ArchitectureNodeKind, language: CodeLanguage): string {
+    const symbol = this.getCodeSymbolName(kind);
+    const variable = symbol.charAt(0).toLowerCase() + symbol.slice(1);
+    const repo = symbol.toLowerCase();
+    switch (language) {
+      case "python":
+        return this.getPythonSnippet(kind, symbol, variable, repo);
+      case "javascript":
+        return this.getJavaScriptSnippet(kind, symbol, variable);
+      case "nodejs":
+        return this.getNodeSnippet(kind, symbol, variable);
+      case "typescript":
+        return this.getTypeScriptSnippet(kind, symbol, variable);
+      case "markdown":
+        return `# ${symbol}\n\n\`\`\`text\nTODO: document ${symbol}\n\`\`\``;
+      case "go":
+        return this.getGoSnippet(kind, symbol, variable);
+      case "rust":
+        return this.getRustSnippet(kind, symbol, variable);
+      case "java":
+        return this.getJavaSnippet(kind, symbol, variable);
+      case "elixir":
+        return this.getElixirSnippet(kind, symbol, variable, repo);
+      default:
+        return `// TODO: ${symbol}`;
+    }
   }
 
   getNodePropertyFields(node: CanvasNode): readonly NodePropertyField[] {
@@ -1457,13 +1593,18 @@ export class AppComponent {
 
   onNodeCollapseToggle(node: CanvasNode, event: Event): void {
     event.stopPropagation();
-    if (!this.isCollapsibleContainerNode(node)) return;
+    if (!this.isCollapsibleContainerNode(node) && !this.isCollapsibleCodeSnippetNode(node)) return;
     this.selectedNodeId = node.id;
     this.selectedNodeIds = [node.id];
     this.selectedEdgeId = null;
     this.editingNodeId = null;
-    this.setContainerCollapsed(node.id, !this.isContainerCollapsed(node));
-    this.resizeEnabledNodeId = this.isContainerCollapsedById(node.id) ? null : node.id;
+    if (this.isCollapsibleContainerNode(node)) {
+      this.setContainerCollapsed(node.id, !this.isContainerCollapsed(node));
+      this.resizeEnabledNodeId = this.isContainerCollapsedById(node.id) ? null : node.id;
+    } else {
+      this.setCodeSnippetCollapsed(node.id, !this.isCodeSnippetCollapsed(node));
+      this.resizeEnabledNodeId = this.isCodeSnippetCollapsedById(node.id) ? null : node.id;
+    }
     this.markViewChanged();
   }
 
@@ -1722,21 +1863,25 @@ export class AppComponent {
   getNodeClass(node: CanvasNode): string {
     const visualGroup = getNodeVisualGroup(node.kind);
     const isContainer = this.rendersAsContainer(node);
-    const isIconOnly = isIconOnlyNodeKind(node.kind);
+    const isExpandedCodeSnippet = this.isCodeSnippetExpanded(node);
+    const isIconOnly = isIconOnlyNodeKind(node.kind) && !isExpandedCodeSnippet;
     const isCollapsedContainer = this.isContainerCollapsed(node);
+    const isCollapsedCodeSnippet = this.isCodeSnippetCollapsed(node);
     return [
       "architecture-node",
       `architecture-node--${visualGroup}`,
       `architecture-node--${node.kind}`,
       isCollapsedContainer ? "architecture-node--container-collapsed" : "",
-      isContainer ? "architecture-node--container" : (isIconOnly || isCollapsedContainer) ? "architecture-node--leaf" : "",
+      isExpandedCodeSnippet ? "architecture-node--code-snippet" : "",
+      isCollapsedCodeSnippet ? "architecture-node--code-snippet-collapsed" : "",
+      isContainer ? "architecture-node--container" : (isIconOnly || isCollapsedContainer || isCollapsedCodeSnippet) ? "architecture-node--leaf" : "",
       this.selectedNodeIds.includes(node.id) ? "is-selected" : ""
     ].filter(Boolean).join(" ");
   }
 
   canResizeNode(nodeId: string): boolean {
     const node = this.nodes.find((candidate) => candidate.id === nodeId);
-    if (node && this.isContainerCollapsed(node)) return false;
+    if (node && (this.isContainerCollapsed(node) || this.isCodeSnippetCollapsed(node))) return false;
     return (
       this.selectedNodeIds.length === 1 &&
       this.selectedNodeId === nodeId
@@ -1813,6 +1958,7 @@ export class AppComponent {
 
   getNodeIconKind(node: CanvasNode): ArchitectureNodeKind {
     if (this.isContainerCollapsed(node)) return this.resolveCollapsedIconKind(node);
+    if (this.isCodeSnippetCollapsed(node)) return node.collapsedIconKind ?? node.kind;
     return node.kind;
   }
 
@@ -1998,6 +2144,11 @@ export class AppComponent {
     return node ? this.isContainerCollapsed(node) : false;
   }
 
+  private isCodeSnippetCollapsedById(nodeId: string): boolean {
+    const node = this.nodes.find((candidate) => candidate.id === nodeId);
+    return node ? this.isCodeSnippetCollapsed(node) : false;
+  }
+
   private setContainerCollapsed(nodeId: string, collapsed: boolean): void {
     this.nodes = this.sortNodes(
       this.nodes.map((node) => {
@@ -2035,6 +2186,35 @@ export class AppComponent {
       this.selectedEdgeId = null;
       this.resizeEnabledNodeId = null;
     }
+  }
+
+  private setCodeSnippetCollapsed(nodeId: string, collapsed: boolean): void {
+    this.nodes = this.sortNodes(
+      this.nodes.map((node) => {
+        if (node.id !== nodeId || !isCodeSnippetNodeKind(node.kind)) return node;
+        const collapsedIconKind = node.collapsedIconKind ?? node.kind;
+        if (collapsed) {
+          if (node.collapsed !== false) return node;
+          return {
+            ...node,
+            collapsed: true,
+            expandedSize: node.size,
+            collapsedIconKind,
+            size: { ...CODE_SNIPPET_COLLAPSED_SIZE }
+          };
+        }
+
+        if (node.collapsed === false) return node;
+        const nextExpandedSize = node.expandedSize ?? { ...CODE_SNIPPET_EXPANDED_SIZE };
+        return {
+          ...node,
+          collapsed: false,
+          size: nextExpandedSize,
+          expandedSize: nextExpandedSize,
+          collapsedIconKind
+        };
+      })
+    );
   }
 
   private rendersAsContainer(node: CanvasNode): boolean {
@@ -2304,6 +2484,8 @@ export class AppComponent {
     if (!min) return;
     const minSize = isContainerNodeKind(min.kind)
       ? { width: 260, height: 180 }
+      : isCodeSnippetNodeKind(min.kind) && !this.isCodeSnippetCollapsed(min)
+        ? { width: 300, height: 190 }
       : isIconOnlyNodeKind(min.kind)
         ? { width: 118, height: 126 }
         : { width: 170, height: 92 };
@@ -2341,6 +2523,16 @@ export class AppComponent {
 
   private getSizeForKind(node: CanvasNode, kind: ArchitectureNodeKind): Readonly<{ width: number; height: number }> {
     const defaultSize = getDefaultNodeSize(kind);
+    if (isCodeSnippetNodeKind(kind)) {
+      const expanded = node.expandedSize ?? CODE_SNIPPET_EXPANDED_SIZE;
+      if (this.isCodeSnippetExpanded(node)) {
+        return {
+          width: Math.max(node.size.width, expanded.width),
+          height: Math.max(node.size.height, expanded.height)
+        };
+      }
+      return { ...CODE_SNIPPET_COLLAPSED_SIZE };
+    }
     return isContainerNodeKind(kind)
       ? {
           width: Math.max(node.size.width, defaultSize.width),
@@ -2971,6 +3163,208 @@ export class AppComponent {
     link.href = dataUrl;
     link.download = filename;
     link.click();
+  }
+
+  private getCodeSymbolName(kind: ArchitectureNodeKind): string {
+    switch (kind) {
+      case "code-class":
+        return "ExampleClass";
+      case "code-interface":
+        return "ExampleInterface";
+      case "code-function":
+        return "exampleFunction";
+      case "code-variable":
+        return "exampleValue";
+      case "code-enum":
+        return "ExampleEnum";
+      case "code-type":
+        return "ExampleType";
+      case "code-repository":
+        return "ExampleRepository";
+      case "code-file":
+        return "example-file";
+      default:
+        return "ExampleSymbol";
+    }
+  }
+
+  private getPythonSnippet(
+    kind: ArchitectureNodeKind,
+    symbol: string,
+    variable: string,
+    repo: string
+  ): string {
+    switch (kind) {
+      case "code-class":
+        return `class ${symbol}:\n    def __init__(self) -> None:\n        pass`;
+      case "code-interface":
+        return `from typing import Protocol\n\nclass ${symbol}(Protocol):\n    def execute(self) -> None:\n        ...`;
+      case "code-function":
+        return `def ${variable}(arg: str) -> str:\n    return arg`;
+      case "code-variable":
+        return `${variable} = "value"`;
+      case "code-enum":
+        return `from enum import Enum\n\nclass ${symbol}(Enum):\n    ACTIVE = "active"\n    INACTIVE = "inactive"`;
+      case "code-type":
+        return `from typing import TypedDict\n\nclass ${symbol}(TypedDict):\n    id: str\n    name: str`;
+      case "code-repository":
+        return `class ${symbol}:\n    def save(self, item: dict) -> None:\n        print("save", item)`;
+      case "code-file":
+        return `# ${repo}.py\n\nif __name__ == "__main__":\n    print("hello")`;
+      default:
+        return `# ${symbol}`;
+    }
+  }
+
+  private getJavaScriptSnippet(kind: ArchitectureNodeKind, symbol: string, variable: string): string {
+    switch (kind) {
+      case "code-class":
+        return `class ${symbol} {\n  constructor() {}\n}`;
+      case "code-interface":
+        return `/**\n * @typedef {Object} ${symbol}\n * @property {Function} execute\n */`;
+      case "code-function":
+        return `function ${variable}(arg) {\n  return arg;\n}`;
+      case "code-variable":
+        return `const ${variable} = "value";`;
+      case "code-enum":
+        return `const ${symbol} = Object.freeze({\n  ACTIVE: "ACTIVE",\n  INACTIVE: "INACTIVE"\n});`;
+      case "code-type":
+        return `/** @typedef {{ id: string, name: string }} ${symbol} */`;
+      case "code-repository":
+        return `class ${symbol} {\n  save(item) {\n    return item;\n  }\n}`;
+      case "code-file":
+        return `export function main() {\n  console.log("hello");\n}`;
+      default:
+        return `// ${symbol}`;
+    }
+  }
+
+  private getNodeSnippet(kind: ArchitectureNodeKind, symbol: string, variable: string): string {
+    switch (kind) {
+      case "code-file":
+        return `import http from "node:http";\n\nhttp.createServer((_req, res) => {\n  res.writeHead(200);\n  res.end("ok");\n}).listen(3000);`;
+      case "code-repository":
+        return `export class ${symbol} {\n  async findById(id) {\n    return { id };\n  }\n}`;
+      default:
+        return this.getJavaScriptSnippet(kind, symbol, variable);
+    }
+  }
+
+  private getTypeScriptSnippet(kind: ArchitectureNodeKind, symbol: string, variable: string): string {
+    switch (kind) {
+      case "code-class":
+        return `export class ${symbol} {\n  constructor() {}\n}`;
+      case "code-interface":
+        return `export interface ${symbol} {\n  execute(): void;\n}`;
+      case "code-function":
+        return `export const ${variable} = (arg: string): string => {\n  return arg;\n};`;
+      case "code-variable":
+        return `const ${variable}: string = "value";`;
+      case "code-enum":
+        return `export enum ${symbol} {\n  Active = "ACTIVE",\n  Inactive = "INACTIVE"\n}`;
+      case "code-type":
+        return `export type ${symbol} = {\n  id: string;\n  name: string;\n};`;
+      case "code-repository":
+        return `export class ${symbol} {\n  save<T>(item: T): T {\n    return item;\n  }\n}`;
+      case "code-file":
+        return `export function bootstrap(): void {\n  console.log("hello");\n}`;
+      default:
+        return `// ${symbol}`;
+    }
+  }
+
+  private getGoSnippet(kind: ArchitectureNodeKind, symbol: string, variable: string): string {
+    switch (kind) {
+      case "code-class":
+      case "code-type":
+        return `type ${symbol} struct {\n\tID string\n}`;
+      case "code-interface":
+        return `type ${symbol} interface {\n\tExecute() error\n}`;
+      case "code-function":
+        return `func ${symbol}(arg string) string {\n\treturn arg\n}`;
+      case "code-variable":
+        return `var ${variable} = "value"`;
+      case "code-enum":
+        return `type ${symbol} string\n\nconst (\n\t${symbol}Active ${symbol} = "ACTIVE"\n\t${symbol}Inactive ${symbol} = "INACTIVE"\n)`;
+      case "code-repository":
+        return `type ${symbol} struct{}\n\nfunc (r *${symbol}) Save(item any) error {\n\treturn nil\n}`;
+      case "code-file":
+        return `package main\n\nfunc main() {\n\tprintln("hello")\n}`;
+      default:
+        return `// ${symbol}`;
+    }
+  }
+
+  private getRustSnippet(kind: ArchitectureNodeKind, symbol: string, variable: string): string {
+    switch (kind) {
+      case "code-class":
+      case "code-type":
+        return `pub struct ${symbol} {\n    pub id: String,\n}`;
+      case "code-interface":
+        return `pub trait ${symbol} {\n    fn execute(&self);\n}`;
+      case "code-function":
+        return `pub fn ${variable}(arg: &str) -> String {\n    arg.to_string()\n}`;
+      case "code-variable":
+        return `let ${variable} = String::from("value");`;
+      case "code-enum":
+        return `pub enum ${symbol} {\n    Active,\n    Inactive,\n}`;
+      case "code-repository":
+        return `pub struct ${symbol};\n\nimpl ${symbol} {\n    pub fn save(&self) {}\n}`;
+      case "code-file":
+        return `fn main() {\n    println!("hello");\n}`;
+      default:
+        return `// ${symbol}`;
+    }
+  }
+
+  private getJavaSnippet(kind: ArchitectureNodeKind, symbol: string, variable: string): string {
+    switch (kind) {
+      case "code-class":
+        return `public class ${symbol} {\n}`;
+      case "code-interface":
+        return `public interface ${symbol} {\n    void execute();\n}`;
+      case "code-function":
+        return `public String ${variable}(String arg) {\n    return arg;\n}`;
+      case "code-variable":
+        return `private String ${variable} = "value";`;
+      case "code-enum":
+        return `public enum ${symbol} {\n    ACTIVE,\n    INACTIVE\n}`;
+      case "code-type":
+        return `public record ${symbol}(String id, String name) { }`;
+      case "code-repository":
+        return `public class ${symbol} {\n    public void save(Object item) { }\n}`;
+      case "code-file":
+        return `public class Main {\n    public static void main(String[] args) {\n        System.out.println("hello");\n    }\n}`;
+      default:
+        return `// ${symbol}`;
+    }
+  }
+
+  private getElixirSnippet(
+    kind: ArchitectureNodeKind,
+    symbol: string,
+    variable: string,
+    repo: string
+  ): string {
+    switch (kind) {
+      case "code-class":
+      case "code-type":
+        return `defmodule ${symbol} do\n  defstruct [:id, :name]\nend`;
+      case "code-interface":
+        return `defprotocol ${symbol} do\n  def execute(data)\nend`;
+      case "code-function":
+        return `def ${variable}(arg) do\n  arg\nend`;
+      case "code-variable":
+        return `${variable} = "value"`;
+      case "code-enum":
+        return `@${variable} [:active, :inactive]`;
+      case "code-repository":
+        return `defmodule ${symbol} do\n  def save(item), do: {:ok, item}\nend`;
+      case "code-file":
+        return `# ${repo}.ex\nIO.puts("hello")`;
+      default:
+        return `# ${symbol}`;
+    }
   }
 
   private normalizeSearchQuery(value: string): string {

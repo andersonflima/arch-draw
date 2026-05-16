@@ -320,14 +320,20 @@
               </span>
               <span class="architecture-node__kind-label">{{ getNodeLabel(node.kind) }}</span>
               <button
-                *ngIf="isCollapsibleContainerNode(node) && !isContainerCollapsed(node)"
+                *ngIf="(isCollapsibleContainerNode(node) && !isContainerCollapsed(node)) || isCollapsibleCodeSnippetNode(node)"
                 class="node-collapse-toggle"
                 type="button"
-                [title]="isContainerCollapsed(node) ? 'Expandir container' : 'Minimizar para icone'"
+                [title]="isCollapsibleCodeSnippetNode(node)
+                  ? (isCodeSnippetCollapsed(node) ? 'Maximizar codigo' : 'Minimizar codigo')
+                  : (isContainerCollapsed(node) ? 'Expandir container' : 'Minimizar para icone')"
                 (pointerdown)="$event.stopPropagation()"
                 (click)="onNodeCollapseToggle(node, $event)"
               >
-                <i [class]="isContainerCollapsed(node) ? 'fa-solid fa-up-right-and-down-left-from-center' : 'fa-solid fa-down-left-and-up-right-to-center'" aria-hidden="true"></i>
+                <i [class]="(isCollapsibleCodeSnippetNode(node)
+                  ? isCodeSnippetCollapsed(node)
+                  : isContainerCollapsed(node))
+                    ? 'fa-solid fa-up-right-and-down-left-from-center'
+                    : 'fa-solid fa-down-left-and-up-right-to-center'" aria-hidden="true"></i>
               </button>
             </div>
             <ng-container *ngIf="!isEditingNode(node.id); else nodeLabelEditor">
@@ -347,7 +353,18 @@
                 </ng-container>
               </ng-container>
               <ng-template #defaultNodeLabel>
-                <strong>{{ node.label }}</strong>
+                <ng-container *ngIf="isCodeSnippetExpanded(node); else defaultTextLabel">
+                  <div class="code-snippet-content">
+                    <div class="code-snippet-content__meta">
+                      <strong>{{ node.label }}</strong>
+                      <span>{{ getNodeCodeLanguageLabel(node) }}</span>
+                    </div>
+                    <pre>{{ getNodeCodeContent(node) }}</pre>
+                  </div>
+                </ng-container>
+                <ng-template #defaultTextLabel>
+                  <strong>{{ node.label }}</strong>
+                </ng-template>
               </ng-template>
             </ng-container>
             <ng-template #nodeLabelEditor>
@@ -469,6 +486,32 @@
               (click)="setSelectedContainerCollapsed(!isContainerCollapsed(node))"
             >
               {{ isContainerCollapsed(node) ? "Maximizar container" : "Minimizar para icone" }}
+            </button>
+          </ng-container>
+          <ng-container *ngIf="isCollapsibleCodeSnippetNode(node)">
+            <label class="property-field">
+              Linguagem
+              <select [ngModel]="getNodeCodeLanguage(node)" (ngModelChange)="updateSelectedCodeLanguage($event)">
+                <option *ngFor="let option of codeLanguageOptions" [ngValue]="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+            </label>
+            <label class="property-field">
+              Codigo
+              <textarea
+                class="property-textarea property-code-textarea"
+                [ngModel]="getNodeCodeContent(node)"
+                (ngModelChange)="updateSelectedCodeContent($event)"
+                placeholder="Cole ou escreva o trecho de codigo aqui"
+              ></textarea>
+            </label>
+            <button
+              class="secondary-action"
+              type="button"
+              (click)="setSelectedCodeSnippetCollapsed(!isCodeSnippetCollapsed(node))"
+            >
+              {{ isCodeSnippetCollapsed(node) ? "Maximizar codigo" : "Minimizar codigo" }}
             </button>
           </ng-container>
           <button class="danger-action" type="button" (click)="deleteSelectedNode()">Remover no</button>

@@ -854,6 +854,17 @@ app-flow-document-node {
   display: none;
 }
 
+.architecture-node--code-snippet {
+  min-width: 300px;
+  min-height: 190px;
+  transform: none;
+}
+
+.architecture-node--code-snippet-collapsed .architecture-node__header {
+  width: 100%;
+  justify-content: space-between;
+}
+
 .architecture-node--leaf .node-icon {
   --icon-base: var(--icon-color, #111827);
   width: 78px;
@@ -2487,6 +2498,55 @@ app-flow-document-node {
   word-break: normal;
 }
 
+.code-snippet-content {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+  height: calc(100% - 36px);
+  min-height: 120px;
+}
+
+.code-snippet-content__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.code-snippet-content__meta strong {
+  font-size: 14px;
+  max-width: 100%;
+}
+
+.code-snippet-content__meta span {
+  flex-shrink: 0;
+  border: 1px solid #111827;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #374151;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
+  padding: 4px 8px;
+}
+
+.code-snippet-content pre {
+  margin: 0;
+  height: 100%;
+  min-height: 94px;
+  overflow: auto;
+  border: 2px solid #111827;
+  border-radius: 6px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre;
+  padding: 8px 10px;
+}
+
 .architecture-node__kind-label {
   min-width: 0;
   overflow: hidden;
@@ -2603,6 +2663,14 @@ app-flow-document-node {
   min-height: 96px;
   padding: 9px 11px;
   resize: vertical;
+}
+
+.property-stack .property-code-textarea {
+  min-height: 180px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre;
 }
 
 .property-stack .property-color-input {
