@@ -3833,17 +3833,25 @@ spec:
         // Open containers block edge routes unless this edge is linked to an element inside them.
         return !passthroughOpenContainers.has(node.id);
       })
-      .map((node) => {
-        const absolute = this.getAbsolutePosition(node);
-        const padding = EDGE_OBSTACLE_PADDING;
-        return {
-          id: node.id,
-          left: absolute.x - padding,
-          top: absolute.y - padding,
-          right: absolute.x + node.size.width + padding,
-          bottom: absolute.y + node.size.height + padding
-        };
+      .flatMap((node) => {
+        const paddedRect = this.createEdgeObstacleRect(node.id, node, EDGE_OBSTACLE_PADDING);
+        if (node.id !== sourceId && node.id !== targetId) return [paddedRect];
+
+        // Keep a hard boundary for endpoints so routes never re-enter the source/target node body.
+        const hardRect = this.createEdgeObstacleRect(`${node.id}__hard`, node, 0);
+        return [paddedRect, hardRect];
       });
+  }
+
+  private createEdgeObstacleRect(nodeId: string, node: CanvasNode, padding: number): EdgeObstacleRect {
+    const absolute = this.getAbsolutePosition(node);
+    return {
+      id: nodeId,
+      left: absolute.x - padding,
+      top: absolute.y - padding,
+      right: absolute.x + node.size.width + padding,
+      bottom: absolute.y + node.size.height + padding
+    };
   }
 
   private getOpenAncestorContainerIds(nodeId: string): readonly string[] {
