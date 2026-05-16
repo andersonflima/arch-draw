@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { getDefaultNodeSize, isContainerNodeKind, isIconOnlyNodeKind, nodeCatalog } from "./node-catalog";
+import {
+  getDefaultNodeSize,
+  isCodeSnippetNodeKind,
+  isContainerNodeKind,
+  isIconOnlyNodeKind,
+  nodeCatalog
+} from "./node-catalog";
 
 describe("node catalog", () => {
   it("keeps node kinds unique", () => {
@@ -39,5 +45,12 @@ describe("node catalog", () => {
     expect(isIconOnlyNodeKind("aws-ec2")).toBe(false);
     expect(isIconOnlyNodeKind("flow-process")).toBe(false);
     expect(getDefaultNodeSize("flow-process")).toEqual({ width: 220, height: 120 });
+  });
+
+  it("treats algorithm blocks as container plus code nodes", () => {
+    expect(isContainerNodeKind("algorithm")).toBe(true);
+    expect(isContainerNodeKind("algorithm-graph")).toBe(true);
+    expect(isCodeSnippetNodeKind("algorithm")).toBe(true);
+    expect(isCodeSnippetNodeKind("algorithm-graph")).toBe(true);
   });
 });

@@ -221,7 +221,19 @@ const containerKinds = new Set<ArchitectureNodeKind>([
   "code-workspace",
   "code-package",
   "code-module",
-  "code-folder"
+  "code-folder",
+  "algorithm",
+  "algorithm-condition",
+  "algorithm-loop",
+  "algorithm-recursion",
+  "algorithm-sort",
+  "algorithm-search",
+  "algorithm-graph",
+  "algorithm-tree",
+  "algorithm-hash-table",
+  "algorithm-stack",
+  "algorithm-queue",
+  "algorithm-linked-list"
 ]);
 
 export const isContainerNodeKind = (kind: ArchitectureNodeKind): boolean =>
@@ -280,7 +292,19 @@ const codeSnippetKinds = new Set<ArchitectureNodeKind>([
   "cluster-pvc",
   "cluster-hpa",
   "cluster-job",
-  "cluster-cronjob"
+  "cluster-cronjob",
+  "algorithm",
+  "algorithm-condition",
+  "algorithm-loop",
+  "algorithm-recursion",
+  "algorithm-sort",
+  "algorithm-search",
+  "algorithm-graph",
+  "algorithm-tree",
+  "algorithm-hash-table",
+  "algorithm-stack",
+  "algorithm-queue",
+  "algorithm-linked-list"
 ]);
 
 export const isCodeSnippetNodeKind = (kind: ArchitectureNodeKind): boolean =>
