@@ -1899,6 +1899,10 @@ export class AppComponent {
     return this.isVisibleNode(fromNode) && this.isVisibleNode(toNode);
   }
 
+  isEdgeLayerElevated(): boolean {
+    return Boolean(this.dragState?.hasMoved || this.connectionDragState);
+  }
+
   isContainerLayerNode(node: CanvasNode): boolean {
     return this.isVisibleNode(node) && this.rendersAsContainer(node);
   }

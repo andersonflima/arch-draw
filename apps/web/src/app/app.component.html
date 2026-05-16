@@ -158,7 +158,7 @@
           </ng-container>
         </ng-container>
 
-        <svg class="canvas-edge-layer">
+        <svg class="canvas-edge-layer" [class.canvas-edge-layer--elevated]="isEdgeLayerElevated()">
           <defs>
             <marker
               id="edge-arrow"

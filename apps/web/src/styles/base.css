@@ -2270,6 +2270,10 @@ app-flow-document-node {
   overflow: visible;
 }
 
+.canvas-edge-layer--elevated {
+  z-index: 40;
+}
+
 .canvas-edge-hit {
   fill: none;
   stroke: transparent;
