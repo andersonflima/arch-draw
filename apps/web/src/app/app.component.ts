@@ -1041,11 +1041,12 @@ export class AppComponent implements OnDestroy {
     const isCodeSnippetKind = isCodeSnippetNodeKind(template.kind);
     const startsCollapsed = isCodeSnippetKind ? true : isContainerKind ? false : undefined;
     const size = startsCollapsed ? { ...CODE_SNIPPET_COLLAPSED_SIZE } : defaultSize;
-    const parent = this.findContainingNode(position, size, this.nodes);
+    const clampedPosition = this.clampNodeCreationPointToVisibleCanvas(position, size);
+    const parent = this.findContainingNode(clampedPosition, size, this.nodes);
     const parentPosition = parent ? this.getAbsolutePosition(parent) : null;
     const nodePosition = parentPosition
-      ? { x: position.x - parentPosition.x, y: position.y - parentPosition.y }
-      : position;
+      ? { x: clampedPosition.x - parentPosition.x, y: clampedPosition.y - parentPosition.y }
+      : clampedPosition;
 
     const node: CanvasNode = {
       id,
@@ -1073,6 +1074,22 @@ export class AppComponent implements OnDestroy {
     if (this.shouldPulseDoubleClickHintOnNodeAdded(node)) {
       this.scheduleDoubleClickHintAfterNodeAdded();
     }
+  }
+
+  private clampNodeCreationPointToVisibleCanvas(
+    position: Readonly<{ x: number; y: number }>,
+    size: Readonly<{ width: number; height: number }>
+  ): Readonly<{ x: number; y: number }> {
+    const visibleRect = this.getVisibleCanvasRect();
+    const margin = 48;
+    const minX = visibleRect.left + margin;
+    const minY = visibleRect.top + margin;
+    const maxX = visibleRect.left + Math.max(margin, visibleRect.width - size.width - margin);
+    const maxY = visibleRect.top + Math.max(margin, visibleRect.height - size.height - margin);
+    return {
+      x: Math.max(minX, Math.min(position.x, maxX)),
+      y: Math.max(minY, Math.min(position.y, maxY))
+    };
   }
 
   onPaletteDragStart(event: DragEvent, template: NodeTemplate): void {
