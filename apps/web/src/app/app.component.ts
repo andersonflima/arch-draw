@@ -2144,15 +2144,13 @@ export class AppComponent implements OnDestroy {
     const color = normalizeEdgeStyle(edge.style).color;
     if (!this.isDarkMode) return color;
 
-    const normalized = this.normalizeHexColor(color);
-    if (!normalized) return "#e5e7eb";
-    if (normalized === "#111827") return "#e5e7eb";
+    const fromNode = this.nodes.find((node) => node.id === edge.from) ?? null;
+    const toNode = this.nodes.find((node) => node.id === edge.to) ?? null;
+    if (!fromNode || !toNode) return "#f8fafc";
 
-    const rgb = this.hexToRgb(normalized);
-    if (!rgb) return "#e5e7eb";
-
-    const { l } = this.rgbToHsl(rgb.r, rgb.g, rgb.b);
-    return l < 0.35 ? "#e5e7eb" : normalized;
+    return this.isEdgeInsideContainerContext(fromNode, toNode)
+      ? "#111827"
+      : "#f8fafc";
   }
 
   getConnectionPreviewPath(): string {
@@ -3137,6 +3135,25 @@ export class AppComponent implements OnDestroy {
       current = this.nodes.find((node) => node.id === current?.parentId) ?? null;
     }
     return false;
+  }
+
+  private getContainerAncestors(node: CanvasNode): readonly string[] {
+    const ancestors: string[] = [];
+    let current: CanvasNode | null = node;
+    while (current?.parentId) {
+      ancestors.push(current.parentId);
+      current = this.nodes.find((candidate) => candidate.id === current?.parentId) ?? null;
+    }
+    return ancestors;
+  }
+
+  private isEdgeInsideContainerContext(fromNode: CanvasNode, toNode: CanvasNode): boolean {
+    const fromAncestors = this.getContainerAncestors(fromNode);
+    const toAncestors = this.getContainerAncestors(toNode);
+    if (fromAncestors.length === 0 || toAncestors.length === 0) return false;
+
+    const toSet = new Set(toAncestors);
+    return fromAncestors.some((ancestor) => toSet.has(ancestor));
   }
 
   private isTypingTarget(target: EventTarget | null): boolean {
