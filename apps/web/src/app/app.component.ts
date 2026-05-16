@@ -2782,7 +2782,8 @@ export class AppComponent implements OnDestroy {
     const endAxis = this.getEdgeTerminalAxis(target, rawEnd, targetCenter);
     const style = normalizeEdgeStyle(edge.style);
     const { start, end } = this.applyEdgeMarkerClearance(rawStart, rawEnd, style.bidirectional);
-    const startLead = this.getEdgeLeadPoint(start, sourceCenter, startAxis, EDGE_ENDPOINT_STUB);
+    const startLeadDistance = style.bidirectional ? EDGE_ENDPOINT_STUB : 0;
+    const startLead = this.getEdgeLeadPoint(start, sourceCenter, startAxis, startLeadDistance);
     const endLead = this.getEdgeLeadPoint(end, targetCenter, endAxis, EDGE_ENDPOINT_STUB);
     return { start, startLead, end, endLead, style };
   }
