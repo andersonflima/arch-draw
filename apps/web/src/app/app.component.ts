@@ -9,6 +9,7 @@ import {
   architectureToMermaid,
   type ArchitectureDocument,
   type ArchitectureEdgeLineStyle,
+  type ArchitectureEdgePortSide,
   type ArchitectureEdgePath,
   type ArchitectureEdgeStyle,
   type ArchitectureNode,
@@ -67,6 +68,10 @@ import {
   type EdgeFlowDirection
 } from "../features/editor/edge-geometry";
 import {
+  routePolylineAroundObstacles as routeEdgePolylineAroundObstacles,
+  type EdgeObstacleRect
+} from "../features/editor/edge-routing";
+import {
   insertMermaidIndent,
   insertMermaidLineBreak,
   removeMermaidIndent
@@ -95,8 +100,14 @@ type MarqueeState = Readonly<{
 
 type ConnectionDragState = Readonly<{
   sourceId: string;
+  sourcePort: ArchitectureEdgePortSide | null;
   start: Readonly<{ x: number; y: number }>;
   current: Readonly<{ x: number; y: number }>;
+}>;
+
+type ConnectionTarget = Readonly<{
+  nodeId: string;
+  targetPort: ArchitectureEdgePortSide | null;
 }>;
 
 type PanState = Readonly<{
@@ -127,14 +138,6 @@ type PaletteCategoryGroup = Readonly<{
 type EdgePathData = Readonly<{
   points: readonly EdgePoint[];
   style: ArchitectureEdgeStyle;
-}>;
-
-type EdgeObstacleRect = Readonly<{
-  id: string;
-  left: number;
-  top: number;
-  right: number;
-  bottom: number;
 }>;
 
 type ContextPropertiesPanelState = Readonly<{
@@ -773,6 +776,7 @@ export class AppComponent implements OnDestroy {
   private maximizedNodeId: string | null = null;
   selectedEdgeId: string | null = null;
   connectionSourceId: string | null = null;
+  private connectionSourcePort: ArchitectureEdgePortSide | null = null;
   editingNodeId: string | null = null;
   editingNodeLabelDraft = "";
   editingEdgeId: string | null = null;
@@ -814,6 +818,7 @@ export class AppComponent implements OnDestroy {
   private viewRenderFrame: number | null = null;
   private readonly nodePropertyFieldsCache = new Map<ArchitectureNodeKind, readonly NodePropertyField[]>();
   private readonly iconColorCache = new Map<string, string>();
+  private readonly edgePathDataCache = new Map<string, EdgePathData | null>();
 
   constructor(
     private readonly changeDetectorRef: ChangeDetectorRef,
@@ -1244,6 +1249,7 @@ export class AppComponent implements OnDestroy {
     this.maximizedNodeId = null;
     this.selectedEdgeId = null;
     this.connectionSourceId = null;
+    this.connectionSourcePort = null;
     this.connectionDragState = null;
     this.editingEdgeId = null;
     this.editingEdgeLabelDraft = "";
@@ -1296,9 +1302,13 @@ export class AppComponent implements OnDestroy {
   onNodeClick(nodeId: string, event: MouseEvent): void {
     event.stopPropagation();
     if (this.connectionSourceId && this.connectionSourceId !== nodeId) {
-      this.createConnection(this.connectionSourceId, nodeId);
+      this.createConnection(this.connectionSourceId, nodeId, {
+        sourcePort: this.connectionSourcePort,
+        targetPort: null
+      });
       this.connectionDragState = null;
       this.connectionSourceId = null;
+      this.connectionSourcePort = null;
       this.markViewChanged();
       return;
     }
@@ -2102,6 +2112,8 @@ LIMIT 50;`;
     this.updateEdge(edge.id, {
       from: edge.to,
       to: edge.from,
+      sourcePort: edge.targetPort,
+      targetPort: edge.sourcePort,
       style: normalizeEdgeStyle({ ...edge.style, bidirectional: false })
     });
   }
@@ -2116,9 +2128,10 @@ LIMIT 50;`;
     this.markViewChanged();
   }
 
-  startConnect(nodeId: string, event: Event): void {
+  startConnect(nodeId: string, sourcePort: ArchitectureEdgePortSide | null, event: Event): void {
     event.stopPropagation();
     this.connectionSourceId = nodeId;
+    this.connectionSourcePort = sourcePort;
     this.selectedNodeId = nodeId;
     this.selectedNodeIds = [nodeId];
     this.selectedEdgeId = null;
@@ -2126,34 +2139,38 @@ LIMIT 50;`;
     this.markViewChanged();
   }
 
-  onSourcePortPointerDown(event: PointerEvent, nodeId: string): void {
-    this.onPortPointerDown(event, nodeId);
+  onSourcePortPointerDown(event: PointerEvent, nodeId: string, side: ArchitectureEdgePortSide): void {
+    this.onPortPointerDown(event, nodeId, side);
   }
 
-  onSourcePortClick(event: Event, nodeId: string): void {
-    this.finishOrStartConnect(nodeId, event);
+  onSourcePortClick(event: Event, nodeId: string, side: ArchitectureEdgePortSide): void {
+    this.finishOrStartConnect(nodeId, side, event);
   }
 
-  onTargetPortPointerDown(event: PointerEvent, nodeId: string): void {
-    this.onPortPointerDown(event, nodeId);
+  onTargetPortPointerDown(event: PointerEvent, nodeId: string, side: ArchitectureEdgePortSide): void {
+    this.onPortPointerDown(event, nodeId, side);
   }
 
-  onTargetPortClick(event: Event, nodeId: string): void {
-    this.finishOrStartConnect(nodeId, event);
+  onTargetPortClick(event: Event, nodeId: string, side: ArchitectureEdgePortSide): void {
+    this.finishOrStartConnect(nodeId, side, event);
   }
 
-  finishOrStartConnect(nodeId: string, event: Event): void {
+  finishOrStartConnect(nodeId: string, targetPort: ArchitectureEdgePortSide | null, event: Event): void {
     event.stopPropagation();
     if (!this.connectionSourceId) {
-      this.startConnect(nodeId, event);
+      this.startConnect(nodeId, targetPort, event);
       return;
     }
 
     if (this.connectionSourceId === nodeId) return;
 
-    this.createConnection(this.connectionSourceId, nodeId);
+    this.createConnection(this.connectionSourceId, nodeId, {
+      sourcePort: this.connectionSourcePort,
+      targetPort
+    });
     this.connectionDragState = null;
     this.connectionSourceId = null;
+    this.connectionSourcePort = null;
     this.markViewChanged();
   }
 
@@ -2265,6 +2282,7 @@ LIMIT 50;`;
     this.maximizedNodeId = null;
     this.selectedEdgeId = null;
     this.connectionSourceId = null;
+    this.connectionSourcePort = null;
     this.resizeEnabledNodeId = null;
     this.markViewChanged();
   }
@@ -2359,15 +2377,19 @@ LIMIT 50;`;
     }
 
     if (this.connectionDragState) {
-      const targetNodeId = this.getTargetNodeIdFromPointerEvent(
+      const target = this.getTargetNodeIdFromPointerEvent(
         event,
         this.connectionDragState.sourceId
       );
-      if (targetNodeId && targetNodeId !== this.connectionDragState.sourceId) {
-        this.createConnection(this.connectionDragState.sourceId, targetNodeId);
+      if (target && target.nodeId !== this.connectionDragState.sourceId) {
+        this.createConnection(this.connectionDragState.sourceId, target.nodeId, {
+          sourcePort: this.connectionDragState.sourcePort,
+          targetPort: target.targetPort
+        });
       }
       this.connectionDragState = null;
       this.connectionSourceId = null;
+      this.connectionSourcePort = null;
       this.markViewChanged();
     }
 
@@ -2444,6 +2466,7 @@ LIMIT 50;`;
     this.selectedNodeId = visibleNodeIds.length === 1 ? (visibleNodeIds[0] ?? null) : null;
     this.selectedEdgeId = null;
     this.connectionSourceId = null;
+    this.connectionSourcePort = null;
     this.connectionDragState = null;
     this.editingEdgeId = null;
     this.editingEdgeLabelDraft = "";
@@ -2739,7 +2762,13 @@ LIMIT 50;`;
     if (!dragState) return "";
     const source = this.nodes.find((node) => node.id === dragState.sourceId);
     if (!source) return "";
-    const rawStart = this.getAnchorTowardPoint(source, dragState.current, EDGE_NODE_GAP, "source");
+    const rawStart = this.getAnchorTowardPoint(
+      source,
+      dragState.current,
+      EDGE_NODE_GAP,
+      "source",
+      dragState.sourcePort ?? undefined
+    );
     const rawEnd = dragState.current;
     const { start, end } = this.offsetSegmentEndpoints(rawStart, rawEnd, 0, EDGE_MARKER_CLEARANCE);
     const midX = (start.x + end.x) / 2;
@@ -3695,8 +3724,8 @@ spec:
     if (!effective) return null;
     const { fromNode: source, toNode: target } = effective;
     if (source.id === target.id) return null;
-    const rawStart = this.getAnchorWithGap(source, target, EDGE_NODE_GAP, "source");
-    const rawEnd = this.getAnchorWithGap(target, source, EDGE_NODE_GAP, "target");
+    const rawStart = this.getAnchorWithGap(source, target, EDGE_NODE_GAP, "source", edge.sourcePort);
+    const rawEnd = this.getAnchorWithGap(target, source, EDGE_NODE_GAP, "target", edge.targetPort);
     const sourceCenter = this.getNodeCenter(source);
     const targetCenter = this.getNodeCenter(target);
     const startAxis = this.getEdgeTerminalAxis(source, rawStart, sourceCenter);
@@ -3710,21 +3739,38 @@ spec:
   }
 
   private getEdgePathData(edge: CanvasEdge): EdgePathData | null {
+    if (this.edgePathDataCache.has(edge.id)) {
+      return this.edgePathDataCache.get(edge.id) ?? null;
+    }
+
     const geometry = this.getEdgeGeometry(edge);
-    if (!geometry) return null;
+    if (!geometry) {
+      this.edgePathDataCache.set(edge.id, null);
+      return null;
+    }
     const basePolyline = this.getBaseEdgePolyline(geometry);
     const obstacleRects = this.getEdgeObstacleRects(edge, geometry.sourceId, geometry.targetId);
-    const routed = this.routePolylineAroundObstacles(
+    const routed = routeEdgePolylineAroundObstacles(
       basePolyline,
       obstacleRects,
       geometry.sourceId,
-      geometry.targetId
+      geometry.targetId,
+      {
+        maxPasses: EDGE_ROUTE_MAX_PASSES,
+        obstacleClearance: EDGE_OBSTACLE_CLEARANCE
+      }
     );
-    if (routed.length < 2) return null;
-    return {
+    if (routed.length < 2) {
+      this.edgePathDataCache.set(edge.id, null);
+      return null;
+    }
+
+    const data = {
       points: routed,
       style: geometry.style
     };
+    this.edgePathDataCache.set(edge.id, data);
+    return data;
   }
 
   private getBaseEdgePolyline(
@@ -3866,126 +3912,6 @@ spec:
     return ids;
   }
 
-  private routePolylineAroundObstacles(
-    points: readonly EdgePoint[],
-    obstacles: readonly EdgeObstacleRect[],
-    sourceId: string,
-    targetId: string
-  ): readonly EdgePoint[] {
-    let routed = this.compactPolyline(points);
-    if (routed.length < 2 || obstacles.length === 0) return routed;
-
-    let pass = 0;
-    while (pass < EDGE_ROUTE_MAX_PASSES) {
-      pass += 1;
-      let changed = false;
-
-      for (let index = 0; index < routed.length - 1; index += 1) {
-        const start = routed[index];
-        const end = routed[index + 1];
-        if (!start || !end) continue;
-        const isFirstSegment = index === 0;
-        const isLastSegment = index === routed.length - 2;
-        const blocking = obstacles.find((rect) => {
-          if (isFirstSegment && rect.id === sourceId) return false;
-          if (isLastSegment && rect.id === targetId) return false;
-          return this.segmentIntersectsExpandedRect(start, end, rect);
-        });
-        if (!blocking) continue;
-        const detour = this.buildSegmentDetour(start, end, blocking, obstacles);
-        if (detour.length === 0) continue;
-        routed = this.compactPolyline([
-          ...routed.slice(0, index + 1),
-          ...detour,
-          ...routed.slice(index + 1)
-        ]);
-        changed = true;
-        break;
-      }
-
-      if (!changed) break;
-    }
-
-    return routed;
-  }
-
-  private buildSegmentDetour(
-    start: EdgePoint,
-    end: EdgePoint,
-    obstacle: EdgeObstacleRect,
-    obstacles: readonly EdgeObstacleRect[]
-  ): readonly EdgePoint[] {
-    const clearance = EDGE_OBSTACLE_CLEARANCE;
-    const nearHorizontal = Math.abs(start.y - end.y) <= Math.abs(start.x - end.x);
-    const candidates: EdgePoint[][] = [];
-
-    if (nearHorizontal) {
-      const topY = obstacle.top - clearance;
-      const bottomY = obstacle.bottom + clearance;
-      candidates.push(
-        [{ x: start.x, y: topY }, { x: end.x, y: topY }],
-        [{ x: start.x, y: bottomY }, { x: end.x, y: bottomY }]
-      );
-    } else {
-      const leftX = obstacle.left - clearance;
-      const rightX = obstacle.right + clearance;
-      candidates.push(
-        [{ x: leftX, y: start.y }, { x: leftX, y: end.y }],
-        [{ x: rightX, y: start.y }, { x: rightX, y: end.y }]
-      );
-    }
-
-    candidates.push(
-      [{ x: obstacle.left - clearance, y: start.y }, { x: obstacle.left - clearance, y: end.y }],
-      [{ x: obstacle.right + clearance, y: start.y }, { x: obstacle.right + clearance, y: end.y }],
-      [{ x: start.x, y: obstacle.top - clearance }, { x: end.x, y: obstacle.top - clearance }],
-      [{ x: start.x, y: obstacle.bottom + clearance }, { x: end.x, y: obstacle.bottom + clearance }]
-    );
-
-    return this.pickBestDetour(start, end, candidates, obstacles);
-  }
-
-  private pickBestDetour(
-    start: EdgePoint,
-    end: EdgePoint,
-    candidates: readonly (readonly EdgePoint[])[],
-    obstacles: readonly EdgeObstacleRect[]
-  ): readonly EdgePoint[] {
-    let best: readonly EdgePoint[] = [];
-    let bestScore = Number.POSITIVE_INFINITY;
-
-    for (const candidate of candidates) {
-      const path = this.compactPolyline([start, ...candidate, end]);
-      if (path.length < 2) continue;
-      const collisions = this.countPolylineObstacleCollisions(path, obstacles);
-      const length = this.getPolylineLength(path);
-      const bends = Math.max(0, path.length - 2);
-      const score = collisions * 10000 + length + bends * 10;
-      if (score < bestScore) {
-        bestScore = score;
-        best = candidate;
-      }
-    }
-
-    return best;
-  }
-
-  private countPolylineObstacleCollisions(
-    points: readonly EdgePoint[],
-    obstacles: readonly EdgeObstacleRect[]
-  ): number {
-    let collisions = 0;
-    for (let index = 0; index < points.length - 1; index += 1) {
-      const start = points[index];
-      const end = points[index + 1];
-      if (!start || !end) continue;
-      for (const obstacle of obstacles) {
-        if (this.segmentIntersectsExpandedRect(start, end, obstacle)) collisions += 1;
-      }
-    }
-    return collisions;
-  }
-
   private compactPolyline(points: readonly EdgePoint[]): readonly EdgePoint[] {
     const compacted: EdgePoint[] = [];
     for (const point of points) {
@@ -4009,57 +3935,6 @@ spec:
       }
     }
     return compacted;
-  }
-
-  private segmentIntersectsExpandedRect(start: EdgePoint, end: EdgePoint, rect: EdgeObstacleRect): boolean {
-    if (this.pointInsideRect(start, rect) || this.pointInsideRect(end, rect)) return true;
-
-    const minX = Math.min(start.x, end.x);
-    const maxX = Math.max(start.x, end.x);
-    const minY = Math.min(start.y, end.y);
-    const maxY = Math.max(start.y, end.y);
-    if (maxX < rect.left || minX > rect.right || maxY < rect.top || minY > rect.bottom) return false;
-
-    const topLeft = { x: rect.left, y: rect.top };
-    const topRight = { x: rect.right, y: rect.top };
-    const bottomRight = { x: rect.right, y: rect.bottom };
-    const bottomLeft = { x: rect.left, y: rect.bottom };
-
-    return (
-      this.segmentsIntersect(start, end, topLeft, topRight)
-      || this.segmentsIntersect(start, end, topRight, bottomRight)
-      || this.segmentsIntersect(start, end, bottomRight, bottomLeft)
-      || this.segmentsIntersect(start, end, bottomLeft, topLeft)
-    );
-  }
-
-  private pointInsideRect(point: EdgePoint, rect: EdgeObstacleRect): boolean {
-    return point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
-  }
-
-  private segmentsIntersect(a: EdgePoint, b: EdgePoint, c: EdgePoint, d: EdgePoint): boolean {
-    const epsilon = 0.001;
-    const orientation = (p: EdgePoint, q: EdgePoint, r: EdgePoint): number =>
-      (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
-    const onSegment = (p: EdgePoint, q: EdgePoint, r: EdgePoint): boolean =>
-      q.x <= Math.max(p.x, r.x) + epsilon
-      && q.x + epsilon >= Math.min(p.x, r.x)
-      && q.y <= Math.max(p.y, r.y) + epsilon
-      && q.y + epsilon >= Math.min(p.y, r.y);
-
-    const o1 = orientation(a, b, c);
-    const o2 = orientation(a, b, d);
-    const o3 = orientation(c, d, a);
-    const o4 = orientation(c, d, b);
-
-    if ((o1 > 0 && o2 < 0 || o1 < 0 && o2 > 0) && (o3 > 0 && o4 < 0 || o3 < 0 && o4 > 0)) {
-      return true;
-    }
-    if (Math.abs(o1) <= epsilon && onSegment(a, c, b)) return true;
-    if (Math.abs(o2) <= epsilon && onSegment(a, d, b)) return true;
-    if (Math.abs(o3) <= epsilon && onSegment(c, a, d)) return true;
-    if (Math.abs(o4) <= epsilon && onSegment(c, b, d)) return true;
-    return false;
   }
 
   private getPolylineLength(points: readonly EdgePoint[]): number {
@@ -4556,9 +4431,10 @@ spec:
     from: CanvasNode,
     target: Readonly<{ x: number; y: number }>,
     gap: number,
-    role: "source" | "target"
+    role: "source" | "target",
+    preferredSide?: ArchitectureEdgePortSide
   ): Readonly<{ x: number; y: number }> {
-    const side = this.getNodeConnectionSideTowardPoint(from, target, role);
+    const side = preferredSide ?? this.getNodeConnectionSideTowardPoint(from, target, role);
     return this.getNodePortAnchor(from, side, gap);
   }
 
@@ -4566,10 +4442,11 @@ spec:
     from: CanvasNode,
     to: CanvasNode,
     gap: number,
-    role: "source" | "target"
+    role: "source" | "target",
+    preferredSide?: ArchitectureEdgePortSide
   ): Readonly<{ x: number; y: number }> {
     const targetCenter = this.getNodeCenter(to);
-    return this.getAnchorTowardPoint(from, targetCenter, gap, role);
+    return this.getAnchorTowardPoint(from, targetCenter, gap, role, preferredSide);
   }
 
   private getNodeConnectionSideTowardPoint(
@@ -4710,11 +4587,15 @@ spec:
     return candidate;
   }
 
-  private getEdgeMergeSignature(edge: Pick<CanvasEdge, "from" | "to" | "label" | "style">): string {
+  private getEdgeMergeSignature(
+    edge: Pick<CanvasEdge, "from" | "to" | "sourcePort" | "targetPort" | "label" | "style">
+  ): string {
     const style = normalizeEdgeStyle(edge.style);
     return JSON.stringify({
       from: edge.from,
       to: edge.to,
+      sourcePort: edge.sourcePort ?? "",
+      targetPort: edge.targetPort ?? "",
       label: edge.label ?? "",
       path: style.path,
       line: style.line,
@@ -4724,11 +4605,12 @@ spec:
     });
   }
 
-  private startConnectDrag(nodeId: string, event: PointerEvent): void {
-    this.startConnect(nodeId, event);
+  private startConnectDrag(nodeId: string, sourcePort: ArchitectureEdgePortSide | null, event: PointerEvent): void {
+    this.startConnect(nodeId, sourcePort, event);
     const point = this.toCanvasPoint(event);
     this.connectionDragState = {
       sourceId: nodeId,
+      sourcePort,
       start: point,
       current: point
     };
@@ -4736,7 +4618,11 @@ spec:
     this.markViewChanged();
   }
 
-  private onPortPointerDown(event: PointerEvent, nodeId: string): void {
+  private onPortPointerDown(
+    event: PointerEvent,
+    nodeId: string,
+    side: ArchitectureEdgePortSide | null
+  ): void {
     if (event.button === 1) {
       this.startCanvasPan(event);
       return;
@@ -4748,7 +4634,7 @@ spec:
     // the next click can finish the connection instead of resetting the source.
     if (this.connectionSourceId && this.connectionSourceId !== nodeId) return;
 
-    this.startConnectDrag(nodeId, event);
+    this.startConnectDrag(nodeId, side, event);
   }
 
   private startCanvasPan(event: PointerEvent): void {
@@ -4762,7 +4648,14 @@ spec:
     this.markInteractionChanged();
   }
 
-  private createConnection(from: string, to: string): void {
+  private createConnection(
+    from: string,
+    to: string,
+    ports?: Readonly<{
+      sourcePort: ArchitectureEdgePortSide | null;
+      targetPort: ArchitectureEdgePortSide | null;
+    }>
+  ): void {
     if (from === to) return;
     const fromNode = this.nodes.find((node) => node.id === from) ?? null;
     const toNode = this.nodes.find((node) => node.id === to) ?? null;
@@ -4773,6 +4666,11 @@ spec:
       return;
     }
     if (this.edges.some((edge) => edge.from === from && edge.to === to)) return;
+
+    const inferredSourcePort = ports?.sourcePort
+      ?? this.getNodeConnectionSideTowardPoint(fromNode, this.getNodeCenter(toNode), "source");
+    const inferredTargetPort = ports?.targetPort
+      ?? this.getNodeConnectionSideTowardPoint(toNode, this.getNodeCenter(fromNode), "target");
 
     const reverseEdge = this.edges.find((edge) => edge.from === to && edge.to === from);
     if (reverseEdge) {
@@ -4795,6 +4693,8 @@ spec:
         id: `edge-${from}-${to}-${crypto.randomUUID()}`,
         from,
         to,
+        sourcePort: inferredSourcePort,
+        targetPort: inferredTargetPort,
         style
       }
     ];
@@ -4803,34 +4703,46 @@ spec:
   private getTargetNodeIdFromPointerEvent(
     event: PointerEvent,
     sourceNodeId: string
-  ): string | null {
+  ): ConnectionTarget | null {
     const target = event.target as HTMLElement | null;
     const isImplicitlyInvalidTarget = (targetNodeId: string): boolean =>
       targetNodeId === sourceNodeId ||
       this.isAncestorOfNode(targetNodeId, sourceNodeId) ||
       this.isAncestorOfNode(sourceNodeId, targetNodeId);
-    const fromTargetPort =
-      target?.closest<HTMLElement>("[data-target-port-node-id]")?.dataset["targetPortNodeId"] ??
-      null;
-    if (fromTargetPort && fromTargetPort !== sourceNodeId) return fromTargetPort;
+    const fromTargetPortElement = target?.closest<HTMLElement>("[data-target-port-node-id]") ?? null;
+    const fromTargetPortNodeId = fromTargetPortElement?.dataset["targetPortNodeId"] ?? null;
+    if (fromTargetPortNodeId && fromTargetPortNodeId !== sourceNodeId) {
+      return {
+        nodeId: fromTargetPortNodeId,
+        targetPort: this.parseEdgePortSide(fromTargetPortElement?.dataset["portSide"])
+      };
+    }
 
     const fromTargetNode =
       target?.closest<HTMLElement>("[data-node-id]")?.dataset["nodeId"] ?? null;
-    if (fromTargetNode && !isImplicitlyInvalidTarget(fromTargetNode)) return fromTargetNode;
+    if (fromTargetNode && !isImplicitlyInvalidTarget(fromTargetNode)) {
+      return { nodeId: fromTargetNode, targetPort: null };
+    }
 
     const hoveredElements = document.elementsFromPoint(event.clientX, event.clientY);
     for (const hoveredElement of hoveredElements) {
       const hovered = hoveredElement as HTMLElement;
-      const targetPortNodeId =
-        hovered.closest<HTMLElement>("[data-target-port-node-id]")?.dataset["targetPortNodeId"] ??
-        null;
-      if (targetPortNodeId && targetPortNodeId !== sourceNodeId) return targetPortNodeId;
+      const targetPortElement = hovered.closest<HTMLElement>("[data-target-port-node-id]") ?? null;
+      const targetPortNodeId = targetPortElement?.dataset["targetPortNodeId"] ?? null;
+      if (targetPortNodeId && targetPortNodeId !== sourceNodeId) {
+        return {
+          nodeId: targetPortNodeId,
+          targetPort: this.parseEdgePortSide(targetPortElement?.dataset["portSide"])
+        };
+      }
     }
 
     for (const hoveredElement of hoveredElements) {
       const hovered = hoveredElement as HTMLElement;
       const targetNodeId = hovered.closest<HTMLElement>("[data-node-id]")?.dataset["nodeId"] ?? null;
-      if (targetNodeId && !isImplicitlyInvalidTarget(targetNodeId)) return targetNodeId;
+      if (targetNodeId && !isImplicitlyInvalidTarget(targetNodeId)) {
+        return { nodeId: targetNodeId, targetPort: null };
+      }
     }
 
     const canvasPoint = this.toCanvasPoint(event);
@@ -4839,7 +4751,15 @@ spec:
       .filter((node) => this.containsPoint(node, canvasPoint))
       .sort((left, right) => this.area(left.size) - this.area(right.size));
 
-    return fallbackTargets[0]?.id ?? null;
+    const fallbackNode = fallbackTargets[0];
+    return fallbackNode ? { nodeId: fallbackNode.id, targetPort: null } : null;
+  }
+
+  private parseEdgePortSide(value: string | undefined): ArchitectureEdgePortSide | null {
+    if (!value) return null;
+    return value === "left" || value === "right" || value === "top" || value === "bottom"
+      ? value
+      : null;
   }
 
   private isAncestorOfNode(ancestorNodeId: string, nodeId: string): boolean {
@@ -5057,6 +4977,7 @@ spec:
       this.marqueeState = null;
       this.resizeEnabledNodeId = null;
       this.connectionSourceId = null;
+      this.connectionSourcePort = null;
       this.connectionDragState = null;
       this.nodeInlineCodeDrafts.clear();
       this.status = "Desfeito";
@@ -6145,6 +6066,7 @@ spec:
   }
 
   private markViewChanged(): void {
+    this.edgePathDataCache.clear();
     if (!this.hasCollapsedNodeForDoubleClickHint()) {
       if (this.showDoubleClickHint) {
         this.showDoubleClickHint = false;
@@ -6165,6 +6087,7 @@ spec:
   }
 
   private markInteractionChanged(): void {
+    this.edgePathDataCache.clear();
     this.requestViewRender();
   }
 

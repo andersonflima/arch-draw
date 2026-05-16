@@ -35,6 +35,8 @@ const toArchitectureEdge = (edge: CanvasEdge): ArchitectureEdge => ({
   id: edge.id,
   from: edge.from,
   to: edge.to,
+  sourcePort: edge.sourcePort,
+  targetPort: edge.targetPort,
   label: edge.label,
   style: normalizeEdgeStyle(edge.style)
 });

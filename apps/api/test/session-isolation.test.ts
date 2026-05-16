@@ -107,6 +107,39 @@ describe("session-scoped architectures", () => {
     expect(summariesAAfterCrossDelete).toHaveLength(1);
     expect(summariesAAfterCrossDelete[0]?.id).toBe(createdArchitecture.id);
   });
+
+  it("rejects invalid ids and malformed payloads", async () => {
+    ({ app, tempDir } = await createTestServer());
+
+    const invalidRead = await app.inject({
+      method: "GET",
+      url: "/architectures/invalid%20id",
+      headers: {
+        origin: TEST_WEB_ORIGIN
+      }
+    });
+    expect(invalidRead.statusCode).toBe(400);
+
+    const invalidCreate = await app.inject({
+      method: "POST",
+      url: "/architectures",
+      headers: {
+        origin: TEST_WEB_ORIGIN
+      },
+      payload: { title: 123 }
+    });
+    expect(invalidCreate.statusCode).toBe(400);
+
+    const invalidImport = await app.inject({
+      method: "POST",
+      url: "/architectures/import",
+      headers: {
+        origin: TEST_WEB_ORIGIN
+      },
+      payload: "not-an-object"
+    });
+    expect([400, 415]).toContain(invalidImport.statusCode);
+  });
 });
 
 const createTestServer = async (): Promise<{

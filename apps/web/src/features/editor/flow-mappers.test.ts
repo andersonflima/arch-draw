@@ -25,6 +25,8 @@ describe("canvas mappers", () => {
           id: "edge-1",
           from: "api",
           to: "api",
+          sourcePort: "right" as const,
+          targetPort: "left" as const,
           label: "loop",
           style: {
             path: "step" as const,

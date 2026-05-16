@@ -10,7 +10,8 @@ import { registerRoutes } from "./http/routes";
 
 export const createServer = async (config: AppConfig) => {
   const app = Fastify({
-    logger: true
+    logger: true,
+    bodyLimit: 2 * 1024 * 1024
   });
   const connection = await createSqliteConnection(config.databasePath);
 
@@ -26,6 +27,14 @@ export const createServer = async (config: AppConfig) => {
     repository: makeSqliteArchitectureRepository(connection),
     clock: systemClock,
     idGenerator: cryptoIdGenerator
+  });
+
+  app.addHook("onSend", async (_request, reply, payload) => {
+    reply.header("x-content-type-options", "nosniff");
+    reply.header("x-frame-options", "DENY");
+    reply.header("referrer-policy", "no-referrer");
+    reply.header("content-security-policy", "default-src 'none'; frame-ancestors 'none'");
+    return payload;
   });
 
   app.addHook("onClose", async () => {

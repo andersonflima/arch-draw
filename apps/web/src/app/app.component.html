@@ -328,32 +328,36 @@
                 type="button"
                 title="Conectar"
                 [attr.data-target-port-node-id]="node.id"
-                (pointerdown)="onTargetPortPointerDown($event, node.id)"
-                (click)="onTargetPortClick($event, node.id)"
+                data-port-side="top"
+                (pointerdown)="onTargetPortPointerDown($event, node.id, 'top')"
+                (click)="onTargetPortClick($event, node.id, 'top')"
               ></button>
               <button
                 class="node-port node-port--omni node-port--omni-right"
                 type="button"
                 title="Conectar"
                 [attr.data-target-port-node-id]="node.id"
-                (pointerdown)="onTargetPortPointerDown($event, node.id)"
-                (click)="onTargetPortClick($event, node.id)"
+                data-port-side="right"
+                (pointerdown)="onTargetPortPointerDown($event, node.id, 'right')"
+                (click)="onTargetPortClick($event, node.id, 'right')"
               ></button>
               <button
                 class="node-port node-port--omni node-port--omni-bottom"
                 type="button"
                 title="Conectar"
                 [attr.data-target-port-node-id]="node.id"
-                (pointerdown)="onTargetPortPointerDown($event, node.id)"
-                (click)="onTargetPortClick($event, node.id)"
+                data-port-side="bottom"
+                (pointerdown)="onTargetPortPointerDown($event, node.id, 'bottom')"
+                (click)="onTargetPortClick($event, node.id, 'bottom')"
               ></button>
               <button
                 class="node-port node-port--omni node-port--omni-left"
                 type="button"
                 title="Conectar"
                 [attr.data-target-port-node-id]="node.id"
-                (pointerdown)="onTargetPortPointerDown($event, node.id)"
-                (click)="onTargetPortClick($event, node.id)"
+                data-port-side="left"
+                (pointerdown)="onTargetPortPointerDown($event, node.id, 'left')"
+                (click)="onTargetPortClick($event, node.id, 'left')"
               ></button>
             </ng-container>
             <ng-template #defaultNodePorts>
@@ -362,8 +366,9 @@
                 type="button"
                 title="Conectar aqui"
                 [attr.data-target-port-node-id]="node.id"
-                (pointerdown)="onTargetPortPointerDown($event, node.id)"
-                (click)="onTargetPortClick($event, node.id)"
+                data-port-side="left"
+                (pointerdown)="onTargetPortPointerDown($event, node.id, 'left')"
+                (click)="onTargetPortClick($event, node.id, 'left')"
               ></button>
             </ng-template>
             <div class="architecture-node__header">
@@ -461,8 +466,9 @@
               type="button"
               title="Criar conexao"
               [attr.data-target-port-node-id]="node.id"
-              (pointerdown)="onSourcePortPointerDown($event, node.id)"
-              (click)="onSourcePortClick($event, node.id)"
+              data-port-side="right"
+              (pointerdown)="onSourcePortPointerDown($event, node.id, 'right')"
+              (click)="onSourcePortClick($event, node.id, 'right')"
             ></button>
             <ng-container *ngIf="canResizeNode(node.id)">
               <button class="resize-control resize-control--n" type="button" (pointerdown)="onResizePointerDown($event, node, 'n')"></button>

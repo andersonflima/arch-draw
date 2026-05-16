@@ -22,6 +22,10 @@ type IdParams = Readonly<{
   id: string;
 }>;
 
+const ARCHITECTURE_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
+const MAX_TITLE_LENGTH = 180;
+const MAX_DESCRIPTION_LENGTH = 4000;
+
 export const registerRoutes = async (
   app: FastifyInstance,
   dependencies: RouteDependencies
@@ -51,14 +55,27 @@ export const registerRoutes = async (
     listArchitectures(resolveSessionToken(request, reply))
   );
 
-  app.post<{ Body: { title?: string; description?: string } }>(
+  app.post<{ Body: unknown }>(
     "/architectures",
     async (request, reply) => {
+      if (request.body !== undefined && !isObject(request.body)) {
+        return reply.code(400).send({ errors: ["Request body must be a JSON object"] });
+      }
+      const body = isObject(request.body) ? request.body : {};
+      const title = normalizeOptionalString(body["title"], MAX_TITLE_LENGTH);
+      if (title === null) {
+        return reply.code(400).send({ errors: [`Title must be a string with up to ${MAX_TITLE_LENGTH} characters`] });
+      }
+      const description = normalizeOptionalString(body["description"], MAX_DESCRIPTION_LENGTH);
+      if (description === null) {
+        return reply.code(400).send({ errors: [`Description must be a string with up to ${MAX_DESCRIPTION_LENGTH} characters`] });
+      }
+
       const sessionToken = resolveSessionToken(request, reply);
       const architecture = await createArchitecture({
         sessionToken,
-        title: request.body.title ?? "Untitled architecture",
-        description: request.body.description
+        title: title ?? "Untitled architecture",
+        description
       });
 
       return reply.code(201).send(architecture);
@@ -66,6 +83,9 @@ export const registerRoutes = async (
   );
 
   app.get<{ Params: IdParams }>("/architectures/:id", async (request, reply) => {
+    if (!isSafeArchitectureId(request.params.id)) {
+      return reply.code(400).send({ errors: ["Invalid architecture id"] });
+    }
     const architecture = await readArchitecture(
       request.params.id,
       resolveSessionToken(request, reply)
@@ -73,15 +93,28 @@ export const registerRoutes = async (
     return architecture ?? reply.code(404).send({ error: "Architecture not found" });
   });
 
-  app.put<{ Params: IdParams; Body: ArchitectureDocument }>(
+  app.put<{ Params: IdParams; Body: unknown }>(
     "/architectures/:id",
     async (request, reply) => {
-      if (request.params.id !== request.body.id) {
+      if (!isSafeArchitectureId(request.params.id)) {
+        return reply.code(400).send({ errors: ["Invalid architecture id"] });
+      }
+      if (!isObject(request.body)) {
+        return reply.code(400).send({ errors: ["Request body must be a JSON object"] });
+      }
+      const bodyId = normalizeRequiredString(request.body["id"]);
+      if (!bodyId) {
+        return reply.code(400).send({ errors: ["Architecture body id is required"] });
+      }
+      if (!isSafeArchitectureId(bodyId)) {
+        return reply.code(400).send({ errors: ["Invalid architecture id in body"] });
+      }
+      if (request.params.id !== bodyId) {
         return reply.code(400).send({ errors: ["Route id does not match body id"] });
       }
 
       const result = await saveArchitecture(
-        request.body,
+        request.body as ArchitectureDocument,
         resolveSessionToken(request, reply)
       );
       return result.ok
@@ -91,6 +124,9 @@ export const registerRoutes = async (
   );
 
   app.delete<{ Params: IdParams }>("/architectures/:id", async (request, reply) => {
+    if (!isSafeArchitectureId(request.params.id)) {
+      return reply.code(400).send({ errors: ["Invalid architecture id"] });
+    }
     const deleted = await deleteArchitecture(
       request.params.id,
       resolveSessionToken(request, reply)
@@ -99,6 +135,9 @@ export const registerRoutes = async (
   });
 
   app.get<{ Params: IdParams }>("/architectures/:id/export", async (request, reply) => {
+    if (!isSafeArchitectureId(request.params.id)) {
+      return reply.code(400).send({ errors: ["Invalid architecture id"] });
+    }
     const sharePackage = await exportArchitecture(
       request.params.id,
       resolveSessionToken(request, reply)
@@ -108,14 +147,18 @@ export const registerRoutes = async (
       return reply.code(404).send({ error: "Architecture not found" });
     }
 
+    const safeFilename = makeSafeFilename(request.params.id);
     return reply
-      .header("content-disposition", `attachment; filename="${request.params.id}.archdraw.json"`)
+      .header("content-disposition", `attachment; filename="${safeFilename}.archdraw.json"`)
       .send(sharePackage);
   });
 
-  app.post<{ Body: ArchitectureSharePackage }>("/architectures/import", async (request, reply) => {
+  app.post<{ Body: unknown }>("/architectures/import", async (request, reply) => {
+    if (!isObject(request.body)) {
+      return reply.code(400).send({ errors: ["Request body must be a JSON object"] });
+    }
     const result = await importArchitecture(
-      request.body,
+      request.body as ArchitectureSharePackage,
       resolveSessionToken(request, reply)
     );
 
@@ -124,3 +167,24 @@ export const registerRoutes = async (
       : reply.code(400).send({ errors: result.errors });
   });
 };
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const normalizeOptionalString = (value: unknown, maxLength: number): string | undefined | null => {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return normalized.length <= maxLength ? normalized : null;
+};
+
+const normalizeRequiredString = (value: unknown): string | null => {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+};
+
+const isSafeArchitectureId = (id: string): boolean => ARCHITECTURE_ID_PATTERN.test(id);
+
+const makeSafeFilename = (id: string): string =>
+  id.replaceAll(/[^a-zA-Z0-9._:-]/g, "_");

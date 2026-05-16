@@ -159,6 +159,7 @@ export type ArchitectureNodeKind =
 export type ArchitectureEdgePath = "smoothstep" | "straight" | "step" | "bezier";
 
 export type ArchitectureEdgeLineStyle = "solid" | "dashed" | "dotted";
+export type ArchitectureEdgePortSide = "left" | "right" | "top" | "bottom";
 
 export type ArchitectureEdgeStyle = Readonly<{
   path: ArchitectureEdgePath;
@@ -197,6 +198,8 @@ export type ArchitectureEdge = Readonly<{
   id: string;
   from: string;
   to: string;
+  sourcePort?: ArchitectureEdgePortSide;
+  targetPort?: ArchitectureEdgePortSide;
   label?: string;
   style?: ArchitectureEdgeStyle;
 }>;
@@ -332,9 +335,20 @@ const normalizeNodeProperties = (
 
 const normalizeEdge = (edge: ArchitectureEdge): ArchitectureEdge => ({
   ...edge,
+  sourcePort: normalizeEdgePortSide(edge.sourcePort),
+  targetPort: normalizeEdgePortSide(edge.targetPort),
   label: edge.label?.trim() || undefined,
   style: normalizeEdgeStyle(edge.style)
 });
+
+const normalizeEdgePortSide = (
+  side: ArchitectureEdgePortSide | undefined
+): ArchitectureEdgePortSide | undefined => {
+  if (!side) return undefined;
+  return side === "left" || side === "right" || side === "top" || side === "bottom"
+    ? side
+    : undefined;
+};
 
 const normalizeEdgeStyle = (
   style: ArchitectureEdgeStyle | undefined

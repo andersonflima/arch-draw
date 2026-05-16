@@ -31,7 +31,9 @@ export const makeSqliteArchitectureRepository = (
           ORDER BY updated_at DESC
         `,
         { $sessionToken: sessionToken }
-      ).map(toSummary);
+      )
+        .map(toSummary)
+        .filter((summary): summary is ArchitectureSummary => summary !== null);
     },
     findById: async (id, sessionToken) => {
       claimLegacyRows(connection, sessionToken);
@@ -46,7 +48,8 @@ export const makeSqliteArchitectureRepository = (
         { $id: id, $sessionToken: sessionToken }
       )[0];
 
-      return row ? parseDocument(row.document_json) : null;
+      if (!row) return null;
+      return parseDocument(row.document_json);
     },
     save: async (architecture, sessionToken) => {
       claimLegacyRows(connection, sessionToken);
@@ -134,8 +137,9 @@ const claimLegacyRows = (connection: SqliteConnection, sessionToken: string): vo
   }
 };
 
-const toSummary = (row: ArchitectureRow): ArchitectureSummary => {
+const toSummary = (row: ArchitectureRow): ArchitectureSummary | null => {
   const architecture = parseDocument(row.document_json);
+  if (!architecture) return null;
 
   return {
     id: row.id,
@@ -148,8 +152,14 @@ const toSummary = (row: ArchitectureRow): ArchitectureSummary => {
   };
 };
 
-const parseDocument = (documentJson: string): ArchitectureDocument =>
-  JSON.parse(documentJson) as ArchitectureDocument;
+const parseDocument = (documentJson: string): ArchitectureDocument | null => {
+  try {
+    const parsed = JSON.parse(documentJson) as ArchitectureDocument;
+    return typeof parsed === "object" && parsed !== null ? parsed : null;
+  } catch {
+    return null;
+  }
+};
 
 const selectRows = (
   connection: SqliteConnection,
