@@ -346,6 +346,13 @@
                     : 'fa-solid fa-down-left-and-up-right-to-center'" aria-hidden="true"></i>
               </button>
             </div>
+            <div
+              *ngIf="showDoubleClickHint && (isContainerCollapsed(node) || isCodeSnippetCollapsed(node))"
+              class="node-maximize-hint"
+              aria-hidden="true"
+            >
+              <span>Click "maximize me!"</span>
+            </div>
             <ng-container *ngIf="!isEditingNode(node.id); else nodeLabelEditor">
               <ng-container *ngIf="isFlowNodeKind(node.kind); else defaultNodeLabel">
                 <ng-container [ngSwitch]="node.kind">
@@ -606,7 +613,4 @@
     </button>
   </div>
 
-  <div class="hint-balloon" *ngIf="showDoubleClickHint">
-    <span>Click "maximize me!"</span>
-  </div>
 </div>
