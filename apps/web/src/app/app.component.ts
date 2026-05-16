@@ -2345,8 +2345,8 @@ export class AppComponent implements OnDestroy {
     if (!fromNode || !toNode) return [];
     if (this.isEdgeInsideContainerContext(fromNode, toNode)) return [];
 
-    const fromLineage = this.getContainerContextLineage(fromNode);
-    const toLineage = this.getContainerContextLineage(toNode);
+    const fromLineage = this.getActiveContainerContextLineage(fromNode);
+    const toLineage = this.getActiveContainerContextLineage(toNode);
     if (fromLineage.length === 0 && toLineage.length === 0) return [];
 
     const unique = new Set<string>();
@@ -3391,9 +3391,27 @@ export class AppComponent implements OnDestroy {
     return lineage;
   }
 
+  private getActiveContainerContextLineage(node: CanvasNode): readonly string[] {
+    const lineageIds = this.getContainerContextLineage(node);
+    const active: string[] = [];
+    for (const containerId of lineageIds) {
+      const container = this.nodes.find((candidate) => candidate.id === containerId);
+      if (!container) continue;
+      if (container.id === node.id || this.isNodeCenterInsideContainer(node, container)) {
+        active.push(container.id);
+      }
+    }
+    return active;
+  }
+
+  private isNodeCenterInsideContainer(node: CanvasNode, container: CanvasNode): boolean {
+    const center = this.getNodeCenter(node);
+    return this.containsPoint(container, center);
+  }
+
   private isEdgeInsideContainerContext(fromNode: CanvasNode, toNode: CanvasNode): boolean {
-    const fromLineage = this.getContainerContextLineage(fromNode);
-    const toLineage = this.getContainerContextLineage(toNode);
+    const fromLineage = this.getActiveContainerContextLineage(fromNode);
+    const toLineage = this.getActiveContainerContextLineage(toNode);
     if (fromLineage.length === 0 || toLineage.length === 0) return false;
 
     const toSet = new Set(toLineage);
