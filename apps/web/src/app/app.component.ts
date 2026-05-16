@@ -130,8 +130,8 @@ const MINI_MAP_SIZE = { width: 150, height: 96 };
 const MINI_MAP_PADDING = 8;
 const DEFAULT_CANVAS_PAN = { x: 0, y: 0 };
 const AUTOSAVE_DEBOUNCE_MS = 1200;
-const EDGE_NODE_GAP = 10;
-const EDGE_MARKER_CLEARANCE = 6;
+const EDGE_NODE_GAP = 4;
+const EDGE_MARKER_CLEARANCE = 4;
 const MAX_UNDO_HISTORY = 150;
 const DRAG_START_THRESHOLD = 4;
 const EXPORT_EXCLUDED_SELECTORS = [
@@ -2071,7 +2071,7 @@ export class AppComponent {
 
       return { ...node, position };
     });
-    this.markInteractionChanged();
+    this.markInteractionChanged(true);
   }
 
   private hasExceededDragStartThreshold(
@@ -2084,14 +2084,15 @@ export class AppComponent {
   }
 
   private getEdgeGeometry(edge: CanvasEdge): EdgeGeometry | null {
-    if (this.edgeGeometryCache.has(edge.id)) {
+    const useCache = !this.isRealtimeInteractionActive();
+    if (useCache && this.edgeGeometryCache.has(edge.id)) {
       return this.edgeGeometryCache.get(edge.id) ?? null;
     }
 
     const source = this.nodes.find((node) => node.id === edge.from);
     const target = this.nodes.find((node) => node.id === edge.to);
     if (!source || !target) {
-      this.edgeGeometryCache.set(edge.id, null);
+      if (useCache) this.edgeGeometryCache.set(edge.id, null);
       return null;
     }
 
@@ -2100,7 +2101,7 @@ export class AppComponent {
     const style = normalizeEdgeStyle(edge.style);
     const { start, end } = this.applyEdgeMarkerClearance(rawStart, rawEnd, style.bidirectional);
     const geometry = { start, end, style };
-    this.edgeGeometryCache.set(edge.id, geometry);
+    if (useCache) this.edgeGeometryCache.set(edge.id, geometry);
     return geometry;
   }
 
@@ -2297,7 +2298,7 @@ export class AppComponent {
         ? { ...candidate, position, size: { width, height } }
         : candidate
     );
-    this.markInteractionChanged();
+    this.markInteractionChanged(true);
   }
 
   private detachNodeFromParent(node: CanvasNode): CanvasNode {
@@ -2979,9 +2980,21 @@ export class AppComponent {
     this.requestViewRender();
   }
 
-  private markInteractionChanged(): void {
+  private markInteractionChanged(immediate = false): void {
     this.edgeGeometryCache.clear();
+    if (immediate) {
+      if (this.viewRenderFrame !== null) {
+        cancelAnimationFrame(this.viewRenderFrame);
+        this.viewRenderFrame = null;
+      }
+      this.changeDetectorRef.detectChanges();
+      return;
+    }
     this.requestViewRender();
+  }
+
+  private isRealtimeInteractionActive(): boolean {
+    return this.dragState !== null || this.resizeState !== null || this.connectionDragState !== null;
   }
 
   private requestViewRender(): void {
