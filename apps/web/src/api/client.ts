@@ -56,15 +56,27 @@ const request = async <T>(path: string, init: RequestInit = {}): Promise<T> => {
   });
 
   if (response.status === 204) return undefined as T;
-
-  const payload = await response.json();
+  const rawPayload = await response.text();
+  const payload = parseJsonSafely(rawPayload);
 
   if (!response.ok) {
-    const message = Array.isArray(payload.errors)
+    const message = Array.isArray(payload?.errors)
       ? payload.errors.join("; ")
-      : payload.error ?? "Unexpected API error";
+      : typeof payload?.error === "string"
+        ? payload.error
+        : `Unexpected API error (${response.status})`;
     throw new Error(message);
   }
 
-  return payload as T;
+  return (payload ?? undefined) as T;
+};
+
+const parseJsonSafely = (value: string): Record<string, unknown> | null => {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  try {
+    return JSON.parse(trimmed) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
 };
