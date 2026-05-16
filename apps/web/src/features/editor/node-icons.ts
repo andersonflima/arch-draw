@@ -250,7 +250,7 @@ const iconClasses: Partial<Record<ArchitectureNodeKind, string>> = {
   cluster: "fa-solid fa-dharmachakra",
   "cluster-control-plane": "fa-solid fa-sliders",
   "cluster-node": "fa-solid fa-server",
-  "cluster-namespace": "fa-solid fa-draw-polygon",
+  "cluster-namespace": "fa-solid fa-flag",
   "cluster-deployment": "fa-solid fa-rocket",
   "cluster-statefulset": "fa-solid fa-database",
   "cluster-daemonset": "fa-solid fa-repeat",

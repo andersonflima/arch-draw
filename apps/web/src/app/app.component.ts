@@ -855,11 +855,9 @@ export class AppComponent {
       size,
       collapsed: isContainerNodeKind(template.kind) ? false : undefined,
       collapsedIconKind:
-        this.isContainerPlusLikeKind(template.kind)
-          ? "system"
-          : isContainerNodeKind(template.kind)
-            ? template.kind
-            : undefined,
+        isContainerNodeKind(template.kind)
+          ? this.getDefaultCollapsedIconKind(template.kind)
+          : undefined,
       expandedSize: undefined
     };
 
@@ -1154,11 +1152,9 @@ export class AppComponent {
       if (node.id === selected.id) {
         const isContainerKind = isContainerNodeKind(kind);
         const nextCollapsedIconKind =
-          this.isContainerPlusLikeKind(kind)
-            ? node.collapsedIconKind ?? "system"
-            : isContainerKind
-              ? node.collapsedIconKind ?? kind
-              : undefined;
+          isContainerKind
+            ? node.collapsedIconKind ?? this.getDefaultCollapsedIconKind(kind)
+            : undefined;
         return {
           ...node,
           kind,
@@ -1795,7 +1791,7 @@ export class AppComponent {
   }
 
   getNodeIconKind(node: CanvasNode): ArchitectureNodeKind {
-    if (this.isContainerCollapsed(node)) return node.collapsedIconKind ?? node.kind;
+    if (this.isContainerCollapsed(node)) return this.resolveCollapsedIconKind(node);
     return node.kind;
   }
 
@@ -1987,7 +1983,7 @@ export class AppComponent {
         if (node.id !== nodeId || !isContainerNodeKind(node.kind)) return node;
         const collapsedIconKind =
           node.collapsedIconKind
-          ?? (this.isContainerPlusLikeKind(node.kind) ? "system" : node.kind);
+          ?? this.getDefaultCollapsedIconKind(node.kind);
         if (collapsed) {
           if (node.collapsed) return node;
           return {
@@ -2966,6 +2962,19 @@ export class AppComponent {
 
   private isSimpleContainerKind(kind: ArchitectureNodeKind): boolean {
     return kind === "group-container" || kind === "container";
+  }
+
+  private getDefaultCollapsedIconKind(kind: ArchitectureNodeKind): ArchitectureNodeKind {
+    if (kind === "cluster-namespace") return "cluster-namespace";
+    if (this.isContainerPlusLikeKind(kind)) return "system";
+    return kind;
+  }
+
+  private resolveCollapsedIconKind(node: CanvasNode): ArchitectureNodeKind {
+    if (node.kind === "cluster-namespace" && node.collapsedIconKind === "system") {
+      return "cluster-namespace";
+    }
+    return node.collapsedIconKind ?? this.getDefaultCollapsedIconKind(node.kind);
   }
 
   private isContainerPlusLikeKind(kind: ArchitectureNodeKind): boolean {
