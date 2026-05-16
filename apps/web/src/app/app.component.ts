@@ -169,6 +169,7 @@ const FOCUS_Z_INDEX_BASE = 50;
 const MAX_UNDO_HISTORY = 150;
 const DRAG_START_THRESHOLD = 4;
 const UI_THEME_STORAGE_KEY = "arch-draw.ui-theme";
+const FIRST_ACCESS_TEMPLATE_SEEN_KEY = "arch-draw.first-access-template-seen";
 const CONTAINER_CHILD_PADDING_LEFT = 16;
 const CONTAINER_CHILD_PADDING_RIGHT = 16;
 const CONTAINER_CHILD_PADDING_TOP = 56;
@@ -858,9 +859,8 @@ export class AppComponent implements OnDestroy {
         await this.loadArchitecture(remaining[0].id);
         return;
       }
-      const created = await api.createArchitecture("Arquitetura local");
-      this.updateCurrent(created);
-      await this.refreshSummaries();
+      this.clearCurrentArchitecture();
+      this.status = "Todos os diagramas foram removidos";
     });
   }
 
@@ -879,9 +879,7 @@ export class AppComponent implements OnDestroy {
         if (fallback) {
           await this.loadArchitecture(fallback.id);
         } else {
-          const created = await api.createArchitecture("Arquitetura local");
-          this.updateCurrent(created);
-          await this.refreshSummaries();
+          this.clearCurrentArchitecture();
         }
       }
 
@@ -2763,19 +2761,27 @@ LIMIT 50;`;
     await this.runSafely(async () => {
       const existing = await api.listArchitectures();
       if (existing.length === 0) {
+        const shouldSeedTemplate = !this.hasSeenFirstAccessTemplate();
         const created = await api.createArchitecture("Arquitetura local");
-        const seeded = this.createFirstAccessArchitectureTemplate(created);
-        const saved = await api.saveArchitecture(seeded);
-        await this.loadArchitecture(saved.id);
+        if (shouldSeedTemplate) {
+          const seeded = this.createFirstAccessArchitectureTemplate(created);
+          const saved = await api.saveArchitecture(seeded);
+          this.markFirstAccessTemplateAsSeen();
+          await this.loadArchitecture(saved.id);
+        } else {
+          await this.loadArchitecture(created.id);
+        }
       } else {
         const firstExisting = existing[0];
         if (!firstExisting) return;
-        if (this.shouldSeedFirstAccessTemplate(firstExisting)) {
+        if (this.shouldSeedFirstAccessTemplate(firstExisting) && !this.hasSeenFirstAccessTemplate()) {
           const current = await api.readArchitecture(firstExisting.id);
           const seeded = this.createFirstAccessArchitectureTemplate(current);
           const saved = await api.saveArchitecture(seeded);
+          this.markFirstAccessTemplateAsSeen();
           await this.loadArchitecture(saved.id);
         } else {
+          this.markFirstAccessTemplateAsSeen();
           await this.loadArchitecture(firstExisting.id);
         }
       }
@@ -2855,7 +2861,7 @@ LIMIT 50;`;
       makeNode("n-subnet-app", "aws-subnet", "Subnet App (Private)", { x: 90, y: 600 }, { width: 2220, height: 1040 }, "n-vpc"),
       makeNode("n-subnet-data", "aws-subnet", "Subnet Data", { x: 2380, y: 600 }, { width: 1450, height: 1040 }, "n-vpc"),
       makeNode("n-subnet-ops", "aws-subnet", "Subnet Ops / Observability", { x: 90, y: 1710 }, { width: 3740, height: 740 }, "n-vpc"),
-      makeNode("n-user", "external", "Users", { x: -120, y: 210 }, { width: 172, height: 176 }),
+      makeNode("n-user", "external", "Users", { x: 210, y: 210 }, { width: 172, height: 176 }),
       makeNode("n-route53", "aws-route53", "Route53", { x: 360, y: 210 }, { width: 172, height: 176 }, "n-subnet-edge"),
       makeNode(
         "n-waf",
@@ -3156,6 +3162,28 @@ spec:
     this.cancelAutoSave();
     this.lastPersistedSignature = this.buildPersistenceSignature();
     this.applyPreferredInitialViewport(normalized);
+    this.resetHistory();
+    void this.renderMermaid();
+    this.markViewChanged();
+  }
+
+  private clearCurrentArchitecture(): void {
+    this.architecture = null;
+    this.nodes = [];
+    this.edges = [];
+    this.mermaidDraft = DEFAULT_MERMAID_SOURCE;
+    this.selectedNodeId = null;
+    this.selectedNodeIds = [];
+    this.selectedEdgeId = null;
+    this.editingEdgeId = null;
+    this.editingEdgeLabelDraft = "";
+    this.editingNodeId = null;
+    this.marqueeState = null;
+    this.resizeEnabledNodeId = null;
+    this.nodeInlineCodeDrafts.clear();
+    this.cancelAutoSave();
+    this.lastPersistedSignature = "";
+    this.lastCanvasTopologySignature = this.buildCanvasTopologySignature();
     this.resetHistory();
     void this.renderMermaid();
     this.markViewChanged();
@@ -4576,6 +4604,22 @@ spec:
   private persistUiThemePreference(): void {
     try {
       localStorage.setItem(UI_THEME_STORAGE_KEY, this.uiTheme);
+    } catch {
+      // Ignore storage failures (private mode / blocked storage).
+    }
+  }
+
+  private hasSeenFirstAccessTemplate(): boolean {
+    try {
+      return localStorage.getItem(FIRST_ACCESS_TEMPLATE_SEEN_KEY) === "true";
+    } catch {
+      return false;
+    }
+  }
+
+  private markFirstAccessTemplateAsSeen(): void {
+    try {
+      localStorage.setItem(FIRST_ACCESS_TEMPLATE_SEEN_KEY, "true");
     } catch {
       // Ignore storage failures (private mode / blocked storage).
     }
