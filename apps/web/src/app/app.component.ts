@@ -3538,17 +3538,36 @@ spec:
     const container = this.nodes.find((node) => node.id === containerId);
     if (!container || !isContainerNodeKind(container.kind) || this.isContainerCollapsed(container)) return;
 
-    const children = this.nodes.filter((node) => node.parentId === containerId);
-    if (children.length === 0) return;
+    const directChildren = this.nodes.filter((node) => node.parentId === containerId);
+    if (directChildren.length === 0) return;
+
+    const descendants = this.nodes.filter((node) => this.isDescendantOfContainer(node.id, containerId));
+    if (descendants.length === 0) return;
+
+    const containerAbsolute = this.getAbsolutePosition(container);
 
     const minSize = { width: 260, height: 180 };
-    const minLeft = Math.min(...children.map((child) => child.position.x));
-    const minTop = Math.min(...children.map((child) => child.position.y));
+    const minLeft = Math.min(
+      ...descendants.map((descendant) => this.getAbsolutePosition(descendant).x - containerAbsolute.x)
+    );
+    const minTop = Math.min(
+      ...descendants.map((descendant) => this.getAbsolutePosition(descendant).y - containerAbsolute.y)
+    );
     const shiftX = minLeft < CONTAINER_CHILD_PADDING_LEFT ? CONTAINER_CHILD_PADDING_LEFT - minLeft : 0;
     const shiftY = minTop < CONTAINER_CHILD_PADDING_TOP ? CONTAINER_CHILD_PADDING_TOP - minTop : 0;
 
-    const maxRight = Math.max(...children.map((child) => child.position.x + shiftX + child.size.width));
-    const maxBottom = Math.max(...children.map((child) => child.position.y + shiftY + child.size.height));
+    const maxRight = Math.max(
+      ...descendants.map((descendant) => {
+        const absolute = this.getAbsolutePosition(descendant);
+        return absolute.x - containerAbsolute.x + shiftX + descendant.size.width;
+      })
+    );
+    const maxBottom = Math.max(
+      ...descendants.map((descendant) => {
+        const absolute = this.getAbsolutePosition(descendant);
+        return absolute.y - containerAbsolute.y + shiftY + descendant.size.height;
+      })
+    );
     const requiredWidth = Math.max(
       minSize.width,
       Math.ceil(maxRight + CONTAINER_CHILD_PADDING_RIGHT)
@@ -3585,6 +3604,15 @@ spec:
       }
       return node;
     });
+  }
+
+  private isDescendantOfContainer(nodeId: string, containerId: string): boolean {
+    let currentParentId = this.nodes.find((node) => node.id === nodeId)?.parentId;
+    while (currentParentId) {
+      if (currentParentId === containerId) return true;
+      currentParentId = this.nodes.find((node) => node.id === currentParentId)?.parentId;
+    }
+    return false;
   }
 
   private attachNodeToContainer(
