@@ -106,6 +106,12 @@ type PaletteCategoryGroup = Readonly<{
   templates: readonly NodeTemplate[];
 }>;
 
+type EdgeGeometry = Readonly<{
+  start: Readonly<{ x: number; y: number }>;
+  end: Readonly<{ x: number; y: number }>;
+  style: ArchitectureEdgeStyle;
+}>;
+
 type ContextPropertiesPanelState = Readonly<{
   x: number;
   y: number;
@@ -601,6 +607,7 @@ export class AppComponent {
   private applyingHistory = false;
   private viewRenderFrame: number | null = null;
   private readonly nodePropertyFieldsCache = new Map<ArchitectureNodeKind, readonly NodePropertyField[]>();
+  private readonly edgeGeometryCache = new Map<string, EdgeGeometry | null>();
 
   constructor(
     private readonly changeDetectorRef: ChangeDetectorRef,
@@ -1706,6 +1713,34 @@ export class AppComponent {
     return this.isVisibleNode(fromNode) && this.isVisibleNode(toNode);
   }
 
+  trackBySummaryId(_index: number, summary: ArchitectureSummary): string {
+    return summary.id;
+  }
+
+  trackByPaletteCategory(_index: number, group: PaletteCategoryGroup): string {
+    return group.category;
+  }
+
+  trackByTemplateKind(_index: number, template: NodeTemplate): string {
+    return template.kind;
+  }
+
+  trackByNodeId(_index: number, node: CanvasNode): string {
+    return node.id;
+  }
+
+  trackByEdgeId(_index: number, edge: CanvasEdge): string {
+    return edge.id;
+  }
+
+  trackByStringValue(_index: number, value: string): string {
+    return value;
+  }
+
+  trackByFieldKey(_index: number, field: NodePropertyField): string {
+    return field.key;
+  }
+
   isContainerLayerNode(node: CanvasNode): boolean {
     return this.isVisibleNode(node) && this.rendersAsContainer(node);
   }
@@ -1772,10 +1807,10 @@ export class AppComponent {
 
   getEdgeDash(edge: CanvasEdge): string | null {
     const style = normalizeEdgeStyle(edge.style);
-    if (style.line === "solid") return "24 4";
+    if (style.line === "solid") return null;
     const line = style.line;
-    if (line === "dashed") return "8 6";
-    if (line === "dotted") return "2 6";
+    if (line === "dashed") return "10 6";
+    if (line === "dotted") return "2 8";
     return null;
   }
 
@@ -1796,7 +1831,7 @@ export class AppComponent {
   }
 
   isLiveEdge(_edge: CanvasEdge): boolean {
-    return true;
+    return this.connectionDragState !== null;
   }
 
   isBidirectional(edge: CanvasEdge): boolean {
@@ -2048,21 +2083,25 @@ export class AppComponent {
     return Math.hypot(deltaX, deltaY) >= DRAG_START_THRESHOLD;
   }
 
-  private getEdgeGeometry(
-    edge: CanvasEdge
-  ): Readonly<{
-    start: Readonly<{ x: number; y: number }>;
-    end: Readonly<{ x: number; y: number }>;
-    style: ArchitectureEdgeStyle;
-  }> | null {
+  private getEdgeGeometry(edge: CanvasEdge): EdgeGeometry | null {
+    if (this.edgeGeometryCache.has(edge.id)) {
+      return this.edgeGeometryCache.get(edge.id) ?? null;
+    }
+
     const source = this.nodes.find((node) => node.id === edge.from);
     const target = this.nodes.find((node) => node.id === edge.to);
-    if (!source || !target) return null;
+    if (!source || !target) {
+      this.edgeGeometryCache.set(edge.id, null);
+      return null;
+    }
+
     const rawStart = this.getAnchorWithGap(source, target, EDGE_NODE_GAP);
     const rawEnd = this.getAnchorWithGap(target, source, EDGE_NODE_GAP);
     const style = normalizeEdgeStyle(edge.style);
     const { start, end } = this.applyEdgeMarkerClearance(rawStart, rawEnd, style.bidirectional);
-    return { start, end, style };
+    const geometry = { start, end, style };
+    this.edgeGeometryCache.set(edge.id, geometry);
+    return geometry;
   }
 
   private buildFullEdgePath(
@@ -2933,6 +2972,7 @@ export class AppComponent {
   }
 
   private markViewChanged(): void {
+    this.edgeGeometryCache.clear();
     this.syncMermaidFromCanvasIfNeeded();
     this.recordHistory();
     this.scheduleAutoSave();
@@ -2940,6 +2980,7 @@ export class AppComponent {
   }
 
   private markInteractionChanged(): void {
+    this.edgeGeometryCache.clear();
     this.requestViewRender();
   }
 
