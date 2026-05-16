@@ -1,16 +1,46 @@
 # Arch Draw
 
-Ferramenta local para desenho de arquitetura com canvas drag and drop, entrada Mermaid, aparência inspirada no Excalidraw e persistência em SQLite dentro do projeto.
+Arch Draw é um editor visual de diagramas de arquitetura e fluxo de software.
+
+Ele combina modelagem visual por drag and drop com edição textual via Mermaid, permitindo sair de uma visão macro (cloud, rede, domínio) para uma visão micro (serviços, código, dados e relações) no mesmo board.
+
+## O que o projeto entrega
+
+- Canvas interativo para desenhar arquiteturas completas.
+- Biblioteca de blocos para cloud, software, Kubernetes, algoritmos, bancos e integrações.
+- Conexões avançadas entre elementos com estilos e direções configuráveis.
+- Elementos expansíveis/minimizáveis para navegar entre níveis de detalhe.
+- Blocos que suportam conteúdo técnico (código, YAML, SQL, Mermaid e configurações).
+- Importação e exportação de diagramas em múltiplos formatos (incluindo `.archdraw.json`, SVG e PNG).
+- Fluxo Mermaid com preview e aplicação no board sem perder o contexto existente.
+- Isolamento por sessão para cada usuário ver apenas seus próprios arquivos e template.
+
+## Casos de uso
+
+- Documentar arquitetura de sistemas distribuídos.
+- Mapear topologia cloud (VPC, subnets, gateways, balanceadores, filas, banco, cache).
+- Representar fluxos de desenvolvimento e decisões com shapes de flow diagram.
+- Relacionar infraestrutura, componentes de aplicação e trechos de código no mesmo diagrama.
+- Criar diagramas compartilháveis para revisão técnica, handoff e documentação.
+
+## Experiência principal
+
+1. Adicione blocos pela barra lateral.
+2. Organize em containers para agrupar domínios, ambientes ou contextos.
+3. Conecte elementos com setas e rótulos de relacionamento.
+4. Abra elementos que suportam código para detalhar implementação.
+5. Use Mermaid para acelerar criação de estruturas grandes.
+6. Exporte o resultado final para documentação ou compartilhamento.
 
 ## Stack
 
 - Monorepo com npm workspaces
-- Frontend: Angular, TypeScript, canvas/SVG customizado, Mermaid
-- Backend: Node.js, Fastify, TypeScript
-- Banco local: SQLite via `sql.js`, persistido em `apps/api/data/arch-draw.sqlite`
-- Domínio compartilhado em `packages/domain`, sem dependência de HTTP, framework ou banco
+- Frontend: Angular + TypeScript
+- Renderização: Canvas/SVG customizado + Mermaid
+- Backend: Node.js + Fastify + TypeScript
+- Núcleo de domínio compartilhado em `packages/domain`
 
-## Rodando local
+## Rodando localmente
 
 ```bash
 npm install
@@ -22,7 +52,13 @@ URLs padrão:
 - Web: `http://127.0.0.1:5173`
 - API: `http://127.0.0.1:3333`
 
-## Scripts
+## Rodando com Docker
+
+```bash
+docker compose up --build
+```
+
+## Scripts úteis
 
 ```bash
 npm run typecheck
@@ -31,49 +67,26 @@ npm run build
 npm run lint
 ```
 
-## Funcionalidades
-
-- Criar e listar arquiteturas salvas localmente
-- Arrastar blocos para o canvas
-- Usar blocos comuns de cloud: VPC, subnet, compute, containers, Kubernetes, serverless, API Gateway, load balancer, CDN, storage, cache, identity, secrets, observability e firewall
-- Usar blocos AWS inspirados na biblioteca cloud do draw.io: Account, Region, AZ, VPC, Subnet, Route 53, CloudFront, API Gateway, ALB/NLB, EC2, Auto Scaling, Lambda, ECS, EKS, Fargate, ECR, S3, EBS, EFS, RDS, Aurora, DynamoDB, ElastiCache, Redshift, OpenSearch, SQS, SNS, EventBridge, Kinesis, Step Functions, IAM, Cognito, Secrets Manager, KMS, CloudWatch, CloudTrail, WAF, Shield e Security Group
-- Usar blocos de estrutura de código e algoritmos: repository, workspace, package, module, folder, file, class, interface, function, method, type, component, controller, use case, entity, port, adapter, schema, pipeline, condition, loop, recursion, sort, search, graph, tree, hash table, stack, queue e linked list
-- Usar containers/boundaries para agrupar blocos. Ao soltar um bloco dentro de um container, ele passa a mover junto; ao arrastar para fora, ele volta para o canvas principal
-- Conectar blocos no estilo draw.io
-- Editar rótulo, caminho, traço, cor e animação das linhas de conexão
-- Editar nome, tipo e cor dos nós
-- Escrever Mermaid com validação de sintaxe, ver preview e aplicar como grafo editável apenas quando o lint estiver válido
-- Salvar no SQLite local
-- Exportar um pacote `.archdraw.json`
-- Importar pacote compartilhado por outro usuário
-
-## Arquitetura
+## Estrutura do monorepo
 
 ```text
 packages/domain
-  Regras e tipos centrais de arquitetura, validação, Mermaid e pacote de compartilhamento.
+  Tipos, regras de validação e contratos centrais do diagrama.
 
 apps/api
-  Casos de uso, contratos, rotas HTTP e adaptador SQLite.
+  Casos de uso, rotas HTTP e persistência.
 
 apps/web
-  Interface, canvas, Mermaid editor, integração com API e import/export.
+  UI, canvas, editor Mermaid, propriedades e import/export.
 ```
 
-O domínio não depende de Fastify, Angular, SQLite ou bibliotecas de infraestrutura. As dependências apontam para dentro: API e frontend adaptam entrada/saída para os tipos do domínio.
+## Configuração
 
-## Variáveis
-
-Copie `.env.example` quando quiser sobrescrever portas ou origem permitida:
+Se precisar sobrescrever host, porta ou origens permitidas:
 
 ```bash
 cp .env.example .env
 ```
-
-## Pontos de atenção
-
-- O build do frontend emite aviso de chunk grande porque Mermaid traz muitos renderizadores. O próximo passo técnico natural é carregar Mermaid por `dynamic import`.
-- O parser Mermaid inicial cobre fluxos comuns com conexões `A --> B`; sintaxes Mermaid avançadas renderizam no preview, mas podem precisar de evolução no conversor para virarem nós editáveis.
 
 ## Licença
 
