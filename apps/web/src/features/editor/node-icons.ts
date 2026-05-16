@@ -269,7 +269,7 @@ const iconClasses: Partial<Record<ArchitectureNodeKind, string>> = {
   "cluster-pod": "fa-solid fa-cube",
   "cluster-service": "fa-solid fa-share-nodes",
   "cluster-ingress": "fa-solid fa-right-to-bracket",
-  "cluster-kong": "fa-solid fa-gorilla",
+  "cluster-kong": "fa-solid fa-shield-dog",
   "cluster-configmap": "fa-solid fa-map",
   "cluster-secret": "fa-solid fa-key",
   "cluster-pvc": "fa-solid fa-hard-drive",
