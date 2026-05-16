@@ -1756,9 +1756,9 @@ export class AppComponent implements OnDestroy {
   getSelectedEdgeDirection(edge: CanvasEdge): EdgeDirection {
     if (edge.style.bidirectional) return "both";
 
-    const fromNode = this.nodes.find((node) => node.id === edge.from);
-    const toNode = this.nodes.find((node) => node.id === edge.to);
-    if (!fromNode || !toNode) return "left-to-right";
+    const effective = this.getEffectiveEdgeEndpoints(edge);
+    if (!effective) return "left-to-right";
+    const { fromNode, toNode } = effective;
 
     const fromCenter = this.getNodeCenter(fromNode);
     const toCenter = this.getNodeCenter(toNode);
@@ -2232,10 +2232,10 @@ export class AppComponent implements OnDestroy {
   }
 
   isVisibleEdge(edge: CanvasEdge): boolean {
-    const fromNode = this.nodes.find((node) => node.id === edge.from);
-    const toNode = this.nodes.find((node) => node.id === edge.to);
-    if (!fromNode || !toNode) return false;
-    return this.isVisibleNode(fromNode) && this.isVisibleNode(toNode);
+    const effective = this.getEffectiveEdgeEndpoints(edge);
+    if (!effective) return false;
+    const { fromNode, toNode } = effective;
+    return fromNode.id !== toNode.id && this.isVisibleNode(fromNode) && this.isVisibleNode(toNode);
   }
 
   isEdgeLayerElevated(): boolean {
@@ -2342,9 +2342,9 @@ export class AppComponent implements OnDestroy {
     const color = normalizeEdgeStyle(edge.style).color;
     if (!this.isDarkMode) return color;
 
-    const fromNode = this.nodes.find((node) => node.id === edge.from) ?? null;
-    const toNode = this.nodes.find((node) => node.id === edge.to) ?? null;
-    if (!fromNode || !toNode) return "#f8fafc";
+    const effective = this.getEffectiveEdgeEndpoints(edge);
+    if (!effective) return "#f8fafc";
+    const { fromNode, toNode } = effective;
 
     return this.isEdgeInsideContainerContext(fromNode, toNode)
       ? "#111827"
@@ -2365,9 +2365,9 @@ export class AppComponent implements OnDestroy {
 
   getEdgeDarkTransitionClipIds(edge: CanvasEdge): readonly string[] {
     if (!this.isDarkMode) return [];
-    const fromNode = this.nodes.find((node) => node.id === edge.from) ?? null;
-    const toNode = this.nodes.find((node) => node.id === edge.to) ?? null;
-    if (!fromNode || !toNode) return [];
+    const effective = this.getEffectiveEdgeEndpoints(edge);
+    if (!effective) return [];
+    const { fromNode, toNode } = effective;
     if (this.isEdgeInsideContainerContext(fromNode, toNode)) return [];
 
     const fromLineage = this.getActiveContainerContextLineage(fromNode);
@@ -2698,6 +2698,33 @@ export class AppComponent implements OnDestroy {
     return false;
   }
 
+  private getNearestCollapsedContainerAncestor(node: CanvasNode): CanvasNode | null {
+    let currentParentId = node.parentId;
+    while (currentParentId) {
+      const parent = this.nodes.find((candidate) => candidate.id === currentParentId);
+      if (!parent) return null;
+      if (this.isContainerCollapsed(parent)) return parent;
+      currentParentId = parent.parentId;
+    }
+    return null;
+  }
+
+  private getEffectiveEdgeEndpointNode(nodeId: string): CanvasNode | null {
+    const node = this.nodes.find((candidate) => candidate.id === nodeId);
+    if (!node) return null;
+    if (this.isVisibleNode(node)) return node;
+    return this.getNearestCollapsedContainerAncestor(node);
+  }
+
+  private getEffectiveEdgeEndpoints(
+    edge: CanvasEdge
+  ): Readonly<{ fromNode: CanvasNode; toNode: CanvasNode }> | null {
+    const fromNode = this.getEffectiveEdgeEndpointNode(edge.from);
+    const toNode = this.getEffectiveEdgeEndpointNode(edge.to);
+    if (!fromNode || !toNode) return null;
+    return { fromNode, toNode };
+  }
+
   private hasDraggedAncestor(node: CanvasNode): boolean {
     if (!this.dragState) return false;
     let currentParentId = node.parentId;
@@ -2786,9 +2813,10 @@ export class AppComponent implements OnDestroy {
     endLead: Readonly<{ x: number; y: number }>;
     style: ArchitectureEdgeStyle;
   }> | null {
-    const source = this.nodes.find((node) => node.id === edge.from);
-    const target = this.nodes.find((node) => node.id === edge.to);
-    if (!source || !target) return null;
+    const effective = this.getEffectiveEdgeEndpoints(edge);
+    if (!effective) return null;
+    const { fromNode: source, toNode: target } = effective;
+    if (source.id === target.id) return null;
     const rawStart = this.getAnchorWithGap(source, target, EDGE_NODE_GAP);
     const rawEnd = this.getAnchorWithGap(target, source, EDGE_NODE_GAP);
     const sourceCenter = this.getNodeCenter(source);
