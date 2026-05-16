@@ -3230,7 +3230,14 @@ export class AppComponent implements OnDestroy {
 
   private createConnection(from: string, to: string): void {
     if (from === to) return;
-    if (!this.nodes.some((node) => node.id === from) || !this.nodes.some((node) => node.id === to)) return;
+    const fromNode = this.nodes.find((node) => node.id === from) ?? null;
+    const toNode = this.nodes.find((node) => node.id === to) ?? null;
+    if (!fromNode || !toNode) return;
+    if (this.isForbiddenContainerHierarchyConnection(fromNode, toNode)) {
+      this.status = "Vinculo entre container e elemento interno nao e permitido";
+      this.requestViewRender();
+      return;
+    }
     if (this.edges.some((edge) => edge.from === from && edge.to === to)) return;
 
     const reverseEdge = this.edges.find((edge) => edge.from === to && edge.to === from);
@@ -3265,7 +3272,9 @@ export class AppComponent implements OnDestroy {
   ): string | null {
     const target = event.target as HTMLElement | null;
     const isImplicitlyInvalidTarget = (targetNodeId: string): boolean =>
-      targetNodeId === sourceNodeId || this.isAncestorOfNode(targetNodeId, sourceNodeId);
+      targetNodeId === sourceNodeId ||
+      this.isAncestorOfNode(targetNodeId, sourceNodeId) ||
+      this.isAncestorOfNode(sourceNodeId, targetNodeId);
     const fromTargetPort =
       target?.closest<HTMLElement>("[data-target-port-node-id]")?.dataset["targetPortNodeId"] ??
       null;
@@ -3329,6 +3338,10 @@ export class AppComponent implements OnDestroy {
 
     const toSet = new Set(toLineage);
     return fromLineage.some((containerId) => toSet.has(containerId));
+  }
+
+  private isForbiddenContainerHierarchyConnection(fromNode: CanvasNode, toNode: CanvasNode): boolean {
+    return this.isAncestorOfNode(fromNode.id, toNode.id) || this.isAncestorOfNode(toNode.id, fromNode.id);
   }
 
   private isTypingTarget(target: EventTarget | null): boolean {
