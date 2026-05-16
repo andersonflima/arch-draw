@@ -2,6 +2,5 @@ import type { ArchitectureRepository } from "../contracts/architecture-repositor
 
 export const makeDeleteArchitecture =
   (repository: ArchitectureRepository) =>
-  async (id: string): Promise<boolean> =>
-    repository.deleteById(id);
-
+  async (id: string, sessionToken: string): Promise<boolean> =>
+    repository.deleteById(id, sessionToken);

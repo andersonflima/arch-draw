@@ -6,10 +6,10 @@ import type { ArchitectureRepository } from "../src/application/contracts/archit
 describe("save architecture use case", () => {
   it("rejects invalid documents before persistence", async () => {
     const repository: ArchitectureRepository = {
-      findAll: async () => [],
-      findById: async () => null,
-      save: async (architecture) => architecture,
-      deleteById: async () => false
+      findAll: async (_sessionToken) => [],
+      findById: async (_id, _sessionToken) => null,
+      save: async (architecture, _sessionToken) => architecture,
+      deleteById: async (_id, _sessionToken) => false
     };
     const saveArchitecture = makeSaveArchitecture(repository, {
       now: () => "2026-05-15T12:00:00.000Z"
@@ -23,7 +23,7 @@ describe("save architecture use case", () => {
       edges: [{ id: "edge-1", from: "missing-a", to: "missing-b" }]
     };
 
-    await expect(saveArchitecture(invalid)).resolves.toEqual({
+    await expect(saveArchitecture(invalid, "session-token-1")).resolves.toEqual({
       ok: false,
       statusCode: 400,
       errors: [
@@ -33,4 +33,3 @@ describe("save architecture use case", () => {
     });
   });
 });
-

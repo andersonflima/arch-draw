@@ -11,9 +11,11 @@ export type ArchitectureSummary = Readonly<{
 }>;
 
 export type ArchitectureRepository = Readonly<{
-  findAll: () => Promise<readonly ArchitectureSummary[]>;
-  findById: (id: string) => Promise<ArchitectureDocument | null>;
-  save: (architecture: ArchitectureDocument) => Promise<ArchitectureDocument>;
-  deleteById: (id: string) => Promise<boolean>;
+  findAll: (sessionToken: string) => Promise<readonly ArchitectureSummary[]>;
+  findById: (id: string, sessionToken: string) => Promise<ArchitectureDocument | null>;
+  save: (
+    architecture: ArchitectureDocument,
+    sessionToken: string
+  ) => Promise<ArchitectureDocument>;
+  deleteById: (id: string, sessionToken: string) => Promise<boolean>;
 }>;
-

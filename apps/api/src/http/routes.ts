@@ -10,6 +10,7 @@ import { makeSaveArchitecture } from "../application/use-cases/save-architecture
 import type { ArchitectureRepository } from "../application/contracts/architecture-repository";
 import type { Clock } from "../application/contracts/clock";
 import type { IdGenerator } from "../application/contracts/id-generator";
+import { resolveSessionToken } from "./session-token";
 
 type RouteDependencies = Readonly<{
   repository: ArchitectureRepository;
@@ -46,12 +47,16 @@ export const registerRoutes = async (
 
   app.get("/health", async () => ({ ok: true }));
 
-  app.get("/architectures", async () => listArchitectures());
+  app.get("/architectures", async (request, reply) =>
+    listArchitectures(resolveSessionToken(request, reply))
+  );
 
   app.post<{ Body: { title?: string; description?: string } }>(
     "/architectures",
     async (request, reply) => {
+      const sessionToken = resolveSessionToken(request, reply);
       const architecture = await createArchitecture({
+        sessionToken,
         title: request.body.title ?? "Untitled architecture",
         description: request.body.description
       });
@@ -61,7 +66,10 @@ export const registerRoutes = async (
   );
 
   app.get<{ Params: IdParams }>("/architectures/:id", async (request, reply) => {
-    const architecture = await readArchitecture(request.params.id);
+    const architecture = await readArchitecture(
+      request.params.id,
+      resolveSessionToken(request, reply)
+    );
     return architecture ?? reply.code(404).send({ error: "Architecture not found" });
   });
 
@@ -72,7 +80,10 @@ export const registerRoutes = async (
         return reply.code(400).send({ errors: ["Route id does not match body id"] });
       }
 
-      const result = await saveArchitecture(request.body);
+      const result = await saveArchitecture(
+        request.body,
+        resolveSessionToken(request, reply)
+      );
       return result.ok
         ? result.architecture
         : reply.code(result.statusCode).send({ errors: result.errors });
@@ -80,12 +91,18 @@ export const registerRoutes = async (
   );
 
   app.delete<{ Params: IdParams }>("/architectures/:id", async (request, reply) => {
-    const deleted = await deleteArchitecture(request.params.id);
+    const deleted = await deleteArchitecture(
+      request.params.id,
+      resolveSessionToken(request, reply)
+    );
     return deleted ? reply.code(204).send() : reply.code(404).send();
   });
 
   app.get<{ Params: IdParams }>("/architectures/:id/export", async (request, reply) => {
-    const sharePackage = await exportArchitecture(request.params.id);
+    const sharePackage = await exportArchitecture(
+      request.params.id,
+      resolveSessionToken(request, reply)
+    );
 
     if (!sharePackage) {
       return reply.code(404).send({ error: "Architecture not found" });
@@ -97,11 +114,13 @@ export const registerRoutes = async (
   });
 
   app.post<{ Body: ArchitectureSharePackage }>("/architectures/import", async (request, reply) => {
-    const result = await importArchitecture(request.body);
+    const result = await importArchitecture(
+      request.body,
+      resolveSessionToken(request, reply)
+    );
 
     return result.ok
       ? reply.code(201).send(result.architecture)
       : reply.code(400).send({ errors: result.errors });
   });
 };
-

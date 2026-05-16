@@ -4,8 +4,7 @@ import type { Clock } from "../contracts/clock";
 
 export const makeExportArchitecture =
   (repository: ArchitectureRepository, clock: Clock) =>
-  async (id: string) => {
-    const architecture = await repository.findById(id);
+  async (id: string, sessionToken: string) => {
+    const architecture = await repository.findById(id, sessionToken);
     return architecture ? createSharePackage(architecture, clock.now()) : null;
   };
-

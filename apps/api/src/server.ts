@@ -18,6 +18,7 @@ export const createServer = async (config: AppConfig) => {
 
   await app.register(cors, {
     origin: [...config.webOrigins],
+    credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
   });
 

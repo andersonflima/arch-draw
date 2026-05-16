@@ -7,6 +7,7 @@ import type { SqliteConnection } from "./connection";
 
 type ArchitectureRow = Readonly<{
   id: string;
+  session_token?: string | null;
   title: string;
   description: string;
   document_json: string;
@@ -18,42 +19,62 @@ export const makeSqliteArchitectureRepository = (
   connection: SqliteConnection
 ): ArchitectureRepository => {
   return {
-    findAll: async () =>
+    findAll: async (sessionToken) =>
       selectRows(
         connection,
         `
-          SELECT id, title, description, document_json, created_at, updated_at
+          SELECT id, session_token, title, description, document_json, created_at, updated_at
           FROM architectures
+          WHERE session_token = $sessionToken
           ORDER BY updated_at DESC
-        `
+        `,
+        { $sessionToken: sessionToken }
       ).map(toSummary),
-    findById: async (id) => {
+    findById: async (id, sessionToken) => {
       const row = selectRows(
         connection,
         `
-          SELECT id, title, description, document_json, created_at, updated_at
+          SELECT id, session_token, title, description, document_json, created_at, updated_at
           FROM architectures
-          WHERE id = $id
+          WHERE id = $id AND session_token = $sessionToken
         `,
-        { $id: id }
+        { $id: id, $sessionToken: sessionToken }
       )[0];
 
       return row ? parseDocument(row.document_json) : null;
     },
-    save: async (architecture) => {
+    save: async (architecture, sessionToken) => {
+      const existing = selectRows(
+        connection,
+        `
+          SELECT id, session_token, title, description, document_json, created_at, updated_at
+          FROM architectures
+          WHERE id = $id
+        `,
+        { $id: architecture.id }
+      )[0];
+
+      if (existing && existing.session_token !== sessionToken) {
+        const duplicatedId = `${architecture.id}-${sessionToken.slice(0, 8)}`;
+        architecture = { ...architecture, id: duplicatedId };
+      }
+
       runStatement(
         connection,
         `
-          INSERT INTO architectures (id, title, description, document_json, created_at, updated_at)
-          VALUES ($id, $title, $description, $documentJson, $createdAt, $updatedAt)
+          INSERT INTO architectures (id, session_token, title, description, document_json, created_at, updated_at)
+          VALUES ($id, $sessionToken, $title, $description, $documentJson, $createdAt, $updatedAt)
           ON CONFLICT(id) DO UPDATE SET
+            session_token = excluded.session_token,
             title = excluded.title,
             description = excluded.description,
             document_json = excluded.document_json,
             updated_at = excluded.updated_at
+          WHERE architectures.session_token = excluded.session_token
         `,
         {
           $id: architecture.id,
+          $sessionToken: sessionToken,
           $title: architecture.title,
           $description: architecture.description,
           $documentJson: JSON.stringify(architecture),
@@ -65,20 +86,24 @@ export const makeSqliteArchitectureRepository = (
 
       return architecture;
     },
-    deleteById: async (id) => {
+    deleteById: async (id, sessionToken) => {
       const existing = selectRows(
         connection,
         `
-          SELECT id, title, description, document_json, created_at, updated_at
+          SELECT id, session_token, title, description, document_json, created_at, updated_at
           FROM architectures
-          WHERE id = $id
+          WHERE id = $id AND session_token = $sessionToken
         `,
-        { $id: id }
+        { $id: id, $sessionToken: sessionToken }
       )[0];
 
       if (!existing) return false;
 
-      runStatement(connection, "DELETE FROM architectures WHERE id = $id", { $id: id });
+      runStatement(
+        connection,
+        "DELETE FROM architectures WHERE id = $id AND session_token = $sessionToken",
+        { $id: id, $sessionToken: sessionToken }
+      );
       connection.persist();
       return true;
     }

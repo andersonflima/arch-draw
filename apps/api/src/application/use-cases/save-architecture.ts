@@ -12,7 +12,10 @@ export type SaveArchitectureResult =
 
 export const makeSaveArchitecture =
   (repository: ArchitectureRepository, clock: Clock) =>
-  async (architecture: ArchitectureDocument): Promise<SaveArchitectureResult> => {
+  async (
+    architecture: ArchitectureDocument,
+    sessionToken: string
+  ): Promise<SaveArchitectureResult> => {
     const normalized = normalizeArchitecture({
       ...architecture,
       updatedAt: clock.now()
@@ -23,6 +26,5 @@ export const makeSaveArchitecture =
       return { ok: false, statusCode: 400, errors: validation.errors };
     }
 
-    return { ok: true, architecture: await repository.save(normalized) };
+    return { ok: true, architecture: await repository.save(normalized, sessionToken) };
   };
-

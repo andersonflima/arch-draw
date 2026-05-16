@@ -13,7 +13,7 @@ export const makeImportArchitecture =
     clock: Clock,
     idGenerator: IdGenerator
   ) =>
-  async (payload: ArchitectureSharePackage) => {
+  async (payload: ArchitectureSharePackage, sessionToken: string) => {
     const parsed = parseSharePackage(payload);
     if (!parsed.ok) return parsed;
 
@@ -29,6 +29,8 @@ export const makeImportArchitecture =
       now
     );
 
-    return { ok: true as const, architecture: await repository.save(architecture) };
+    return {
+      ok: true as const,
+      architecture: await repository.save(architecture, sessionToken)
+    };
   };
-
