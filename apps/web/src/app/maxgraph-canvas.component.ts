@@ -321,7 +321,13 @@ export class MaxGraphCanvasComponent implements AfterViewInit, OnChanges, OnDest
   }
 
   private getVertexStyle(node: CanvasNode): CellStyle {
-    const isContainer = node.kind === "group-container-plus" || node.kind === "group-container" || node.kind === "cloud-vpc" || node.kind === "aws-vpc";
+    const isContainer =
+      node.kind === "group-container-plus"
+      || node.kind === "group-container"
+      || node.kind === "cloud-vpc"
+      || node.kind === "aws-vpc"
+      || node.kind === "cluster"
+      || node.kind === "cluster-namespace";
     const base: CellStyle = {
       fillColor: node.color,
       strokeColor: "#111827",

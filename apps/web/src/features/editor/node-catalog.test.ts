@@ -19,6 +19,7 @@ describe("node catalog", () => {
     expect(nodeCatalog.some((template) => template.kind === "flow-process")).toBe(true);
     expect(nodeCatalog.some((template) => template.kind === "flow-end")).toBe(true);
     expect(nodeCatalog.some((template) => template.kind === "software-application")).toBe(true);
+    expect(nodeCatalog.some((template) => template.kind === "cluster")).toBe(true);
     expect(nodeCatalog.some((template) => template.kind === "cluster-pod")).toBe(true);
     expect(nodeCatalog.some((template) => template.kind === "cluster-kong")).toBe(true);
     expect(nodeCatalog.some((template) => template.kind === "cluster-ingress")).toBe(true);
@@ -27,6 +28,8 @@ describe("node catalog", () => {
   it("treats core and cloud containers as grouping containers", () => {
     expect(isContainerNodeKind("group-container")).toBe(true);
     expect(isContainerNodeKind("group-container-plus")).toBe(true);
+    expect(isContainerNodeKind("cluster")).toBe(true);
+    expect(isContainerNodeKind("cluster-namespace")).toBe(true);
     expect(isContainerNodeKind("container")).toBe(true);
     expect(getDefaultNodeSize("group-container")).toEqual(getDefaultNodeSize("container"));
   });

@@ -103,6 +103,7 @@ export type ArchitectureNodeKind =
   | "software-worker"
   | "software-bff"
   | "software-cli"
+  | "cluster"
   | "cluster-control-plane"
   | "cluster-node"
   | "cluster-namespace"

@@ -137,6 +137,7 @@ export const nodeCatalog: readonly NodeTemplate[] = [
   { category: "Software Development", kind: "software-bff", label: "BFF", color: "#ede9fe" },
   { category: "Software Development", kind: "software-cli", label: "CLI", color: "#e0e7ff" },
 
+  { category: "Cluster", kind: "cluster", label: "Cluster", color: "#dbeafe" },
   { category: "Cluster", kind: "cluster-control-plane", label: "Control Plane", color: "#fef3c7" },
   { category: "Cluster", kind: "cluster-node", label: "Node", color: "#f3f4f6" },
   { category: "Cluster", kind: "cluster-namespace", label: "Namespace", color: "#e0e7ff" },
@@ -206,6 +207,8 @@ const containerKinds = new Set<ArchitectureNodeKind>([
   "aws-vpc",
   "aws-subnet",
   "aws-eks",
+  "cluster",
+  "cluster-namespace",
   "code-workspace",
   "code-package",
   "code-module",
