@@ -2814,9 +2814,68 @@ LIMIT 50;`;
       makeNode("n-subnet-ops", "aws-subnet", "Subnet Ops / Observability", { x: 90, y: 1710 }, { width: 3740, height: 740 }, "n-vpc"),
       makeNode("n-user", "external", "Users", { x: -120, y: 210 }, { width: 172, height: 176 }),
       makeNode("n-route53", "aws-route53", "Route53", { x: 360, y: 210 }, { width: 172, height: 176 }, "n-subnet-edge"),
-      makeNode("n-waf", "aws-waf", "WAF", { x: 630, y: 210 }, { width: 172, height: 176 }, "n-subnet-edge"),
+      makeNode(
+        "n-waf",
+        "aws-waf",
+        "WAF",
+        { x: 630, y: 210 },
+        { width: 172, height: 176 },
+        "n-subnet-edge",
+        {
+          codeLanguage: "yaml",
+          codeContent: `Resources:
+  WebAcl:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: orders-web-acl
+      Scope: REGIONAL
+      DefaultAction:
+        Allow: {}
+      VisibilityConfig:
+        CloudWatchMetricsEnabled: true
+        MetricName: ordersWebAcl
+        SampledRequestsEnabled: true
+      Rules:
+        - Name: AWS-AWSManagedRulesCommonRuleSet
+          Priority: 1
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesCommonRuleSet`
+        }
+      ),
       makeNode("n-apigw", "aws-api-gateway", "API Gateway", { x: 900, y: 210 }, { width: 172, height: 176 }, "n-subnet-edge"),
-      makeNode("n-alb", "aws-alb", "Public ALB", { x: 1170, y: 210 }, { width: 172, height: 176 }, "n-subnet-edge"),
+      makeNode(
+        "n-alb",
+        "aws-alb",
+        "Public ALB",
+        { x: 1170, y: 210 },
+        { width: 172, height: 176 },
+        "n-subnet-edge",
+        {
+          codeLanguage: "yaml",
+          codeContent: `Resources:
+  PublicAlb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: orders-public-alb
+      Scheme: internet-facing
+      Type: application
+      SecurityGroups: [sg-alb123]
+      Subnets: [subnet-a1, subnet-a2]
+  HttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref PublicAlb
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref OrdersTargetGroup`
+        }
+      ),
       makeNode("n-ecr", "aws-ecr", "ECR", { x: 1440, y: 210 }, { width: 172, height: 176 }, "n-subnet-edge"),
       makeNode("n-eks", "aws-eks", "EKS Cluster", { x: 90, y: 80 }, { width: 1080, height: 760 }, "n-subnet-app"),
       makeNode("n-namespace", "cluster-namespace", "Namespace: orders", { x: 70, y: 100 }, { width: 910, height: 560 }, "n-eks"),
