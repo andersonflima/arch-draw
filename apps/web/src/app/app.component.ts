@@ -1360,6 +1360,8 @@ export class AppComponent implements OnDestroy {
   }
 
   getNodeCodeLanguage(node: CanvasNode): CodeLanguage {
+    const fromContent = this.detectCodeLanguageFromContent(node.properties?.["codeContent"] ?? "");
+    if (fromContent) return fromContent;
     const raw = (node.properties?.["codeLanguage"] ?? "").trim().toLowerCase();
     if (this.codeLanguageOptions.some((option) => option.value === raw)) {
       return raw as CodeLanguage;
@@ -1397,17 +1399,7 @@ export class AppComponent implements OnDestroy {
     const draft = this.nodeInlineCodeDrafts.get(nodeId);
     if (draft === undefined) return;
     this.nodeInlineCodeDrafts.delete(nodeId);
-
-    const nextProperties = { ...(node.properties ?? {}) };
-    if (draft.trim().length === 0) {
-      delete nextProperties["codeContent"];
-    } else {
-      nextProperties["codeContent"] = draft;
-    }
-
-    this.updateNode(nodeId, {
-      properties: Object.keys(nextProperties).length > 0 ? nextProperties : undefined
-    });
+    this.updateNodeCodeContent(node, draft);
   }
 
   updateSelectedCodeLanguage(language: string): void {
@@ -1419,7 +1411,119 @@ export class AppComponent implements OnDestroy {
   }
 
   updateSelectedCodeContent(content: string): void {
-    this.updateSelectedNodeProperty("codeContent", content);
+    const selected = this.selectedNode;
+    if (!selected) return;
+    this.updateNodeCodeContent(selected, content);
+  }
+
+  private updateNodeCodeContent(node: CanvasNode, content: string): void {
+    const nextProperties = { ...(node.properties ?? {}) };
+    if (content.trim().length === 0) {
+      delete nextProperties["codeContent"];
+      delete nextProperties["codeLanguage"];
+    } else {
+      nextProperties["codeContent"] = content;
+      const detected = this.detectCodeLanguageFromContent(content);
+      if (detected) {
+        nextProperties["codeLanguage"] = detected;
+      }
+    }
+
+    this.updateNode(node.id, {
+      properties: Object.keys(nextProperties).length > 0 ? nextProperties : undefined
+    });
+  }
+
+  private detectCodeLanguageFromContent(content: string): CodeLanguage | null {
+    const source = content.trim();
+    if (source.length === 0) return null;
+
+    if (/^\s*```/m.test(source) || /^#{1,6}\s+\S+/m.test(source)) return "markdown";
+    if (/^\s*apiVersion:\s*/m.test(source) || /^\s*kind:\s*/m.test(source)) return "markdown";
+
+    const score = new Map<CodeLanguage, number>([
+      ["python", 0],
+      ["javascript", 0],
+      ["nodejs", 0],
+      ["typescript", 0],
+      ["markdown", 0],
+      ["go", 0],
+      ["rust", 0],
+      ["java", 0],
+      ["elixir", 0]
+    ]);
+
+    const weigh = (language: CodeLanguage, patterns: readonly RegExp[]): void => {
+      let hits = 0;
+      for (const pattern of patterns) {
+        if (pattern.test(source)) hits += 1;
+      }
+      if (hits > 0) score.set(language, (score.get(language) ?? 0) + hits);
+    };
+
+    weigh("python", [
+      /\bdef\s+[a-zA-Z_]\w*\s*\([^)]*\)\s*:/,
+      /\bimport\s+[a-zA-Z_][\w.]*/,
+      /\bfrom\s+[a-zA-Z_][\w.]*\s+import\s+/,
+      /\bself\b/,
+      /__name__\s*==\s*["']__main__["']/
+    ]);
+    weigh("javascript", [
+      /\bfunction\s+[a-zA-Z_]\w*\s*\(/,
+      /=>\s*\{/,
+      /\bconsole\.[a-zA-Z]+\s*\(/,
+      /\bmodule\.exports\b/
+    ]);
+    weigh("nodejs", [
+      /\brequire\(["'][^"']+["']\)/,
+      /\bprocess\.[a-zA-Z_]\w*/,
+      /\bhttp\.createServer\s*\(/,
+      /\b__dirname\b/
+    ]);
+    weigh("typescript", [
+      /\binterface\s+[A-Z][A-Za-z0-9_]*/,
+      /\btype\s+[A-Z][A-Za-z0-9_]*\s*=/,
+      /:\s*[A-Za-z_][A-Za-z0-9_<>,\[\]\s|]*\s*(=|;|\)|\{)/,
+      /\bPromise<[^>]+>/,
+      /\bunknown\b/
+    ]);
+    weigh("go", [
+      /^\s*package\s+\w+/m,
+      /\bfunc\s+[A-Za-z_]\w*\s*\(/,
+      /\berror\b/,
+      /\bimport\s+"[^"]+"/
+    ]);
+    weigh("rust", [
+      /\bfn\s+[a-zA-Z_]\w*\s*\(/,
+      /\blet\s+mut\b/,
+      /\bimpl\s+[A-Za-z_]\w*/,
+      /\bpub\s+(fn|struct|enum|trait)\b/
+    ]);
+    weigh("java", [
+      /\bpublic\s+class\s+[A-Z][A-Za-z0-9_]*/,
+      /\bpublic\s+interface\s+[A-Z][A-Za-z0-9_]*/,
+      /\bSystem\.out\.[a-zA-Z]+\s*\(/,
+      /^\s*package\s+[a-zA-Z0-9_.]+;/m
+    ]);
+    weigh("elixir", [
+      /\bdefmodule\s+[A-Z][A-Za-z0-9_.]*/,
+      /\bdefp?\s+[a-z_][a-zA-Z0-9_]*\s*(\(|,|do)/,
+      /\bEnum\.[a-zA-Z_]+\b/,
+      /\bIO\.[a-zA-Z_]+\b/
+    ]);
+
+    let best: CodeLanguage | null = null;
+    let bestScore = 0;
+    for (const [language, value] of score.entries()) {
+      if (value > bestScore) {
+        best = language;
+        bestScore = value;
+      }
+    }
+
+    if (bestScore > 0) return best;
+    if (/^\s*\{[\s\S]*\}\s*$/.test(source) || /^\s*\[[\s\S]*\]\s*$/.test(source)) return "javascript";
+    return null;
   }
 
   private getDefaultCodeSnippet(kind: ArchitectureNodeKind, language: CodeLanguage): string {
