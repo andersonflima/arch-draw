@@ -60,8 +60,7 @@ import {
 } from "../features/editor/node-icons";
 import {
   applyEdgeMarkerClearance as applyEdgeMarkerClearanceCore,
-  buildEdgeHalfPath as buildEdgeHalfPathCore,
-  buildFullEdgePath as buildFullEdgePathCore,
+  type EdgePoint,
   getEdgeLeadPoint as getEdgeLeadPointCore,
   getEdgeTerminalAxis as getEdgeTerminalAxisCore,
   offsetSegmentEndpoints as offsetSegmentEndpointsCore,
@@ -125,6 +124,19 @@ type PaletteCategoryGroup = Readonly<{
   templates: readonly NodeTemplate[];
 }>;
 
+type EdgePathData = Readonly<{
+  points: readonly EdgePoint[];
+  style: ArchitectureEdgeStyle;
+}>;
+
+type EdgeObstacleRect = Readonly<{
+  id: string;
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}>;
+
 type ContextPropertiesPanelState = Readonly<{
   x: number;
   y: number;
@@ -172,6 +184,9 @@ const EDGE_MARKER_CLEARANCE = 6;
 const EDGE_ENDPOINT_STUB = 8;
 const FOCUS_Z_INDEX_BASE = 50;
 const EXPANDED_NODE_Z_INDEX = 60;
+const EDGE_OBSTACLE_PADDING = 10;
+const EDGE_OBSTACLE_CLEARANCE = 18;
+const EDGE_ROUTE_MAX_PASSES = 6;
 const MAX_UNDO_HISTORY = 150;
 const DRAG_START_THRESHOLD = 4;
 const UI_THEME_STORAGE_KEY = "arch-draw.ui-theme";
@@ -2619,27 +2634,24 @@ LIMIT 50;`;
   }
 
   getEdgePath(edge: CanvasEdge): string {
-    const geometry = this.getEdgeGeometry(edge);
-    if (!geometry) return "";
-    const { start, startLead, end, endLead, style } = geometry;
-    return this.buildFullEdgePath(start, startLead, endLead, end, style.path);
+    const data = this.getEdgePathData(edge);
+    if (!data || data.points.length < 2) return "";
+    return this.buildPathFromPolyline(data.points, data.style.path);
   }
 
   getEdgeLabelPosition(edge: CanvasEdge): Readonly<{ x: number; y: number }> {
-    const geometry = this.getEdgeGeometry(edge);
-    if (!geometry) return { x: 0, y: 0 };
-    const { start, end } = geometry;
-    return {
-      x: (start.x + end.x) / 2,
-      y: (start.y + end.y) / 2
-    };
+    const data = this.getEdgePathData(edge);
+    if (!data || data.points.length < 2) return { x: 0, y: 0 };
+    const totalLength = this.getPolylineLength(data.points);
+    return this.getPointAtPolylineDistance(data.points, totalLength / 2);
   }
 
   getBidirectionalFlowPath(edge: CanvasEdge, direction: EdgeFlowDirection): string {
-    const geometry = this.getEdgeGeometry(edge);
-    if (!geometry) return "";
-    const { start, startLead, end, endLead, style } = geometry;
-    return this.buildEdgeHalfPath(start, startLead, endLead, end, style.path, direction);
+    const data = this.getEdgePathData(edge);
+    if (!data || data.points.length < 2) return "";
+    const half = this.getHalfPolyline(data.points, direction);
+    if (half.length < 2) return "";
+    return this.buildPathFromPolyline(half, data.style.path);
   }
 
   getEdgeDash(edge: CanvasEdge): string | null {
@@ -3587,6 +3599,8 @@ spec:
   private getEdgeGeometry(
     edge: CanvasEdge
   ): Readonly<{
+    sourceId: string;
+    targetId: string;
     start: Readonly<{ x: number; y: number }>;
     startLead: Readonly<{ x: number; y: number }>;
     end: Readonly<{ x: number; y: number }>;
@@ -3608,28 +3622,415 @@ spec:
     const startLeadDistance = style.bidirectional ? EDGE_ENDPOINT_STUB : 0;
     const startLead = this.getEdgeLeadPoint(start, sourceCenter, startAxis, startLeadDistance);
     const endLead = this.getEdgeLeadPoint(end, targetCenter, endAxis, EDGE_ENDPOINT_STUB);
-    return { start, startLead, end, endLead, style };
+    return { sourceId: source.id, targetId: target.id, start, startLead, end, endLead, style };
   }
 
-  private buildFullEdgePath(
-    start: Readonly<{ x: number; y: number }>,
-    startLead: Readonly<{ x: number; y: number }>,
-    endLead: Readonly<{ x: number; y: number }>,
-    end: Readonly<{ x: number; y: number }>,
-    path: ArchitectureEdgePath
-  ): string {
-    return buildFullEdgePathCore(start, startLead, endLead, end, path);
+  private getEdgePathData(edge: CanvasEdge): EdgePathData | null {
+    const geometry = this.getEdgeGeometry(edge);
+    if (!geometry) return null;
+    const basePolyline = this.getBaseEdgePolyline(geometry);
+    const obstacleRects = this.getEdgeObstacleRects(geometry.sourceId, geometry.targetId);
+    const routed = this.routePolylineAroundObstacles(basePolyline, obstacleRects);
+    if (routed.length < 2) return null;
+    return {
+      points: routed,
+      style: geometry.style
+    };
   }
 
-  private buildEdgeHalfPath(
-    start: Readonly<{ x: number; y: number }>,
-    startLead: Readonly<{ x: number; y: number }>,
-    endLead: Readonly<{ x: number; y: number }>,
-    end: Readonly<{ x: number; y: number }>,
-    path: ArchitectureEdgePath,
-    direction: EdgeFlowDirection
-  ): string {
-    return buildEdgeHalfPathCore(start, startLead, endLead, end, path, direction);
+  private getBaseEdgePolyline(
+    geometry: Readonly<{
+      start: Readonly<{ x: number; y: number }>;
+      startLead: Readonly<{ x: number; y: number }>;
+      end: Readonly<{ x: number; y: number }>;
+      endLead: Readonly<{ x: number; y: number }>;
+      style: ArchitectureEdgeStyle;
+    }>
+  ): readonly EdgePoint[] {
+    const { start, startLead, endLead, end, style } = geometry;
+    if (style.path === "straight") {
+      return this.compactPolyline([start, startLead, endLead, end]);
+    }
+    const midX = (startLead.x + endLead.x) / 2;
+    return this.compactPolyline([
+      start,
+      startLead,
+      { x: midX, y: startLead.y },
+      { x: midX, y: endLead.y },
+      endLead,
+      end
+    ]);
+  }
+
+  private buildPathFromPolyline(points: readonly EdgePoint[], path: ArchitectureEdgePath): string {
+    if (points.length < 2) return "";
+    const first = points[0];
+    if (!first) return "";
+    if (path === "straight" || path === "step") {
+      const rest = points.slice(1);
+      return `M ${first.x} ${first.y} ${rest.map((point) => `L ${point.x} ${point.y}`).join(" ")}`;
+    }
+    return this.buildRoundedPolylinePath(points, path === "bezier" ? 16 : 12);
+  }
+
+  private buildRoundedPolylinePath(points: readonly EdgePoint[], radius: number): string {
+    if (points.length < 2) return "";
+    let path = `M ${points[0]?.x ?? 0} ${points[0]?.y ?? 0}`;
+    for (let index = 1; index < points.length; index += 1) {
+      const current = points[index];
+      if (!current) continue;
+      const previous = points[index - 1];
+      if (!previous) continue;
+      const next = points[index + 1];
+      if (!next) {
+        path += ` L ${current.x} ${current.y}`;
+        continue;
+      }
+
+      const inDx = current.x - previous.x;
+      const inDy = current.y - previous.y;
+      const outDx = next.x - current.x;
+      const outDy = next.y - current.y;
+      const inLength = Math.hypot(inDx, inDy);
+      const outLength = Math.hypot(outDx, outDy);
+      if (inLength < 0.001 || outLength < 0.001) {
+        path += ` L ${current.x} ${current.y}`;
+        continue;
+      }
+
+      const inUnitX = inDx / inLength;
+      const inUnitY = inDy / inLength;
+      const outUnitX = outDx / outLength;
+      const outUnitY = outDy / outLength;
+      const dot = inUnitX * outUnitX + inUnitY * outUnitY;
+      if (Math.abs(Math.abs(dot) - 1) <= 0.02) {
+        path += ` L ${current.x} ${current.y}`;
+        continue;
+      }
+
+      const cornerRadius = Math.min(radius, inLength * 0.5, outLength * 0.5);
+      const cornerStart = {
+        x: current.x - inUnitX * cornerRadius,
+        y: current.y - inUnitY * cornerRadius
+      };
+      const cornerEnd = {
+        x: current.x + outUnitX * cornerRadius,
+        y: current.y + outUnitY * cornerRadius
+      };
+      path += ` L ${cornerStart.x} ${cornerStart.y} Q ${current.x} ${current.y} ${cornerEnd.x} ${cornerEnd.y}`;
+    }
+    return path;
+  }
+
+  private getEdgeObstacleRects(sourceId: string, targetId: string): readonly EdgeObstacleRect[] {
+    return this.nodes
+      .filter((node) => this.isVisibleNode(node))
+      .filter((node) => !this.rendersAsContainer(node))
+      .filter((node) => node.id !== sourceId && node.id !== targetId)
+      .map((node) => {
+        const absolute = this.getAbsolutePosition(node);
+        return {
+          id: node.id,
+          left: absolute.x - EDGE_OBSTACLE_PADDING,
+          top: absolute.y - EDGE_OBSTACLE_PADDING,
+          right: absolute.x + node.size.width + EDGE_OBSTACLE_PADDING,
+          bottom: absolute.y + node.size.height + EDGE_OBSTACLE_PADDING
+        };
+      });
+  }
+
+  private routePolylineAroundObstacles(
+    points: readonly EdgePoint[],
+    obstacles: readonly EdgeObstacleRect[]
+  ): readonly EdgePoint[] {
+    let routed = this.compactPolyline(points);
+    if (routed.length < 2 || obstacles.length === 0) return routed;
+
+    let pass = 0;
+    while (pass < EDGE_ROUTE_MAX_PASSES) {
+      pass += 1;
+      let changed = false;
+
+      for (let index = 0; index < routed.length - 1; index += 1) {
+        const start = routed[index];
+        const end = routed[index + 1];
+        if (!start || !end) continue;
+
+        const blocking = obstacles.find((rect) => this.segmentIntersectsExpandedRect(start, end, rect));
+        if (!blocking) continue;
+        const detour = this.buildSegmentDetour(start, end, blocking, obstacles);
+        if (detour.length === 0) continue;
+        routed = this.compactPolyline([
+          ...routed.slice(0, index + 1),
+          ...detour,
+          ...routed.slice(index + 1)
+        ]);
+        changed = true;
+        break;
+      }
+
+      if (!changed) break;
+    }
+
+    return routed;
+  }
+
+  private buildSegmentDetour(
+    start: EdgePoint,
+    end: EdgePoint,
+    obstacle: EdgeObstacleRect,
+    obstacles: readonly EdgeObstacleRect[]
+  ): readonly EdgePoint[] {
+    const clearance = EDGE_OBSTACLE_CLEARANCE;
+    const nearHorizontal = Math.abs(start.y - end.y) <= Math.abs(start.x - end.x);
+    const candidates: EdgePoint[][] = [];
+
+    if (nearHorizontal) {
+      const topY = obstacle.top - clearance;
+      const bottomY = obstacle.bottom + clearance;
+      candidates.push(
+        [{ x: start.x, y: topY }, { x: end.x, y: topY }],
+        [{ x: start.x, y: bottomY }, { x: end.x, y: bottomY }]
+      );
+    } else {
+      const leftX = obstacle.left - clearance;
+      const rightX = obstacle.right + clearance;
+      candidates.push(
+        [{ x: leftX, y: start.y }, { x: leftX, y: end.y }],
+        [{ x: rightX, y: start.y }, { x: rightX, y: end.y }]
+      );
+    }
+
+    candidates.push(
+      [{ x: obstacle.left - clearance, y: start.y }, { x: obstacle.left - clearance, y: end.y }],
+      [{ x: obstacle.right + clearance, y: start.y }, { x: obstacle.right + clearance, y: end.y }],
+      [{ x: start.x, y: obstacle.top - clearance }, { x: end.x, y: obstacle.top - clearance }],
+      [{ x: start.x, y: obstacle.bottom + clearance }, { x: end.x, y: obstacle.bottom + clearance }]
+    );
+
+    return this.pickBestDetour(start, end, candidates, obstacles);
+  }
+
+  private pickBestDetour(
+    start: EdgePoint,
+    end: EdgePoint,
+    candidates: readonly (readonly EdgePoint[])[],
+    obstacles: readonly EdgeObstacleRect[]
+  ): readonly EdgePoint[] {
+    let best: readonly EdgePoint[] = [];
+    let bestScore = Number.POSITIVE_INFINITY;
+
+    for (const candidate of candidates) {
+      const path = this.compactPolyline([start, ...candidate, end]);
+      if (path.length < 2) continue;
+      const collisions = this.countPolylineObstacleCollisions(path, obstacles);
+      const length = this.getPolylineLength(path);
+      const bends = Math.max(0, path.length - 2);
+      const score = collisions * 10000 + length + bends * 10;
+      if (score < bestScore) {
+        bestScore = score;
+        best = candidate;
+      }
+    }
+
+    return best;
+  }
+
+  private countPolylineObstacleCollisions(
+    points: readonly EdgePoint[],
+    obstacles: readonly EdgeObstacleRect[]
+  ): number {
+    let collisions = 0;
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const start = points[index];
+      const end = points[index + 1];
+      if (!start || !end) continue;
+      for (const obstacle of obstacles) {
+        if (this.segmentIntersectsExpandedRect(start, end, obstacle)) collisions += 1;
+      }
+    }
+    return collisions;
+  }
+
+  private compactPolyline(points: readonly EdgePoint[]): readonly EdgePoint[] {
+    const compacted: EdgePoint[] = [];
+    for (const point of points) {
+      const previous = compacted[compacted.length - 1];
+      if (previous && Math.abs(previous.x - point.x) < 0.001 && Math.abs(previous.y - point.y) < 0.001) {
+        continue;
+      }
+      compacted.push(point);
+      if (compacted.length < 3) continue;
+      const a = compacted[compacted.length - 3];
+      const b = compacted[compacted.length - 2];
+      const c = compacted[compacted.length - 1];
+      if (!a || !b || !c) continue;
+      const abX = b.x - a.x;
+      const abY = b.y - a.y;
+      const bcX = c.x - b.x;
+      const bcY = c.y - b.y;
+      const cross = abX * bcY - abY * bcX;
+      if (Math.abs(cross) <= 0.001) {
+        compacted.splice(compacted.length - 2, 1);
+      }
+    }
+    return compacted;
+  }
+
+  private segmentIntersectsExpandedRect(start: EdgePoint, end: EdgePoint, rect: EdgeObstacleRect): boolean {
+    if (this.pointInsideRect(start, rect) || this.pointInsideRect(end, rect)) return true;
+
+    const minX = Math.min(start.x, end.x);
+    const maxX = Math.max(start.x, end.x);
+    const minY = Math.min(start.y, end.y);
+    const maxY = Math.max(start.y, end.y);
+    if (maxX < rect.left || minX > rect.right || maxY < rect.top || minY > rect.bottom) return false;
+
+    const topLeft = { x: rect.left, y: rect.top };
+    const topRight = { x: rect.right, y: rect.top };
+    const bottomRight = { x: rect.right, y: rect.bottom };
+    const bottomLeft = { x: rect.left, y: rect.bottom };
+
+    return (
+      this.segmentsIntersect(start, end, topLeft, topRight)
+      || this.segmentsIntersect(start, end, topRight, bottomRight)
+      || this.segmentsIntersect(start, end, bottomRight, bottomLeft)
+      || this.segmentsIntersect(start, end, bottomLeft, topLeft)
+    );
+  }
+
+  private pointInsideRect(point: EdgePoint, rect: EdgeObstacleRect): boolean {
+    return point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
+  }
+
+  private segmentsIntersect(a: EdgePoint, b: EdgePoint, c: EdgePoint, d: EdgePoint): boolean {
+    const epsilon = 0.001;
+    const orientation = (p: EdgePoint, q: EdgePoint, r: EdgePoint): number =>
+      (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
+    const onSegment = (p: EdgePoint, q: EdgePoint, r: EdgePoint): boolean =>
+      q.x <= Math.max(p.x, r.x) + epsilon
+      && q.x + epsilon >= Math.min(p.x, r.x)
+      && q.y <= Math.max(p.y, r.y) + epsilon
+      && q.y + epsilon >= Math.min(p.y, r.y);
+
+    const o1 = orientation(a, b, c);
+    const o2 = orientation(a, b, d);
+    const o3 = orientation(c, d, a);
+    const o4 = orientation(c, d, b);
+
+    if ((o1 > 0 && o2 < 0 || o1 < 0 && o2 > 0) && (o3 > 0 && o4 < 0 || o3 < 0 && o4 > 0)) {
+      return true;
+    }
+    if (Math.abs(o1) <= epsilon && onSegment(a, c, b)) return true;
+    if (Math.abs(o2) <= epsilon && onSegment(a, d, b)) return true;
+    if (Math.abs(o3) <= epsilon && onSegment(c, a, d)) return true;
+    if (Math.abs(o4) <= epsilon && onSegment(c, b, d)) return true;
+    return false;
+  }
+
+  private getPolylineLength(points: readonly EdgePoint[]): number {
+    let total = 0;
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const start = points[index];
+      const end = points[index + 1];
+      if (!start || !end) continue;
+      total += Math.hypot(end.x - start.x, end.y - start.y);
+    }
+    return total;
+  }
+
+  private getPointAtPolylineDistance(
+    points: readonly EdgePoint[],
+    distance: number
+  ): Readonly<{ x: number; y: number }> {
+    if (points.length === 0) return { x: 0, y: 0 };
+    if (points.length === 1) return points[0] ?? { x: 0, y: 0 };
+    const totalLength = this.getPolylineLength(points);
+    if (totalLength <= 0) return points[0] ?? { x: 0, y: 0 };
+
+    const clampedDistance = Math.max(0, Math.min(distance, totalLength));
+    let traversed = 0;
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const start = points[index];
+      const end = points[index + 1];
+      if (!start || !end) continue;
+      const segmentLength = Math.hypot(end.x - start.x, end.y - start.y);
+      if (segmentLength <= 0) continue;
+      if (traversed + segmentLength >= clampedDistance) {
+        const ratio = (clampedDistance - traversed) / segmentLength;
+        return {
+          x: start.x + (end.x - start.x) * ratio,
+          y: start.y + (end.y - start.y) * ratio
+        };
+      }
+      traversed += segmentLength;
+    }
+    return points[points.length - 1] ?? { x: 0, y: 0 };
+  }
+
+  private getHalfPolyline(points: readonly EdgePoint[], direction: EdgeFlowDirection): readonly EdgePoint[] {
+    if (points.length < 2) return [];
+    const total = this.getPolylineLength(points);
+    if (total <= 0) return [];
+    const midpoint = total / 2;
+    if (direction === "forward") {
+      return this.extractPolylineInterval(points, midpoint, total);
+    }
+    return this.extractPolylineInterval(points, 0, midpoint).slice().reverse();
+  }
+
+  private extractPolylineInterval(
+    points: readonly EdgePoint[],
+    startDistance: number,
+    endDistance: number
+  ): readonly EdgePoint[] {
+    if (points.length < 2 || endDistance <= startDistance) return [];
+    const totalLength = this.getPolylineLength(points);
+    const intervalStart = Math.max(0, Math.min(startDistance, totalLength));
+    const intervalEnd = Math.max(intervalStart, Math.min(endDistance, totalLength));
+    if (intervalEnd <= intervalStart) return [];
+
+    const result: EdgePoint[] = [];
+    let traversed = 0;
+
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const start = points[index];
+      const end = points[index + 1];
+      if (!start || !end) continue;
+      const segmentLength = Math.hypot(end.x - start.x, end.y - start.y);
+      if (segmentLength <= 0) continue;
+
+      const segmentStart = traversed;
+      const segmentEnd = traversed + segmentLength;
+      if (segmentEnd < intervalStart || segmentStart > intervalEnd) {
+        traversed = segmentEnd;
+        continue;
+      }
+
+      const localStartDistance = Math.max(0, intervalStart - segmentStart);
+      const localEndDistance = Math.min(segmentLength, intervalEnd - segmentStart);
+      const startRatio = localStartDistance / segmentLength;
+      const endRatio = localEndDistance / segmentLength;
+      const startPoint = {
+        x: start.x + (end.x - start.x) * startRatio,
+        y: start.y + (end.y - start.y) * startRatio
+      };
+      const endPoint = {
+        x: start.x + (end.x - start.x) * endRatio,
+        y: start.y + (end.y - start.y) * endRatio
+      };
+      if (result.length === 0) result.push(startPoint);
+      else {
+        const previous = result[result.length - 1];
+        if (!previous || Math.hypot(previous.x - startPoint.x, previous.y - startPoint.y) > 0.001) {
+          result.push(startPoint);
+        }
+      }
+      result.push(endPoint);
+      traversed = segmentEnd;
+    }
+
+    return this.compactPolyline(result);
   }
 
   private getEdgeTerminalAxis(
