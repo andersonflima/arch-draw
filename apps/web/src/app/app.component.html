@@ -398,7 +398,7 @@
       </div>
       </ng-template>
 
-      <section *ngIf="!useMaxGraphEngine" class="canvas-map" aria-label="Mapa do canvas" (click)="$event.stopPropagation()">
+      <section class="canvas-map" aria-label="Mapa do canvas" (click)="$event.stopPropagation()">
         <div class="mini-map">
           <ng-container *ngFor="let node of nodes">
             <span
