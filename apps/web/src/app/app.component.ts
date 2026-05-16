@@ -169,6 +169,10 @@ const FOCUS_Z_INDEX_BASE = 50;
 const MAX_UNDO_HISTORY = 150;
 const DRAG_START_THRESHOLD = 4;
 const UI_THEME_STORAGE_KEY = "arch-draw.ui-theme";
+const CONTAINER_CHILD_PADDING_LEFT = 16;
+const CONTAINER_CHILD_PADDING_RIGHT = 16;
+const CONTAINER_CHILD_PADDING_TOP = 56;
+const CONTAINER_CHILD_PADDING_BOTTOM = 16;
 const EXPORT_EXCLUDED_SELECTORS = [
   ".canvas-map",
   ".context-properties-popup",
@@ -1406,6 +1410,7 @@ export class AppComponent implements OnDestroy {
         ? this.detachNodeFromParent(node)
         : node;
     });
+    this.fitContainerAndAncestorChain(selected.id);
     this.markViewChanged();
   }
 
@@ -2249,6 +2254,7 @@ LIMIT 50;`;
       for (const dragged of rootNodes) {
         this.attachNodeToContainer(dragged, dropPoint);
       }
+      this.fitAncestorContainersForNodes([...selectedIds]);
     }
 
     if (this.marqueeState) {
@@ -3234,6 +3240,8 @@ spec:
       this.selectedEdgeId = null;
       this.resizeEnabledNodeId = null;
     }
+
+    this.fitContainerAndAncestorChain(nodeId);
   }
 
   private setCodeSnippetCollapsed(nodeId: string, collapsed: boolean): void {
@@ -3263,6 +3271,8 @@ spec:
         };
       })
     );
+
+    this.fitContainerAndAncestorChain(nodeId);
   }
 
   private rendersAsContainer(node: CanvasNode): boolean {
@@ -3483,6 +3493,80 @@ spec:
     return offsetSegmentEndpointsCore(start, end, startInset, endInset);
   }
 
+  private fitAncestorContainersForNodes(nodeIds: readonly string[]): void {
+    const processed = new Set<string>();
+    for (const nodeId of nodeIds) {
+      if (!nodeId || processed.has(nodeId)) continue;
+      processed.add(nodeId);
+      this.fitContainerAndAncestorChain(nodeId);
+    }
+  }
+
+  private fitContainerAndAncestorChain(nodeId: string): void {
+    let current = this.nodes.find((node) => node.id === nodeId) ?? null;
+    while (current) {
+      if (isContainerNodeKind(current.kind) && !this.isContainerCollapsed(current)) {
+        this.fitSingleContainerToChildren(current.id);
+      }
+      current = current.parentId
+        ? this.nodes.find((node) => node.id === current?.parentId) ?? null
+        : null;
+    }
+  }
+
+  private fitSingleContainerToChildren(containerId: string): void {
+    const container = this.nodes.find((node) => node.id === containerId);
+    if (!container || !isContainerNodeKind(container.kind) || this.isContainerCollapsed(container)) return;
+
+    const children = this.nodes.filter((node) => node.parentId === containerId);
+    if (children.length === 0) return;
+
+    const minSize = { width: 260, height: 180 };
+    const minLeft = Math.min(...children.map((child) => child.position.x));
+    const minTop = Math.min(...children.map((child) => child.position.y));
+    const shiftX = minLeft < CONTAINER_CHILD_PADDING_LEFT ? CONTAINER_CHILD_PADDING_LEFT - minLeft : 0;
+    const shiftY = minTop < CONTAINER_CHILD_PADDING_TOP ? CONTAINER_CHILD_PADDING_TOP - minTop : 0;
+
+    const maxRight = Math.max(...children.map((child) => child.position.x + shiftX + child.size.width));
+    const maxBottom = Math.max(...children.map((child) => child.position.y + shiftY + child.size.height));
+    const requiredWidth = Math.max(
+      minSize.width,
+      Math.ceil(maxRight + CONTAINER_CHILD_PADDING_RIGHT)
+    );
+    const requiredHeight = Math.max(
+      minSize.height,
+      Math.ceil(maxBottom + CONTAINER_CHILD_PADDING_BOTTOM)
+    );
+
+    const nextWidth = Math.max(container.size.width, requiredWidth);
+    const nextHeight = Math.max(container.size.height, requiredHeight);
+    const shouldShiftChildren = shiftX !== 0 || shiftY !== 0;
+    const shouldResizeContainer = nextWidth !== container.size.width || nextHeight !== container.size.height;
+    if (!shouldShiftChildren && !shouldResizeContainer) return;
+
+    this.nodes = this.nodes.map((node) => {
+      if (node.id === containerId) {
+        return {
+          ...node,
+          size: {
+            width: nextWidth,
+            height: nextHeight
+          }
+        };
+      }
+      if (shouldShiftChildren && node.parentId === containerId) {
+        return {
+          ...node,
+          position: {
+            x: node.position.x + shiftX,
+            y: node.position.y + shiftY
+          }
+        };
+      }
+      return node;
+    });
+  }
+
   private attachNodeToContainer(
     dragged: CanvasNode,
     dropPoint?: Readonly<{ x: number; y: number }>
@@ -3505,6 +3589,7 @@ spec:
           : node
       )
     );
+    this.fitAncestorContainersForNodes(target ? [dragged.id, target.id] : [dragged.id]);
   }
 
   private findContainingNode(
@@ -3580,6 +3665,7 @@ spec:
         ? { ...candidate, position, size: { width, height } }
         : candidate
     );
+    this.fitAncestorContainersForNodes([min.id]);
     this.markInteractionChanged();
   }
 
