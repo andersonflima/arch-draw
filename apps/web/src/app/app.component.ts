@@ -46,7 +46,11 @@ import {
   type NodeTemplate,
   type NodeTemplateCategory
 } from "../features/editor/node-catalog";
-import { getNodeIconClass as getNodeIconCssClass, getNodeIconLabel } from "../features/editor/node-icons";
+import {
+  getNodeIconAsset as getNodeIconAssetPath,
+  getNodeIconClass as getNodeIconCssClass,
+  getNodeIconLabel
+} from "../features/editor/node-icons";
 import {
   insertMermaidIndent,
   insertMermaidLineBreak,
@@ -1761,6 +1765,10 @@ export class AppComponent {
 
   getNodeIconClass(kind: ArchitectureNodeKind): string {
     return getNodeIconCssClass(kind);
+  }
+
+  getNodeIconAsset(kind: ArchitectureNodeKind): string | null {
+    return getNodeIconAssetPath(kind);
   }
 
   isContainer(kind: ArchitectureNodeKind): boolean {

@@ -915,6 +915,13 @@ app-flow-document-node {
   pointer-events: none;
 }
 
+.node-icon__svg {
+  width: 80%;
+  height: 80%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
 .node-icon--aws-lambda i::before {
   content: "λ";
   font-family: "Times New Roman", Times, serif;

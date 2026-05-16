@@ -119,7 +119,12 @@
               [style.background]="template.color"
               [attr.title]="getNodeIcon(template.kind)"
             >
-              <i [class]="getNodeIconClass(template.kind)" aria-hidden="true"></i>
+              <ng-container *ngIf="getNodeIconAsset(template.kind) as iconAsset; else paletteFontIcon">
+                <img class="node-icon__svg" [src]="iconAsset" [alt]="template.label" />
+              </ng-container>
+              <ng-template #paletteFontIcon>
+                <i [class]="getNodeIconClass(template.kind)" aria-hidden="true"></i>
+              </ng-template>
               <span class="node-icon__label">{{ getNodeIcon(template.kind) }}</span>
             </span>
             <span class="palette-item__label" [title]="template.label">{{ template.label }}</span>
@@ -304,7 +309,12 @@
                 [style.--icon-color]="node.color"
                 [attr.title]="getNodeIcon(getNodeIconKind(node))"
               >
-                <i [class]="getNodeIconClass(getNodeIconKind(node))" aria-hidden="true"></i>
+                <ng-container *ngIf="getNodeIconAsset(getNodeIconKind(node)) as iconAsset; else boardFontIcon">
+                  <img class="node-icon__svg" [src]="iconAsset" [alt]="getNodeLabel(node.kind)" />
+                </ng-container>
+                <ng-template #boardFontIcon>
+                  <i [class]="getNodeIconClass(getNodeIconKind(node))" aria-hidden="true"></i>
+                </ng-template>
                 <span class="node-icon__label">{{ getNodeIcon(getNodeIconKind(node)) }}</span>
               </span>
               <span class="architecture-node__kind-label">{{ getNodeLabel(node.kind) }}</span>

@@ -238,8 +238,57 @@ const iconClasses: Partial<Record<ArchitectureNodeKind, string>> = {
   "algorithm-linked-list": "fa-solid fa-link"
 };
 
+const iconAssets: Partial<Record<ArchitectureNodeKind, string>> = {
+  "aws-account": "/assets/icons/aws/aws-account.svg",
+  "aws-region": "/assets/icons/aws/aws-region.svg",
+  "aws-availability-zone": "/assets/icons/aws/aws-availability-zone.svg",
+  "aws-vpc": "/assets/icons/aws/aws-vpc.svg",
+  "aws-subnet": "/assets/icons/aws/aws-subnet.svg",
+  "aws-internet-gateway": "/assets/icons/aws/aws-internet-gateway.svg",
+  "aws-nat-gateway": "/assets/icons/aws/aws-nat-gateway.svg",
+  "aws-route-table": "/assets/icons/aws/aws-route-table.svg",
+  "aws-route53": "/assets/icons/aws/aws-route53.svg",
+  "aws-cloudfront": "/assets/icons/aws/aws-cloudfront.svg",
+  "aws-api-gateway": "/assets/icons/aws/aws-api-gateway.svg",
+  "aws-alb": "/assets/icons/aws/aws-alb.svg",
+  "aws-nlb": "/assets/icons/aws/aws-nlb.svg",
+  "aws-ec2": "/assets/icons/aws/aws-ec2.svg",
+  "aws-auto-scaling": "/assets/icons/aws/aws-auto-scaling.svg",
+  "aws-lambda": "/assets/icons/aws/aws-lambda.svg",
+  "aws-ecs": "/assets/icons/aws/aws-ecs.svg",
+  "aws-eks": "/assets/icons/aws/aws-eks.svg",
+  "aws-fargate": "/assets/icons/aws/aws-fargate.svg",
+  "aws-ecr": "/assets/icons/aws/aws-ecr.svg",
+  "aws-s3": "/assets/icons/aws/aws-s3.svg",
+  "aws-ebs": "/assets/icons/aws/aws-ebs.svg",
+  "aws-efs": "/assets/icons/aws/aws-efs.svg",
+  "aws-rds": "/assets/icons/aws/aws-rds.svg",
+  "aws-aurora": "/assets/icons/aws/aws-aurora.svg",
+  "aws-dynamodb": "/assets/icons/aws/aws-dynamodb.svg",
+  "aws-elasticache": "/assets/icons/aws/aws-elasticache.svg",
+  "aws-redshift": "/assets/icons/aws/aws-redshift.svg",
+  "aws-opensearch": "/assets/icons/aws/aws-opensearch.svg",
+  "aws-sqs": "/assets/icons/aws/aws-sqs.svg",
+  "aws-sns": "/assets/icons/aws/aws-sns.svg",
+  "aws-eventbridge": "/assets/icons/aws/aws-eventbridge.svg",
+  "aws-kinesis": "/assets/icons/aws/aws-kinesis.svg",
+  "aws-step-functions": "/assets/icons/aws/aws-step-functions.svg",
+  "aws-iam": "/assets/icons/aws/aws-iam.svg",
+  "aws-cognito": "/assets/icons/aws/aws-cognito.svg",
+  "aws-secrets-manager": "/assets/icons/aws/aws-secrets-manager.svg",
+  "aws-kms": "/assets/icons/aws/aws-kms.svg",
+  "aws-cloudwatch": "/assets/icons/aws/aws-cloudwatch.svg",
+  "aws-cloudtrail": "/assets/icons/aws/aws-cloudtrail.svg",
+  "aws-waf": "/assets/icons/aws/aws-waf.svg",
+  "aws-shield": "/assets/icons/aws/aws-shield.svg",
+  "aws-security-group": "/assets/icons/aws/aws-security-group.svg"
+};
+
 export const getNodeIconLabel = (kind: ArchitectureNodeKind): string =>
   iconLabels[kind] ?? "NODE";
 
 export const getNodeIconClass = (kind: ArchitectureNodeKind): string =>
   iconClasses[kind] ?? "fa-solid fa-circle-nodes";
+
+export const getNodeIconAsset = (kind: ArchitectureNodeKind): string | null =>
+  iconAssets[kind] ?? null;
