@@ -218,6 +218,7 @@ button {
   display: grid;
   gap: 10px;
   padding: 12px 12px 20px;
+  align-content: start;
 }
 
 .file-list,
@@ -226,6 +227,10 @@ button {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+.palette-list {
+  grid-auto-rows: max-content;
 }
 
 .file-item-row {
@@ -285,6 +290,7 @@ button {
   grid-template-columns: 1fr;
   justify-items: center;
   align-items: start;
+  align-self: start;
   gap: 6px;
   padding: 8px;
   overflow: hidden;
@@ -294,6 +300,7 @@ button {
 .palette-group {
   display: grid;
   gap: 8px;
+  align-content: start;
 }
 
 .palette-search {
