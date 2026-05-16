@@ -2624,7 +2624,7 @@ LIMIT 50;`;
     if (!dragState) return "";
     const source = this.nodes.find((node) => node.id === dragState.sourceId);
     if (!source) return "";
-    const rawStart = this.getAnchorTowardPoint(source, dragState.current, EDGE_NODE_GAP);
+    const rawStart = this.getAnchorTowardPoint(source, dragState.current, EDGE_NODE_GAP, "source");
     const rawEnd = dragState.current;
     const { start, end } = this.offsetSegmentEndpoints(rawStart, rawEnd, 0, EDGE_MARKER_CLEARANCE);
     const midX = (start.x + end.x) / 2;
@@ -3414,8 +3414,8 @@ spec:
     if (!effective) return null;
     const { fromNode: source, toNode: target } = effective;
     if (source.id === target.id) return null;
-    const rawStart = this.getAnchorWithGap(source, target, EDGE_NODE_GAP);
-    const rawEnd = this.getAnchorWithGap(target, source, EDGE_NODE_GAP);
+    const rawStart = this.getAnchorWithGap(source, target, EDGE_NODE_GAP, "source");
+    const rawEnd = this.getAnchorWithGap(target, source, EDGE_NODE_GAP, "target");
     const sourceCenter = this.getNodeCenter(source);
     const targetCenter = this.getNodeCenter(target);
     const startAxis = this.getEdgeTerminalAxis(source, rawStart, sourceCenter);
@@ -3730,69 +3730,63 @@ spec:
     };
   }
 
-  private getNodeAnchor(
-    from: CanvasNode,
-    to: CanvasNode
-  ): Readonly<{ x: number; y: number }> {
-    const fromCenter = this.getNodeCenter(from);
-    const toCenter = this.getNodeCenter(to);
-    const dx = toCenter.x - fromCenter.x;
-    const dy = toCenter.y - fromCenter.y;
-    const xScale = dx === 0 ? Number.POSITIVE_INFINITY : from.size.width / 2 / Math.abs(dx);
-    const yScale = dy === 0 ? Number.POSITIVE_INFINITY : from.size.height / 2 / Math.abs(dy);
-    const scale = Math.min(xScale, yScale);
-
-    if (!Number.isFinite(scale)) return fromCenter;
-
-    return {
-      x: fromCenter.x + dx * scale,
-      y: fromCenter.y + dy * scale
-    };
-  }
-
   private getAnchorTowardPoint(
     from: CanvasNode,
     target: Readonly<{ x: number; y: number }>,
-    gap: number
+    gap: number,
+    role: "source" | "target"
   ): Readonly<{ x: number; y: number }> {
-    const center = this.getNodeCenter(from);
-    const dx = target.x - center.x;
-    const dy = target.y - center.y;
-    const xScale = dx === 0 ? Number.POSITIVE_INFINITY : from.size.width / 2 / Math.abs(dx);
-    const yScale = dy === 0 ? Number.POSITIVE_INFINITY : from.size.height / 2 / Math.abs(dy);
-    const scale = Math.min(xScale, yScale);
-
-    if (!Number.isFinite(scale)) return center;
-
-    const anchor = {
-      x: center.x + dx * scale,
-      y: center.y + dy * scale
-    };
-    const distance = Math.hypot(anchor.x - center.x, anchor.y - center.y);
-    if (distance === 0) return anchor;
-
-    return {
-      x: anchor.x + ((anchor.x - center.x) / distance) * gap,
-      y: anchor.y + ((anchor.y - center.y) / distance) * gap
-    };
+    const side = this.getNodeConnectionSideTowardPoint(from, target, role);
+    return this.getNodePortAnchor(from, side, gap);
   }
 
   private getAnchorWithGap(
     from: CanvasNode,
     to: CanvasNode,
+    gap: number,
+    role: "source" | "target"
+  ): Readonly<{ x: number; y: number }> {
+    const targetCenter = this.getNodeCenter(to);
+    return this.getAnchorTowardPoint(from, targetCenter, gap, role);
+  }
+
+  private getNodeConnectionSideTowardPoint(
+    node: CanvasNode,
+    target: Readonly<{ x: number; y: number }>,
+    role: "source" | "target"
+  ): "left" | "right" | "top" | "bottom" {
+    if (!this.hasOmniConnectionPorts(node)) {
+      return role === "source" ? "right" : "left";
+    }
+
+    const center = this.getNodeCenter(node);
+    const dx = target.x - center.x;
+    const dy = target.y - center.y;
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      return dx >= 0 ? "right" : "left";
+    }
+    return dy >= 0 ? "bottom" : "top";
+  }
+
+  private getNodePortAnchor(
+    node: CanvasNode,
+    side: "left" | "right" | "top" | "bottom",
     gap: number
   ): Readonly<{ x: number; y: number }> {
-    const anchor = this.getNodeAnchor(from, to);
-    const center = this.getNodeCenter(from);
-    const dx = anchor.x - center.x;
-    const dy = anchor.y - center.y;
-    const distance = Math.hypot(dx, dy);
-    if (distance === 0) return anchor;
+    const center = this.getNodeCenter(node);
+    const halfWidth = node.size.width / 2;
+    const halfHeight = node.size.height / 2;
 
-    return {
-      x: anchor.x + (dx / distance) * gap,
-      y: anchor.y + (dy / distance) * gap
-    };
+    if (side === "left") {
+      return { x: center.x - halfWidth - gap, y: center.y };
+    }
+    if (side === "right") {
+      return { x: center.x + halfWidth + gap, y: center.y };
+    }
+    if (side === "top") {
+      return { x: center.x, y: center.y - halfHeight - gap };
+    }
+    return { x: center.x, y: center.y + halfHeight + gap };
   }
 
   private getMiniMapBounds(): Readonly<{ x: number; y: number; width: number; height: number }> {
