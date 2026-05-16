@@ -44,17 +44,23 @@ export const architectureFromMermaid = (
 export const architectureToMermaid = (
   architecture: Pick<ArchitectureDocument, "nodes" | "edges">
 ): string => {
-  const nodeIds = new Set(architecture.nodes.map((node) => node.id));
-  const nodeLines = architecture.nodes
-    .map((node) => `  ${node.id}["${escapeMermaidLabel(node.label)}"]`);
+  const orderedNodes = [...architecture.nodes]
+    .sort((left, right) => left.id.localeCompare(right.id));
+  const nodeIdMap = new Map<string, string>(
+    orderedNodes.map((node, index) => [node.id, `n${index + 1}`])
+  );
+  const nodeLines = orderedNodes
+    .map((node) => `  ${nodeIdMap.get(node.id)}["${escapeMermaidLabel(node.label)}"]`);
 
   const edgeLines: string[] = [];
   const emitted = new Set<string>();
   for (const edge of architecture.edges) {
-    if (!nodeIds.has(edge.from) || !nodeIds.has(edge.to)) continue;
-    emitMermaidEdgeLine(edgeLines, emitted, edge.from, edge.to, edge.label);
+    const from = nodeIdMap.get(edge.from);
+    const to = nodeIdMap.get(edge.to);
+    if (!from || !to) continue;
+    emitMermaidEdgeLine(edgeLines, emitted, from, to, edge.label);
     if (edge.style?.bidirectional) {
-      emitMermaidEdgeLine(edgeLines, emitted, edge.to, edge.from, edge.label);
+      emitMermaidEdgeLine(edgeLines, emitted, to, from, edge.label);
     }
   }
 

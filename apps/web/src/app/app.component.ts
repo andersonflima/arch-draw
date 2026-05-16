@@ -668,10 +668,9 @@ export class AppComponent {
     });
   }
 
-  async deleteArchitectureById(id: string, event: MouseEvent): Promise<void> {
-    event.stopPropagation();
-    const confirmed = window.confirm("Excluir este diagrama?");
-    if (!confirmed) return;
+  async deleteArchitectureById(id: string, event?: MouseEvent): Promise<void> {
+    event?.preventDefault();
+    event?.stopPropagation();
     await this.runSafely(async () => {
       this.cancelAutoSave();
       await this.waitForPersistenceIdle();

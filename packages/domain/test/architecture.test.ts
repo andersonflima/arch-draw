@@ -158,7 +158,53 @@ describe("architecture domain", () => {
     };
 
     expect(architectureToMermaid(architecture)).toBe(
-      'graph LR\n  web["Web App"]\n  db["Orders DB"]\n  web --> db\n  db --> web'
+      'graph LR\n  n1["Orders DB"]\n  n2["Web App"]\n  n2 --> n1\n  n1 --> n2'
+    );
+  });
+
+  it("generates Mermaid with safe node ids for parser-reserved words", () => {
+    const architecture = {
+      ...createEmptyArchitecture({
+        id: "arch-4",
+        title: "Safe ids",
+        now: "2026-05-15T10:00:00.000Z"
+      }),
+      nodes: [
+        {
+          id: "flow-end-123",
+          kind: "flow-end" as const,
+          label: "End",
+          position: { x: 120, y: 80 },
+          size: { width: 136, height: 140 },
+          color: "#ffedd5"
+        },
+        {
+          id: "api-gateway-xyz",
+          kind: "aws-api-gateway" as const,
+          label: "API Gateway",
+          position: { x: 360, y: 80 },
+          size: { width: 136, height: 140 },
+          color: "#e0f2fe"
+        }
+      ],
+      edges: [
+        {
+          id: "edge-1",
+          from: "api-gateway-xyz",
+          to: "flow-end-123",
+          style: {
+            path: "smoothstep" as const,
+            line: "solid" as const,
+            color: "#111827",
+            animated: false,
+            bidirectional: false
+          }
+        }
+      ]
+    };
+
+    expect(architectureToMermaid(architecture)).toBe(
+      'graph LR\n  n1["API Gateway"]\n  n2["End"]\n  n1 --> n2'
     );
   });
 });

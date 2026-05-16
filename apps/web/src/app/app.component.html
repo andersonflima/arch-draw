@@ -79,6 +79,7 @@
             type="button"
             title="Excluir arquivo"
             aria-label="Excluir arquivo"
+            (pointerdown)="$event.stopPropagation()"
             (click)="deleteArchitectureById(summary.id, $event)"
           >
             <i class="fa-solid fa-trash" aria-hidden="true"></i>
