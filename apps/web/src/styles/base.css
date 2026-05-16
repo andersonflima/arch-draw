@@ -2847,6 +2847,26 @@ app-flow-document-node {
   color: #9ca3af;
 }
 
+.app-shell.theme-dark .palette-list {
+  background: #111827;
+}
+
+.app-shell.theme-dark .palette-group h3 {
+  background: #111827;
+  color: #cbd5e1;
+  border-bottom: 1px dashed #374151;
+}
+
+.app-shell.theme-dark .palette-item__label {
+  color: #f8fafc;
+}
+
+.app-shell.theme-dark .palette-item .node-icon,
+.app-shell.theme-dark .palette-item .node-icon i,
+.app-shell.theme-dark .palette-item .node-icon__label {
+  color: #f8fafc;
+}
+
 .app-shell.theme-dark .title-input {
   border-bottom-color: #e5e7eb;
 }
