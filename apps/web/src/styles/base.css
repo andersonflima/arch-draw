@@ -2345,11 +2345,11 @@ app-flow-document-node {
   stroke: #2563eb;
   stroke-dasharray: 8 6;
   opacity: 0.9;
-  animation: edge-flow-dash 0.9s linear infinite;
+  animation: edge-flow-dash 0.35s linear infinite;
 }
 
 .canvas-edge.is-live {
-  animation: edge-flow-dash 0.9s linear infinite;
+  animation: edge-flow-dash 0.35s linear infinite;
 }
 
 .canvas-edge-flow {
@@ -2357,11 +2357,11 @@ app-flow-document-node {
 }
 
 .canvas-edge-flow--forward {
-  animation: edge-flow-dash 0.9s linear infinite;
+  animation: edge-flow-dash 0.35s linear infinite;
 }
 
 .canvas-edge-flow--reverse {
-  animation: edge-flow-dash-reverse 0.9s linear infinite;
+  animation: edge-flow-dash-reverse 0.35s linear infinite;
 }
 
 @keyframes edge-flow-dash {
