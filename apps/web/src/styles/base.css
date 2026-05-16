@@ -158,7 +158,9 @@ button {
 
 .workspace {
   display: grid;
-  grid-template-columns: 220px 210px minmax(420px, 1fr) 360px;
+  grid-template-columns: minmax(180px, 220px) minmax(180px, 210px) minmax(0, 1fr) minmax(300px, 360px);
+  width: 100%;
+  max-width: 100vw;
   min-height: 0;
   overflow: hidden;
 }
@@ -2683,10 +2685,6 @@ app-flow-document-node {
 }
 
 @media (max-width: 1180px) {
-  body {
-    overflow: auto;
-  }
-
   .app-shell {
     grid-template-rows: auto 1fr;
   }
@@ -2698,7 +2696,7 @@ app-flow-document-node {
 
   .workspace {
     grid-template-columns: 1fr;
-    grid-template-rows: auto auto 620px auto;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
   }
 
   .sidebar,
@@ -2714,7 +2712,7 @@ app-flow-document-node {
   }
 
   .right-rail.right-rail--mermaid-open {
-    grid-template-rows: auto 560px;
+    grid-template-rows: auto minmax(0, 1fr);
     border-left: 0;
   }
 }

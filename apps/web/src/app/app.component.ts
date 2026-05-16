@@ -606,7 +606,7 @@ export class AppComponent {
   lintStatus: "empty" | "valid" | "invalid" = "empty";
   status = "Inicializando";
   error = "";
-  useMaxGraphEngine = true;
+  useMaxGraphEngine = false;
   blockSearch = "";
   displayedPaletteGroups: readonly PaletteCategoryGroup[] = [];
   contextPropertiesPanel: ContextPropertiesPanelState | null = null;
