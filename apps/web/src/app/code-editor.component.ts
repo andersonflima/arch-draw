@@ -16,6 +16,7 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirro
 import { bracketMatching, foldGutter, indentOnInput } from "@codemirror/language";
 import { Compartment, type Extension } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
+import { vim } from "@replit/codemirror-vim";
 import {
   drawSelection,
   EditorView,
@@ -60,6 +61,7 @@ export class CodeEditorComponent implements AfterViewInit, OnChanges, OnDestroy 
       lineNumbers(),
       highlightActiveLineGutter(),
       drawSelection(),
+      vim(),
       EditorView.lineWrapping,
       EditorView.theme({
         "&": {
