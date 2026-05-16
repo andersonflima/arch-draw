@@ -171,6 +171,7 @@ const EDGE_NODE_GAP = 10;
 const EDGE_MARKER_CLEARANCE = 6;
 const EDGE_ENDPOINT_STUB = 8;
 const FOCUS_Z_INDEX_BASE = 50;
+const EXPANDED_NODE_Z_INDEX = 60;
 const MAX_UNDO_HISTORY = 150;
 const DRAG_START_THRESHOLD = 4;
 const UI_THEME_STORAGE_KEY = "arch-draw.ui-theme";
@@ -1067,7 +1068,11 @@ export class AppComponent implements OnDestroy {
     return options.includes(selectedKind) ? options : [selectedKind, ...options];
   }
 
-  addNode(template: NodeTemplate, position = this.nextNodePosition()): void {
+  addNode(
+    template: NodeTemplate,
+    position = this.nextNodePosition(),
+    options: Readonly<{ attachToContainer: boolean }> = { attachToContainer: false }
+  ): void {
     const id = `${template.kind}-${crypto.randomUUID()}`;
     const defaultSize = getDefaultNodeSize(template.kind);
     const isContainerKind = isContainerNodeKind(template.kind);
@@ -1075,7 +1080,9 @@ export class AppComponent implements OnDestroy {
     const startsCollapsed = isCodeSnippetKind ? true : isContainerKind ? false : undefined;
     const size = startsCollapsed ? { ...CODE_SNIPPET_COLLAPSED_SIZE } : defaultSize;
     const clampedPosition = this.clampNodeCreationPointToVisibleCanvas(position, size);
-    const parent = this.findContainingNode(clampedPosition, size, this.nodes);
+    const parent = options.attachToContainer
+      ? this.findContainingNode(clampedPosition, size, this.nodes)
+      : null;
     const parentPosition = parent ? this.getAbsolutePosition(parent) : null;
     const nodePosition = parentPosition
       ? { x: clampedPosition.x - parentPosition.x, y: clampedPosition.y - parentPosition.y }
@@ -1135,7 +1142,7 @@ export class AppComponent implements OnDestroy {
     const rawTemplate = event.dataTransfer?.getData("application/arch-draw-node");
     if (!rawTemplate) return;
     const template = JSON.parse(rawTemplate) as NodeTemplate;
-    this.addNode(template, this.toCanvasPoint(event));
+    this.addNode(template, this.toCanvasPoint(event), { attachToContainer: true });
   }
 
   zoomIn(): void {
@@ -2440,7 +2447,29 @@ LIMIT 50;`;
       : isFocused
         ? FOCUS_Z_INDEX_BASE
         : baseZIndex;
-    const resolvedZIndex = Math.max(dragZIndex, focusZIndex);
+    const selectedNodeId = this.selectedNodeId;
+    const isExpandedSelectedNode =
+      selectedNodeId === node.id &&
+      (this.isCodeSnippetExpanded(node)
+        || (isContainerNodeKind(node.kind) && !this.isContainerCollapsed(node)));
+    const isDescendantOfExpandedSelected =
+      Boolean(
+        selectedNodeId &&
+        selectedNodeId !== node.id &&
+        this.isAncestorOfNode(selectedNodeId, node.id) &&
+        this.nodes.some(
+          (candidate) =>
+            candidate.id === selectedNodeId &&
+            (this.isCodeSnippetExpanded(candidate)
+              || (isContainerNodeKind(candidate.kind) && !this.isContainerCollapsed(candidate)))
+        )
+      );
+    const expandedZIndex = isDescendantOfExpandedSelected
+      ? EXPANDED_NODE_Z_INDEX + 1
+      : isExpandedSelectedNode
+        ? EXPANDED_NODE_Z_INDEX
+        : baseZIndex;
+    const resolvedZIndex = Math.max(dragZIndex, focusZIndex, expandedZIndex);
     const nestedInsideContainer = Boolean(node.parentId);
     const isExpandedCodeSnippet = this.isCodeSnippetExpanded(node);
     const prefersDarkTextInDarkMode =
