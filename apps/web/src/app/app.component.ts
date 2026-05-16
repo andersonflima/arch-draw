@@ -402,6 +402,8 @@ const DOCKER_FIELDS: readonly NodePropertyField[] = [
 ];
 
 const CONTAINER_CODE_PROPERTY_KINDS = new Set<ArchitectureNodeKind>([
+  "subnet",
+  "aws-subnet",
   "aws-ecs",
   "aws-ecr",
   "aws-eks",
@@ -1725,6 +1727,15 @@ export class AppComponent implements OnDestroy {
   }
 
   private getDefaultCodeSnippet(kind: ArchitectureNodeKind, language: CodeLanguage): string {
+    if (kind === "subnet" || kind === "aws-subnet") {
+      const snippet = `subnet:
+  cidrBlock: 10.30.10.0/24
+  availabilityZone: us-east-1a
+  mapPublicIpOnLaunch: false
+  routeTableId: rtb-123456`;
+      return language === "markdown" ? `\`\`\`yaml\n${snippet}\n\`\`\`` : snippet;
+    }
+
     if (kind === "queue-rabbitmq") {
       const snippet = `version: "3.9"
 services:
@@ -5233,6 +5244,7 @@ spec:
     if (kind === "mermaid") return "mermaid";
     if (kind === "query-sql") return "sql";
     if (kind === "query-nosql") return "javascript";
+    if (kind === "subnet" || kind === "aws-subnet") return "yaml";
     if (kind === "software-docker") return "yaml";
     if (kind === "queue-rabbitmq" || kind === "queue-kafka" || kind === "cache-redis" || kind === "database-mongodb") {
       return "markdown";
