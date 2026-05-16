@@ -645,6 +645,32 @@ export class AppComponent {
     });
   }
 
+  async deleteArchitectureById(id: string, event: MouseEvent): Promise<void> {
+    event.stopPropagation();
+    const confirmed = window.confirm("Excluir este diagrama?");
+    if (!confirmed) return;
+    await this.runSafely(async () => {
+      this.cancelAutoSave();
+      await api.deleteArchitecture(id);
+      const remaining = await api.listArchitectures();
+      this.summaries = remaining;
+
+      if (this.architecture?.id === id) {
+        const fallback = remaining[0];
+        if (fallback) {
+          await this.loadArchitecture(fallback.id);
+        } else {
+          const created = await api.createArchitecture("Arquitetura local");
+          this.updateCurrent(created);
+          await this.refreshSummaries();
+        }
+      }
+
+      this.status = "Diagrama excluido";
+      this.markViewChanged();
+    });
+  }
+
   async saveCurrent(): Promise<void> {
     await this.runSafely(async () => {
       const saved = await this.persistCurrent("manual");

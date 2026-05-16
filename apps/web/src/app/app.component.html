@@ -62,15 +62,28 @@
         <span>DIR</span>
       </div>
       <div class="file-list">
-        <button
+        <div
           *ngFor="let summary of summaries"
-          [class]="summary.id === architecture?.id ? 'file-item is-active' : 'file-item'"
-          type="button"
-          (click)="loadArchitecture(summary.id)"
+          [class]="summary.id === architecture?.id ? 'file-item-row is-active' : 'file-item-row'"
         >
-          <strong>{{ summary.title }}</strong>
-          <span>{{ summary.nodeCount }} nos, {{ summary.edgeCount }} conexoes</span>
-        </button>
+          <button
+            class="file-item"
+            type="button"
+            (click)="loadArchitecture(summary.id)"
+          >
+            <strong>{{ summary.title }}</strong>
+            <span>{{ summary.nodeCount }} nos, {{ summary.edgeCount }} conexoes</span>
+          </button>
+          <button
+            class="file-delete-button"
+            type="button"
+            title="Excluir arquivo"
+            aria-label="Excluir arquivo"
+            (click)="deleteArchitectureById(summary.id, $event)"
+          >
+            <i class="fa-solid fa-trash" aria-hidden="true"></i>
+          </button>
+        </div>
       </div>
     </nav>
 
