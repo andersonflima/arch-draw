@@ -770,6 +770,7 @@ export class AppComponent implements OnDestroy {
   edges: CanvasEdge[] = [];
   selectedNodeId: string | null = null;
   selectedNodeIds: readonly string[] = [];
+  private maximizedNodeId: string | null = null;
   selectedEdgeId: string | null = null;
   connectionSourceId: string | null = null;
   editingNodeId: string | null = null;
@@ -1240,6 +1241,7 @@ export class AppComponent implements OnDestroy {
   clearSelection(): void {
     this.selectedNodeId = null;
     this.selectedNodeIds = [];
+    this.maximizedNodeId = null;
     this.selectedEdgeId = null;
     this.connectionSourceId = null;
     this.connectionDragState = null;
@@ -1316,6 +1318,7 @@ export class AppComponent implements OnDestroy {
     event.stopPropagation();
     if (this.isCodeSnippetCollapsed(node)) {
       this.setCodeSnippetCollapsed(node.id, false);
+      this.maximizedNodeId = node.id;
       this.selectedNodeId = node.id;
       this.selectedNodeIds = [node.id];
       this.selectedEdgeId = null;
@@ -1336,6 +1339,7 @@ export class AppComponent implements OnDestroy {
 
     if (this.isContainerCollapsed(node)) {
       this.setContainerCollapsed(node.id, false);
+      this.maximizedNodeId = node.id;
       this.selectedNodeId = node.id;
       this.selectedNodeIds = [node.id];
       this.selectedEdgeId = null;
@@ -1542,6 +1546,7 @@ export class AppComponent implements OnDestroy {
     } else {
       this.setContainerCollapsed(selected.id, collapsed);
     }
+    this.maximizedNodeId = collapsed ? null : selected.id;
     this.selectedNodeId = selected.id;
     this.selectedNodeIds = [selected.id];
     this.resizeEnabledNodeId = collapsed ? null : selected.id;
@@ -1552,6 +1557,7 @@ export class AppComponent implements OnDestroy {
     const selected = this.selectedNode;
     if (!selected || !this.isCollapsibleCodeSnippetNode(selected)) return;
     this.setCodeSnippetCollapsed(selected.id, collapsed);
+    this.maximizedNodeId = collapsed ? null : selected.id;
     this.selectedNodeId = selected.id;
     this.selectedNodeIds = [selected.id];
     this.resizeEnabledNodeId = collapsed ? null : selected.id;
@@ -2007,6 +2013,9 @@ LIMIT 50;`;
     this.edges = this.edges.filter(
       (edge) => !selectedIdSet.has(edge.from) && !selectedIdSet.has(edge.to)
     );
+    if (this.maximizedNodeId && selectedIdSet.has(this.maximizedNodeId)) {
+      this.maximizedNodeId = null;
+    }
     this.selectedNodeId = null;
     this.selectedNodeIds = [];
     this.resizeEnabledNodeId = null;
@@ -2207,6 +2216,8 @@ LIMIT 50;`;
       this.setCodeSnippetCollapsed(node.id, !this.isCodeSnippetCollapsed(node));
       this.resizeEnabledNodeId = this.isCodeSnippetCollapsedById(node.id) ? null : node.id;
     }
+    const isNowExpanded = this.isCodeSnippetNodeExpandedById(node.id) || this.isContainerNodeExpandedById(node.id);
+    this.maximizedNodeId = isNowExpanded ? node.id : (this.maximizedNodeId === node.id ? null : this.maximizedNodeId);
     this.markViewChanged();
   }
 
@@ -2251,6 +2262,7 @@ LIMIT 50;`;
     this.marqueeState = { start: point, current: point };
     this.selectedNodeId = null;
     this.selectedNodeIds = [];
+    this.maximizedNodeId = null;
     this.selectedEdgeId = null;
     this.connectionSourceId = null;
     this.resizeEnabledNodeId = null;
@@ -2466,7 +2478,7 @@ LIMIT 50;`;
       : isFocused
         ? FOCUS_Z_INDEX_BASE
         : baseZIndex;
-    const selectedNodeId = this.selectedNodeId;
+    const selectedNodeId = this.getForegroundExpandedNodeId() ?? this.selectedNodeId;
     const isExpandedSelectedNode =
       selectedNodeId === node.id &&
       (this.isCodeSnippetExpanded(node)
@@ -3434,6 +3446,16 @@ spec:
     return node ? this.isCodeSnippetCollapsed(node) : false;
   }
 
+  private isCodeSnippetNodeExpandedById(nodeId: string): boolean {
+    const node = this.nodes.find((candidate) => candidate.id === nodeId);
+    return node ? this.isCodeSnippetExpanded(node) : false;
+  }
+
+  private isContainerNodeExpandedById(nodeId: string): boolean {
+    const node = this.nodes.find((candidate) => candidate.id === nodeId);
+    return node ? (isContainerNodeKind(node.kind) && !this.isContainerCollapsed(node)) : false;
+  }
+
   private setContainerCollapsed(nodeId: string, collapsed: boolean): void {
     this.nodes = this.sortNodes(
       this.nodes.map((node) => {
@@ -3473,6 +3495,9 @@ spec:
     }
 
     this.fitContainerAndAncestorChain(nodeId);
+    if (collapsed && this.maximizedNodeId === nodeId) {
+      this.maximizedNodeId = null;
+    }
   }
 
   private setCodeSnippetCollapsed(nodeId: string, collapsed: boolean): void {
@@ -3504,6 +3529,19 @@ spec:
     );
 
     this.fitContainerAndAncestorChain(nodeId);
+    if (collapsed && this.maximizedNodeId === nodeId) {
+      this.maximizedNodeId = null;
+    }
+  }
+
+  private getForegroundExpandedNodeId(): string | null {
+    const nodeId = this.maximizedNodeId;
+    if (!nodeId) return null;
+    const node = this.nodes.find((candidate) => candidate.id === nodeId);
+    if (!node) return null;
+    if (this.isCodeSnippetExpanded(node)) return nodeId;
+    if (isContainerNodeKind(node.kind) && !this.isContainerCollapsed(node)) return nodeId;
+    return null;
   }
 
   private rendersAsContainer(node: CanvasNode): boolean {
