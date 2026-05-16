@@ -3138,10 +3138,11 @@ spec:
   }
 
   private updateCurrent(architecture: ArchitectureDocument): void {
-    this.architecture = architecture;
-    this.nodes = this.sortNodes(toCanvasNodes(architecture));
-    this.edges = toCanvasEdges(architecture);
-    this.mermaidDraft = architecture.mermaidSource || DEFAULT_MERMAID_SOURCE;
+    const normalized = this.ensureArchitectureNodesHaveCodeContent(architecture);
+    this.architecture = normalized;
+    this.nodes = this.sortNodes(toCanvasNodes(normalized));
+    this.edges = toCanvasEdges(normalized);
+    this.mermaidDraft = normalized.mermaidSource || DEFAULT_MERMAID_SOURCE;
     this.lastCanvasTopologySignature = this.buildCanvasTopologySignature();
     this.selectedNodeId = null;
     this.selectedNodeIds = [];
@@ -3154,10 +3155,53 @@ spec:
     this.nodeInlineCodeDrafts.clear();
     this.cancelAutoSave();
     this.lastPersistedSignature = this.buildPersistenceSignature();
-    this.applyPreferredInitialViewport(architecture);
+    this.applyPreferredInitialViewport(normalized);
     this.resetHistory();
     void this.renderMermaid();
     this.markViewChanged();
+  }
+
+  private ensureArchitectureNodesHaveCodeContent(architecture: ArchitectureDocument): ArchitectureDocument {
+    let changed = false;
+    const nextNodes: ArchitectureNode[] = architecture.nodes.map((node) => {
+      const supportsCode = isCodeSnippetNodeKind(node.kind) || CONTAINER_CODE_PROPERTY_KINDS.has(node.kind);
+      if (!supportsCode) return node;
+
+      const nextProperties: Record<string, string> = { ...(node.properties ?? {}) };
+      const currentContent = (nextProperties["codeContent"] ?? "").trim();
+      const normalizedLanguage = this.normalizeCodeLanguageValue(nextProperties["codeLanguage"]);
+
+      if (currentContent.length === 0) {
+        const fallbackLanguage = normalizedLanguage ?? this.getPreferredCodeLanguageForKind(node.kind);
+        nextProperties["codeLanguage"] = fallbackLanguage;
+        nextProperties["codeContent"] = this.getDefaultCodeSnippet(node.kind, fallbackLanguage);
+        changed = true;
+        return { ...node, properties: nextProperties };
+      }
+
+      if (!normalizedLanguage) {
+        const detected = this.detectCodeLanguageFromContent(currentContent) ?? this.getPreferredCodeLanguageForKind(node.kind);
+        nextProperties["codeLanguage"] = detected;
+        changed = true;
+        return { ...node, properties: nextProperties };
+      }
+
+      return node;
+    });
+
+    if (!changed) return architecture;
+    return {
+      ...architecture,
+      nodes: nextNodes
+    };
+  }
+
+  private normalizeCodeLanguageValue(value?: string): CodeLanguage | null {
+    const normalized = (value ?? "").trim().toLowerCase();
+    if (!normalized) return null;
+    return this.codeLanguageOptions.some((option) => option.value === normalized)
+      ? normalized as CodeLanguage
+      : null;
   }
 
   private applyPreferredInitialViewport(architecture: ArchitectureDocument): void {
