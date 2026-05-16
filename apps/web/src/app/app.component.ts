@@ -2793,37 +2793,26 @@ LIMIT 50;`;
     };
 
     const nodes: CanvasNode[] = [
-      makeNode("n-platform", "group-container-plus", "Platform Architecture", { x: 40, y: 40 }, { width: 2640, height: 1620 }),
-      makeNode("n-vpc", "aws-vpc", "VPC 10.30.0.0/16", { x: 90, y: 90 }, { width: 2460, height: 1440 }, "n-platform"),
-      makeNode("n-subnet-edge", "aws-subnet", "Subnet Edge (Public)", { x: 70, y: 90 }, { width: 1060, height: 420 }, "n-vpc"),
-      makeNode("n-subnet-app", "aws-subnet", "Subnet App (Private)", { x: 70, y: 580 }, { width: 1560, height: 780 }, "n-vpc"),
-      makeNode("n-subnet-data", "aws-subnet", "Subnet Data", { x: 1680, y: 580 }, { width: 700, height: 780 }, "n-vpc"),
-      makeNode("n-user", "external", "Users", { x: 150, y: 220 }, { width: 172, height: 176 }),
-      makeNode("n-route53", "aws-route53", "Route53", { x: 330, y: 220 }, { width: 172, height: 176 }, "n-subnet-edge"),
-      makeNode("n-apigw", "aws-api-gateway", "API Gateway", { x: 540, y: 220 }, { width: 172, height: 176 }, "n-subnet-edge"),
-      makeNode("n-alb", "aws-alb", "Public ALB", { x: 760, y: 220 }, { width: 172, height: 176 }, "n-subnet-edge"),
-      makeNode(
-        "n-cluster",
-        "cluster",
-        "Kubernetes Cluster",
-        { x: 60, y: 50 },
-        { width: 1100, height: 620 },
-        "n-subnet-app"
-      ),
-      makeNode(
-        "n-namespace",
-        "cluster-namespace",
-        "Namespace: orders",
-        { x: 50, y: 90 },
-        { width: 980, height: 480 },
-        "n-cluster"
-      ),
+      makeNode("n-platform", "group-container-plus", "Reference Architecture", { x: 40, y: 40 }, { width: 3520, height: 2320 }),
+      makeNode("n-vpc", "aws-vpc", "VPC 10.30.0.0/16", { x: 100, y: 90 }, { width: 3320, height: 2080 }, "n-platform"),
+      makeNode("n-subnet-edge", "aws-subnet", "Subnet Edge (Public)", { x: 90, y: 90 }, { width: 3140, height: 420 }, "n-vpc"),
+      makeNode("n-subnet-app", "aws-subnet", "Subnet App (Private)", { x: 90, y: 570 }, { width: 1980, height: 930 }, "n-vpc"),
+      makeNode("n-subnet-data", "aws-subnet", "Subnet Data", { x: 2140, y: 570 }, { width: 1090, height: 930 }, "n-vpc"),
+      makeNode("n-subnet-ops", "aws-subnet", "Subnet Ops / Observability", { x: 90, y: 1550 }, { width: 3140, height: 540 }, "n-vpc"),
+      makeNode("n-user", "external", "Users", { x: -120, y: 210 }, { width: 172, height: 176 }),
+      makeNode("n-route53", "aws-route53", "Route53", { x: 360, y: 210 }, { width: 172, height: 176 }, "n-subnet-edge"),
+      makeNode("n-waf", "aws-waf", "WAF", { x: 630, y: 210 }, { width: 172, height: 176 }, "n-subnet-edge"),
+      makeNode("n-apigw", "aws-api-gateway", "API Gateway", { x: 900, y: 210 }, { width: 172, height: 176 }, "n-subnet-edge"),
+      makeNode("n-alb", "aws-alb", "Public ALB", { x: 1170, y: 210 }, { width: 172, height: 176 }, "n-subnet-edge"),
+      makeNode("n-ecr", "aws-ecr", "ECR", { x: 1440, y: 210 }, { width: 172, height: 176 }, "n-subnet-edge"),
+      makeNode("n-eks", "aws-eks", "EKS Cluster", { x: 90, y: 80 }, { width: 1080, height: 760 }, "n-subnet-app"),
+      makeNode("n-namespace", "cluster-namespace", "Namespace: orders", { x: 70, y: 100 }, { width: 910, height: 560 }, "n-eks"),
       makeNode(
         "n-deployment",
         "cluster-deployment",
         "orders-deployment",
-        { x: 42, y: 64 },
-        { width: 500, height: 340 },
+        { x: 60, y: 80 },
+        { width: 520, height: 340 },
         "n-namespace",
         {
           codeLanguage: "yaml",
@@ -2832,18 +2821,18 @@ kind: Deployment
 metadata:
   name: orders-api
 spec:
-  replicas: 2
+  replicas: 3
   selector:
     matchLabels:
       app: orders-api`
         }
       ),
       makeNode(
-        "n-pod-a",
+        "n-pod-api",
         "cluster-pod",
-        "orders-pod-a",
-        { x: 32, y: 56 },
-        { width: 380, height: 250 },
+        "orders-pod-api",
+        { x: 50, y: 70 },
+        { width: 410, height: 250 },
         "n-deployment",
         {
           codeLanguage: "yaml",
@@ -2855,17 +2844,17 @@ metadata:
 spec:
   containers:
     - name: api
-      image: ghcr.io/acme/orders-api:1.0.0`
+      image: 123456789012.dkr.ecr.us-east-1.amazonaws.com/orders-api:2.0.0`
         }
       ),
-      makeNode("n-pod-a-file", "code-file", "orders.handler.ts", { x: 32, y: 58 }, { width: 172, height: 176 }, "n-pod-a"),
-      makeNode("n-pod-a-query", "query-sql", "Orders SQL", { x: 228, y: 58 }, { width: 172, height: 176 }, "n-pod-a"),
+      makeNode("n-pod-api-file", "code-file", "orders.handler.ts", { x: 38, y: 58 }, { width: 172, height: 176 }, "n-pod-api"),
+      makeNode("n-pod-api-query", "query-sql", "Orders SQL", { x: 250, y: 58 }, { width: 172, height: 176 }, "n-pod-api"),
       makeNode(
-        "n-pod-b",
+        "n-pod-worker",
         "cluster-pod",
-        "orders-pod-b",
-        { x: 660, y: 110 },
-        { width: 280, height: 290 },
+        "orders-pod-worker",
+        { x: 610, y: 120 },
+        { width: 260, height: 280 },
         "n-namespace",
         {
           codeLanguage: "yaml",
@@ -2877,15 +2866,20 @@ metadata:
 spec:
   containers:
     - name: worker
-          image: ghcr.io/acme/orders-worker:1.0.0`
+      image: 123456789012.dkr.ecr.us-east-1.amazonaws.com/orders-worker:2.0.0`
         }
       ),
-      makeNode("n-pod-b-query", "query-nosql", "Orders NoSQL", { x: 54, y: 78 }, { width: 172, height: 176 }, "n-pod-b"),
-      makeNode("n-rabbit", "queue-rabbitmq", "RabbitMQ", { x: 1240, y: 120 }, { width: 172, height: 176 }, "n-subnet-app"),
-      makeNode("n-kafka", "queue-kafka", "Kafka", { x: 1240, y: 360 }, { width: 172, height: 176 }, "n-subnet-app"),
-      makeNode("n-redis", "cache-redis", "Redis", { x: 1240, y: 620 }, { width: 172, height: 176 }, "n-subnet-app"),
-      makeNode("n-mongo", "database-mongodb", "MongoDB", { x: 230, y: 120 }, { width: 172, height: 176 }, "n-subnet-data"),
-      makeNode("n-repo", "code-repository", "orders-repository", { x: 70, y: 1380 }, { width: 172, height: 176 }, "n-platform")
+      makeNode("n-pod-worker-query", "query-nosql", "Orders NoSQL", { x: 48, y: 78 }, { width: 172, height: 176 }, "n-pod-worker"),
+      makeNode("n-rabbit", "queue-rabbitmq", "RabbitMQ", { x: 1410, y: 130 }, { width: 172, height: 176 }, "n-subnet-app"),
+      makeNode("n-kafka", "queue-kafka", "Kafka", { x: 1410, y: 390 }, { width: 172, height: 176 }, "n-subnet-app"),
+      makeNode("n-redis", "cache-redis", "Redis", { x: 1410, y: 650 }, { width: 172, height: 176 }, "n-subnet-app"),
+      makeNode("n-mongo", "database-mongodb", "MongoDB", { x: 180, y: 140 }, { width: 172, height: 176 }, "n-subnet-data"),
+      makeNode("n-rds", "aws-rds", "RDS Orders", { x: 430, y: 140 }, { width: 172, height: 176 }, "n-subnet-data"),
+      makeNode("n-s3", "aws-s3", "S3 Artifacts", { x: 680, y: 140 }, { width: 172, height: 176 }, "n-subnet-data"),
+      makeNode("n-cloudwatch", "aws-cloudwatch", "CloudWatch", { x: 220, y: 170 }, { width: 172, height: 176 }, "n-subnet-ops"),
+      makeNode("n-cloudtrail", "aws-cloudtrail", "CloudTrail", { x: 500, y: 170 }, { width: 172, height: 176 }, "n-subnet-ops"),
+      makeNode("n-repo", "code-repository", "orders-repository", { x: 2650, y: 170 }, { width: 172, height: 176 }, "n-subnet-ops"),
+      makeNode("n-pipeline", "code-pipeline", "delivery-pipeline", { x: 2920, y: 170 }, { width: 172, height: 176 }, "n-subnet-ops")
     ];
 
     const makeEdge = (id: string, from: string, to: string, label?: string): CanvasEdge => ({
@@ -2898,33 +2892,44 @@ spec:
 
     const edges: CanvasEdge[] = [
       makeEdge("e-user-route53", "n-user", "n-route53", "DNS"),
-      makeEdge("e-route53-apigw", "n-route53", "n-apigw"),
-      makeEdge("e-apigw-alb", "n-apigw", "n-alb", "HTTP"),
-      makeEdge("e-alb-pod-a", "n-alb", "n-pod-a", "/orders"),
-      makeEdge("e-pod-a-rabbit", "n-pod-a", "n-rabbit", "publish"),
-      makeEdge("e-rabbit-pod-b", "n-rabbit", "n-pod-b", "consume"),
-      makeEdge("e-pod-b-kafka", "n-pod-b", "n-kafka", "events"),
-      makeEdge("e-pod-a-redis", "n-pod-a", "n-redis", "cache"),
-      makeEdge("e-pod-a-mongo", "n-pod-a", "n-mongo", "persist"),
-      makeEdge("e-query-sql-mongo", "n-pod-a-query", "n-mongo", "read-model"),
-      makeEdge("e-query-nosql-mongo", "n-pod-b-query", "n-mongo", "aggregate"),
-      makeEdge("e-repo-deploy", "n-repo", "n-deployment", "CI/CD")
+      makeEdge("e-route53-waf", "n-route53", "n-waf"),
+      makeEdge("e-waf-apigw", "n-waf", "n-apigw"),
+      makeEdge("e-apigw-alb", "n-apigw", "n-alb", "HTTPS"),
+      makeEdge("e-alb-pod-api", "n-alb", "n-pod-api", "/orders"),
+      makeEdge("e-pod-api-rabbit", "n-pod-api", "n-rabbit", "publish"),
+      makeEdge("e-rabbit-pod-worker", "n-rabbit", "n-pod-worker", "consume"),
+      makeEdge("e-pod-worker-kafka", "n-pod-worker", "n-kafka", "events"),
+      makeEdge("e-pod-api-redis", "n-pod-api", "n-redis", "cache"),
+      makeEdge("e-pod-api-rds", "n-pod-api", "n-rds", "transactional"),
+      makeEdge("e-pod-api-s3", "n-pod-api", "n-s3", "files"),
+      makeEdge("e-sql-mongo", "n-pod-api-query", "n-mongo", "read-model"),
+      makeEdge("e-nosql-mongo", "n-pod-worker-query", "n-mongo", "aggregate"),
+      makeEdge("e-repo-pipeline", "n-repo", "n-pipeline", "CI"),
+      makeEdge("e-pipeline-ecr", "n-pipeline", "n-ecr", "push image"),
+      makeEdge("e-pipeline-deploy", "n-pipeline", "n-deployment", "deploy"),
+      makeEdge("e-ecr-pod-api", "n-ecr", "n-pod-api", "image source"),
+      makeEdge("e-cloudwatch-apigw", "n-cloudwatch", "n-apigw", "monitor"),
+      makeEdge("e-cloudwatch-mongo", "n-cloudwatch", "n-mongo", "metrics"),
+      makeEdge("e-cloudtrail-waf", "n-cloudtrail", "n-waf", "audit")
     ];
 
     return {
       ...base,
       title: "Exemplo Completo: Macro para Micro",
-      description: "Template inicial com containers, codigo, cluster e mensageria.",
+      description: "Modelo em camadas com borda publica, app, dados e observabilidade.",
       mermaidSource: `graph LR
   User["Users"] --> DNS["Route53"]
-  DNS --> APIGW["API Gateway"]
+  DNS --> WAF["WAF"]
+  WAF --> APIGW["API Gateway"]
   APIGW --> ALB["Public ALB"]
-  ALB --> PodA["orders-pod-a"]
-  PodA --> Rabbit["RabbitMQ"]
-  Rabbit --> PodB["orders-pod-b"]
-  PodB --> Kafka["Kafka"]
-  PodA --> Redis["Redis"]
-  PodA --> Mongo["MongoDB"]`,
+  ALB --> PodAPI["orders-pod-api"]
+  PodAPI --> Rabbit["RabbitMQ"]
+  Rabbit --> PodWorker["orders-pod-worker"]
+  PodWorker --> Kafka["Kafka"]
+  PodAPI --> Redis["Redis"]
+  PodAPI --> RDS["RDS Orders"]
+  PodAPI --> S3["S3 Artifacts"]
+  PodAPI --> Mongo["MongoDB"]`,
       nodes,
       edges,
       updatedAt: now
@@ -2961,7 +2966,7 @@ spec:
 
   private applyPreferredInitialViewport(architecture: ArchitectureDocument): void {
     if (architecture.title === "Exemplo Completo: Macro para Micro") {
-      this.canvasZoom = 0.72;
+      this.canvasZoom = 0.62;
       this.canvasPan = DEFAULT_CANVAS_PAN;
       return;
     }
