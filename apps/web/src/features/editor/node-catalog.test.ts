@@ -31,11 +31,12 @@ describe("node catalog", () => {
     expect(isContainerNodeKind("cluster")).toBe(true);
     expect(isContainerNodeKind("cluster-namespace")).toBe(true);
     expect(isContainerNodeKind("container")).toBe(true);
+    expect(isContainerNodeKind("aws-ec2")).toBe(true);
     expect(getDefaultNodeSize("group-container")).toEqual(getDefaultNodeSize("container"));
   });
 
   it("uses flow nodes as block shapes instead of icon-only cards", () => {
-    expect(isIconOnlyNodeKind("aws-ec2")).toBe(true);
+    expect(isIconOnlyNodeKind("aws-ec2")).toBe(false);
     expect(isIconOnlyNodeKind("flow-process")).toBe(false);
     expect(getDefaultNodeSize("flow-process")).toEqual({ width: 220, height: 120 });
   });

@@ -214,6 +214,7 @@ const containerKinds = new Set<ArchitectureNodeKind>([
   "aws-availability-zone",
   "aws-vpc",
   "aws-subnet",
+  "aws-ec2",
   "aws-eks",
   "cluster",
   "cluster-namespace",
