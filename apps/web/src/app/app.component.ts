@@ -1340,7 +1340,11 @@ export class AppComponent implements OnDestroy {
   setSelectedContainerCollapsed(collapsed: boolean): void {
     const selected = this.selectedNode;
     if (!selected || !this.isCollapsibleContainerNode(selected)) return;
-    this.setContainerCollapsed(selected.id, collapsed);
+    if (this.isContainerCodeSnippetNode(selected)) {
+      this.setCodeSnippetCollapsed(selected.id, collapsed);
+    } else {
+      this.setContainerCollapsed(selected.id, collapsed);
+    }
     this.selectedNodeId = selected.id;
     this.selectedNodeIds = [selected.id];
     this.resizeEnabledNodeId = collapsed ? null : selected.id;
