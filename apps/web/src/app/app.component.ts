@@ -54,6 +54,15 @@ import {
   getNodeIconLabel
 } from "../features/editor/node-icons";
 import {
+  applyEdgeMarkerClearance as applyEdgeMarkerClearanceCore,
+  buildEdgeHalfPath as buildEdgeHalfPathCore,
+  buildFullEdgePath as buildFullEdgePathCore,
+  getEdgeLeadPoint as getEdgeLeadPointCore,
+  getEdgeTerminalAxis as getEdgeTerminalAxisCore,
+  offsetSegmentEndpoints as offsetSegmentEndpointsCore,
+  type EdgeFlowDirection
+} from "../features/editor/edge-geometry";
+import {
   insertMermaidIndent,
   insertMermaidLineBreak,
   removeMermaidIndent
@@ -100,7 +109,6 @@ type EditorSnapshot = Readonly<{
 }>;
 
 type EdgeDirection = "left-to-right" | "right-to-left" | "both";
-type EdgeFlowDirection = "forward" | "reverse";
 type NodePropertyField = Readonly<{
   key: string;
   label: string;
@@ -2785,14 +2793,7 @@ export class AppComponent implements OnDestroy {
     end: Readonly<{ x: number; y: number }>,
     path: ArchitectureEdgePath
   ): string {
-    const midX = (startLead.x + endLead.x) / 2;
-    if (path === "straight") {
-      return `M ${start.x} ${start.y} L ${startLead.x} ${startLead.y} L ${endLead.x} ${endLead.y} L ${end.x} ${end.y}`;
-    }
-    if (path === "step") {
-      return `M ${start.x} ${start.y} L ${startLead.x} ${startLead.y} L ${midX} ${startLead.y} L ${midX} ${endLead.y} L ${endLead.x} ${endLead.y} L ${end.x} ${end.y}`;
-    }
-    return `M ${start.x} ${start.y} L ${startLead.x} ${startLead.y} C ${midX} ${startLead.y}, ${midX} ${endLead.y}, ${endLead.x} ${endLead.y} L ${end.x} ${end.y}`;
+    return buildFullEdgePathCore(start, startLead, endLead, end, path);
   }
 
   private buildEdgeHalfPath(
@@ -2803,39 +2804,7 @@ export class AppComponent implements OnDestroy {
     path: ArchitectureEdgePath,
     direction: EdgeFlowDirection
   ): string {
-    const midX = (startLead.x + endLead.x) / 2;
-    const center = { x: (startLead.x + endLead.x) / 2, y: (startLead.y + endLead.y) / 2 };
-    if (path === "straight") {
-      if (direction === "forward") {
-        return `M ${center.x} ${center.y} L ${endLead.x} ${endLead.y} L ${end.x} ${end.y}`;
-      }
-      return `M ${center.x} ${center.y} L ${startLead.x} ${startLead.y} L ${start.x} ${start.y}`;
-    }
-
-    if (path === "step") {
-      const centerStep = { x: midX, y: (startLead.y + endLead.y) / 2 };
-      if (direction === "forward") {
-        return `M ${centerStep.x} ${centerStep.y} L ${midX} ${endLead.y} L ${endLead.x} ${endLead.y} L ${end.x} ${end.y}`;
-      }
-      return `M ${centerStep.x} ${centerStep.y} L ${midX} ${startLead.y} L ${startLead.x} ${startLead.y} L ${start.x} ${start.y}`;
-    }
-
-    // Split the cubic core (between endpoint stubs) at t=0.5 so each half can animate from the middle outward.
-    const p0 = startLead;
-    const p1 = { x: midX, y: startLead.y };
-    const p2 = { x: midX, y: endLead.y };
-    const p3 = endLead;
-    const p01 = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 };
-    const p12 = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
-    const p23 = { x: (p2.x + p3.x) / 2, y: (p2.y + p3.y) / 2 };
-    const p012 = { x: (p01.x + p12.x) / 2, y: (p01.y + p12.y) / 2 };
-    const p123 = { x: (p12.x + p23.x) / 2, y: (p12.y + p23.y) / 2 };
-    const p0123 = { x: (p012.x + p123.x) / 2, y: (p012.y + p123.y) / 2 };
-
-    if (direction === "forward") {
-      return `M ${p0123.x} ${p0123.y} C ${p123.x} ${p123.y}, ${p23.x} ${p23.y}, ${p3.x} ${p3.y} L ${end.x} ${end.y}`;
-    }
-    return `M ${p0123.x} ${p0123.y} C ${p012.x} ${p012.y}, ${p01.x} ${p01.y}, ${p0.x} ${p0.y} L ${start.x} ${start.y}`;
+    return buildEdgeHalfPathCore(start, startLead, endLead, end, path, direction);
   }
 
   private getEdgeTerminalAxis(
@@ -2843,13 +2812,7 @@ export class AppComponent implements OnDestroy {
     anchor: Readonly<{ x: number; y: number }>,
     center: Readonly<{ x: number; y: number }>
   ): "horizontal" | "vertical" {
-    const halfWidth = node.size.width / 2;
-    const halfHeight = node.size.height / 2;
-    const dx = Math.abs(anchor.x - center.x);
-    const dy = Math.abs(anchor.y - center.y);
-    const verticalEdgeDistance = Math.abs(dx - halfWidth);
-    const horizontalEdgeDistance = Math.abs(dy - halfHeight);
-    return verticalEdgeDistance <= horizontalEdgeDistance ? "horizontal" : "vertical";
+    return getEdgeTerminalAxisCore(node.size, anchor, center);
   }
 
   private getEdgeLeadPoint(
@@ -2858,13 +2821,7 @@ export class AppComponent implements OnDestroy {
     axis: "horizontal" | "vertical",
     distance: number
   ): Readonly<{ x: number; y: number }> {
-    if (axis === "horizontal") {
-      const direction = Math.sign(point.x - center.x) || 1;
-      return { x: point.x + direction * distance, y: point.y };
-    }
-
-    const direction = Math.sign(point.y - center.y) || 1;
-    return { x: point.x, y: point.y + direction * distance };
+    return getEdgeLeadPointCore(point, center, axis, distance);
   }
 
   private applyEdgeMarkerClearance(
@@ -2872,12 +2829,7 @@ export class AppComponent implements OnDestroy {
     end: Readonly<{ x: number; y: number }>,
     hasStartMarker: boolean
   ): Readonly<{ start: Readonly<{ x: number; y: number }>; end: Readonly<{ x: number; y: number }> }> {
-    return this.offsetSegmentEndpoints(
-      start,
-      end,
-      hasStartMarker ? EDGE_MARKER_CLEARANCE : 0,
-      EDGE_MARKER_CLEARANCE
-    );
+    return applyEdgeMarkerClearanceCore(start, end, hasStartMarker, EDGE_MARKER_CLEARANCE);
   }
 
   private offsetSegmentEndpoints(
@@ -2886,31 +2838,7 @@ export class AppComponent implements OnDestroy {
     startInset: number,
     endInset: number
   ): Readonly<{ start: Readonly<{ x: number; y: number }>; end: Readonly<{ x: number; y: number }> }> {
-    const deltaX = end.x - start.x;
-    const deltaY = end.y - start.y;
-    const distance = Math.hypot(deltaX, deltaY);
-    if (distance === 0) return { start, end };
-
-    const maxInset = Math.max(0, Math.min(startInset + endInset, distance - 1));
-    const safeStartInset = maxInset === startInset + endInset
-      ? (startInset / (startInset + endInset || 1)) * maxInset
-      : startInset;
-    const safeEndInset = maxInset === startInset + endInset
-      ? (endInset / (startInset + endInset || 1)) * maxInset
-      : endInset;
-
-    const unitX = deltaX / distance;
-    const unitY = deltaY / distance;
-    return {
-      start: {
-        x: start.x + unitX * safeStartInset,
-        y: start.y + unitY * safeStartInset
-      },
-      end: {
-        x: end.x - unitX * safeEndInset,
-        y: end.y - unitY * safeEndInset
-      }
-    };
+    return offsetSegmentEndpointsCore(start, end, startInset, endInset);
   }
 
   private attachNodeToContainer(
