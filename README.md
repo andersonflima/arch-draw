@@ -94,4 +94,4 @@ Este projeto está licenciado sob a MIT License. Consulte [LICENSE](./LICENSE).
 
 ## Copyright
 
-Copyright (c) 2026 Anderson Faustino Lima. Consulte [COPYRIGHT](./COPYRIGHT).
+Copyright (c) 2026 Anderson Espindola. Consulte [COPYRIGHT](./COPYRIGHT).
