@@ -1831,7 +1831,7 @@ export class AppComponent {
   }
 
   isLiveEdge(_edge: CanvasEdge): boolean {
-    return this.connectionDragState !== null;
+    return true;
   }
 
   isBidirectional(edge: CanvasEdge): boolean {
