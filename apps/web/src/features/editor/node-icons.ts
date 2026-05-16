@@ -316,6 +316,7 @@ const iconClasses: Partial<Record<ArchitectureNodeKind, string>> = {
 
 const iconAssets: Partial<Record<ArchitectureNodeKind, string>> = {
   "queue-kafka": "/assets/icons/brands/kafka.svg",
+  "cache-redis": "/assets/icons/brands/redis.svg",
   "aws-account": "/assets/icons/aws/aws-account.svg",
   "aws-region": "/assets/icons/aws/aws-region.svg",
   "aws-availability-zone": "/assets/icons/aws/aws-availability-zone.svg",
