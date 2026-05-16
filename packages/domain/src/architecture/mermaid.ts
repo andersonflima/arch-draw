@@ -180,6 +180,10 @@ const inferNodeKind = (label: string): ArchitectureNode["kind"] => {
   if (/(recursion|recursive)/.test(normalized)) return "algorithm-recursion";
   if (/(sort)/.test(normalized)) return "algorithm-sort";
   if (/(search)/.test(normalized)) return "algorithm-search";
+  if (/(rabbitmq|rabbit mq|rabbit)/.test(normalized)) return "queue-rabbitmq";
+  if (/(kafka)/.test(normalized)) return "queue-kafka";
+  if (/(mongodb|mongo db|mongo)/.test(normalized)) return "database-mongodb";
+  if (/(redis)/.test(normalized)) return "cache-redis";
   if (/(db|database|postgres|sqlite|mysql|redis)/.test(normalized)) return "database";
   if (/(cache|redis|memcached)/.test(normalized)) return "cache";
   if (/(queue|kafka|rabbit|sqs|stream)/.test(normalized)) return "queue";
@@ -223,6 +227,10 @@ const inferNodeColor = (label: string): string => {
     compute: "#ffedd5",
     container: "#ccfbf1",
     database: "#e0f2fe",
+    "database-mongodb": "#dcfce7",
+    "cache-redis": "#fee2e2",
+    "queue-rabbitmq": "#ffedd5",
+    "queue-kafka": "#ede9fe",
     external: "#fae8ff",
     firewall: "#fecaca",
     identity: "#ede9fe",

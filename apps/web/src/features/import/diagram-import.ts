@@ -511,6 +511,9 @@ const inferKindFromLabel = (label: string): ArchitectureNodeKind => {
   if (/(stack)/.test(normalized)) return "algorithm-stack";
   if (/(queue)/.test(normalized)) return "queue";
   if (/(linked list)/.test(normalized)) return "algorithm-linked-list";
+  if (/(rabbitmq|rabbit mq|rabbit)/.test(normalized)) return "queue-rabbitmq";
+  if (/(kafka)/.test(normalized)) return "queue-kafka";
+  if (/(redis)/.test(normalized)) return "cache-redis";
   if (/(mongodb|mongo db|mongo)/.test(normalized)) return "database-mongodb";
   if (/(nosql query|query nosql|no sql|\bnosql\b)/.test(normalized)) return "query-nosql";
   if (/(sql query|query sql|\bsql\b)/.test(normalized)) return "query-sql";

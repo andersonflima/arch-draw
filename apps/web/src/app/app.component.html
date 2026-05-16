@@ -553,7 +553,7 @@
               {{ isContainerCollapsed(node) ? "Maximizar container" : "Minimizar para icone" }}
             </button>
           </ng-container>
-          <ng-container *ngIf="isCollapsibleCodeSnippetNode(node)">
+          <ng-container *ngIf="supportsNodeCodeAuthoring(node)">
             <label class="property-field">
               Linguagem
               <select [ngModel]="getNodeCodeLanguage(node)" (ngModelChange)="updateSelectedCodeLanguage($event)">
@@ -572,6 +572,7 @@
               ></textarea>
             </label>
             <button
+              *ngIf="isCollapsibleCodeSnippetNode(node)"
               class="secondary-action"
               type="button"
               (click)="setSelectedCodeSnippetCollapsed(!isCodeSnippetCollapsed(node))"

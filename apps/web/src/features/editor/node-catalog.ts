@@ -11,6 +11,7 @@ export type NodeTemplateCategory =
   | "AWS Security"
   | "AWS Observability"
   | "Database"
+  | "Messaging"
   | "Queries"
   | "Code"
   | "Software Development"
@@ -37,6 +38,10 @@ export const nodeCatalog: readonly NodeTemplate[] = [
   { category: "Core", kind: "mermaid", label: "Mermaid block", color: "#fef3c7" },
 
   { category: "Database", kind: "database-mongodb", label: "MongoDB", color: "#dcfce7" },
+  { category: "Database", kind: "cache-redis", label: "Redis", color: "#fee2e2" },
+
+  { category: "Messaging", kind: "queue-rabbitmq", label: "RabbitMQ", color: "#ffedd5" },
+  { category: "Messaging", kind: "queue-kafka", label: "Kafka", color: "#ede9fe" },
 
   { category: "Queries", kind: "query-sql", label: "SQL Query", color: "#e0f2fe" },
   { category: "Queries", kind: "query-nosql", label: "NoSQL Query", color: "#fef3c7" },
@@ -225,6 +230,12 @@ const containerKinds = new Set<ArchitectureNodeKind>([
   "aws-eks",
   "cluster",
   "cluster-namespace",
+  "cluster-deployment",
+  "cluster-statefulset",
+  "cluster-daemonset",
+  "cluster-pod",
+  "cluster-job",
+  "cluster-cronjob",
   "code-workspace",
   "code-package",
   "code-module",
@@ -270,6 +281,9 @@ const codeSnippetKinds = new Set<ArchitectureNodeKind>([
   "code-file",
   "query-sql",
   "query-nosql",
+  "queue-rabbitmq",
+  "queue-kafka",
+  "cache-redis",
   "software-application",
   "software-frontend",
   "software-backend",
@@ -289,10 +303,6 @@ const codeSnippetKinds = new Set<ArchitectureNodeKind>([
   "aws-iam",
   "aws-route53",
   "aws-security-group",
-  "cluster-deployment",
-  "cluster-statefulset",
-  "cluster-daemonset",
-  "cluster-pod",
   "cluster-service",
   "cluster-ingress",
   "cluster-kong",
@@ -300,8 +310,6 @@ const codeSnippetKinds = new Set<ArchitectureNodeKind>([
   "cluster-secret",
   "cluster-pvc",
   "cluster-hpa",
-  "cluster-job",
-  "cluster-cronjob",
   "flow-start",
   "flow-end",
   "flow-process",
@@ -355,6 +363,10 @@ export const getNodeVisualGroup = (kind: ArchitectureNodeKind): NodeVisualGroup 
   if (kind.startsWith("algorithm")) return "algorithm";
   if (
     [
+      "queue-rabbitmq",
+      "queue-kafka",
+      "cache-redis",
+      "database-mongodb",
       "cloud-provider",
       "cloud-region",
       "cloud-vpc",

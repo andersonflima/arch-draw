@@ -22,6 +22,7 @@ describe("node catalog", () => {
     expect(nodeCatalog.some((template) => template.category === "Flow Diagram")).toBe(true);
     expect(nodeCatalog.some((template) => template.category === "Algorithms")).toBe(true);
     expect(nodeCatalog.some((template) => template.category === "Database")).toBe(true);
+    expect(nodeCatalog.some((template) => template.category === "Messaging")).toBe(true);
     expect(nodeCatalog.some((template) => template.category === "Queries")).toBe(true);
     expect(nodeCatalog.some((template) => template.kind === "flow-start")).toBe(true);
     expect(nodeCatalog.some((template) => template.kind === "flow-process")).toBe(true);
@@ -32,6 +33,9 @@ describe("node catalog", () => {
     expect(nodeCatalog.some((template) => template.kind === "cluster-kong")).toBe(true);
     expect(nodeCatalog.some((template) => template.kind === "cluster-ingress")).toBe(true);
     expect(nodeCatalog.some((template) => template.kind === "database-mongodb")).toBe(true);
+    expect(nodeCatalog.some((template) => template.kind === "cache-redis")).toBe(true);
+    expect(nodeCatalog.some((template) => template.kind === "queue-rabbitmq")).toBe(true);
+    expect(nodeCatalog.some((template) => template.kind === "queue-kafka")).toBe(true);
     expect(nodeCatalog.some((template) => template.kind === "query-sql")).toBe(true);
     expect(nodeCatalog.some((template) => template.kind === "query-nosql")).toBe(true);
   });
@@ -41,6 +45,8 @@ describe("node catalog", () => {
     expect(isContainerNodeKind("group-container-plus")).toBe(true);
     expect(isContainerNodeKind("cluster")).toBe(true);
     expect(isContainerNodeKind("cluster-namespace")).toBe(true);
+    expect(isContainerNodeKind("cluster-pod")).toBe(true);
+    expect(isContainerNodeKind("cluster-deployment")).toBe(true);
     expect(isContainerNodeKind("container")).toBe(true);
     expect(isContainerNodeKind("aws-ec2")).toBe(true);
     expect(getDefaultNodeSize("group-container")).toEqual(getDefaultNodeSize("container"));
@@ -64,5 +70,7 @@ describe("node catalog", () => {
     expect(isCodeSnippetNodeKind("flow-decision")).toBe(true);
     expect(isCodeSnippetNodeKind("query-sql")).toBe(true);
     expect(isCodeSnippetNodeKind("query-nosql")).toBe(true);
+    expect(isCodeSnippetNodeKind("queue-kafka")).toBe(true);
+    expect(isCodeSnippetNodeKind("cluster-pod")).toBe(false);
   });
 });

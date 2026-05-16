@@ -345,6 +345,43 @@ const CLUSTER_NAMESPACE_FIELDS: readonly NodePropertyField[] = [
   { key: "limitRange", label: "Limit Range", placeholder: "requests.cpu=100m,limits.cpu=500m", multiline: true }
 ];
 
+const RABBITMQ_FIELDS: readonly NodePropertyField[] = [
+  { key: "virtualHost", label: "Virtual Host", placeholder: "/orders" },
+  { key: "exchange", label: "Exchange", placeholder: "orders.events" },
+  { key: "queueName", label: "Queue Name", placeholder: "orders.created" },
+  { key: "routingKey", label: "Routing Key", placeholder: "orders.created" }
+];
+
+const KAFKA_FIELDS: readonly NodePropertyField[] = [
+  { key: "clusterName", label: "Cluster Name", placeholder: "kafka-main" },
+  { key: "topic", label: "Topic", placeholder: "orders.events" },
+  { key: "partitions", label: "Partitions", placeholder: "6" },
+  { key: "replicationFactor", label: "Replication Factor", placeholder: "3" }
+];
+
+const REDIS_FIELDS: readonly NodePropertyField[] = [
+  { key: "database", label: "Database", placeholder: "0" },
+  { key: "mode", label: "Mode", placeholder: "standalone | cluster" },
+  { key: "ttlPolicy", label: "TTL Policy", placeholder: "volatile-lru" },
+  { key: "maxMemory", label: "Max Memory", placeholder: "2Gi" }
+];
+
+const MONGODB_FIELDS: readonly NodePropertyField[] = [
+  { key: "databaseName", label: "Database Name", placeholder: "orders" },
+  { key: "collection", label: "Collection", placeholder: "orders" },
+  { key: "replicaSet", label: "Replica Set", placeholder: "rs0" },
+  { key: "storageEngine", label: "Storage Engine", placeholder: "wiredTiger" }
+];
+
+const CONTAINER_CODE_PROPERTY_KINDS = new Set<ArchitectureNodeKind>([
+  "cluster-deployment",
+  "cluster-statefulset",
+  "cluster-daemonset",
+  "cluster-pod",
+  "cluster-job",
+  "cluster-cronjob"
+]);
+
 const NODE_PROPERTY_FIELDS_BY_KIND: Partial<Record<ArchitectureNodeKind, readonly NodePropertyField[]>> = {
   "cloud-provider": [
     { key: "providerName", label: "Provider Name", placeholder: "AWS" },
@@ -393,6 +430,10 @@ const NODE_PROPERTY_FIELDS_BY_KIND: Partial<Record<ArchitectureNodeKind, readonl
     { key: "nodeType", label: "Node Type", placeholder: "cache.t4g.small" },
     { key: "replicas", label: "Replicas", placeholder: "1" }
   ],
+  "cache-redis": REDIS_FIELDS,
+  "database-mongodb": MONGODB_FIELDS,
+  "queue-rabbitmq": RABBITMQ_FIELDS,
+  "queue-kafka": KAFKA_FIELDS,
   identity: [
     { key: "identityProvider", label: "Identity Provider", placeholder: "IAM | Cognito | OIDC" },
     { key: "authFlow", label: "Auth Flow", placeholder: "authorization_code" },
@@ -553,6 +594,33 @@ const NODE_PROPERTY_FIELDS_BY_KIND: Partial<Record<ArchitectureNodeKind, readonl
   ],
   "aws-kms": KMS_FIELDS,
   "cluster-namespace": CLUSTER_NAMESPACE_FIELDS,
+  "cluster-deployment": [
+    { key: "replicas", label: "Replicas", placeholder: "2" },
+    { key: "strategy", label: "Strategy", placeholder: "RollingUpdate" },
+    { key: "containerImage", label: "Container Image", placeholder: "ghcr.io/acme/orders-api:1.0.0" }
+  ],
+  "cluster-statefulset": [
+    { key: "serviceName", label: "Service Name", placeholder: "orders-db" },
+    { key: "replicas", label: "Replicas", placeholder: "3" },
+    { key: "volumeClaim", label: "Volume Claim Template", placeholder: "10Gi gp3" }
+  ],
+  "cluster-daemonset": [
+    { key: "nodeSelector", label: "Node Selector", placeholder: "kubernetes.io/os=linux" },
+    { key: "tolerations", label: "Tolerations", placeholder: "operator=Exists", multiline: true }
+  ],
+  "cluster-pod": [
+    { key: "restartPolicy", label: "Restart Policy", placeholder: "Always | OnFailure | Never" },
+    { key: "serviceAccount", label: "Service Account", placeholder: "orders-sa" },
+    { key: "containerImage", label: "Container Image", placeholder: "ghcr.io/acme/orders-api:1.0.0" }
+  ],
+  "cluster-job": [
+    { key: "completions", label: "Completions", placeholder: "1" },
+    { key: "parallelism", label: "Parallelism", placeholder: "1" }
+  ],
+  "cluster-cronjob": [
+    { key: "schedule", label: "Schedule", placeholder: "0 * * * *" },
+    { key: "concurrencyPolicy", label: "Concurrency Policy", placeholder: "Allow | Forbid | Replace" }
+  ],
   "aws-cloudwatch": [
     { key: "logGroupName", label: "Log Group Name", placeholder: "/aws/lambda/orders" },
     { key: "kmsKeyId", label: "KMS Key ID", placeholder: "arn:aws:kms:...:key/..." },
@@ -1329,6 +1397,14 @@ export class AppComponent implements OnDestroy {
     return isCodeSnippetNodeKind(node.kind);
   }
 
+  isContainerCodePropertyKind(kind: ArchitectureNodeKind): boolean {
+    return CONTAINER_CODE_PROPERTY_KINDS.has(kind);
+  }
+
+  supportsNodeCodeAuthoring(node: CanvasNode): boolean {
+    return this.isCollapsibleCodeSnippetNode(node) || this.isContainerCodePropertyKind(node.kind);
+  }
+
   isContainerCollapsed(node: CanvasNode): boolean {
     return this.isCollapsibleContainerNode(node) && Boolean(node.collapsed);
   }
@@ -1592,6 +1668,46 @@ export class AppComponent implements OnDestroy {
   }
 
   private getDefaultCodeSnippet(kind: ArchitectureNodeKind, language: CodeLanguage): string {
+    if (kind === "queue-rabbitmq") {
+      const snippet = `version: "3.9"
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_VHOST: /orders`;
+      return language === "markdown" ? `\`\`\`yaml\n${snippet}\n\`\`\`` : snippet;
+    }
+
+    if (kind === "queue-kafka") {
+      const snippet = `apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: orders.events
+spec:
+  partitions: 6
+  replicas: 3
+  config:
+    retention.ms: 86400000`;
+      return language === "markdown" ? `\`\`\`yaml\n${snippet}\n\`\`\`` : snippet;
+    }
+
+    if (kind === "cache-redis") {
+      const snippet = `maxmemory 2gb
+maxmemory-policy volatile-lru
+appendonly yes
+save 60 1000`;
+      return language === "markdown" ? `\`\`\`conf\n${snippet}\n\`\`\`` : snippet;
+    }
+
+    if (kind === "database-mongodb") {
+      const snippet = `db.orders.createIndex({ customerId: 1, createdAt: -1 });
+db.orders.find({ status: "created" }).sort({ createdAt: -1 }).limit(20);`;
+      return language === "markdown" ? `\`\`\`javascript\n${snippet}\n\`\`\`` : snippet;
+    }
+
     if (kind === "query-sql") {
       const snippet = `SELECT
   u.id,
@@ -2536,10 +2652,198 @@ LIMIT 50;`;
   private async boot(): Promise<void> {
     await this.runSafely(async () => {
       const existing = await api.listArchitectures();
-      const first = existing[0] ?? (await api.createArchitecture("Arquitetura local"));
-      await this.loadArchitecture(first.id);
+      if (existing.length === 0) {
+        const created = await api.createArchitecture("Arquitetura local");
+        const seeded = this.createFirstAccessArchitectureTemplate(created);
+        const saved = await api.saveArchitecture(seeded);
+        await this.loadArchitecture(saved.id);
+      } else {
+        const firstExisting = existing[0];
+        if (!firstExisting) return;
+        await this.loadArchitecture(firstExisting.id);
+      }
       await this.refreshSummaries();
     }, "API indisponível");
+  }
+
+  private createFirstAccessArchitectureTemplate(base: ArchitectureDocument): ArchitectureDocument {
+    const now = new Date().toISOString();
+    const style: ArchitectureEdgeStyle = {
+      path: "smoothstep",
+      line: "solid",
+      color: "#111827",
+      animated: true,
+      bidirectional: false
+    };
+
+    const makeNode = (
+      id: string,
+      kind: ArchitectureNodeKind,
+      label: string,
+      position: Readonly<{ x: number; y: number }>,
+      size: Readonly<{ width: number; height: number }>,
+      parentId?: string,
+      properties?: Readonly<Record<string, string>>
+    ): CanvasNode => {
+      const isContainerKind = isContainerNodeKind(kind);
+      const isCodeKind = isCodeSnippetNodeKind(kind);
+      const collapsed = isCodeKind ? true : isContainerKind ? false : undefined;
+      return {
+        id,
+        kind,
+        label,
+        parentId,
+        position,
+        size: isCodeKind ? { ...CODE_SNIPPET_COLLAPSED_SIZE } : size,
+        color: getNodeKindColor(kind),
+        collapsed,
+        collapsedIconKind: isContainerKind
+          ? this.getDefaultCollapsedIconKind(kind)
+          : isCodeKind
+            ? kind
+            : undefined,
+        expandedSize: isCodeKind ? { ...CODE_SNIPPET_EXPANDED_SIZE } : undefined,
+        properties
+      };
+    };
+
+    const nodes: CanvasNode[] = [
+      makeNode("n-platform", "group-container-plus", "Platform Architecture", { x: 40, y: 40 }, { width: 1880, height: 1120 }),
+      makeNode("n-vpc", "aws-vpc", "VPC 10.30.0.0/16", { x: 80, y: 80 }, { width: 1720, height: 980 }, "n-platform"),
+      makeNode("n-subnet-edge", "aws-subnet", "Subnet Edge (Public)", { x: 56, y: 70 }, { width: 760, height: 320 }, "n-vpc"),
+      makeNode("n-subnet-app", "aws-subnet", "Subnet App (Private)", { x: 56, y: 430 }, { width: 1120, height: 520 }, "n-vpc"),
+      makeNode("n-subnet-data", "aws-subnet", "Subnet Data", { x: 1210, y: 430 }, { width: 460, height: 520 }, "n-vpc"),
+      makeNode("n-user", "external", "Users", { x: 120, y: 150 }, { width: 136, height: 140 }),
+      makeNode("n-route53", "aws-route53", "Route53", { x: 230, y: 150 }, { width: 136, height: 140 }, "n-subnet-edge"),
+      makeNode("n-apigw", "aws-api-gateway", "API Gateway", { x: 380, y: 150 }, { width: 136, height: 140 }, "n-subnet-edge"),
+      makeNode("n-alb", "aws-alb", "Public ALB", { x: 540, y: 150 }, { width: 136, height: 140 }, "n-subnet-edge"),
+      makeNode(
+        "n-cluster",
+        "cluster",
+        "Kubernetes Cluster",
+        { x: 40, y: 30 },
+        { width: 760, height: 460 },
+        "n-subnet-app"
+      ),
+      makeNode(
+        "n-namespace",
+        "cluster-namespace",
+        "Namespace: orders",
+        { x: 40, y: 60 },
+        { width: 670, height: 360 },
+        "n-cluster"
+      ),
+      makeNode(
+        "n-deployment",
+        "cluster-deployment",
+        "orders-deployment",
+        { x: 28, y: 40 },
+        { width: 360, height: 280 },
+        "n-namespace",
+        {
+          codeLanguage: "yaml",
+          codeContent: `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: orders-api`
+        }
+      ),
+      makeNode(
+        "n-pod-a",
+        "cluster-pod",
+        "orders-pod-a",
+        { x: 20, y: 42 },
+        { width: 300, height: 210 },
+        "n-deployment",
+        {
+          codeLanguage: "yaml",
+          codeContent: `apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: orders-api
+spec:
+  containers:
+    - name: api
+      image: ghcr.io/acme/orders-api:1.0.0`
+        }
+      ),
+      makeNode("n-pod-a-file", "code-file", "orders.handler.ts", { x: 26, y: 42 }, { width: 136, height: 140 }, "n-pod-a"),
+      makeNode("n-pod-a-query", "query-sql", "Orders SQL", { x: 165, y: 42 }, { width: 136, height: 140 }, "n-pod-a"),
+      makeNode(
+        "n-pod-b",
+        "cluster-pod",
+        "orders-pod-b",
+        { x: 410, y: 70 },
+        { width: 220, height: 220 },
+        "n-namespace",
+        {
+          codeLanguage: "yaml",
+          codeContent: `apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: orders-worker
+spec:
+  containers:
+    - name: worker
+      image: ghcr.io/acme/orders-worker:1.0.0`
+        }
+      ),
+      makeNode("n-pod-b-query", "query-nosql", "Orders NoSQL", { x: 36, y: 58 }, { width: 136, height: 140 }, "n-pod-b"),
+      makeNode("n-rabbit", "queue-rabbitmq", "RabbitMQ", { x: 860, y: 48 }, { width: 136, height: 140 }, "n-subnet-app"),
+      makeNode("n-kafka", "queue-kafka", "Kafka", { x: 860, y: 230 }, { width: 136, height: 140 }, "n-subnet-app"),
+      makeNode("n-redis", "cache-redis", "Redis", { x: 860, y: 388 }, { width: 136, height: 140 }, "n-subnet-app"),
+      makeNode("n-mongo", "database-mongodb", "MongoDB", { x: 154, y: 70 }, { width: 136, height: 140 }, "n-subnet-data"),
+      makeNode("n-repo", "code-repository", "orders-repository", { x: 40, y: 980 }, { width: 136, height: 140 }, "n-platform")
+    ];
+
+    const makeEdge = (id: string, from: string, to: string, label?: string): CanvasEdge => ({
+      id,
+      from,
+      to,
+      label,
+      style
+    });
+
+    const edges: CanvasEdge[] = [
+      makeEdge("e-user-route53", "n-user", "n-route53", "DNS"),
+      makeEdge("e-route53-apigw", "n-route53", "n-apigw"),
+      makeEdge("e-apigw-alb", "n-apigw", "n-alb", "HTTP"),
+      makeEdge("e-alb-pod-a", "n-alb", "n-pod-a", "/orders"),
+      makeEdge("e-pod-a-rabbit", "n-pod-a", "n-rabbit", "publish"),
+      makeEdge("e-rabbit-pod-b", "n-rabbit", "n-pod-b", "consume"),
+      makeEdge("e-pod-b-kafka", "n-pod-b", "n-kafka", "events"),
+      makeEdge("e-pod-a-redis", "n-pod-a", "n-redis", "cache"),
+      makeEdge("e-pod-a-mongo", "n-pod-a", "n-mongo", "persist"),
+      makeEdge("e-query-sql-mongo", "n-pod-a-query", "n-mongo", "read-model"),
+      makeEdge("e-query-nosql-mongo", "n-pod-b-query", "n-mongo", "aggregate"),
+      makeEdge("e-repo-deploy", "n-repo", "n-deployment", "CI/CD")
+    ];
+
+    return {
+      ...base,
+      title: "Exemplo Completo: Macro para Micro",
+      description: "Template inicial com containers, codigo, cluster e mensageria.",
+      mermaidSource: `graph LR
+  User["Users"] --> DNS["Route53"]
+  DNS --> APIGW["API Gateway"]
+  APIGW --> ALB["Public ALB"]
+  ALB --> PodA["orders-pod-a"]
+  PodA --> Rabbit["RabbitMQ"]
+  Rabbit --> PodB["orders-pod-b"]
+  PodB --> Kafka["Kafka"]
+  PodA --> Redis["Redis"]
+  PodA --> Mongo["MongoDB"]`,
+      nodes,
+      edges,
+      updatedAt: now
+    };
   }
 
   private async refreshSummaries(): Promise<void> {
@@ -4729,6 +5033,9 @@ spec:
   private getPreferredCodeLanguageForKind(kind: ArchitectureNodeKind): CodeLanguage {
     if (kind === "mermaid") return "markdown";
     if (kind === "query-sql" || kind === "query-nosql") return "markdown";
+    if (kind === "queue-rabbitmq" || kind === "queue-kafka" || kind === "cache-redis" || kind === "database-mongodb") {
+      return "markdown";
+    }
     if (kind === "aws-step-functions") return "javascript";
     if (this.isDeclarativeManifestCodeKind(kind)) return "yaml";
     if (
