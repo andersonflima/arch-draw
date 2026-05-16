@@ -185,9 +185,9 @@ const EDGE_MARKER_CLEARANCE = 6;
 const EDGE_ENDPOINT_STUB = 8;
 const FOCUS_Z_INDEX_BASE = 50;
 const EXPANDED_NODE_Z_INDEX = 60;
-const EDGE_OBSTACLE_PADDING = 10;
-const EDGE_OBSTACLE_CLEARANCE = 18;
-const EDGE_ROUTE_MAX_PASSES = 6;
+const EDGE_OBSTACLE_PADDING = 18;
+const EDGE_OBSTACLE_CLEARANCE = 30;
+const EDGE_ROUTE_MAX_PASSES = 10;
 const MAX_UNDO_HISTORY = 150;
 const DRAG_START_THRESHOLD = 4;
 const UI_THEME_STORAGE_KEY = "arch-draw.ui-theme";
@@ -4505,13 +4505,12 @@ spec:
     target: Readonly<{ x: number; y: number }>,
     role: "source" | "target"
   ): "left" | "right" | "top" | "bottom" {
-    if (!this.hasOmniConnectionPorts(node)) {
-      return role === "source" ? "right" : "left";
-    }
-
     const center = this.getNodeCenter(node);
     const dx = target.x - center.x;
     const dy = target.y - center.y;
+    if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) {
+      return role === "source" ? "right" : "left";
+    }
     if (Math.abs(dx) >= Math.abs(dy)) {
       return dx >= 0 ? "right" : "left";
     }
