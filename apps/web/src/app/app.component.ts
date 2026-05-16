@@ -3123,11 +3123,25 @@ spec:
     return null;
   }
 
+  private getVisibleCollapsedContainerRepresentative(node: CanvasNode): CanvasNode | null {
+    let representative: CanvasNode | null = null;
+    let current: CanvasNode | null = node;
+    while (current) {
+      if (this.isContainerCollapsed(current)) {
+        representative = current;
+      }
+      if (!current.parentId) break;
+      current = this.nodes.find((candidate) => candidate.id === current?.parentId) ?? null;
+    }
+    return representative;
+  }
+
   private getEffectiveEdgeEndpointNode(nodeId: string): CanvasNode | null {
     const node = this.nodes.find((candidate) => candidate.id === nodeId);
     if (!node) return null;
-    if (this.isVisibleNode(node)) return node;
-    return this.getNearestCollapsedContainerAncestor(node);
+    const representative = this.getVisibleCollapsedContainerRepresentative(node);
+    if (representative) return representative;
+    return this.isVisibleNode(node) ? node : this.getNearestCollapsedContainerAncestor(node);
   }
 
   private getEffectiveEdgeEndpoints(
