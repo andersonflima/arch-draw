@@ -4508,6 +4508,13 @@ spec:
     const center = this.getNodeCenter(node);
     const dx = target.x - center.x;
     const dy = target.y - center.y;
+
+    // Default canvas flow is LR: non-omni nodes connect only through left/right.
+    if (!this.hasOmniConnectionPorts(node)) {
+      if (Math.abs(dx) < 0.001) return role === "source" ? "right" : "left";
+      return dx >= 0 ? "right" : "left";
+    }
+
     if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) {
       return role === "source" ? "right" : "left";
     }
