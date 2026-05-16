@@ -845,6 +845,8 @@ app-flow-document-node {
 }
 
 .architecture-node--leaf .architecture-node__header {
+  position: relative;
+  width: 100%;
   margin: 0;
   padding: 0;
   justify-content: center;
@@ -861,8 +863,14 @@ app-flow-document-node {
 }
 
 .architecture-node--code-snippet-collapsed .architecture-node__header {
-  width: 100%;
-  justify-content: space-between;
+  justify-content: center;
+}
+
+.architecture-node--leaf .node-collapse-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin-left: 0;
 }
 
 .architecture-node--leaf .node-icon {
