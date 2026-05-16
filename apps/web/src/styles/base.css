@@ -416,7 +416,7 @@ button {
   box-shadow: 3px 3px 0 #111827;
 }
 
-.architecture-node > :not(.resize-control):not(.node-port) {
+.architecture-node > :not(.resize-control):not(.node-port):not(.node-maximize-hint) {
   position: relative;
   z-index: 1;
 }
