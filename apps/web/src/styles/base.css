@@ -692,6 +692,21 @@ button {
   content: none;
 }
 
+app-flow-start-node,
+app-flow-end-node,
+app-flow-process-node,
+app-flow-decision-node,
+app-flow-input-node,
+app-flow-output-node,
+app-flow-loop-node,
+app-flow-subroutine-node,
+app-flow-data-node,
+app-flow-document-node {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .flow-shape {
   position: relative;
   width: 100%;
@@ -739,6 +754,7 @@ button {
 }
 
 .flow-shape--decision {
+  margin-inline: auto;
   clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
 }
 
