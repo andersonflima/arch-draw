@@ -2363,6 +2363,10 @@ app-flow-document-node {
   pointer-events: none;
 }
 
+.canvas-edge-context-overlay {
+  pointer-events: none;
+}
+
 .canvas-edge-flow--forward {
   animation: edge-flow-dash 0.22s linear infinite;
 }

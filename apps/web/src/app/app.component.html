@@ -181,6 +181,17 @@
             >
               <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"></path>
             </marker>
+            <clipPath
+              *ngFor="let containerNode of getEdgeClipContainers()"
+              [attr.id]="getEdgeContainerClipPathId(containerNode.id)"
+            >
+              <rect
+                [attr.x]="getNodeAbsoluteRect(containerNode).x"
+                [attr.y]="getNodeAbsoluteRect(containerNode).y"
+                [attr.width]="getNodeAbsoluteRect(containerNode).width"
+                [attr.height]="getNodeAbsoluteRect(containerNode).height"
+              ></rect>
+            </clipPath>
           </defs>
           <g *ngFor="let edge of edges" [attr.display]="isVisibleEdge(edge) ? null : 'none'">
             <path
@@ -205,6 +216,15 @@
               (contextmenu)="onEdgeContextMenu(edge.id, $event)"
             />
             <path
+              *ngFor="let clipContainerId of getEdgeDarkTransitionClipIds(edge)"
+              class="canvas-edge canvas-edge-context-overlay"
+              [class.is-live]="isLiveEdge(edge) && !isBidirectional(edge)"
+              [attr.d]="getEdgePath(edge)"
+              [attr.stroke]="getEdgeContextOverlayColor()"
+              [attr.stroke-dasharray]="getEdgeDash(edge)"
+              [attr.clip-path]="'url(#' + getEdgeContainerClipPathId(clipContainerId) + ')'"
+            />
+            <path
               *ngIf="isBidirectional(edge)"
               class="canvas-edge canvas-edge-flow canvas-edge-flow--forward"
               [attr.d]="getBidirectionalFlowPath(edge, 'forward')"
@@ -217,6 +237,24 @@
               [attr.d]="getBidirectionalFlowPath(edge, 'reverse')"
               [attr.stroke]="getEdgeColor(edge)"
               [attr.stroke-dasharray]="getEdgeDash(edge)"
+            />
+            <path
+              *ngFor="let clipContainerId of getEdgeDarkTransitionClipIds(edge)"
+              class="canvas-edge canvas-edge-flow canvas-edge-flow--forward canvas-edge-context-overlay"
+              [attr.display]="isBidirectional(edge) ? null : 'none'"
+              [attr.d]="getBidirectionalFlowPath(edge, 'forward')"
+              [attr.stroke]="getEdgeContextOverlayColor()"
+              [attr.stroke-dasharray]="getEdgeDash(edge)"
+              [attr.clip-path]="'url(#' + getEdgeContainerClipPathId(clipContainerId) + ')'"
+            />
+            <path
+              *ngFor="let clipContainerId of getEdgeDarkTransitionClipIds(edge)"
+              class="canvas-edge canvas-edge-flow canvas-edge-flow--reverse canvas-edge-context-overlay"
+              [attr.display]="isBidirectional(edge) ? null : 'none'"
+              [attr.d]="getBidirectionalFlowPath(edge, 'reverse')"
+              [attr.stroke]="getEdgeContextOverlayColor()"
+              [attr.stroke-dasharray]="getEdgeDash(edge)"
+              [attr.clip-path]="'url(#' + getEdgeContainerClipPathId(clipContainerId) + ')'"
             />
             <text *ngIf="edge.label && !isEditingEdge(edge.id)" class="canvas-edge-label">
               <textPath [attr.href]="'#edge-path-' + edge.id" startOffset="50%">

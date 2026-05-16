@@ -2326,6 +2326,48 @@ export class AppComponent implements OnDestroy {
       : "#f8fafc";
   }
 
+  getEdgeContextOverlayColor(): string {
+    return "#111827";
+  }
+
+  getEdgeContainerClipPathId(containerId: string): string {
+    return `edge-clip-${containerId}`;
+  }
+
+  getEdgeClipContainers(): readonly CanvasNode[] {
+    return this.nodes.filter((node) => isContainerNodeKind(node.kind) && this.isVisibleNode(node));
+  }
+
+  getEdgeDarkTransitionClipIds(edge: CanvasEdge): readonly string[] {
+    if (!this.isDarkMode) return [];
+    const fromNode = this.nodes.find((node) => node.id === edge.from) ?? null;
+    const toNode = this.nodes.find((node) => node.id === edge.to) ?? null;
+    if (!fromNode || !toNode) return [];
+    if (this.isEdgeInsideContainerContext(fromNode, toNode)) return [];
+
+    const fromLineage = this.getContainerContextLineage(fromNode);
+    const toLineage = this.getContainerContextLineage(toNode);
+    if (fromLineage.length === 0 && toLineage.length === 0) return [];
+
+    const unique = new Set<string>();
+    for (const containerId of [...fromLineage, ...toLineage]) {
+      if (!unique.has(containerId)) {
+        unique.add(containerId);
+      }
+    }
+    return [...unique];
+  }
+
+  getNodeAbsoluteRect(node: CanvasNode): Readonly<{ x: number; y: number; width: number; height: number }> {
+    const position = this.getAbsolutePosition(node);
+    return {
+      x: position.x,
+      y: position.y,
+      width: node.size.width,
+      height: node.size.height
+    };
+  }
+
   getConnectionPreviewPath(): string {
     const dragState = this.connectionDragState;
     if (!dragState) return "";
