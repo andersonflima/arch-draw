@@ -6,6 +6,7 @@ import type { FastifyInstance } from "fastify";
 import { createServer } from "../src/server";
 
 const TEST_WEB_ORIGIN = "http://127.0.0.1:5173";
+const TEST_METRICS_TOKEN = "test-security-metrics-token";
 
 describe("session-scoped architectures", () => {
   let app: FastifyInstance | null = null;
@@ -28,12 +29,16 @@ describe("session-scoped architectures", () => {
 
     const firstList = await app.inject({
       method: "GET",
-      url: "/architectures"
+      url: "/architectures",
+      headers: {
+        "x-forwarded-proto": "https"
+      }
     });
 
     expect(firstList.statusCode).toBe(200);
     const sessionA = extractCookieHeader(firstList.headers["set-cookie"]);
     expect(sessionA).toContain("archdraw_session=");
+    expect(firstList.headers["set-cookie"]).toContain("Secure");
 
     const created = await app.inject({
       method: "POST",
@@ -145,7 +150,8 @@ describe("session-scoped architectures", () => {
       method: "GET",
       url: "/security/metrics",
       headers: {
-        origin: TEST_WEB_ORIGIN
+        origin: TEST_WEB_ORIGIN,
+        "x-security-metrics-token": TEST_METRICS_TOKEN
       }
     });
     expect(metrics.statusCode).toBe(200);
@@ -182,7 +188,8 @@ describe("session-scoped architectures", () => {
       method: "GET",
       url: "/security/metrics",
       headers: {
-        origin: TEST_WEB_ORIGIN
+        origin: TEST_WEB_ORIGIN,
+        "x-security-metrics-token": TEST_METRICS_TOKEN
       }
     });
     expect(metrics.statusCode).toBe(200);
@@ -192,6 +199,19 @@ describe("session-scoped architectures", () => {
     };
     expect(parsedMetrics.ok).toBe(true);
     expect(parsedMetrics.metrics.rate_limited).toBeGreaterThan(0);
+  });
+
+  it("rejects security metrics when missing token", async () => {
+    ({ app, tempDir } = await createTestServer());
+
+    const unauthorized = await app.inject({
+      method: "GET",
+      url: "/security/metrics",
+      headers: {
+        origin: TEST_WEB_ORIGIN
+      }
+    });
+    expect(unauthorized.statusCode).toBe(401);
   });
 });
 
@@ -205,7 +225,9 @@ const createTestServer = async (): Promise<{
     apiHost: "127.0.0.1",
     apiPort: 0,
     databasePath,
-    webOrigins: [TEST_WEB_ORIGIN]
+    webOrigins: [TEST_WEB_ORIGIN],
+    trustProxy: true,
+    securityMetricsToken: TEST_METRICS_TOKEN
   });
 
   return { app, tempDir };

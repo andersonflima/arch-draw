@@ -16,6 +16,7 @@ type RateLimitState = Readonly<{ windowStart: number; count: number }>;
 export const createServer = async (config: AppConfig) => {
   const app = Fastify({
     logger: true,
+    trustProxy: config.trustProxy,
     bodyLimit: 2 * 1024 * 1024,
     requestTimeout: 10_000,
     connectionTimeout: 10_000,
@@ -47,7 +48,23 @@ export const createServer = async (config: AppConfig) => {
   });
 
   app.addHook("onRequest", async (request, reply) => {
-    if (request.url === "/security/metrics") return;
+    const isSecurityMetricsRoute = request.url === "/security/metrics";
+    if (isSecurityMetricsRoute) {
+      if (!config.securityMetricsToken) {
+        await reply.code(404).send({ error: "Not found" });
+        return;
+      }
+
+      const providedToken = extractMetricsToken(request.headers.authorization, request.headers["x-security-metrics-token"]);
+      if (!providedToken || providedToken !== config.securityMetricsToken) {
+        recordSecurityEvent("unauthorized_metrics_access");
+        request.log.warn({ event: "unauthorized_metrics_access", route: request.url }, "Rejected unauthorized metrics access");
+        await reply.code(401).send({ errors: ["Unauthorized"] });
+        return;
+      }
+
+      return;
+    }
 
     const now = Date.now();
     const key = request.ip || "unknown";
@@ -98,4 +115,18 @@ export const createServer = async (config: AppConfig) => {
   });
 
   return app;
+};
+
+const extractMetricsToken = (
+  authorization: string | undefined,
+  customHeader: string | string[] | undefined
+): string | undefined => {
+  const headerValue = Array.isArray(customHeader) ? customHeader[0] : customHeader;
+  if (typeof headerValue === "string" && headerValue.trim().length > 0) {
+    return headerValue.trim();
+  }
+
+  if (!authorization) return undefined;
+  const match = /^Bearer\s+(.+)$/i.exec(authorization.trim());
+  return match?.[1]?.trim() || undefined;
 };

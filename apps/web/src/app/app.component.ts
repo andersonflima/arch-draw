@@ -1,7 +1,6 @@
 import { CommonModule } from "@angular/common";
 import { ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, ViewChild } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { DomSanitizer, type SafeHtml } from "@angular/platform-browser";
 import { toPng, toSvg } from "html-to-image";
 import mermaid from "mermaid";
 import {
@@ -782,7 +781,7 @@ export class AppComponent implements OnDestroy {
   editingEdgeId: string | null = null;
   editingEdgeLabelDraft = "";
   mermaidDraft = "";
-  mermaidSvg: SafeHtml | string = "";
+  mermaidSvg = "";
   mermaidError = "";
   lintStatus: "empty" | "valid" | "invalid" = "empty";
   status = "Inicializando";
@@ -821,8 +820,7 @@ export class AppComponent implements OnDestroy {
   private readonly edgePathDataCache = new Map<string, EdgePathData | null>();
 
   constructor(
-    private readonly changeDetectorRef: ChangeDetectorRef,
-    private readonly sanitizer: DomSanitizer
+    private readonly changeDetectorRef: ChangeDetectorRef
   ) {
     this.loadUiThemePreference();
     this.rebuildPaletteGroups();
@@ -3432,7 +3430,7 @@ spec:
       await mermaid.parse(source);
       const result = await mermaid.render(`mermaid-${crypto.randomUUID()}`, source);
       if (this.mermaidDraft !== source) return;
-      this.mermaidSvg = this.sanitizer.bypassSecurityTrustHtml(result.svg);
+      this.mermaidSvg = result.svg;
       this.mermaidError = "";
       this.lintStatus = "valid";
       this.markViewChanged();

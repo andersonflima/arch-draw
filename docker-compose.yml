@@ -8,6 +8,8 @@ services:
       API_PORT: 3333
       DATABASE_PATH: /app/data/arch-draw.sqlite
       WEB_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
+      TRUST_PROXY: "true"
+      SECURITY_METRICS_TOKEN: ${SECURITY_METRICS_TOKEN:-}
     volumes:
       - arch_draw_data:/app/data
     restart: unless-stopped
