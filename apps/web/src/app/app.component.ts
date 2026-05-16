@@ -713,6 +713,7 @@ export class AppComponent implements OnDestroy {
     this.uiTheme = this.isDarkMode ? "light" : "dark";
     this.persistUiThemePreference();
     this.status = this.isDarkMode ? "Dark mode ativado" : "Dark mode desativado";
+    void this.renderMermaid();
     this.markViewChanged();
   }
 
@@ -2488,6 +2489,7 @@ export class AppComponent implements OnDestroy {
   }
 
   private async renderMermaid(): Promise<void> {
+    this.applyMermaidThemeConfig();
     const source = this.mermaidDraft;
     if (source.trim().length === 0) {
       this.mermaidSvg = "";
@@ -2512,6 +2514,21 @@ export class AppComponent implements OnDestroy {
       this.lintStatus = "invalid";
       this.markViewChanged();
     }
+  }
+
+  private applyMermaidThemeConfig(): void {
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "strict",
+      theme: "base",
+      themeVariables: {
+        primaryColor: "#fff7ed",
+        primaryBorderColor: this.isDarkMode ? "#f8fafc" : "#111827",
+        primaryTextColor: "#111827",
+        lineColor: this.isDarkMode ? "#f8fafc" : "#111827",
+        fontFamily: "Inter, ui-sans-serif, system-ui"
+      }
+    });
   }
 
   private updateNode(id: string, patch: Partial<CanvasNode>): void {
