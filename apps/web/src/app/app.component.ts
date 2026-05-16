@@ -2791,7 +2791,25 @@ LIMIT 50;`;
     ): CanvasNode => {
       const isContainerKind = isContainerNodeKind(kind);
       const isCodeKind = isCodeSnippetNodeKind(kind);
+      const supportsCode = isCodeKind || CONTAINER_CODE_PROPERTY_KINDS.has(kind);
       const startsCollapsed = isContainerKind || isCodeKind;
+      const nextProperties: Record<string, string> = { ...(properties ?? {}) };
+
+      if (supportsCode) {
+        const currentContent = (nextProperties["codeContent"] ?? "").trim();
+        if (currentContent.length === 0) {
+          const language = this.getPreferredCodeLanguageForKind(kind);
+          nextProperties["codeLanguage"] = nextProperties["codeLanguage"]?.trim() || language;
+          nextProperties["codeContent"] = this.getDefaultCodeSnippet(
+            kind,
+            nextProperties["codeLanguage"] as CodeLanguage
+          );
+        } else if ((nextProperties["codeLanguage"] ?? "").trim().length === 0) {
+          const detected = this.detectCodeLanguageFromContent(currentContent);
+          nextProperties["codeLanguage"] = detected ?? this.getPreferredCodeLanguageForKind(kind);
+        }
+      }
+
       return {
         id,
         kind,
@@ -2809,7 +2827,7 @@ LIMIT 50;`;
         expandedSize: startsCollapsed
           ? (isCodeKind ? { ...CODE_SNIPPET_EXPANDED_SIZE } : { ...size })
           : undefined,
-        properties
+        properties: Object.keys(nextProperties).length > 0 ? nextProperties : undefined
       };
     };
 
