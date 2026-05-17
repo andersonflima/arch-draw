@@ -192,7 +192,8 @@ const LEAF_ANCHOR_TOP_OFFSET = 4;
 const NODE_LAYER_CONTAINER_BASE_Z_INDEX = 120;
 const NODE_LAYER_LEAF_BASE_Z_INDEX = 180;
 const NODE_LAYER_DEPTH_STEP = 6;
-const NODE_LAYER_EXPANDED_BOOST = 8;
+const NODE_LAYER_EXPANDED_CONTAINER_BOOST = 8;
+const NODE_LAYER_EXPANDED_LEAF_BOOST = 120;
 const NODE_LAYER_DRAG_Z_INDEX_BASE = 1000;
 const DEFAULT_EDGE_LABEL_FONT_SIZE = 28;
 const MIN_EDGE_LABEL_FONT_SIZE = 10;
@@ -2640,7 +2641,10 @@ LIMIT 50;`;
     const isExpandedNode =
       this.maximizedNodeId === node.id
       && (this.isCodeSnippetExpanded(node) || (isContainerNodeKind(node.kind) && !this.isContainerCollapsed(node)));
-    const expandedZIndex = isExpandedNode ? baseZIndex + NODE_LAYER_EXPANDED_BOOST : baseZIndex;
+    const expandedBoost = isExpandedNode
+      ? (rendersAsContainer ? NODE_LAYER_EXPANDED_CONTAINER_BOOST : NODE_LAYER_EXPANDED_LEAF_BOOST)
+      : 0;
+    const expandedZIndex = baseZIndex + expandedBoost;
     const resolvedZIndex = Math.max(baseZIndex, expandedZIndex, dragZIndex);
     const nestedInsideContainer = Boolean(node.parentId);
     const isExpandedCodeSnippet = this.isCodeSnippetExpanded(node);
