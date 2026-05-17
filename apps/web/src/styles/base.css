@@ -2338,10 +2338,10 @@ app-flow-document-node {
 .node-port {
   position: absolute;
   z-index: 4;
-  top: var(--node-port-hit-inset, 18px);
-  bottom: var(--node-port-hit-inset, 18px);
-  width: var(--node-port-hit-width, 28px);
-  min-height: var(--node-port-hit-min-height, 42px);
+  top: var(--node-port-hit-inset, 20px);
+  bottom: var(--node-port-hit-inset, 20px);
+  width: var(--node-port-hit-width, 22px);
+  min-height: var(--node-port-hit-min-height, 30px);
   border: 0;
   border-radius: 0;
   background: transparent;

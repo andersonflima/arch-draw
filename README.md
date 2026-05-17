@@ -11,6 +11,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Biblioteca de blocos para cloud, software, Kubernetes, algoritmos, bancos e integrações.
 - Conexões avançadas entre elementos com estilos, direções e roteamento com desvio de obstáculos.
 - Setas de conexão ancoradas pela borda externa da bolinha de contato (apenas lados esquerdo/direito), com ponta da seta na bolinha e linha terminando no centro traseiro da seta.
+- Áreas de clique das portas de conexão calibradas para maior precisão, reduzindo disparos acidentais de vínculo durante drag and drop de elementos.
 - Camadas visuais por hierarquia de container (filhos sempre acima do container pai), sem elevar z-index apenas por foco de clique.
 - Quando um bloco de código está expandido, ele recebe precedência de camada sobre irmãos no mesmo contexto para evitar sobreposição visual do conteúdo aberto.
 - Supressão automática de linhas de conexão que encostam na área de contato durante drag and drop, com área visível para elementos minimizados/maximizados (inclusive dentro de containers) e sem ativação por foco/clique/abertura.
