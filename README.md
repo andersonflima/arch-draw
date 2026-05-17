@@ -34,6 +34,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Checkpoint automático de viewport por arquivo (zoom + posição do canvas), retomando no mesmo ponto após recarregar ou reabrir o navegador.
 - Toasts visuais no padrão da plataforma para ações de produtividade (salvar checkpoint, exportar e limpar).
 - Interface com i18n completo `PT/EN` (PT-BR e EN-US), incluindo toolbar, telas de autenticação, painel de propriedades, status, toasts e conteúdo dos tutoriais guiados.
+- Menu lateral esquerdo (arquivos + blocos) com toggle de ocultar/exibir para ampliar a área útil do canvas, com preferência persistida por usuário no navegador.
 - Lista de arquivos com quebra de linha controlada e truncamento com `...` para manter cards consistentes com títulos/metadados longos.
 - Otimização de entrega web com compressão HTTP (`gzip`), cache imutável para assets hashados e `index.html` sem cache.
 - Auto save com debounce adaptativo por complexidade (nós + conexões) para reduzir carga em arquiteturas grandes.

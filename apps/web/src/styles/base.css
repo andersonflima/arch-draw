@@ -392,6 +392,15 @@ button {
   isolation: isolate;
 }
 
+.workspace--left-panels-hidden {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.workspace--left-panels-hidden .sidebar,
+.workspace--left-panels-hidden .palette {
+  display: none;
+}
+
 .auth-screen {
   display: grid;
   grid-template-rows: 64px minmax(0, 1fr);
@@ -3752,6 +3761,10 @@ app-flow-document-node {
   .workspace {
     grid-template-columns: 1fr;
     grid-template-rows: auto auto minmax(0, 1fr);
+  }
+
+  .workspace--left-panels-hidden {
+    grid-template-rows: minmax(0, 1fr);
   }
 
   .sidebar,

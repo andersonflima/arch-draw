@@ -64,6 +64,15 @@
       <button
         class="toolbar-action"
         type="button"
+        [title]="isLeftPanelsHidden ? t('aria.showLeftMenu') : t('aria.hideLeftMenu')"
+        [attr.aria-label]="isLeftPanelsHidden ? t('aria.showLeftMenu') : t('aria.hideLeftMenu')"
+        (click)="toggleLeftPanelsVisibility()"
+      >
+        {{ isLeftPanelsHidden ? t("toolbar.showLeftMenu") : t("toolbar.hideLeftMenu") }}
+      </button>
+      <button
+        class="toolbar-action"
+        type="button"
         [title]="isDarkMode ? t('theme.disableDark') : t('theme.enableDark')"
         [attr.aria-label]="isDarkMode ? t('theme.disableDark') : t('theme.enableDark')"
         [class.is-active]="isDarkMode"
@@ -158,7 +167,7 @@
     aria-hidden="true"
   ></div>
 
-  <div class="workspace">
+  <div class="workspace" [class.workspace--left-panels-hidden]="isLeftPanelsHidden">
     <nav class="sidebar">
       <div class="panel-heading">
         <div>
