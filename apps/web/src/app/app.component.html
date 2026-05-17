@@ -288,17 +288,23 @@
               [attr.stroke-dasharray]="getEdgeDash(edge)"
               [attr.clip-path]="'url(#' + getEdgeContainerClipPathId(clipContainerId) + ')'"
             />
-            <text
+            <foreignObject
               *ngIf="shouldRenderEdgeLabel(edge) && !isEditingEdge(edge.id)"
               class="canvas-edge-label"
-              [style.font-size.px]="edgeLabelFontSize"
-              [style.fill]="getEdgeLabelColor(edge)"
-              [attr.dy]="getEdgeLabelDy(edge)"
+              [attr.x]="getEdgeLabelPosition(edge).x - 130"
+              [attr.y]="getEdgeLabelPosition(edge).y - getEdgeLabelBoxHeight() / 2"
+              width="260"
+              [attr.height]="getEdgeLabelBoxHeight()"
             >
-              <textPath [attr.href]="'#edge-path-' + edge.id" [attr.startOffset]="getEdgeLabelStartOffset(edge)">
+              <div
+                xmlns="http://www.w3.org/1999/xhtml"
+                class="canvas-edge-label-box"
+                [style.font-size.px]="edgeLabelFontSize"
+                [style.color]="getEdgeLabelColor(edge)"
+              >
                 {{ edge.label }}
-              </textPath>
-            </text>
+              </div>
+            </foreignObject>
             <foreignObject
               *ngIf="isEditingEdge(edge.id)"
               class="canvas-edge-label-editor"
