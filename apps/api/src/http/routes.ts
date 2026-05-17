@@ -36,6 +36,8 @@ const MAX_TITLE_LENGTH = 180;
 const MAX_DESCRIPTION_LENGTH = 4000;
 const SHARE_ID_PATTERN = /^[a-zA-Z0-9_-]{12,160}$/;
 const MAX_COLLABORATOR_LABEL_LENGTH = 96;
+const SHARE_ACCESS_MODES = new Set(["edit", "read-only"] as const);
+type ShareAccessMode = "edit" | "read-only";
 
 export const registerRoutes = async (
   app: FastifyInstance<any, any, any, any, any>,
@@ -164,22 +166,33 @@ export const registerRoutes = async (
     return deleted ? reply.code(204).send() : reply.code(404).send();
   });
 
-  app.post<{ Params: IdParams }>("/architectures/:id/share", async (request, reply) => {
+  app.post<{ Params: IdParams; Body: unknown }>("/architectures/:id/share", async (request, reply) => {
     if (!isSafeArchitectureId(request.params.id)) {
       recordSecurityEvent("invalid_id");
       request.log.warn({ event: "invalid_id", route: "/architectures/:id/share", id: request.params.id }, "Rejected invalid share id");
       return reply.code(400).send({ errors: ["Invalid architecture id"] });
     }
+    if (request.body !== undefined && !isObject(request.body)) {
+      recordSecurityEvent("invalid_body");
+      request.log.warn({ event: "invalid_body", route: "/architectures/:id/share" }, "Rejected non-object payload");
+      return reply.code(400).send({ errors: ["Request body must be a JSON object"] });
+    }
+    const body = isObject(request.body) ? request.body : {};
+    const accessMode = sanitizeShareAccessMode(body["accessMode"]) ?? "edit";
 
     const sessionToken = resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies);
     const existingArchitecture = await readArchitecture(request.params.id, sessionToken);
     if (!existingArchitecture) return reply.code(404).send({ error: "Architecture not found" });
 
-    const existingShare = await dependencies.repository.findShareByArchitectureId(request.params.id, sessionToken);
+    const existingShare = await dependencies.repository.findShareByArchitectureId(
+      request.params.id,
+      sessionToken,
+      accessMode
+    );
     if (existingShare) {
       return reply.send({
         shareId: existingShare.shareId,
-        sharePath: `/?share=${encodeURIComponent(existingShare.shareId)}`
+        sharePath: `/?share=${encodeURIComponent(existingShare.shareId)}&mode=${encodeURIComponent(existingShare.accessMode)}`
       });
     }
 
@@ -190,12 +203,13 @@ export const registerRoutes = async (
         shareId,
         request.params.id,
         sessionToken,
-        now
+        now,
+        accessMode
       );
       if (!created) continue;
       return reply.code(201).send({
         shareId: created.shareId,
-        sharePath: `/?share=${encodeURIComponent(created.shareId)}`
+        sharePath: `/?share=${encodeURIComponent(created.shareId)}&mode=${encodeURIComponent(created.accessMode)}`
       });
     }
 
@@ -238,6 +252,13 @@ export const registerRoutes = async (
       if (!validation.ok) {
         recordSecurityEvent("invalid_body");
         return reply.code(400).send({ errors: validation.errors });
+      }
+
+      const share = await dependencies.repository.findShareById(request.params.shareId);
+      if (!share) return reply.code(404).send({ error: "Shared architecture not found" });
+      if (share.accessMode !== "edit") {
+        recordSecurityEvent("invalid_body");
+        return reply.code(403).send({ errors: ["Share link is read-only"] });
       }
 
       const saved = await dependencies.repository.saveByShareId(request.params.shareId, normalized);
@@ -300,6 +321,48 @@ export const registerRoutes = async (
     return reply.code(204).send();
   });
 
+  app.post<{
+    Params: Readonly<{ shareId: string }>;
+    Body: unknown;
+  }>("/architectures/shared/:shareId/view", async (request, reply) => {
+    if (!isSafeShareId(request.params.shareId)) {
+      recordSecurityEvent("invalid_id");
+      request.log.warn({ event: "invalid_id", route: "/architectures/shared/:shareId/view", shareId: request.params.shareId }, "Rejected invalid share id");
+      return reply.code(400).send({ errors: ["Invalid share id"] });
+    }
+    if (!isObject(request.body)) {
+      recordSecurityEvent("invalid_body");
+      request.log.warn({ event: "invalid_body", route: "/architectures/shared/:shareId/view" }, "Rejected non-object view payload");
+      return reply.code(400).send({ errors: ["Request body must be a JSON object"] });
+    }
+
+    const body = request.body as Readonly<Record<string, unknown>>;
+    const clientId = sanitizeCollaboratorId(body["clientId"]);
+    const zoom = sanitizeViewportScale(body["zoom"]);
+    const panX = sanitizeCoordinate(body["panX"]);
+    const panY = sanitizeCoordinate(body["panY"]);
+    const maximizedNodeId = sanitizeOptionalArchitectureId(body["maximizedNodeId"]);
+    if (!clientId || zoom === null || panX === null || panY === null) {
+      recordSecurityEvent("invalid_body");
+      return reply.code(400).send({ errors: ["Invalid view payload"] });
+    }
+
+    const share = await dependencies.repository.findShareById(request.params.shareId);
+    if (!share) return reply.code(404).send({ error: "Shared architecture not found" });
+    if (share.accessMode !== "edit") return reply.code(204).send();
+
+    dependencies.collaborationHub.publishView({
+      shareId: request.params.shareId,
+      clientId,
+      zoom,
+      panX,
+      panY,
+      maximizedNodeId,
+      at: dependencies.clock.now()
+    });
+    return reply.code(204).send();
+  });
+
   app.get<{
     Params: Readonly<{ shareId: string }>;
     Querystring: Readonly<{
@@ -342,7 +405,8 @@ export const registerRoutes = async (
     sendEvent("snapshot", {
       clientId,
       architecture,
-      participants: joined.participants
+      participants: joined.participants,
+      currentView: joined.currentView
     });
 
     const unsubscribe = joined.subscribe((event) => {
@@ -454,6 +518,28 @@ const sanitizeCoordinate = (value: unknown): number | null => {
   if (!Number.isFinite(value)) return null;
   if (value < -500_000 || value > 500_000) return null;
   return Number(value.toFixed(2));
+};
+
+const sanitizeViewportScale = (value: unknown): number | null => {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  if (value < 0.05 || value > 5) return null;
+  return Number(value.toFixed(3));
+};
+
+const sanitizeOptionalArchitectureId = (value: unknown): string | null => {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  if (!normalized) return null;
+  return isSafeArchitectureId(normalized) ? normalized : null;
+};
+
+const sanitizeShareAccessMode = (value: unknown): ShareAccessMode | null => {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  return SHARE_ACCESS_MODES.has(normalized as ShareAccessMode)
+    ? normalized as ShareAccessMode
+    : null;
 };
 
 const resolveRequestSessionToken = (

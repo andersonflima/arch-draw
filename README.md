@@ -25,8 +25,8 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Exportação de diagramas em múltiplos formatos (`.archdraw.json`, `.drawio`, `.excalidraw`, `.mmd`, SVG e PNG).
 - Importação de diagramas em múltiplos formatos (`.archdraw`, JSON, `.drawio`/XML, `.excalidraw`, `.mmd`/`.mermaid`).
 - Painel de propriedades contextual no ponto do clique, com ajustes globais de fonte de labels, fonte de âncoras e tamanho de ícones.
-- Compartilhamento por arquivo com link dedicado (`?share=...`) para colaboração multiusuário no mesmo diagrama.
-- Presença em tempo real no canvas com cursor dos colaboradores e sincronização de edições quase em tempo real.
+- Compartilhamento por arquivo com link dedicado (`?share=...`) e modo de acesso por link (`edit` ou `read-only`).
+- Presença em tempo real no canvas com cursor dos colaboradores, sincronização de edições e sincronização de visão (zoom/pan/foco em elemento maximizado) entre participantes.
 - Botão Tutorial com guias feature por feature (containers, conexões, área de contato, propriedades, zoom, atalhos e fluxo de import/export).
 - Abertura padrão do board com viewport centralizado no conteúdo em 27% de zoom quando não existe checkpoint salvo.
 - Checkpoint automático de viewport por arquivo (zoom + posição do canvas), retomando no mesmo ponto após recarregar ou reabrir o navegador.
@@ -54,7 +54,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 4. Abra o popup de propriedades para ajustar tipo, cor, campos técnicos e estilos globais.
 5. Minimize/maximize containers e snippets de código para navegar em arquiteturas grandes.
 6. Exporte em Arch-Draw, Draw.io, Excalidraw, Mermaid, SVG ou PNG.
-7. Clique em `Compartilhar` para gerar o link colaborativo do arquivo atual e abrir a sessão compartilhada.
+7. Clique em `Compartilhar` e escolha `Link com edição` ou `Link somente leitura` para copiar o link colaborativo no modo desejado.
 
 Atalhos de edição:
 
