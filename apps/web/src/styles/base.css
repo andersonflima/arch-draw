@@ -2380,8 +2380,9 @@ app-flow-document-node {
   opacity: 1;
 }
 
-.architecture-node.is-selected .node-port::after {
-  opacity: 0.72;
+.architecture-node.is-selected:not(.architecture-node--leaf) .node-port::after {
+  opacity: 1;
+  background: rgba(17, 24, 39, 0.22);
 }
 
 .architecture-node--leaf .node-port::after,
@@ -3310,6 +3311,11 @@ app-flow-document-node {
 
 .app-shell.theme-dark .node-port::after {
   background: rgba(148, 163, 184, 0.25);
+}
+
+.app-shell.theme-dark .architecture-node.is-selected:not(.architecture-node--leaf) .node-port::after {
+  opacity: 1;
+  background: rgba(148, 163, 184, 0.45);
 }
 
 .app-shell.theme-dark .architecture-node--leaf .node-port::after,

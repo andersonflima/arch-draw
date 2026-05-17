@@ -189,13 +189,12 @@ const EDGE_MARKER_CLEARANCE = EDGE_ARROW_LENGTH;
 const EDGE_ENDPOINT_STUB = 8;
 const LEAF_ANCHOR_ICON_SIZE = 84;
 const LEAF_ANCHOR_TOP_OFFSET = 4;
-const FOCUS_Z_INDEX_BASE = 200;
-const EXPANDED_NODE_Z_INDEX = 210;
-const DRAG_Z_INDEX_BASE = 120;
-const NESTED_NODE_Z_INDEX_BASE = 80;
-const CONTAINER_FOCUS_Z_INDEX_BASE = 220;
-const CONTAINER_EXPANDED_Z_INDEX_BASE = 230;
-const CONTAINER_DRAG_Z_INDEX_BASE = 240;
+const NODE_LAYER_BASE_Z_INDEX = 170;
+const NODE_LAYER_DEPTH_STEP = 20;
+const NODE_LAYER_CONTAINER_OFFSET = 0;
+const NODE_LAYER_LEAF_OFFSET = 6;
+const NODE_LAYER_EXPANDED_BOOST = 8;
+const NODE_LAYER_DRAG_Z_INDEX_BASE = 1000;
 const DEFAULT_EDGE_LABEL_FONT_SIZE = 28;
 const MIN_EDGE_LABEL_FONT_SIZE = 10;
 const MAX_EDGE_LABEL_FONT_SIZE = 28;
@@ -2630,47 +2629,20 @@ LIMIT 50;`;
     const rendersAsContainer = this.rendersAsContainer(node);
     const isBeingDragged = this.dragState?.pointerOffsets.has(node.id) ?? false;
     const isDescendantOfDragged = this.hasDraggedAncestor(node);
-    const isFocused = this.selectedNodeIds.includes(node.id);
-    const isDescendantOfFocused = this.hasSelectedAncestor(node);
-    const baseZIndex = rendersAsContainer ? 20 : 180;
-    const focusZIndexBase = rendersAsContainer ? CONTAINER_FOCUS_Z_INDEX_BASE : FOCUS_Z_INDEX_BASE;
-    const expandedZIndexBase = rendersAsContainer ? CONTAINER_EXPANDED_Z_INDEX_BASE : EXPANDED_NODE_Z_INDEX;
-    const dragZIndexBase = rendersAsContainer ? CONTAINER_DRAG_Z_INDEX_BASE : DRAG_Z_INDEX_BASE;
+    const hierarchyDepth = this.getNodeHierarchyDepth(node);
+    const layerOffset = rendersAsContainer ? NODE_LAYER_CONTAINER_OFFSET : NODE_LAYER_LEAF_OFFSET;
+    const baseZIndex = NODE_LAYER_BASE_Z_INDEX + hierarchyDepth * NODE_LAYER_DEPTH_STEP + layerOffset;
+    const dragZIndexBase = NODE_LAYER_DRAG_Z_INDEX_BASE + hierarchyDepth;
     const dragZIndex = isDescendantOfDragged
       ? dragZIndexBase + 1
       : isBeingDragged
         ? dragZIndexBase
         : baseZIndex;
-    const focusZIndex = isDescendantOfFocused
-      ? focusZIndexBase + 1
-      : isFocused
-        ? focusZIndexBase
-        : baseZIndex;
-    const selectedNodeId = this.getForegroundExpandedNodeId() ?? this.selectedNodeId;
-    const isExpandedSelectedNode =
-      selectedNodeId === node.id &&
-      (this.isCodeSnippetExpanded(node)
-        || (isContainerNodeKind(node.kind) && !this.isContainerCollapsed(node)));
-    const isDescendantOfExpandedSelected =
-      Boolean(
-        selectedNodeId &&
-        selectedNodeId !== node.id &&
-        this.isAncestorOfNode(selectedNodeId, node.id) &&
-        this.nodes.some(
-          (candidate) =>
-            candidate.id === selectedNodeId &&
-            (this.isCodeSnippetExpanded(candidate)
-              || (isContainerNodeKind(candidate.kind) && !this.isContainerCollapsed(candidate)))
-        )
-      );
-    const expandedZIndex = isDescendantOfExpandedSelected
-      ? expandedZIndexBase + 1
-      : isExpandedSelectedNode
-        ? expandedZIndexBase
-        : baseZIndex;
-    const hierarchyDepth = this.getNodeHierarchyDepth(node);
-    const nestedZIndex = hierarchyDepth > 0 ? NESTED_NODE_Z_INDEX_BASE + hierarchyDepth : baseZIndex;
-    const resolvedZIndex = Math.max(dragZIndex, focusZIndex, expandedZIndex, nestedZIndex);
+    const isExpandedNode =
+      this.maximizedNodeId === node.id
+      && (this.isCodeSnippetExpanded(node) || (isContainerNodeKind(node.kind) && !this.isContainerCollapsed(node)));
+    const expandedZIndex = isExpandedNode ? baseZIndex + NODE_LAYER_EXPANDED_BOOST : baseZIndex;
+    const resolvedZIndex = Math.max(baseZIndex, expandedZIndex, dragZIndex);
     const nestedInsideContainer = Boolean(node.parentId);
     const isExpandedCodeSnippet = this.isCodeSnippetExpanded(node);
     const prefersDarkTextInDarkMode =
@@ -2848,10 +2820,11 @@ LIMIT 50;`;
   }
 
   isEdgeTemporarilyMuted(edge: CanvasEdge): boolean {
-    if (!this.isProximitySuppressionActive()) return false;
     if (edge.id === this.selectedEdgeId || edge.id === this.editingEdgeId || edge.id === this.hoveredEdgeId) {
       return false;
     }
+    if (this.isEdgeTouchingActiveContactArea(edge)) return true;
+    if (!this.isProximitySuppressionActive()) return false;
 
     const focusPoint = this.getInteractionFocusPoint();
     if (!focusPoint) return false;
@@ -2921,6 +2894,105 @@ LIMIT 50;`;
     }
 
     return null;
+  }
+
+  private isEdgeTouchingActiveContactArea(edge: CanvasEdge): boolean {
+    const activeNodes = this.selectedNodeIds
+      .map((nodeId) => this.nodes.find((candidate) => candidate.id === nodeId))
+      .filter((node): node is CanvasNode => Boolean(node))
+      .filter((node) => !this.usesLeafConnectionAnchorBox(node));
+    if (activeNodes.length === 0) return false;
+    const data = this.getEdgePathData(edge);
+    if (!data || data.points.length < 2) return false;
+    return activeNodes.some((node) => this.isEdgeTouchingNodeContactArea(data.points, node));
+  }
+
+  private isEdgeTouchingNodeContactArea(points: readonly EdgePoint[], node: CanvasNode): boolean {
+    const anchorBox = this.getNodeConnectionAnchorBox(node);
+    const metrics = this.getNodePortMetricsForGeometry(node);
+    const laneHalfThickness = Math.max(3, Math.round(metrics.laneWidth / 2) + 2);
+    const left = anchorBox.center.x - anchorBox.halfWidth;
+    const right = anchorBox.center.x + anchorBox.halfWidth;
+    const top = anchorBox.center.y - anchorBox.halfHeight;
+    const bottom = anchorBox.center.y + anchorBox.halfHeight;
+
+    const contactSegments: ReadonlyArray<Readonly<{ start: EdgePoint; end: EdgePoint }>> = this.hasOmniConnectionPorts(node)
+      ? [
+          { start: { x: left, y: top }, end: { x: right, y: top } },
+          { start: { x: left, y: bottom }, end: { x: right, y: bottom } },
+          { start: { x: left, y: top }, end: { x: left, y: bottom } },
+          { start: { x: right, y: top }, end: { x: right, y: bottom } }
+        ]
+      : [
+          { start: { x: left, y: top }, end: { x: left, y: bottom } },
+          { start: { x: right, y: top }, end: { x: right, y: bottom } }
+        ];
+
+    for (let pointIndex = 0; pointIndex < points.length - 1; pointIndex += 1) {
+      const edgeStart = points[pointIndex];
+      const edgeEnd = points[pointIndex + 1];
+      if (!edgeStart || !edgeEnd) continue;
+      for (const contact of contactSegments) {
+        const distance = this.getDistanceBetweenSegments(edgeStart, edgeEnd, contact.start, contact.end);
+        if (distance <= laneHalfThickness) return true;
+      }
+    }
+
+    return false;
+  }
+
+  private getDistanceBetweenSegments(
+    aStart: Readonly<{ x: number; y: number }>,
+    aEnd: Readonly<{ x: number; y: number }>,
+    bStart: Readonly<{ x: number; y: number }>,
+    bEnd: Readonly<{ x: number; y: number }>
+  ): number {
+    if (this.doSegmentsIntersect(aStart, aEnd, bStart, bEnd)) return 0;
+    return Math.min(
+      this.getDistanceFromPointToSegment(aStart, bStart, bEnd),
+      this.getDistanceFromPointToSegment(aEnd, bStart, bEnd),
+      this.getDistanceFromPointToSegment(bStart, aStart, aEnd),
+      this.getDistanceFromPointToSegment(bEnd, aStart, aEnd)
+    );
+  }
+
+  private doSegmentsIntersect(
+    aStart: Readonly<{ x: number; y: number }>,
+    aEnd: Readonly<{ x: number; y: number }>,
+    bStart: Readonly<{ x: number; y: number }>,
+    bEnd: Readonly<{ x: number; y: number }>
+  ): boolean {
+    const orientation = (
+      p: Readonly<{ x: number; y: number }>,
+      q: Readonly<{ x: number; y: number }>,
+      r: Readonly<{ x: number; y: number }>
+    ): number => {
+      const value = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
+      if (Math.abs(value) <= 0.000001) return 0;
+      return value > 0 ? 1 : 2;
+    };
+
+    const onSegment = (
+      p: Readonly<{ x: number; y: number }>,
+      q: Readonly<{ x: number; y: number }>,
+      r: Readonly<{ x: number; y: number }>
+    ): boolean =>
+      q.x <= Math.max(p.x, r.x) + 0.000001
+      && q.x + 0.000001 >= Math.min(p.x, r.x)
+      && q.y <= Math.max(p.y, r.y) + 0.000001
+      && q.y + 0.000001 >= Math.min(p.y, r.y);
+
+    const o1 = orientation(aStart, aEnd, bStart);
+    const o2 = orientation(aStart, aEnd, bEnd);
+    const o3 = orientation(bStart, bEnd, aStart);
+    const o4 = orientation(bStart, bEnd, aEnd);
+
+    if (o1 !== o2 && o3 !== o4) return true;
+    if (o1 === 0 && onSegment(aStart, bStart, aEnd)) return true;
+    if (o2 === 0 && onSegment(aStart, bEnd, aEnd)) return true;
+    if (o3 === 0 && onSegment(bStart, aStart, bEnd)) return true;
+    if (o4 === 0 && onSegment(bStart, aEnd, bEnd)) return true;
+    return false;
   }
 
   isPointerDragging(): boolean {
@@ -5501,6 +5573,7 @@ spec:
   private getNodePortMetricsForGeometry(node: CanvasNode): Readonly<{
     dotSize: number;
     edgeOffset: number;
+    laneWidth: number;
     omniSize: number;
     omniOffset: number;
   }> {
@@ -5512,6 +5585,7 @@ spec:
       Math.min(MAX_NODE_PORT_DOT_SIZE, Math.max(MIN_NODE_PORT_DOT_SIZE, nodePortHitWidth * 0.48))
     );
     const nodePortEdgeOffset = nodePortDotSize + 1;
+    const nodePortLaneWidth = Math.round(Math.max(4, Math.min(8, nodePortHitWidth * 0.24)));
     const nodePortOmniSize = Math.round(
       Math.min(MAX_NODE_PORT_OMNI_SIZE, Math.max(MIN_NODE_PORT_OMNI_SIZE, nodePortHitWidth))
     );
@@ -5519,6 +5593,7 @@ spec:
     return {
       dotSize: nodePortDotSize,
       edgeOffset: nodePortEdgeOffset,
+      laneWidth: nodePortLaneWidth,
       omniSize: nodePortOmniSize,
       omniOffset: nodePortOmniOffset
     };
