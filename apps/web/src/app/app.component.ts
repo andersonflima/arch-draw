@@ -19,6 +19,7 @@ import {
   api,
   type ArchitectureSummary,
   type AuthenticatedUser,
+  type ShareAccessMode,
   type SharedRealtimeEvent
 } from "../api/client";
 import { parseImportToSharePackage } from "../features/import/diagram-import";
@@ -153,6 +154,7 @@ type CollaborationSessionState = Readonly<{
   clientId: string;
   displayName: string;
   color: string;
+  accessMode: ShareAccessMode;
 }>;
 
 type RemoteCollaboratorCursor = Readonly<{
@@ -235,6 +237,7 @@ const SUCCESS_TOAST_DISMISS_MS = 3200;
 const AUTO_SAVE_TOAST_THROTTLE_MS = 8000;
 const COLLAB_SYNC_DEBOUNCE_MS = 220;
 const COLLAB_CURSOR_THROTTLE_MS = 80;
+const COLLAB_VIEW_THROTTLE_MS = 120;
 const COLLAB_CURSOR_STALE_MS = 12_000;
 const DOUBLE_CLICK_HINT_INTERVAL_MS = 24000;
 const DOUBLE_CLICK_HINT_VISIBLE_MS = 5000;
@@ -320,6 +323,8 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "toolbar.save": "Salvar",
     "toolbar.export": "Exportar",
     "toolbar.share": "Compartilhar",
+    "toolbar.shareEdit": "Link com edição",
+    "toolbar.shareReadOnly": "Link somente leitura",
     "toolbar.tutorial": "Tutorial",
     "toolbar.import": "Importar",
     "toolbar.clear": "Limpar",
@@ -429,6 +434,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "status.architectureLoaded": "Arquitetura carregada",
     "status.sharedArchitectureLoaded": "Sessão compartilhada conectada",
     "status.shareLinkCreated": "Link de compartilhamento criado",
+    "status.sharedReadOnly": "Sessão compartilhada em modo somente leitura",
     "status.loginRequired": "Login necessário",
     "status.linkContainerInternalDenied": "Vínculo entre container e elemento interno não é permitido",
     "status.undone": "Desfeito",
@@ -465,6 +471,8 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "toolbar.save": "Save",
     "toolbar.export": "Export",
     "toolbar.share": "Share",
+    "toolbar.shareEdit": "Copy edit link",
+    "toolbar.shareReadOnly": "Copy read-only link",
     "toolbar.tutorial": "Tutorial",
     "toolbar.import": "Import",
     "toolbar.clear": "Clear",
@@ -574,6 +582,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "status.architectureLoaded": "Architecture loaded",
     "status.sharedArchitectureLoaded": "Shared session connected",
     "status.shareLinkCreated": "Share link created",
+    "status.sharedReadOnly": "Shared session in read-only mode",
     "status.loginRequired": "Login required",
     "status.linkContainerInternalDenied": "Link between container and internal element is not allowed",
     "status.undone": "Undone",
@@ -1514,11 +1523,15 @@ export class AppComponent implements OnDestroy {
   private doubleClickHintTimer: ReturnType<typeof setTimeout> | null = null;
   private collaborationStream: EventSource | null = null;
   private collaborationSyncTimer: ReturnType<typeof setTimeout> | null = null;
+  private collaborationViewTimer: ReturnType<typeof setTimeout> | null = null;
   private collaborationSyncInFlight = false;
   private collaborationSyncQueued = false;
   private collaborationApplyingRemoteDocument = false;
+  private collaborationApplyingRemoteView = false;
   private lastCollaborationSignature = "";
+  private lastCollaborationViewSignature = "";
   private lastCursorPublishedAt = 0;
+  private lastViewPublishedAt = 0;
   private readonly nodeInlineCodeDrafts = new Map<string, string>();
   private autoSaveInFlight = false;
   private autoSaveQueued = false;
@@ -1997,14 +2010,18 @@ export class AppComponent implements OnDestroy {
     this.markViewChanged();
   }
 
-  async createShareLink(): Promise<void> {
+  async createShareLink(accessMode: ShareAccessMode = "edit"): Promise<void> {
     await this.runSafely(async () => {
       if (!this.architecture) return;
-      const shared = await api.createArchitectureShare(this.architecture.id);
+      const shared = await api.createArchitectureShare(this.architecture.id, accessMode);
       const shareUrl = `${window.location.origin}${shared.sharePath}`;
       await this.copyToClipboard(shareUrl);
-      if (!this.collaborationSession || this.collaborationSession.shareId !== shared.shareId) {
-        await this.loadSharedArchitecture(shared.shareId);
+      if (
+        !this.collaborationSession
+        || this.collaborationSession.shareId !== shared.shareId
+        || this.collaborationSession.accessMode !== accessMode
+      ) {
+        await this.loadSharedArchitecture(shared.shareId, accessMode);
       }
       this.status = this.t("status.shareLinkCreated");
       this.showSuccessToast("toast.shareLinkCopied");
@@ -4438,7 +4455,7 @@ LIMIT 50;`;
 
       const shareId = this.resolveShareIdFromUrl();
       if (shareId) {
-        await this.loadSharedArchitecture(shareId);
+        await this.loadSharedArchitecture(shareId, this.resolveShareModeFromUrl());
         return;
       }
 
@@ -4475,6 +4492,15 @@ LIMIT 50;`;
     }
   }
 
+  private resolveShareModeFromUrl(): ShareAccessMode {
+    try {
+      const mode = new URL(window.location.href).searchParams.get("mode");
+      return mode === "read-only" ? "read-only" : "edit";
+    } catch {
+      return "edit";
+    }
+  }
+
   private resolveCollaborationDisplayName(): string {
     const userName = this.authenticatedUser?.name?.trim();
     if (userName) return userName.slice(0, 96);
@@ -4504,7 +4530,10 @@ LIMIT 50;`;
     return palette[hash % palette.length] ?? "#f97316";
   }
 
-  private async loadSharedArchitecture(shareId: string): Promise<void> {
+  private async loadSharedArchitecture(
+    shareId: string,
+    accessMode: ShareAccessMode
+  ): Promise<void> {
     this.cancelAutoSave();
     this.disconnectCollaborationSession();
     const loaded = await api.readSharedArchitecture(shareId);
@@ -4514,10 +4543,13 @@ LIMIT 50;`;
       shareId,
       clientId,
       displayName: this.resolveCollaborationDisplayName(),
-      color: this.resolveCollaborationColor(clientId)
+      color: this.resolveCollaborationColor(clientId),
+      accessMode
     };
     this.connectCollaborationStream();
-    this.status = this.t("status.sharedArchitectureLoaded");
+    this.status = accessMode === "read-only"
+      ? this.t("status.sharedReadOnly")
+      : this.t("status.sharedArchitectureLoaded");
     this.markViewChanged();
   }
 
@@ -7314,7 +7346,9 @@ spec:
     this.collaborationSession = null;
     this.remoteCollaboratorCursors = [];
     this.lastCollaborationSignature = "";
+    this.lastCollaborationViewSignature = "";
     this.lastCursorPublishedAt = 0;
+    this.lastViewPublishedAt = 0;
   }
 
   private connectCollaborationStream(): void {
@@ -7365,6 +7399,10 @@ spec:
           type: "presence",
           participants: normalizedParticipants
         });
+      }
+      const currentView = parsed?.["currentView"];
+      if (currentView && typeof currentView === "object") {
+        this.applyRemoteViewFromPayload(currentView as Record<string, unknown>);
       }
     });
 
@@ -7422,6 +7460,11 @@ spec:
     if (event.type === "document") {
       if (event.clientId === session.clientId) return;
       void this.pullSharedArchitectureSnapshot(session.shareId);
+      return;
+    }
+    if (event.type === "view") {
+      if (event.clientId === session.clientId) return;
+      this.applyRemoteView(event);
     }
   }
 
@@ -7448,8 +7491,107 @@ spec:
     this.requestViewRender();
   }
 
+  private canPublishCollaborationChanges(): boolean {
+    return this.collaborationSession?.accessMode === "edit";
+  }
+
+  private buildCollaborationViewSignature(): string {
+    const normalizedZoom = this.clampZoom(this.canvasZoom);
+    const normalizedPanX = Number(this.canvasPan.x.toFixed(2));
+    const normalizedPanY = Number(this.canvasPan.y.toFixed(2));
+    const focusNode = this.resolveViewportFocusNodeId();
+    return `${normalizedZoom}:${normalizedPanX}:${normalizedPanY}:${focusNode ?? ""}`;
+  }
+
+  private resolveViewportFocusNodeId(): string | null {
+    if (!this.maximizedNodeId) return null;
+    const node = this.nodes.find((candidate) => candidate.id === this.maximizedNodeId);
+    if (!node) return null;
+    if (this.isCodeSnippetExpanded(node)) return node.id;
+    if (isContainerNodeKind(node.kind) && !this.isContainerCollapsed(node)) return node.id;
+    return null;
+  }
+
+  private scheduleCollaborationViewPublish(): void {
+    const session = this.collaborationSession;
+    if (!session || !this.canPublishCollaborationChanges()) return;
+    if (this.collaborationApplyingRemoteView || this.collaborationApplyingRemoteDocument) return;
+    const signature = this.buildCollaborationViewSignature();
+    if (signature === this.lastCollaborationViewSignature) return;
+
+    const now = Date.now();
+    const publishDelay = Math.max(0, COLLAB_VIEW_THROTTLE_MS - (now - this.lastViewPublishedAt));
+    if (this.collaborationViewTimer) clearTimeout(this.collaborationViewTimer);
+    this.collaborationViewTimer = setTimeout(() => {
+      this.collaborationViewTimer = null;
+      void this.publishCollaborationView();
+    }, publishDelay);
+  }
+
+  private async publishCollaborationView(): Promise<void> {
+    const session = this.collaborationSession;
+    if (!session || !this.canPublishCollaborationChanges()) return;
+    if (this.collaborationApplyingRemoteView || this.collaborationApplyingRemoteDocument) return;
+    const signature = this.buildCollaborationViewSignature();
+    if (signature === this.lastCollaborationViewSignature) return;
+
+    this.lastViewPublishedAt = Date.now();
+    this.lastCollaborationViewSignature = signature;
+    await api.publishSharedView(session.shareId, {
+      clientId: session.clientId,
+      zoom: this.clampZoom(this.canvasZoom),
+      panX: Number(this.canvasPan.x.toFixed(2)),
+      panY: Number(this.canvasPan.y.toFixed(2)),
+      maximizedNodeId: this.resolveViewportFocusNodeId()
+    });
+  }
+
+  private applyRemoteViewFromPayload(payload: Readonly<Record<string, unknown>>): void {
+    const clientId = typeof payload["clientId"] === "string" ? payload["clientId"] : null;
+    const zoom = typeof payload["zoom"] === "number" ? payload["zoom"] : null;
+    const panX = typeof payload["panX"] === "number" ? payload["panX"] : null;
+    const panY = typeof payload["panY"] === "number" ? payload["panY"] : null;
+    const maximizedNodeIdRaw = payload["maximizedNodeId"];
+    const maximizedNodeId = typeof maximizedNodeIdRaw === "string" && maximizedNodeIdRaw.trim().length > 0
+      ? maximizedNodeIdRaw.trim()
+      : null;
+    if (!clientId || zoom === null || panX === null || panY === null) return;
+
+    this.applyRemoteView({
+      type: "view",
+      clientId,
+      zoom,
+      panX,
+      panY,
+      maximizedNodeId,
+      at: ""
+    });
+  }
+
+  private applyRemoteView(event: Extract<SharedRealtimeEvent, { type: "view" }>): void {
+    if (!Number.isFinite(event.zoom) || !Number.isFinite(event.panX) || !Number.isFinite(event.panY)) return;
+    const nextZoom = this.clampZoom(event.zoom);
+    const nextPan = { x: event.panX, y: event.panY };
+    const nextMaximizedId = event.maximizedNodeId
+      && this.nodes.some((node) => node.id === event.maximizedNodeId)
+      ? event.maximizedNodeId
+      : null;
+    this.collaborationApplyingRemoteView = true;
+    try {
+      this.canvasZoom = nextZoom;
+      this.canvasPan = nextPan;
+      this.maximizedNodeId = nextMaximizedId;
+      this.lastCollaborationViewSignature = this.buildCollaborationViewSignature();
+      this.scheduleViewportCheckpointPersist();
+      this.requestViewRender();
+    } finally {
+      this.collaborationApplyingRemoteView = false;
+    }
+  }
+
   private scheduleCollaborationSync(): void {
     if (!this.collaborationSession || !this.architecture) return;
+    if (!this.canPublishCollaborationChanges()) return;
     if (this.collaborationApplyingRemoteDocument) return;
     const signature = this.buildPersistenceSignature();
     if (signature === this.lastCollaborationSignature) return;
@@ -7471,12 +7613,17 @@ spec:
       clearTimeout(this.collaborationSyncTimer);
       this.collaborationSyncTimer = null;
     }
+    if (this.collaborationViewTimer) {
+      clearTimeout(this.collaborationViewTimer);
+      this.collaborationViewTimer = null;
+    }
     this.collaborationSyncQueued = false;
   }
 
   private async pushSharedArchitectureSnapshot(): Promise<void> {
     const session = this.collaborationSession;
     if (!session || !this.architecture) return;
+    if (!this.canPublishCollaborationChanges()) return;
     if (this.collaborationApplyingRemoteDocument) return;
     const signature = this.buildPersistenceSignature();
     if (signature === this.lastCollaborationSignature) return;
@@ -7766,6 +7913,9 @@ spec:
         this.nodes,
         this.edges
       );
+      if (this.collaborationSession && this.collaborationSession.accessMode !== "edit") {
+        throw new Error(this.t("status.sharedReadOnly"));
+      }
       const saved = this.collaborationSession
         ? await api.saveSharedArchitecture(this.collaborationSession.shareId, document, {
             clientId: this.collaborationSession.clientId
@@ -9188,6 +9338,7 @@ spec:
     this.recordHistory();
     if (this.collaborationSession) {
       this.scheduleCollaborationSync();
+      this.scheduleCollaborationViewPublish();
     } else {
       this.scheduleAutoSave();
     }
@@ -9200,6 +9351,7 @@ spec:
     this.edgeSideLaneOffsetCache.clear();
     this.edgeLabelDyCache.clear();
     this.edgeLabelStartOffsetCache.clear();
+    this.scheduleCollaborationViewPublish();
     this.scheduleViewportCheckpointPersist();
     this.requestViewRender();
   }

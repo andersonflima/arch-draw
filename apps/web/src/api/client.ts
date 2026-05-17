@@ -36,6 +36,8 @@ export type ArchitectureShareLink = Readonly<{
   sharePath: string;
 }>;
 
+export type ShareAccessMode = "edit" | "read-only";
+
 export type SharedRealtimeEvent =
   | Readonly<{
       type: "presence";
@@ -61,6 +63,15 @@ export type SharedRealtimeEvent =
       type: "document";
       clientId: string;
       updatedAt: string;
+    }>
+  | Readonly<{
+      type: "view";
+      clientId: string;
+      zoom: number;
+      panX: number;
+      panY: number;
+      maximizedNodeId: string | null;
+      at: string;
     }>;
 
 export const api = {
@@ -108,9 +119,13 @@ export const api = {
       method: "POST",
       body: JSON.stringify(sharePackage)
     }),
-  createArchitectureShare: (id: string) =>
+  createArchitectureShare: (
+    id: string,
+    accessMode: ShareAccessMode
+  ) =>
     request<ArchitectureShareLink>(`/architectures/${id}/share`, {
-      method: "POST"
+      method: "POST",
+      body: JSON.stringify({ accessMode })
     }),
   readSharedArchitecture: (shareId: string) =>
     request<ArchitectureDocument>(`/architectures/shared/${encodeURIComponent(shareId)}`),
@@ -138,6 +153,20 @@ export const api = {
     }>
   ) =>
     request<void>(`/architectures/shared/${encodeURIComponent(shareId)}/cursor`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  publishSharedView: (
+    shareId: string,
+    payload: Readonly<{
+      clientId: string;
+      zoom: number;
+      panX: number;
+      panY: number;
+      maximizedNodeId: string | null;
+    }>
+  ) =>
+    request<void>(`/architectures/shared/${encodeURIComponent(shareId)}/view`, {
       method: "POST",
       body: JSON.stringify(payload)
     })

@@ -23,6 +23,16 @@ export type CollaborationDocumentEvent = Readonly<{
   updatedAt: string;
 }>;
 
+export type CollaborationViewEvent = Readonly<{
+  type: "view";
+  clientId: string;
+  zoom: number;
+  panX: number;
+  panY: number;
+  maximizedNodeId: string | null;
+  at: string;
+}>;
+
 export type CollaborationPresenceEvent = Readonly<{
   type: "presence";
   participants: readonly PresenceParticipant[];
@@ -31,6 +41,7 @@ export type CollaborationPresenceEvent = Readonly<{
 export type CollaborationHubEvent =
   | CollaborationCursorEvent
   | CollaborationDocumentEvent
+  | CollaborationViewEvent
   | CollaborationPresenceEvent;
 
 export type CollaborationHub = Readonly<{
@@ -41,16 +52,19 @@ export type CollaborationHub = Readonly<{
     color: string;
   }>) => Readonly<{
     participants: readonly PresenceParticipant[];
+    currentView: CollaborationViewEvent | null;
     subscribe: (listener: (event: CollaborationHubEvent) => void) => () => void;
     leave: () => void;
   }>;
   publishCursor: (input: Omit<CollaborationCursorEvent, "type"> & Readonly<{ shareId: string }>) => void;
   publishDocument: (input: Omit<CollaborationDocumentEvent, "type"> & Readonly<{ shareId: string }>) => void;
+  publishView: (input: Omit<CollaborationViewEvent, "type"> & Readonly<{ shareId: string }>) => void;
 }>;
 
 type RoomState = {
   participants: Map<string, PresenceParticipant>;
   listeners: Set<(event: CollaborationHubEvent) => void>;
+  currentView: CollaborationViewEvent | null;
 };
 
 export const createCollaborationHub = (): CollaborationHub => {
@@ -61,7 +75,8 @@ export const createCollaborationHub = (): CollaborationHub => {
     if (existing) return existing;
     const created: RoomState = {
       participants: new Map<string, PresenceParticipant>(),
-      listeners: new Set<(event: CollaborationHubEvent) => void>()
+      listeners: new Set<(event: CollaborationHubEvent) => void>(),
+      currentView: null
     };
     rooms.set(shareId, created);
     return created;
@@ -114,6 +129,7 @@ export const createCollaborationHub = (): CollaborationHub => {
 
       return {
         participants: [...room.participants.values()],
+        currentView: room.currentView,
         subscribe,
         leave
       };
@@ -145,6 +161,20 @@ export const createCollaborationHub = (): CollaborationHub => {
         clientId,
         updatedAt
       });
+    },
+    publishView: ({ shareId, clientId, zoom, panX, panY, maximizedNodeId, at }) => {
+      const room = getOrCreateRoom(shareId);
+      const event: CollaborationViewEvent = {
+        type: "view",
+        clientId,
+        zoom,
+        panX,
+        panY,
+        maximizedNodeId,
+        at
+      };
+      room.currentView = event;
+      emit(shareId, event);
     }
   };
 };
