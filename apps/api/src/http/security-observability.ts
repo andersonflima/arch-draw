@@ -1,6 +1,8 @@
 export type SecurityEventType =
   | "invalid_id"
   | "invalid_body"
+  | "invalid_host"
+  | "csrf_rejected"
   | "invalid_content_type"
   | "rate_limited"
   | "payload_too_large"
@@ -12,6 +14,8 @@ const counters = new Map<SecurityEventType, number>();
 for (const event of [
   "invalid_id",
   "invalid_body",
+  "invalid_host",
+  "csrf_rejected",
   "invalid_content_type",
   "rate_limited",
   "payload_too_large",
@@ -29,6 +33,8 @@ export const recordSecurityEvent = (event: SecurityEventType): void => {
 export const getSecurityMetricsSnapshot = (): Readonly<Record<SecurityEventType, number>> => ({
   invalid_id: counters.get("invalid_id") ?? 0,
   invalid_body: counters.get("invalid_body") ?? 0,
+  invalid_host: counters.get("invalid_host") ?? 0,
+  csrf_rejected: counters.get("csrf_rejected") ?? 0,
   invalid_content_type: counters.get("invalid_content_type") ?? 0,
   rate_limited: counters.get("rate_limited") ?? 0,
   payload_too_large: counters.get("payload_too_large") ?? 0,

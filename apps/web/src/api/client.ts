@@ -80,6 +80,7 @@ export const api = {
 
 const request = async <T>(path: string, init: RequestInit = {}): Promise<T> => {
   const hasBody = typeof init.body === "string" && init.body.length > 0;
+  const csrfHeader = resolveCsrfHeader(init.method);
   const defaultHeaders: Record<string, string> = hasBody
     ? { "content-type": "application/json" }
     : {};
@@ -88,6 +89,7 @@ const request = async <T>(path: string, init: RequestInit = {}): Promise<T> => {
     credentials: "include",
     headers: {
       ...defaultHeaders,
+      ...csrfHeader,
       ...init.headers
     }
   });
@@ -117,5 +119,29 @@ const parseJsonSafely = (value: string): Record<string, unknown> | null => {
     return JSON.parse(trimmed) as Record<string, unknown>;
   } catch {
     return null;
+  }
+};
+
+const resolveCsrfHeader = (method: string | undefined): Record<string, string> => {
+  const normalizedMethod = (method ?? "GET").toUpperCase();
+  if (!["POST", "PUT", "PATCH", "DELETE"].includes(normalizedMethod)) return {};
+  const token = readCookieValue("archdraw_csrf");
+  return token ? { "x-csrf-token": token } : {};
+};
+
+const readCookieValue = (name: string): string | null => {
+  if (typeof document === "undefined") return null;
+  const encodedPrefix = `${encodeURIComponent(name)}=`;
+  const cookie = document.cookie
+    .split(";")
+    .map((entry) => entry.trim())
+    .find((entry) => entry.startsWith(encodedPrefix));
+  if (!cookie) return null;
+  const rawValue = cookie.slice(encodedPrefix.length);
+  if (!rawValue) return null;
+  try {
+    return decodeURIComponent(rawValue);
+  } catch {
+    return rawValue;
   }
 };

@@ -1,14 +1,29 @@
 import { randomUUID } from "node:crypto";
-import type { FastifyReply, FastifyRequest } from "fastify";
+import { appendSetCookie, parseCookies, serializeCookie } from "./cookies";
 
 const SESSION_COOKIE_NAME = "archdraw_session";
 const SESSION_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
+type SessionCookieOptions = Readonly<{
+  forceSecureCookies: boolean;
+}>;
+
+type RequestLike = Readonly<{
+  headers: Readonly<Record<string, string | string[] | undefined>>;
+  protocol: string;
+}>;
+
+type ReplyLike = Readonly<{
+  header: (name: string, value: unknown) => unknown;
+  getHeader: (name: string) => unknown;
+}>;
+
 export const resolveSessionToken = (
-  request: FastifyRequest,
-  reply: FastifyReply
+  request: RequestLike,
+  reply: ReplyLike,
+  options: SessionCookieOptions
 ): string => {
-  const cookies = parseCookies(request.headers.cookie);
+  const cookies = parseCookies(readHeaderValue(request.headers.cookie));
   const existingToken = cookies.get(SESSION_COOKIE_NAME);
 
   if (isValidSessionToken(existingToken)) {
@@ -16,9 +31,16 @@ export const resolveSessionToken = (
   }
 
   const sessionToken = randomUUID();
-  reply.header(
-    "set-cookie",
-    serializeCookie(request.protocol === "https", SESSION_COOKIE_NAME, sessionToken)
+  appendSetCookie(
+    reply,
+    serializeCookie({
+      name: SESSION_COOKIE_NAME,
+      value: sessionToken,
+      maxAgeSeconds: SESSION_COOKIE_MAX_AGE_SECONDS,
+      secure: options.forceSecureCookies || request.protocol === "https",
+      httpOnly: true,
+      sameSite: "Lax"
+    })
   );
 
   return sessionToken;
@@ -27,42 +49,7 @@ export const resolveSessionToken = (
 const isValidSessionToken = (value: string | undefined): value is string =>
   typeof value === "string" && /^[a-zA-Z0-9-]{16,}$/.test(value);
 
-const parseCookies = (value: string | undefined): Map<string, string> => {
-  if (!value) return new Map();
-
-  return new Map(
-    value
-      .split(";")
-      .map((entry) => entry.trim())
-      .filter((entry) => entry.length > 0)
-      .map((entry) => {
-        const separatorIndex = entry.indexOf("=");
-        if (separatorIndex < 0) return [entry, ""];
-        const key = entry.slice(0, separatorIndex).trim();
-        const rawCookieValue = entry.slice(separatorIndex + 1).trim();
-        return [key, safeDecodeURIComponent(rawCookieValue)];
-      })
-  );
-};
-
-const safeDecodeURIComponent = (value: string): string => {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-};
-
-const serializeCookie = (secure: boolean, name: string, value: string): string => {
-  const parts = [
-    `${name}=${encodeURIComponent(value)}`,
-    "Path=/",
-    `Max-Age=${SESSION_COOKIE_MAX_AGE_SECONDS}`,
-    "HttpOnly",
-    "SameSite=Lax"
-  ];
-
-  if (secure) parts.push("Secure");
-
-  return parts.join("; ");
+const readHeaderValue = (value: string | string[] | undefined): string | undefined => {
+  if (Array.isArray(value)) return value[0];
+  return value;
 };

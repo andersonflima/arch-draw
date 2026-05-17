@@ -36,16 +36,20 @@ describe("session-scoped architectures", () => {
     });
 
     expect(firstList.statusCode).toBe(200);
-    const sessionA = extractCookieHeader(firstList.headers["set-cookie"]);
-    expect(sessionA).toContain("archdraw_session=");
-    expect(firstList.headers["set-cookie"]).toContain("Secure");
+    const cookiesA = readCookieJar(firstList.headers["set-cookie"]);
+    const sessionA = cookiesA.get("archdraw_session");
+    const csrfA = cookiesA.get("archdraw_csrf");
+    expect(sessionA).toBeDefined();
+    expect(csrfA).toBeDefined();
+    expect(String(firstList.headers["set-cookie"])).toContain("Secure");
 
     const created = await app.inject({
       method: "POST",
       url: "/architectures",
       headers: {
-        cookie: sessionA,
-        origin: TEST_WEB_ORIGIN
+        cookie: serializeCookieJar(cookiesA),
+        origin: TEST_WEB_ORIGIN,
+        "x-csrf-token": csrfA ?? ""
       },
       payload: { title: "Session A diagram" }
     });
@@ -58,7 +62,7 @@ describe("session-scoped architectures", () => {
       method: "GET",
       url: "/architectures",
       headers: {
-        cookie: sessionA,
+        cookie: serializeCookieJar(cookiesA),
         origin: TEST_WEB_ORIGIN
       }
     });
@@ -75,16 +79,19 @@ describe("session-scoped architectures", () => {
       }
     });
     expect(listB.statusCode).toBe(200);
-    const sessionB = extractCookieHeader(listB.headers["set-cookie"]);
+    const cookiesB = readCookieJar(listB.headers["set-cookie"]);
+    const sessionB = cookiesB.get("archdraw_session");
+    const csrfB = cookiesB.get("archdraw_csrf");
     const summariesB = JSON.parse(listB.body) as readonly Array<{ id: string }>;
-    expect(sessionB).toContain("archdraw_session=");
+    expect(sessionB).toBeDefined();
+    expect(csrfB).toBeDefined();
     expect(summariesB).toHaveLength(0);
 
     const readFromOtherSession = await app.inject({
       method: "GET",
       url: `/architectures/${createdArchitecture.id}`,
       headers: {
-        cookie: sessionB,
+        cookie: serializeCookieJar(cookiesB),
         origin: TEST_WEB_ORIGIN
       }
     });
@@ -94,8 +101,9 @@ describe("session-scoped architectures", () => {
       method: "DELETE",
       url: `/architectures/${createdArchitecture.id}`,
       headers: {
-        cookie: sessionB,
-        origin: TEST_WEB_ORIGIN
+        cookie: serializeCookieJar(cookiesB),
+        origin: TEST_WEB_ORIGIN,
+        "x-csrf-token": csrfB ?? ""
       }
     });
     expect(deleteFromOtherSession.statusCode).toBe(404);
@@ -104,7 +112,7 @@ describe("session-scoped architectures", () => {
       method: "GET",
       url: "/architectures",
       headers: {
-        cookie: sessionA,
+        cookie: serializeCookieJar(cookiesA),
         origin: TEST_WEB_ORIGIN
       }
     });
@@ -115,6 +123,15 @@ describe("session-scoped architectures", () => {
 
   it("rejects invalid ids and malformed payloads", async () => {
     ({ app, tempDir } = await createTestServer());
+    const csrfBootstrap = await app.inject({
+      method: "GET",
+      url: "/architectures",
+      headers: {
+        origin: TEST_WEB_ORIGIN
+      }
+    });
+    const cookies = readCookieJar(csrfBootstrap.headers["set-cookie"]);
+    const csrfToken = cookies.get("archdraw_csrf") ?? "";
 
     const invalidRead = await app.inject({
       method: "GET",
@@ -129,7 +146,9 @@ describe("session-scoped architectures", () => {
       method: "POST",
       url: "/architectures",
       headers: {
-        origin: TEST_WEB_ORIGIN
+        origin: TEST_WEB_ORIGIN,
+        cookie: serializeCookieJar(cookies),
+        "x-csrf-token": csrfToken
       },
       payload: { title: 123 }
     });
@@ -140,7 +159,9 @@ describe("session-scoped architectures", () => {
       url: "/architectures/import",
       headers: {
         origin: TEST_WEB_ORIGIN,
-        "content-type": "application/json"
+        "content-type": "application/json",
+        cookie: serializeCookieJar(cookies),
+        "x-csrf-token": csrfToken
       },
       payload: { bad: true }
     });
@@ -277,6 +298,14 @@ const createTestServer = async (
     databasePath,
     webOrigins: [TEST_WEB_ORIGIN],
     trustProxy: true,
+    trustProxyHops: 1,
+    forceSecureCookies: false,
+    csrfCookieName: "archdraw_csrf",
+    csrfHeaderName: "x-csrf-token",
+    rateLimitWindowMs: 60_000,
+    rateLimitMaxRequests: 240,
+    rateLimitMaxEntries: 20_000,
+    redisUrl: undefined,
     securityMetricsToken: TEST_METRICS_TOKEN,
     authPostLoginRedirect: "/",
     googleOAuthClientId: options.enableGoogleAuth ? "test-client-id" : undefined,
@@ -289,13 +318,20 @@ const createTestServer = async (
   return { app, tempDir };
 };
 
-const extractCookieHeader = (raw: string | string[] | undefined): string => {
-  if (!raw) {
-    throw new Error("Expected set-cookie header to be present");
+const readCookieJar = (raw: string | string[] | undefined): Map<string, string> => {
+  const cookieHeaders = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  const jar = new Map<string, string>();
+  for (const cookieHeader of cookieHeaders) {
+    const firstSegment = cookieHeader.split(";")[0]?.trim();
+    if (!firstSegment) continue;
+    const separator = firstSegment.indexOf("=");
+    if (separator < 0) continue;
+    const key = firstSegment.slice(0, separator).trim();
+    const value = firstSegment.slice(separator + 1).trim();
+    jar.set(key, value);
   }
-  const cookie = Array.isArray(raw) ? raw[0] : raw;
-  if (!cookie) {
-    throw new Error("Expected set-cookie header to contain a cookie value");
-  }
-  return cookie.split(";")[0] ?? cookie;
+  return jar;
 };
+
+const serializeCookieJar = (cookies: Map<string, string>): string =>
+  [...cookies.entries()].map(([key, value]) => `${key}=${value}`).join("; ");

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
-import type { FastifyReply, FastifyRequest } from "fastify";
 import type { AppConfig } from "../config/env";
+import { appendSetCookie, parseCookies, serializeCookie } from "./cookies";
+import type { AppRedisClient } from "../infra/redis/redis-client";
 
 const AUTH_COOKIE_NAME = "archdraw_auth";
 const AUTH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 12;
@@ -43,9 +44,32 @@ type GoogleAuthConfig = Readonly<{
   postLoginRedirect: string;
 }>;
 
-export const createGoogleAuth = (config: AppConfig) => {
+type RequestLike = Readonly<{
+  headers: Readonly<Record<string, string | string[] | undefined>>;
+  protocol: string;
+  query: unknown;
+}>;
+
+type ReplyLike = Readonly<{
+  code: (statusCode: number) => ReplyLike;
+  send: (payload?: unknown) => unknown;
+  redirect: (url: string) => unknown;
+  header: (name: string, value: unknown) => unknown;
+  getHeader: (name: string) => unknown;
+}>;
+
+type AuthSessionStore = Readonly<{
+  read: (token: string) => Promise<AuthSession | null>;
+  write: (token: string, session: AuthSession) => Promise<void>;
+  remove: (token: string) => Promise<void>;
+}>;
+
+export const createGoogleAuth = async (
+  config: AppConfig,
+  redisClient: AppRedisClient | null
+) => {
   const googleConfig = resolveGoogleAuthConfig(config);
-  const authSessions = new Map<string, AuthSession>();
+  const authSessionStore = createAuthSessionStore(redisClient);
   const oauthStates = new Map<string, OAuthState>();
 
   const clearExpiredEntries = (): void => {
@@ -53,26 +77,23 @@ export const createGoogleAuth = (config: AppConfig) => {
     for (const [key, state] of oauthStates.entries()) {
       if (state.expiresAt <= now) oauthStates.delete(key);
     }
-    for (const [key, session] of authSessions.entries()) {
-      if (session.expiresAt <= now) authSessions.delete(key);
-    }
   };
 
-  const resolveAuthenticatedUser = (request: FastifyRequest): AuthenticatedUser | null => {
+  const resolveAuthenticatedUser = async (request: RequestLike): Promise<AuthenticatedUser | null> => {
     if (!googleConfig) return null;
     clearExpiredEntries();
-    const token = parseCookies(request.headers.cookie).get(AUTH_COOKIE_NAME);
+    const token = parseCookies(readSingleHeader(request.headers.cookie)).get(AUTH_COOKIE_NAME);
     if (!token) return null;
-    const session = authSessions.get(token);
+    const session = await authSessionStore.read(token);
     if (!session) return null;
     if (session.expiresAt <= Date.now()) {
-      authSessions.delete(token);
+      await authSessionStore.remove(token);
       return null;
     }
     return session.user;
   };
 
-  const resolveSession = (request: FastifyRequest): AuthSessionSnapshot => {
+  const resolveSession = async (request: RequestLike): Promise<AuthSessionSnapshot> => {
     if (!googleConfig) {
       return {
         authEnabled: false,
@@ -81,7 +102,7 @@ export const createGoogleAuth = (config: AppConfig) => {
       };
     }
 
-    const user = resolveAuthenticatedUser(request);
+    const user = await resolveAuthenticatedUser(request);
     return {
       authEnabled: true,
       authenticated: Boolean(user),
@@ -89,7 +110,7 @@ export const createGoogleAuth = (config: AppConfig) => {
     };
   };
 
-  const start = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+  const start = async (request: RequestLike, reply: ReplyLike): Promise<void> => {
     if (!googleConfig) {
       await reply.code(503).send({ errors: ["Google SSO is not configured"] });
       return;
@@ -121,7 +142,7 @@ export const createGoogleAuth = (config: AppConfig) => {
     reply.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
   };
 
-  const callback = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+  const callback = async (request: RequestLike, reply: ReplyLike): Promise<void> => {
     if (!googleConfig) {
       await reply.code(503).send({ errors: ["Google SSO is not configured"] });
       return;
@@ -149,19 +170,21 @@ export const createGoogleAuth = (config: AppConfig) => {
 
       const authToken = randomUUID();
       const expiresAt = Date.now() + AUTH_COOKIE_MAX_AGE_SECONDS * 1000;
-      authSessions.set(authToken, {
+      await authSessionStore.write(authToken, {
         user: googleUser,
         expiresAt
       });
 
-      reply.header(
-        "set-cookie",
-        serializeCookie(
-          request.protocol === "https",
-          AUTH_COOKIE_NAME,
-          authToken,
-          AUTH_COOKIE_MAX_AGE_SECONDS
-        )
+      appendSetCookie(
+        reply,
+        serializeCookie({
+          name: AUTH_COOKIE_NAME,
+          value: authToken,
+          maxAgeSeconds: AUTH_COOKIE_MAX_AGE_SECONDS,
+          secure: config.forceSecureCookies || request.protocol === "https",
+          httpOnly: true,
+          sameSite: "Lax"
+        })
       );
       await reply.redirect(stateEntry.returnTo);
     } catch {
@@ -169,10 +192,20 @@ export const createGoogleAuth = (config: AppConfig) => {
     }
   };
 
-  const logout = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-    const token = parseCookies(request.headers.cookie).get(AUTH_COOKIE_NAME);
-    if (token) authSessions.delete(token);
-    reply.header("set-cookie", serializeCookie(request.protocol === "https", AUTH_COOKIE_NAME, "", 0));
+  const logout = async (request: RequestLike, reply: ReplyLike): Promise<void> => {
+    const token = parseCookies(readSingleHeader(request.headers.cookie)).get(AUTH_COOKIE_NAME);
+    if (token) await authSessionStore.remove(token);
+    appendSetCookie(
+      reply,
+      serializeCookie({
+        name: AUTH_COOKIE_NAME,
+        value: "",
+        maxAgeSeconds: 0,
+        secure: config.forceSecureCookies || request.protocol === "https",
+        httpOnly: true,
+        sameSite: "Lax"
+      })
+    );
     await reply.code(204).send();
   };
 
@@ -257,40 +290,46 @@ const sanitizeReturnPath = (value: string): string => {
   return trimmed;
 };
 
-const parseCookies = (value: string | undefined): Map<string, string> => {
-  if (!value) return new Map();
-
-  return new Map(
-    value
-      .split(";")
-      .map((entry) => entry.trim())
-      .filter((entry) => entry.length > 0)
-      .map((entry) => {
-        const separatorIndex = entry.indexOf("=");
-        if (separatorIndex < 0) return [entry, ""];
-        const key = entry.slice(0, separatorIndex).trim();
-        const rawCookieValue = entry.slice(separatorIndex + 1).trim();
-        return [key, safeDecodeURIComponent(rawCookieValue)];
-      })
-  );
+const readSingleHeader = (value: string | string[] | undefined): string | undefined => {
+  if (Array.isArray(value)) return value[0];
+  return value;
 };
 
-const safeDecodeURIComponent = (value: string): string => {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
+const createAuthSessionStore = (redisClient: AppRedisClient | null): AuthSessionStore => {
+  if (!redisClient) {
+    const memory = new Map<string, AuthSession>();
+    return {
+      read: async (token) => memory.get(token) ?? null,
+      write: async (token, session) => {
+        memory.set(token, session);
+      },
+      remove: async (token) => {
+        memory.delete(token);
+      }
+    };
   }
-};
 
-const serializeCookie = (secure: boolean, name: string, value: string, maxAgeSeconds: number): string => {
-  const parts = [
-    `${name}=${encodeURIComponent(value)}`,
-    "Path=/",
-    `Max-Age=${Math.max(0, maxAgeSeconds)}`,
-    "HttpOnly",
-    "SameSite=Lax"
-  ];
-  if (secure) parts.push("Secure");
-  return parts.join("; ");
+  return {
+    read: async (token) => {
+      const payload = await redisClient.get(`security:oauth:session:${token}`);
+      if (!payload) return null;
+      try {
+        const parsed = JSON.parse(payload) as AuthSession;
+        return parsed ?? null;
+      } catch {
+        return null;
+      }
+    },
+    write: async (token, session) => {
+      const ttlSeconds = Math.max(1, Math.floor((session.expiresAt - Date.now()) / 1000));
+      await redisClient.set(
+        `security:oauth:session:${token}`,
+        JSON.stringify(session),
+        { EX: ttlSeconds }
+      );
+    },
+    remove: async (token) => {
+      await redisClient.del(`security:oauth:session:${token}`);
+    }
+  };
 };

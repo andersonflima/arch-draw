@@ -17,6 +17,7 @@ type RouteDependencies = Readonly<{
   repository: ArchitectureRepository;
   clock: Clock;
   idGenerator: IdGenerator;
+  forceSecureCookies: boolean;
 }>;
 
 type IdParams = Readonly<{
@@ -28,7 +29,7 @@ const MAX_TITLE_LENGTH = 180;
 const MAX_DESCRIPTION_LENGTH = 4000;
 
 export const registerRoutes = async (
-  app: FastifyInstance,
+  app: FastifyInstance<any, any, any, any, any>,
   dependencies: RouteDependencies
 ): Promise<void> => {
   const createArchitecture = makeCreateArchitecture(
@@ -54,7 +55,7 @@ export const registerRoutes = async (
   app.get("/security/metrics", async () => ({ ok: true, metrics: getSecurityMetricsSnapshot() }));
 
   app.get("/architectures", async (request, reply) =>
-    listArchitectures(resolveSessionToken(request, reply))
+    listArchitectures(resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies))
   );
 
   app.post<{ Body: unknown }>(
@@ -79,7 +80,7 @@ export const registerRoutes = async (
         return reply.code(400).send({ errors: [`Description must be a string with up to ${MAX_DESCRIPTION_LENGTH} characters`] });
       }
 
-      const sessionToken = resolveSessionToken(request, reply);
+      const sessionToken = resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies);
       const architecture = await createArchitecture({
         sessionToken,
         title: title ?? "Untitled architecture",
@@ -98,7 +99,7 @@ export const registerRoutes = async (
     }
     const architecture = await readArchitecture(
       request.params.id,
-      resolveSessionToken(request, reply)
+      resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies)
     );
     return architecture ?? reply.code(404).send({ error: "Architecture not found" });
   });
@@ -133,7 +134,7 @@ export const registerRoutes = async (
 
       const result = await saveArchitecture(
         request.body as ArchitectureDocument,
-        resolveSessionToken(request, reply)
+        resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies)
       );
       return result.ok
         ? result.architecture
@@ -149,7 +150,7 @@ export const registerRoutes = async (
     }
     const deleted = await deleteArchitecture(
       request.params.id,
-      resolveSessionToken(request, reply)
+      resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies)
     );
     return deleted ? reply.code(204).send() : reply.code(404).send();
   });
@@ -162,7 +163,7 @@ export const registerRoutes = async (
     }
     const sharePackage = await exportArchitecture(
       request.params.id,
-      resolveSessionToken(request, reply)
+      resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies)
     );
 
     if (!sharePackage) {
@@ -183,7 +184,7 @@ export const registerRoutes = async (
     }
     const result = await importArchitecture(
       request.body as ArchitectureSharePackage,
-      resolveSessionToken(request, reply)
+      resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies)
     );
 
     return result.ok
@@ -212,3 +213,10 @@ const isSafeArchitectureId = (id: string): boolean => ARCHITECTURE_ID_PATTERN.te
 
 const makeSafeFilename = (id: string): string =>
   id.replaceAll(/[^a-zA-Z0-9._:-]/g, "_");
+
+const resolveRequestSessionToken = (
+  request: Parameters<typeof resolveSessionToken>[0],
+  reply: Parameters<typeof resolveSessionToken>[1],
+  forceSecureCookies: boolean
+): string =>
+  resolveSessionToken(request, reply, { forceSecureCookies });
