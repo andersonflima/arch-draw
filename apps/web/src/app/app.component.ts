@@ -2546,13 +2546,20 @@ LIMIT 50;`;
 
   @HostListener("window:keydown", ["$event"])
   onWindowKeyDown(event: KeyboardEvent): void {
-    if (event.defaultPrevented) return;
-    const isUndoShortcut = (event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "z";
+    const isUndoShortcut = (
+      (event.metaKey || event.ctrlKey)
+      && !event.altKey
+      && (event.key.toLowerCase() === "z" || event.code === "KeyZ")
+    );
     if (isUndoShortcut) {
+      if (this.isTypingTarget(event.target)) return;
       event.preventDefault();
+      event.stopPropagation();
       this.undoLastChange();
       return;
     }
+
+    if (event.defaultPrevented) return;
 
     const isSelectAllShortcut = (event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "a";
     if (isSelectAllShortcut) {
