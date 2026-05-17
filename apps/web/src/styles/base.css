@@ -2513,16 +2513,22 @@ app-flow-document-node {
 }
 
 .architecture-node.is-selected:not(.architecture-node--leaf) .node-port::after {
-  opacity: 0;
-  background: transparent;
+  opacity: 1;
+  background: rgba(14, 165, 233, 0.35);
 }
 
 .architecture-node--leaf .node-port::after,
 .architecture-node--leaf .node-port:hover::after,
 .architecture-node--leaf .node-port:focus-visible::after,
 .architecture-node--leaf.is-selected .node-port::after {
-  background: transparent;
-  opacity: 0;
+  background: rgba(14, 165, 233, 0.35);
+  opacity: 1;
+}
+
+.architecture-node.is-selected .node-port::before {
+  border-color: #0284c7;
+  background: #ecfeff;
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2), 1px 1px 0 #111827;
 }
 
 .node-port--target {
@@ -3531,16 +3537,22 @@ app-flow-document-node {
 }
 
 .app-shell.theme-dark .architecture-node.is-selected:not(.architecture-node--leaf) .node-port::after {
-  opacity: 0;
-  background: transparent;
+  opacity: 1;
+  background: rgba(56, 189, 248, 0.4);
 }
 
 .app-shell.theme-dark .architecture-node--leaf .node-port::after,
 .app-shell.theme-dark .architecture-node--leaf .node-port:hover::after,
 .app-shell.theme-dark .architecture-node--leaf .node-port:focus-visible::after,
 .app-shell.theme-dark .architecture-node--leaf.is-selected .node-port::after {
-  background: transparent;
-  opacity: 0;
+  background: rgba(56, 189, 248, 0.4);
+  opacity: 1;
+}
+
+.app-shell.theme-dark .architecture-node.is-selected .node-port::before {
+  border-color: #38bdf8;
+  background: #082f49;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25), 1px 1px 0 #0b1220;
 }
 
 .app-shell.theme-dark .node-collapse-toggle,
