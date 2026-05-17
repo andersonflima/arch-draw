@@ -3,7 +3,7 @@ import type {
   ArchitectureSharePackage
 } from "@arch-draw/domain";
 
-const API_URL =
+export const API_BASE_URL =
   window.location.port === "5173"
     ? `${window.location.protocol}//${window.location.hostname || "127.0.0.1"}:3333`
     : `${window.location.origin}/api`;
@@ -31,6 +31,38 @@ export type AuthSession = Readonly<{
   user: AuthenticatedUser | null;
 }>;
 
+export type ArchitectureShareLink = Readonly<{
+  shareId: string;
+  sharePath: string;
+}>;
+
+export type SharedRealtimeEvent =
+  | Readonly<{
+      type: "presence";
+      participants: readonly Readonly<{
+        clientId: string;
+        displayName: string;
+        color: string;
+        joinedAt: string;
+        lastSeenAt: string;
+      }>[];
+    }>
+  | Readonly<{
+      type: "cursor";
+      clientId: string;
+      displayName: string;
+      color: string;
+      x: number;
+      y: number;
+      visible: boolean;
+      at: string;
+    }>
+  | Readonly<{
+      type: "document";
+      clientId: string;
+      updatedAt: string;
+    }>;
+
 export const api = {
   getAuthSession: async () => {
     const response = await request<{
@@ -46,7 +78,7 @@ export const api = {
     } satisfies AuthSession;
   },
   buildGoogleLoginUrl: (returnTo = window.location.pathname) =>
-    `${API_URL}/auth/google/start?returnTo=${encodeURIComponent(returnTo)}`,
+    `${API_BASE_URL}/auth/google/start?returnTo=${encodeURIComponent(returnTo)}`,
   logout: () =>
     request<void>("/auth/logout", {
       method: "POST"
@@ -75,6 +107,39 @@ export const api = {
     request<ArchitectureDocument>("/architectures/import", {
       method: "POST",
       body: JSON.stringify(sharePackage)
+    }),
+  createArchitectureShare: (id: string) =>
+    request<ArchitectureShareLink>(`/architectures/${id}/share`, {
+      method: "POST"
+    }),
+  readSharedArchitecture: (shareId: string) =>
+    request<ArchitectureDocument>(`/architectures/shared/${encodeURIComponent(shareId)}`),
+  saveSharedArchitecture: (
+    shareId: string,
+    architecture: ArchitectureDocument,
+    options: Readonly<{ clientId?: string }> = {}
+  ) =>
+    request<ArchitectureDocument>(
+      `/architectures/shared/${encodeURIComponent(shareId)}${options.clientId ? `?clientId=${encodeURIComponent(options.clientId)}` : ""}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(architecture)
+      }
+    ),
+  publishSharedCursor: (
+    shareId: string,
+    payload: Readonly<{
+      clientId: string;
+      displayName: string;
+      color: string;
+      x: number;
+      y: number;
+      visible: boolean;
+    }>
+  ) =>
+    request<void>(`/architectures/shared/${encodeURIComponent(shareId)}/cursor`, {
+      method: "POST",
+      body: JSON.stringify(payload)
     })
 };
 
@@ -84,7 +149,7 @@ const request = async <T>(path: string, init: RequestInit = {}): Promise<T> => {
   const defaultHeaders: Record<string, string> = hasBody
     ? { "content-type": "application/json" }
     : {};
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     credentials: "include",
     headers: {
