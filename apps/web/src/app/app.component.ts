@@ -288,6 +288,7 @@ const EXPORT_EXCLUDED_SELECTORS = [
   ".canvas-edge-label-editor",
   ".node-inline-label-input"
 ] as const;
+const EXPORT_BOUNDS_MARGIN = 48;
 const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, string>>>> = {
   "pt-BR": {
     "toolbar.new": "Nova",
@@ -1540,19 +1541,16 @@ export class AppComponent implements OnDestroy {
   async exportSvgCurrent(): Promise<void> {
     await this.runSafely(async () => {
       if (!this.architecture) return;
-      const dataUrl = await this.withDefaultExportViewport(async () => {
-        const canvas = this.getExportCanvasElement();
-        if (!canvas) throw new Error("Canvas indisponivel para exportacao.");
-        const exportDimensions = this.getExportCanvasDimensions(canvas);
-        return toSvg(canvas, {
+      const dataUrl = await this.renderCurrentCanvasExport(async (canvas, exportDimensions) =>
+        toSvg(canvas, {
           cacheBust: true,
           width: exportDimensions.width,
           height: exportDimensions.height,
           canvasWidth: exportDimensions.width,
           canvasHeight: exportDimensions.height,
           filter: (node) => this.shouldIncludeNodeInExport(node)
-        });
-      });
+        })
+      );
       this.downloadDataUrl(dataUrl, `${this.getExportFileBaseName()}.svg`);
       this.status = this.t("status.exportedSvg");
       this.showSuccessToast("toast.missionComplete");
@@ -1562,11 +1560,8 @@ export class AppComponent implements OnDestroy {
   async exportPngCurrent(): Promise<void> {
     await this.runSafely(async () => {
       if (!this.architecture) return;
-      const dataUrl = await this.withDefaultExportViewport(async () => {
-        const canvas = this.getExportCanvasElement();
-        if (!canvas) throw new Error("Canvas indisponivel para exportacao.");
-        const exportDimensions = this.getExportCanvasDimensions(canvas);
-        return toPng(canvas, {
+      const dataUrl = await this.renderCurrentCanvasExport(async (canvas, exportDimensions) =>
+        toPng(canvas, {
           cacheBust: true,
           pixelRatio: 2,
           width: exportDimensions.width,
@@ -1574,8 +1569,8 @@ export class AppComponent implements OnDestroy {
           canvasWidth: exportDimensions.width,
           canvasHeight: exportDimensions.height,
           filter: (node) => this.shouldIncludeNodeInExport(node)
-        });
-      });
+        })
+      );
       this.downloadDataUrl(dataUrl, `${this.getExportFileBaseName()}.png`);
       this.status = this.t("status.exportedPng");
       this.showSuccessToast("toast.missionComplete");
@@ -6203,7 +6198,7 @@ spec:
       ? EDGE_SHARED_ANCHOR_MIN_GAP
       : EDGE_SIDE_LANE_GAP;
     const laneMaxOffset = STRICT_PORT_ANCHORING
-      ? Math.min(EDGE_SIDE_LANE_MAX_OFFSET, laneGap * 4)
+      ? Math.max(EDGE_SIDE_LANE_MAX_OFFSET, ((ids.length - 1) * laneGap) / 2)
       : EDGE_SIDE_LANE_MAX_OFFSET;
     const centeredIndex = currentIndex - (ids.length - 1) / 2;
     const offset = Math.max(
@@ -7070,11 +7065,153 @@ spec:
     return this.canvasShell?.nativeElement ?? null;
   }
 
-  private getExportCanvasDimensions(canvas: HTMLElement): Readonly<{ width: number; height: number }> {
+  private async renderCurrentCanvasExport(
+    render: (
+      canvas: HTMLElement,
+      dimensions: Readonly<{ width: number; height: number }>
+    ) => Promise<string>
+  ): Promise<string> {
+    const canvas = this.getExportCanvasElement();
+    if (!canvas) throw new Error("Canvas indisponivel para exportacao.");
+
+    const bounds = this.getExportContentBounds();
+    const dimensions = this.getExportCanvasDimensionsFromBounds(bounds);
+    const { host, captureNode } = this.createExportSnapshotCanvas(canvas, bounds, dimensions);
+
+    document.body.appendChild(host);
+    await this.waitForNextFrame();
+    try {
+      return await render(captureNode, dimensions);
+    } finally {
+      host.remove();
+    }
+  }
+
+  private getExportCanvasDimensionsFromBounds(
+    bounds: Readonly<{ left: number; top: number; right: number; bottom: number }>
+  ): Readonly<{ width: number; height: number }> {
+    const rawWidth = bounds.right - bounds.left;
+    const rawHeight = bounds.bottom - bounds.top;
     return {
-      width: Math.max(1, Math.floor(canvas.clientWidth)),
-      height: Math.max(1, Math.floor(canvas.clientHeight))
+      width: Math.max(1, Math.ceil(rawWidth + EXPORT_BOUNDS_MARGIN * 2)),
+      height: Math.max(1, Math.ceil(rawHeight + EXPORT_BOUNDS_MARGIN * 2))
     };
+  }
+
+  private getExportContentBounds(): Readonly<{ left: number; top: number; right: number; bottom: number }> {
+    let left = Number.POSITIVE_INFINITY;
+    let top = Number.POSITIVE_INFINITY;
+    let right = Number.NEGATIVE_INFINITY;
+    let bottom = Number.NEGATIVE_INFINITY;
+
+    const includePoint = (point: Readonly<{ x: number; y: number }>): void => {
+      left = Math.min(left, point.x);
+      top = Math.min(top, point.y);
+      right = Math.max(right, point.x);
+      bottom = Math.max(bottom, point.y);
+    };
+    const includeRect = (rect: Readonly<{ x: number; y: number; width: number; height: number }>): void => {
+      left = Math.min(left, rect.x);
+      top = Math.min(top, rect.y);
+      right = Math.max(right, rect.x + rect.width);
+      bottom = Math.max(bottom, rect.y + rect.height);
+    };
+
+    for (const node of this.nodes) {
+      if (!this.isVisibleNode(node)) continue;
+      includeRect(this.getNodeAbsoluteRect(node));
+      const anchorBox = this.getNodeConnectionAnchorBox(node);
+      includeRect({
+        x: anchorBox.center.x - anchorBox.halfWidth,
+        y: anchorBox.center.y - anchorBox.halfHeight,
+        width: anchorBox.halfWidth * 2,
+        height: anchorBox.halfHeight * 2
+      });
+    }
+
+    for (const edge of this.edges) {
+      if (!this.isVisibleEdge(edge)) continue;
+      const data = this.getEdgePathData(edge);
+      if (!data) continue;
+      for (const point of data.points) {
+        includePoint(point);
+      }
+
+      if (this.shouldRenderEdgeLabel(edge) && !this.isEditingEdge(edge.id)) {
+        includeRect({
+          x: this.getEdgeLabelRenderX(edge),
+          y: this.getEdgeLabelPosition(edge).y - this.getEdgeLabelBoxHeight() / 2,
+          width: this.getEdgeLabelRenderWidth(edge),
+          height: this.getEdgeLabelBoxHeight()
+        });
+      }
+    }
+
+    if (
+      !Number.isFinite(left)
+      || !Number.isFinite(top)
+      || !Number.isFinite(right)
+      || !Number.isFinite(bottom)
+    ) {
+      const fallback = this.getVisibleCanvasRect();
+      return {
+        left: fallback.left,
+        top: fallback.top,
+        right: fallback.left + fallback.width,
+        bottom: fallback.top + fallback.height
+      };
+    }
+
+    return {
+      left,
+      top,
+      right,
+      bottom
+    };
+  }
+
+  private createExportSnapshotCanvas(
+    canvas: HTMLElement,
+    bounds: Readonly<{ left: number; top: number; right: number; bottom: number }>,
+    dimensions: Readonly<{ width: number; height: number }>
+  ): Readonly<{ host: HTMLDivElement; captureNode: HTMLElement }> {
+    const host = document.createElement("div");
+    host.style.position = "fixed";
+    host.style.left = "-100000px";
+    host.style.top = "0";
+    host.style.width = `${dimensions.width}px`;
+    host.style.height = `${dimensions.height}px`;
+    host.style.pointerEvents = "none";
+    host.style.overflow = "hidden";
+    host.style.zIndex = "-1";
+
+    const themedRoot = document.createElement("div");
+    themedRoot.className = this.isDarkMode ? "app-shell theme-dark" : "app-shell";
+    themedRoot.style.width = `${dimensions.width}px`;
+    themedRoot.style.height = `${dimensions.height}px`;
+
+    const captureNode = canvas.cloneNode(true) as HTMLElement;
+    captureNode.classList.remove("canvas-shell--grabbing");
+    captureNode.style.width = `${dimensions.width}px`;
+    captureNode.style.height = `${dimensions.height}px`;
+    captureNode.style.minWidth = "0";
+    captureNode.style.minHeight = "0";
+    captureNode.style.overflow = "hidden";
+    captureNode.style.cursor = "default";
+
+    const clonedViewport = captureNode.querySelector(".canvas-viewport") as HTMLElement | null;
+    if (!clonedViewport) {
+      throw new Error("Viewport indisponivel para exportacao.");
+    }
+
+    const shiftX = EXPORT_BOUNDS_MARGIN - bounds.left;
+    const shiftY = EXPORT_BOUNDS_MARGIN - bounds.top;
+    clonedViewport.style.transform = `translate(${shiftX}px, ${shiftY}px) scale(1)`;
+    clonedViewport.style.transformOrigin = "0 0";
+
+    themedRoot.appendChild(captureNode);
+    host.appendChild(themedRoot);
+    return { host, captureNode };
   }
 
   private shouldIncludeNodeInExport(node: Node): boolean {
@@ -7091,33 +7228,6 @@ spec:
       .replaceAll(/^-+|-+$/g, "")
       .toLowerCase();
     return normalized || "architecture";
-  }
-
-  private async withDefaultExportViewport<T>(operation: () => Promise<T>): Promise<T> {
-    const previousZoom = this.canvasZoom;
-    const previousPan = this.canvasPan;
-    const needsReset =
-      previousZoom !== 1 ||
-      previousPan.x !== DEFAULT_CANVAS_PAN.x ||
-      previousPan.y !== DEFAULT_CANVAS_PAN.y;
-
-    if (needsReset) {
-      this.canvasZoom = 1;
-      this.canvasPan = DEFAULT_CANVAS_PAN;
-      this.markInteractionChanged();
-      await this.waitForNextFrame();
-    }
-
-    try {
-      return await operation();
-    } finally {
-      if (needsReset) {
-        this.canvasZoom = previousZoom;
-        this.canvasPan = previousPan;
-        this.markInteractionChanged();
-        await this.waitForNextFrame();
-      }
-    }
   }
 
   private waitForNextFrame(): Promise<void> {
