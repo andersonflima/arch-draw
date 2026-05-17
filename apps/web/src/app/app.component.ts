@@ -2911,8 +2911,7 @@ LIMIT 50;`;
   private getSelectedContactAreaIndicatorStyle(): Record<string, string> | null {
     const selectedNodes = this.selectedNodeIds
       .map((nodeId) => this.nodes.find((candidate) => candidate.id === nodeId))
-      .filter((node): node is CanvasNode => Boolean(node))
-      .filter((node) => !this.usesLeafConnectionAnchorBox(node));
+      .filter((node): node is CanvasNode => Boolean(node));
     if (selectedNodes.length === 0) return null;
 
     let left = Number.POSITIVE_INFINITY;
