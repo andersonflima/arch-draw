@@ -82,8 +82,10 @@ const getSegmentObstacles = (
   isLastSegment: boolean
 ): readonly EdgeObstacleRect[] =>
   obstacles.filter((rect) => {
-    if (isFirstSegment && rect.id === sourceId) return false;
-    if (isLastSegment && rect.id === targetId) return false;
+    const isSourceRect = rect.id === sourceId || rect.id.startsWith(`${sourceId}__`);
+    const isTargetRect = rect.id === targetId || rect.id.startsWith(`${targetId}__`);
+    if (isFirstSegment && isSourceRect) return false;
+    if (isLastSegment && isTargetRect) return false;
     return true;
   });
 
@@ -235,6 +237,11 @@ const orthogonalSegmentCrossesObstacleInterior = (
   end: EdgePoint,
   rect: EdgeObstacleRect
 ): boolean => {
+  if (isIconObstacle(rect)) {
+    // Icon obstacles are strict: any contact is treated as collision.
+    return segmentIntersectsRect(start, end, rect);
+  }
+
   if (Math.abs(start.x - end.x) <= EPSILON) {
     const x = start.x;
     if (!(x > rect.left + EPSILON && x < rect.right - EPSILON)) return false;
@@ -331,10 +338,19 @@ const reconstructPath = (cameFrom: ReadonlyMap<string, string>, current: string)
 
 const isPointInsideObstacleInterior = (point: EdgePoint, obstacles: readonly EdgeObstacleRect[]): boolean =>
   obstacles.some((obstacle) =>
-    point.x > obstacle.left + EPSILON
-    && point.x < obstacle.right - EPSILON
-    && point.y > obstacle.top + EPSILON
-    && point.y < obstacle.bottom - EPSILON
+    isIconObstacle(obstacle)
+      ? (
+        point.x >= obstacle.left - EPSILON
+        && point.x <= obstacle.right + EPSILON
+        && point.y >= obstacle.top - EPSILON
+        && point.y <= obstacle.bottom + EPSILON
+      )
+      : (
+        point.x > obstacle.left + EPSILON
+        && point.x < obstacle.right - EPSILON
+        && point.y > obstacle.top + EPSILON
+        && point.y < obstacle.bottom - EPSILON
+      )
   );
 
 const toKey = (point: EdgePoint): string => `${point.x}:${point.y}`;
@@ -476,6 +492,8 @@ export const segmentIntersectsRect = (start: EdgePoint, end: EdgePoint, rect: Ed
 
 const pointInsideRect = (point: EdgePoint, rect: EdgeObstacleRect): boolean =>
   point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
+
+const isIconObstacle = (rect: EdgeObstacleRect): boolean => rect.id.endsWith("__icon");
 
 const segmentsIntersect = (a: EdgePoint, b: EdgePoint, c: EdgePoint, d: EdgePoint): boolean => {
   const orientation = (p: EdgePoint, q: EdgePoint, r: EdgePoint): number =>

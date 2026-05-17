@@ -54,7 +54,6 @@ import {
   type NodeTemplateCategory
 } from "../features/editor/node-catalog";
 import {
-  getNodeIconAsset as getNodeIconAssetPath,
   getNodeIconClass as getNodeIconCssClass,
   getNodeIconLabel
 } from "../features/editor/node-icons";
@@ -169,9 +168,11 @@ const DEFAULT_MERMAID_SOURCE = `graph LR
   User["User"] --> Api["API"]
   Api --> Db["SQLite"]`;
 
-const ZOOM_STEP = 0.1;
-const MIN_ZOOM = 0.5;
-const MAX_ZOOM = 1.8;
+const MIN_ZOOM = 0.15;
+const MAX_ZOOM = 2.4;
+const ZOOM_IN_FACTOR = 1.15;
+const ZOOM_OUT_FACTOR = 1 / ZOOM_IN_FACTOR;
+const WHEEL_ZOOM_SENSITIVITY = 0.0014;
 const MINI_MAP_SIZE = { width: 150, height: 96 };
 const MINI_MAP_PADDING = 8;
 const DEFAULT_CANVAS_PAN = { x: 0, y: 0 };
@@ -180,20 +181,47 @@ const ERROR_TOAST_DISMISS_MS = 6000;
 const DOUBLE_CLICK_HINT_INTERVAL_MS = 24000;
 const DOUBLE_CLICK_HINT_VISIBLE_MS = 5000;
 const CODE_SNIPPET_COLLAPSED_SIZE = { width: 172, height: 176 } as const;
-const CODE_SNIPPET_EXPANDED_SIZE = { width: 420, height: 260 } as const;
+const CODE_SNIPPET_EXPANDED_SIZE = { width: 560, height: 420 } as const;
 const CONTAINER_COLLAPSED_SIZE = { width: 136, height: 140 } as const;
-const EDGE_NODE_GAP = 10;
-const EDGE_MARKER_CLEARANCE = 6;
+const EDGE_NODE_GAP = 4;
+const EDGE_MARKER_CLEARANCE = 8;
 const EDGE_ENDPOINT_STUB = 8;
-const FOCUS_Z_INDEX_BASE = 50;
-const EXPANDED_NODE_Z_INDEX = 60;
+const LEAF_ANCHOR_ICON_SIZE = 84;
+const LEAF_ANCHOR_TOP_OFFSET = 4;
+const FOCUS_Z_INDEX_BASE = 200;
+const EXPANDED_NODE_Z_INDEX = 210;
+const DRAG_Z_INDEX_BASE = 120;
+const NESTED_NODE_Z_INDEX_BASE = 80;
+const DEFAULT_EDGE_LABEL_FONT_SIZE = 28;
+const MIN_EDGE_LABEL_FONT_SIZE = 10;
+const MAX_EDGE_LABEL_FONT_SIZE = 28;
+const DEFAULT_NODE_LABEL_FONT_SIZE = 28;
+const MIN_NODE_LABEL_FONT_SIZE = 10;
+const MAX_NODE_LABEL_FONT_SIZE = 64;
+const DEFAULT_NODE_ICON_SIZE = 100;
+const MIN_NODE_ICON_SIZE = 16;
+const MAX_NODE_ICON_SIZE = 120;
+const DEFAULT_LEAF_ICON_SIZE = 84;
+const DEFAULT_NODE_ICON_FONT_SIZE = 14;
+const DEFAULT_LEAF_ICON_FONT_SIZE = 40;
 const EDGE_OBSTACLE_PADDING = 18;
+const LEAF_ICON_OBSTACLE_PADDING = 20;
 const EDGE_OBSTACLE_CLEARANCE = 30;
+const EDGE_PROXIMITY_SUPPRESSION_RADIUS = 190;
 const EDGE_ROUTE_MAX_PASSES = 10;
-const MAX_UNDO_HISTORY = 150;
+const EDGE_SIDE_LANE_GAP = 14;
+const EDGE_SIDE_LANE_MAX_OFFSET = 42;
+const EDGE_LABEL_COLLISION_X_THRESHOLD = 220;
+const EDGE_LABEL_COLLISION_Y_THRESHOLD = 44;
+const EDGE_LABEL_COLLISION_GAP = 26;
+const EDGE_LABEL_OFFSET_STEP_PERCENT = 7;
+const EDGE_LABEL_OFFSET_MAX_PERCENT = 24;
+const MAX_UNDO_HISTORY = 1000;
 const DRAG_START_THRESHOLD = 4;
+const STRICT_PORT_ANCHORING = true;
 const UI_THEME_STORAGE_KEY = "arch-draw.ui-theme";
 const DEMO_TEMPLATE_TITLE = "Exemplo Completo: Macro para Micro";
+const STRESS_TEMPLATE_TITLE = "Stress Test: Todos os Blocos e Juncoes";
 const CONTAINER_CHILD_PADDING_LEFT = 16;
 const CONTAINER_CHILD_PADDING_RIGHT = 16;
 const CONTAINER_CHILD_PADDING_TOP = 56;
@@ -774,6 +802,7 @@ export class AppComponent implements OnDestroy {
   selectedNodeIds: readonly string[] = [];
   private maximizedNodeId: string | null = null;
   selectedEdgeId: string | null = null;
+  private hoveredEdgeId: string | null = null;
   connectionSourceId: string | null = null;
   private connectionSourcePort: ArchitectureEdgePortSide | null = null;
   editingNodeId: string | null = null;
@@ -799,6 +828,9 @@ export class AppComponent implements OnDestroy {
   contextPropertiesPanel: ContextPropertiesPanelState | null = null;
   canvasZoom = 1;
   canvasPan: Readonly<{ x: number; y: number }> = DEFAULT_CANVAS_PAN;
+  edgeLabelFontSize = DEFAULT_EDGE_LABEL_FONT_SIZE;
+  nodeLabelFontSize = DEFAULT_NODE_LABEL_FONT_SIZE;
+  nodeIconSize = DEFAULT_NODE_ICON_SIZE;
 
   private dragState: DragState | null = null;
   private panState: PanState | null = null;
@@ -824,6 +856,9 @@ export class AppComponent implements OnDestroy {
   private readonly nodePropertyFieldsCache = new Map<ArchitectureNodeKind, readonly NodePropertyField[]>();
   private readonly iconColorCache = new Map<string, string>();
   private readonly edgePathDataCache = new Map<string, EdgePathData | null>();
+  private readonly edgeSideLaneOffsetCache = new Map<string, number>();
+  private readonly edgeLabelDyCache = new Map<string, number>();
+  private readonly edgeLabelStartOffsetCache = new Map<string, string>();
 
   constructor(
     private readonly changeDetectorRef: ChangeDetectorRef
@@ -901,6 +936,30 @@ export class AppComponent implements OnDestroy {
     });
   }
 
+  async createCompleteExampleArchitecture(): Promise<void> {
+    await this.runSafely(async () => {
+      this.cancelAutoSave();
+      const created = await api.createArchitecture(DEMO_TEMPLATE_TITLE);
+      const seeded = this.createFirstAccessArchitectureTemplate(created);
+      const saved = await api.saveArchitecture(seeded);
+      this.updateCurrent(saved);
+      await this.refreshSummaries();
+      this.status = "Exemplo completo criado";
+    });
+  }
+
+  async createStressTestArchitecture(): Promise<void> {
+    await this.runSafely(async () => {
+      this.cancelAutoSave();
+      const created = await api.createArchitecture(STRESS_TEMPLATE_TITLE);
+      const seeded = this.createStressTestArchitectureTemplate(created);
+      const saved = await api.saveArchitecture(seeded);
+      this.updateCurrent(saved);
+      await this.refreshSummaries();
+      this.status = "Arquitetura de stress criada";
+    });
+  }
+
   async deleteCurrent(): Promise<void> {
     await this.runSafely(async () => {
       this.cancelAutoSave();
@@ -908,10 +967,9 @@ export class AppComponent implements OnDestroy {
       if (!this.architecture) return;
       await api.deleteArchitecture(this.architecture.id);
       const remaining = await api.listArchitectures();
-      const ensured = await this.ensureDemoTemplateArchitectureExists(remaining);
-      this.summaries = ensured;
-      if (ensured[0]) {
-        await this.loadArchitecture(ensured[0].id);
+      this.summaries = remaining;
+      if (remaining[0]) {
+        await this.loadArchitecture(remaining[0].id);
         this.status = "Diagrama excluido";
         return;
       }
@@ -928,11 +986,10 @@ export class AppComponent implements OnDestroy {
       await this.waitForPersistenceIdle();
       await api.deleteArchitecture(id);
       const remaining = await api.listArchitectures();
-      const ensured = await this.ensureDemoTemplateArchitectureExists(remaining);
-      this.summaries = ensured;
+      this.summaries = remaining;
 
       if (this.architecture?.id === id) {
-        const fallback = ensured[0];
+        const fallback = remaining[0];
         if (fallback) {
           await this.loadArchitecture(fallback.id);
         } else {
@@ -1197,11 +1254,11 @@ export class AppComponent implements OnDestroy {
   }
 
   zoomIn(): void {
-    this.zoomTo(this.clampZoom(this.canvasZoom + ZOOM_STEP), this.getCanvasViewportCenter());
+    this.zoomTo(this.clampZoom(this.canvasZoom * ZOOM_IN_FACTOR), this.getCanvasViewportCenter());
   }
 
   zoomOut(): void {
-    this.zoomTo(this.clampZoom(this.canvasZoom - ZOOM_STEP), this.getCanvasViewportCenter());
+    this.zoomTo(this.clampZoom(this.canvasZoom * ZOOM_OUT_FACTOR), this.getCanvasViewportCenter());
   }
 
   resetZoom(): void {
@@ -1212,6 +1269,36 @@ export class AppComponent implements OnDestroy {
 
   getZoomPercent(): number {
     return Math.round(this.canvasZoom * 100);
+  }
+
+  updateGlobalEdgeLabelFontSize(value: number | string): void {
+    const parsed = typeof value === "number" ? value : Number.parseFloat(value);
+    if (!Number.isFinite(parsed)) return;
+    this.edgeLabelFontSize = Math.min(
+      MAX_EDGE_LABEL_FONT_SIZE,
+      Math.max(MIN_EDGE_LABEL_FONT_SIZE, Math.round(parsed))
+    );
+    this.markViewChanged();
+  }
+
+  updateGlobalNodeLabelFontSize(value: number | string): void {
+    const parsed = typeof value === "number" ? value : Number.parseFloat(value);
+    if (!Number.isFinite(parsed)) return;
+    this.nodeLabelFontSize = Math.min(
+      MAX_NODE_LABEL_FONT_SIZE,
+      Math.max(MIN_NODE_LABEL_FONT_SIZE, Math.round(parsed))
+    );
+    this.markViewChanged();
+  }
+
+  updateGlobalNodeIconSize(value: number | string): void {
+    const parsed = typeof value === "number" ? value : Number.parseFloat(value);
+    if (!Number.isFinite(parsed)) return;
+    this.nodeIconSize = Math.min(
+      MAX_NODE_ICON_SIZE,
+      Math.max(MIN_NODE_ICON_SIZE, Math.round(parsed))
+    );
+    this.markViewChanged();
   }
 
   selectNode(nodeId: string, event?: Event): void {
@@ -1328,13 +1415,8 @@ export class AppComponent implements OnDestroy {
   onNodeClick(nodeId: string, event: MouseEvent): void {
     event.stopPropagation();
     if (this.connectionSourceId && this.connectionSourceId !== nodeId) {
-      this.createConnection(this.connectionSourceId, nodeId, {
-        sourcePort: this.connectionSourcePort,
-        targetPort: null
-      });
-      this.connectionDragState = null;
-      this.connectionSourceId = null;
-      this.connectionSourcePort = null;
+      this.status = "Conexao deve iniciar e terminar nas bolinhas";
+      this.requestViewRender();
       this.markViewChanged();
       return;
     }
@@ -1468,22 +1550,32 @@ export class AppComponent implements OnDestroy {
   }
 
   private openContextPropertiesPanel(event: MouseEvent): void {
-    this.contextPropertiesPanel = this.layoutContextPropertiesPanel(event.clientX + 6, event.clientY + 6);
+    this.contextPropertiesPanel = this.layoutContextPropertiesPanelFromClientPoint(event.clientX, event.clientY);
   }
 
-  private layoutContextPropertiesPanel(preferredX: number, preferredY: number): ContextPropertiesPanelState {
+  private layoutContextPropertiesPanelFromClientPoint(
+    clientX: number,
+    clientY: number
+  ): ContextPropertiesPanelState {
+    const shellRect = this.canvasShell?.nativeElement.getBoundingClientRect();
+    if (!shellRect) return this.layoutContextPropertiesPanel(clientX, clientY);
+    return this.layoutContextPropertiesPanel(clientX - shellRect.left, clientY - shellRect.top);
+  }
+
+  private layoutContextPropertiesPanel(localX: number, localY: number): ContextPropertiesPanelState {
     const margin = 8;
     const idealWidth = 360;
     const idealHeight = 520;
-    const viewportWidth = Math.max(0, window.innerWidth);
-    const viewportHeight = Math.max(0, window.innerHeight);
+    const shellRect = this.canvasShell?.nativeElement.getBoundingClientRect();
+    const viewportWidth = Math.max(0, shellRect?.width ?? window.innerWidth);
+    const viewportHeight = Math.max(0, shellRect?.height ?? window.innerHeight);
     const maxWidth = Math.max(0, Math.min(idealWidth, viewportWidth - margin * 2));
     const maxHeight = Math.max(0, Math.min(idealHeight, viewportHeight - margin * 2));
     const maxX = Math.max(margin, viewportWidth - margin - maxWidth);
     const maxY = Math.max(margin, viewportHeight - margin - maxHeight);
     return {
-      x: Math.max(margin, Math.min(preferredX, maxX)),
-      y: Math.max(margin, Math.min(preferredY, maxY)),
+      x: Math.max(margin, Math.min(localX, maxX)),
+      y: Math.max(margin, Math.min(localY, maxY)),
       maxWidth,
       maxHeight
     };
@@ -2148,6 +2240,9 @@ LIMIT 50;`;
     const edge = this.selectedEdge;
     if (!edge) return;
     this.edges = this.edges.filter((candidate) => candidate.id !== edge.id);
+    if (this.hoveredEdgeId === edge.id) {
+      this.hoveredEdgeId = null;
+    }
     this.selectedEdgeId = null;
     this.editingEdgeId = null;
     this.editingEdgeLabelDraft = "";
@@ -2209,10 +2304,7 @@ LIMIT 50;`;
     if ((event.target as HTMLElement).closest(".node-port, .resize-control, .node-inline-label-input, .node-collapse-toggle, .code-snippet-inline-editor")) return;
     event.stopPropagation();
     const isInSelection = this.selectedNodeIds.includes(node.id);
-    const draggedIds =
-      isInSelection && this.selectedNodeIds.length > 0
-        ? this.selectedNodeIds
-        : [node.id];
+    const draggedIds = this.getDragNodeIds(node, isInSelection);
     if (!isInSelection || this.selectedNodeIds.length === 0) {
       this.selectedNodeId = node.id;
       this.selectedNodeIds = [node.id];
@@ -2316,9 +2408,9 @@ LIMIT 50;`;
   onCanvasWheel(event: WheelEvent): void {
     if (!event.ctrlKey && !event.metaKey) return;
     event.preventDefault();
-    const direction = event.deltaY < 0 ? 1 : -1;
+    const zoomFactor = Math.exp(-event.deltaY * WHEEL_ZOOM_SENSITIVITY);
     this.zoomTo(
-      this.clampZoom(this.canvasZoom + direction * ZOOM_STEP),
+      this.clampZoom(this.canvasZoom * zoomFactor),
       { clientX: event.clientX, clientY: event.clientY }
     );
   }
@@ -2379,6 +2471,7 @@ LIMIT 50;`;
     const hadPanState = this.panState !== null;
     const hadDragState = this.dragState !== null;
     const hadResizeState = this.resizeState !== null;
+    const hadConnectionDragState = this.connectionDragState !== null;
     if (this.dragState?.hasMoved) {
       const selectedIds = new Set(this.dragState.pointerOffsets.keys());
       const dropPoint = this.toCanvasPoint(event);
@@ -2422,6 +2515,9 @@ LIMIT 50;`;
     this.panState = null;
     this.dragState = null;
     this.resizeState = null;
+    if (hadPanState || hadDragState || hadResizeState || hadConnectionDragState) {
+      this.hoveredEdgeId = null;
+    }
 
     if (hadPanState) this.markInteractionChanged();
     if (hadDragState || hadResizeState) this.markViewChanged();
@@ -2440,6 +2536,7 @@ LIMIT 50;`;
     this.resizeState = null;
     this.connectionDragState = null;
     this.marqueeState = null;
+    this.hoveredEdgeId = null;
     if (hadInteraction) this.markInteractionChanged();
   }
 
@@ -2520,12 +2617,19 @@ LIMIT 50;`;
     const isDescendantOfDragged = this.hasDraggedAncestor(node);
     const isFocused = this.selectedNodeIds.includes(node.id);
     const isDescendantOfFocused = this.hasSelectedAncestor(node);
-    const baseZIndex = rendersAsContainer ? 0 : 2;
-    const dragZIndex = isDescendantOfDragged ? 31 : isBeingDragged ? 30 : baseZIndex;
+    const baseZIndex = rendersAsContainer ? 20 : 180;
+    const focusZIndexBase = rendersAsContainer ? 120 : FOCUS_Z_INDEX_BASE;
+    const expandedZIndexBase = rendersAsContainer ? 130 : EXPANDED_NODE_Z_INDEX;
+    const dragZIndexBase = rendersAsContainer ? 140 : DRAG_Z_INDEX_BASE;
+    const dragZIndex = isDescendantOfDragged
+      ? dragZIndexBase + 1
+      : isBeingDragged
+        ? dragZIndexBase
+        : baseZIndex;
     const focusZIndex = isDescendantOfFocused
-      ? FOCUS_Z_INDEX_BASE + 1
+      ? focusZIndexBase + 1
       : isFocused
-        ? FOCUS_Z_INDEX_BASE
+        ? focusZIndexBase
         : baseZIndex;
     const selectedNodeId = this.getForegroundExpandedNodeId() ?? this.selectedNodeId;
     const isExpandedSelectedNode =
@@ -2545,11 +2649,13 @@ LIMIT 50;`;
         )
       );
     const expandedZIndex = isDescendantOfExpandedSelected
-      ? EXPANDED_NODE_Z_INDEX + 1
+      ? expandedZIndexBase + 1
       : isExpandedSelectedNode
-        ? EXPANDED_NODE_Z_INDEX
+        ? expandedZIndexBase
         : baseZIndex;
-    const resolvedZIndex = Math.max(dragZIndex, focusZIndex, expandedZIndex);
+    const hierarchyDepth = this.getNodeHierarchyDepth(node);
+    const nestedZIndex = hierarchyDepth > 0 ? NESTED_NODE_Z_INDEX_BASE + hierarchyDepth : baseZIndex;
+    const resolvedZIndex = Math.max(dragZIndex, focusZIndex, expandedZIndex, nestedZIndex);
     const nestedInsideContainer = Boolean(node.parentId);
     const isExpandedCodeSnippet = this.isCodeSnippetExpanded(node);
     const prefersDarkTextInDarkMode =
@@ -2564,8 +2670,26 @@ LIMIT 50;`;
       height: `${node.size.height}px`,
       "--node-bg": node.color,
       "--node-text-color": nodeTextColor,
+      "--node-label-font-size": `${this.nodeLabelFontSize}px`,
+      "--node-icon-size": `${this.nodeIconSize}px`,
+      "--node-icon-font-size": `${Math.max(10, Math.round((this.nodeIconSize / DEFAULT_NODE_ICON_SIZE) * DEFAULT_NODE_ICON_FONT_SIZE))}px`,
+      "--leaf-node-icon-size": `${Math.max(32, Math.round((this.nodeIconSize / DEFAULT_NODE_ICON_SIZE) * DEFAULT_LEAF_ICON_SIZE))}px`,
+      "--leaf-node-icon-font-size": `${Math.max(16, Math.round((this.nodeIconSize / DEFAULT_NODE_ICON_SIZE) * DEFAULT_LEAF_ICON_FONT_SIZE))}px`,
+      "--leaf-anchor-top-offset": `${LEAF_ANCHOR_TOP_OFFSET}px`,
       zIndex: resolvedZIndex
     };
+  }
+
+  private getNodeHierarchyDepth(node: CanvasNode): number {
+    let depth = 0;
+    let currentParentId = node.parentId;
+    while (currentParentId) {
+      const parent = this.nodes.find((candidate) => candidate.id === currentParentId);
+      if (!parent) break;
+      depth += 1;
+      currentParentId = parent.parentId;
+    }
+    return depth;
   }
 
   getViewportStyle(): Record<string, string> {
@@ -2588,6 +2712,34 @@ LIMIT 50;`;
       width: `${Math.max(3, node.size.width * scale)}px`,
       height: `${Math.max(3, node.size.height * scale)}px`,
       background: rendersAsContainer ? "rgba(17, 24, 39, 0.14)" : node.color
+    };
+  }
+
+  getMiniMapViewportStyle(): Record<string, string> {
+    const bounds = this.getMiniMapBounds();
+    const visibleRect = this.getVisibleCanvasRect();
+    const availableWidth = MINI_MAP_SIZE.width - MINI_MAP_PADDING * 2;
+    const availableHeight = MINI_MAP_SIZE.height - MINI_MAP_PADDING * 2;
+    const scale = Math.min(availableWidth / bounds.width, availableHeight / bounds.height);
+
+    const rawLeft = MINI_MAP_PADDING + (visibleRect.left - bounds.x) * scale;
+    const rawTop = MINI_MAP_PADDING + (visibleRect.top - bounds.y) * scale;
+    const rawWidth = visibleRect.width * scale;
+    const rawHeight = visibleRect.height * scale;
+    const minSize = 8;
+
+    const clampedLeft = Math.max(MINI_MAP_PADDING, Math.min(rawLeft, MINI_MAP_PADDING + availableWidth));
+    const clampedTop = Math.max(MINI_MAP_PADDING, Math.min(rawTop, MINI_MAP_PADDING + availableHeight));
+    const maxWidth = MINI_MAP_PADDING + availableWidth - clampedLeft;
+    const maxHeight = MINI_MAP_PADDING + availableHeight - clampedTop;
+    const clampedWidth = Math.max(minSize, Math.min(rawWidth, Math.max(minSize, maxWidth)));
+    const clampedHeight = Math.max(minSize, Math.min(rawHeight, Math.max(minSize, maxHeight)));
+
+    return {
+      left: `${clampedLeft}px`,
+      top: `${clampedTop}px`,
+      width: `${clampedWidth}px`,
+      height: `${clampedHeight}px`
     };
   }
 
@@ -2632,7 +2784,93 @@ LIMIT 50;`;
   }
 
   isEdgeLayerElevated(): boolean {
-    return Boolean(this.dragState?.hasMoved || this.connectionDragState);
+    return Boolean(
+      this.dragState?.hasMoved
+      || this.connectionDragState
+      || this.selectedEdgeId
+      || this.editingEdgeId
+      || this.hoveredEdgeId
+    );
+  }
+
+  isEdgeTemporarilyMuted(edge: CanvasEdge): boolean {
+    if (!this.isProximitySuppressionActive()) return false;
+    if (edge.id === this.selectedEdgeId || edge.id === this.editingEdgeId || edge.id === this.hoveredEdgeId) {
+      return false;
+    }
+
+    const focusPoint = this.getInteractionFocusPoint();
+    if (!focusPoint) return false;
+    const data = this.getEdgePathData(edge);
+    if (!data || data.points.length < 2) return false;
+
+    const distance = this.getDistanceFromPointToPolyline(focusPoint, data.points);
+    const suppressionRadius = EDGE_PROXIMITY_SUPPRESSION_RADIUS / Math.max(0.4, this.canvasZoom);
+    return distance <= suppressionRadius;
+  }
+
+  getEdgeProximityIndicatorStyle(): Record<string, string> | null {
+    if (!this.isProximitySuppressionActive()) return null;
+    const focusPoint = this.getInteractionFocusPoint();
+    if (!focusPoint) return null;
+    const radius = EDGE_PROXIMITY_SUPPRESSION_RADIUS / Math.max(0.4, this.canvasZoom);
+    return {
+      left: `${focusPoint.x - radius}px`,
+      top: `${focusPoint.y - radius}px`,
+      width: `${radius * 2}px`,
+      height: `${radius * 2}px`
+    };
+  }
+
+  onEdgePointerEnter(edgeId: string): void {
+    if (this.hoveredEdgeId === edgeId) return;
+    this.hoveredEdgeId = edgeId;
+    this.markViewChanged();
+  }
+
+  onEdgePointerLeave(edgeId: string): void {
+    if (this.hoveredEdgeId !== edgeId) return;
+    this.hoveredEdgeId = null;
+    this.markViewChanged();
+  }
+
+  private isProximitySuppressionActive(): boolean {
+    return Boolean(
+      this.connectionDragState
+      || this.resizeState
+      || this.dragState?.hasMoved
+    );
+  }
+
+  private getInteractionFocusPoint(): Readonly<{ x: number; y: number }> | null {
+    if (this.connectionDragState) return this.connectionDragState.current;
+
+    if (this.resizeState) {
+      const node = this.nodes.find((candidate) => candidate.id === this.resizeState?.nodeId);
+      return node ? this.getNodeCenter(node) : null;
+    }
+
+    if (this.dragState?.hasMoved && this.selectedNodeIds.length > 0) {
+      const centers = this.selectedNodeIds
+        .map((nodeId) => this.nodes.find((candidate) => candidate.id === nodeId))
+        .filter((node): node is CanvasNode => Boolean(node))
+        .map((node) => this.getNodeCenter(node));
+      if (centers.length === 0) return this.dragState.startPoint;
+      const sum = centers.reduce(
+        (acc, center) => ({ x: acc.x + center.x, y: acc.y + center.y }),
+        { x: 0, y: 0 }
+      );
+      return {
+        x: sum.x / centers.length,
+        y: sum.y / centers.length
+      };
+    }
+
+    return null;
+  }
+
+  isPointerDragging(): boolean {
+    return this.panState !== null || this.dragState !== null;
   }
 
   isContainerLayerNode(node: CanvasNode): boolean {
@@ -2664,10 +2902,6 @@ LIMIT 50;`;
 
   getNodeIconClass(kind: ArchitectureNodeKind): string {
     return getNodeIconCssClass(kind);
-  }
-
-  getNodeIconAsset(kind: ArchitectureNodeKind): string | null {
-    return getNodeIconAssetPath(kind);
   }
 
   getIconColor(baseColor: string | undefined): string {
@@ -2704,11 +2938,49 @@ LIMIT 50;`;
     return this.buildPathFromPolyline(data.points, data.style.path);
   }
 
+  getEdgeEndMarker(edge: CanvasEdge): string {
+    return this.getEdgeHorizontalDirection(edge) === "left"
+      ? "url(#edge-arrow-left)"
+      : "url(#edge-arrow-right)";
+  }
+
+  getEdgeStartMarker(edge: CanvasEdge): string | null {
+    if (!this.isBidirectional(edge)) return null;
+    return this.getEdgeHorizontalDirection(edge) === "left"
+      ? "url(#edge-arrow-right)"
+      : "url(#edge-arrow-left)";
+  }
+
+  getConnectionPreviewMarkerEnd(): string {
+    const dragState = this.connectionDragState;
+    if (!dragState) return "url(#edge-arrow-right)";
+    const source = this.nodes.find((node) => node.id === dragState.sourceId);
+    if (!source) return "url(#edge-arrow-right)";
+    const sourceAbsolute = this.getAbsolutePosition(source);
+    return dragState.current.x < sourceAbsolute.x ? "url(#edge-arrow-left)" : "url(#edge-arrow-right)";
+  }
+
   getEdgeLabelPosition(edge: CanvasEdge): Readonly<{ x: number; y: number }> {
     const data = this.getEdgePathData(edge);
     if (!data || data.points.length < 2) return { x: 0, y: 0 };
     const totalLength = this.getPolylineLength(data.points);
     return this.getPointAtPolylineDistance(data.points, totalLength / 2);
+  }
+
+  getEdgeLabelDy(edge: CanvasEdge): number {
+    if (!edge.label) return 0;
+    const cached = this.edgeLabelDyCache.get(edge.id);
+    if (cached !== undefined) return cached;
+    this.rebuildEdgeLabelDyCache();
+    return this.edgeLabelDyCache.get(edge.id) ?? 0;
+  }
+
+  getEdgeLabelStartOffset(edge: CanvasEdge): string {
+    if (!edge.label) return "50%";
+    const cached = this.edgeLabelStartOffsetCache.get(edge.id);
+    if (cached) return cached;
+    this.rebuildEdgeLabelDyCache();
+    return this.edgeLabelStartOffsetCache.get(edge.id) ?? "50%";
   }
 
   getBidirectionalFlowPath(edge: CanvasEdge, direction: EdgeFlowDirection): string {
@@ -2739,6 +3011,16 @@ LIMIT 50;`;
     return this.isEdgeInsideContainerContext(fromNode, toNode)
       ? "#111827"
       : "#f8fafc";
+  }
+
+  getEdgeLabelColor(edge: CanvasEdge): string {
+    if (!this.isDarkMode) return "#111827";
+    const effective = this.getEffectiveEdgeEndpoints(edge);
+    if (!effective) return "#f8fafc";
+    const { fromNode, toNode } = effective;
+    if (this.isEdgeInsideContainerContext(fromNode, toNode)) return "#111827";
+    const labelPoint = this.getEdgeLabelPosition(edge);
+    return this.isPointInsideAnyVisibleContainer(labelPoint) ? "#111827" : "#f8fafc";
   }
 
   getEdgeContextOverlayColor(): string {
@@ -2807,6 +3089,28 @@ LIMIT 50;`;
 
   isBidirectional(edge: CanvasEdge): boolean {
     return normalizeEdgeStyle(edge.style).bidirectional;
+  }
+
+  shouldRenderEdgeLabel(edge: CanvasEdge): boolean {
+    if (!edge.label) return false;
+    if (!this.isVisibleEdge(edge)) return false;
+    return !this.isEdgeRepresentedByCollapsedEndpoint(edge);
+  }
+
+  private getEdgeHorizontalDirection(edge: CanvasEdge): "left" | "right" {
+    const data = this.getEdgePathData(edge);
+    if (!data || data.points.length < 2) return "right";
+    const start = data.points.at(0);
+    const end = data.points.at(-1);
+    if (!start || !end) return "right";
+    if (Math.abs(end.x - start.x) <= 0.5) return "right";
+    return end.x < start.x ? "left" : "right";
+  }
+
+  private isEdgeRepresentedByCollapsedEndpoint(edge: CanvasEdge): boolean {
+    const effective = this.getEffectiveEdgeEndpoints(edge);
+    if (!effective) return false;
+    return effective.fromNode.id !== edge.from || effective.toNode.id !== edge.to;
   }
 
   async onMermaidChange(value: string): Promise<void> {
@@ -2915,19 +3219,13 @@ LIMIT 50;`;
       }
 
       const existing = await api.listArchitectures();
-      const preferredId = existing[0]?.id ?? null;
-      const ensured = await this.ensureDemoTemplateArchitectureExists(existing);
-      const fallbackId = ensured[0]?.id ?? null;
-      const targetId =
-        preferredId && ensured.some((summary) => summary.id === preferredId)
-          ? preferredId
-          : fallbackId;
+      const targetId = existing[0]?.id ?? null;
       if (!targetId) {
         this.clearCurrentArchitecture();
         this.status = "Nenhum diagrama encontrado";
         return;
       }
-      this.summaries = ensured;
+      this.summaries = existing;
       await this.loadArchitecture(targetId);
     }, "API indisponível");
   }
@@ -2961,22 +3259,6 @@ LIMIT 50;`;
       default:
         return "Falha de autenticacao.";
     }
-  }
-
-  private async ensureDemoTemplateArchitectureExists(
-    summaries?: readonly ArchitectureSummary[]
-  ): Promise<readonly ArchitectureSummary[]> {
-    const current = summaries ?? await api.listArchitectures();
-    if (current.some((summary) => this.isDemoTemplateSummary(summary))) return current;
-
-    const created = await api.createArchitecture(DEMO_TEMPLATE_TITLE);
-    const seeded = this.createFirstAccessArchitectureTemplate(created);
-    await api.saveArchitecture(seeded);
-    return api.listArchitectures();
-  }
-
-  private isDemoTemplateSummary(summary: ArchitectureSummary): boolean {
-    return summary.title.trim().toLowerCase() === DEMO_TEMPLATE_TITLE.toLowerCase();
   }
 
   private createFirstAccessArchitectureTemplate(base: ArchitectureDocument): ArchitectureDocument {
@@ -3324,6 +3606,126 @@ spec:
     };
   }
 
+  private createStressTestArchitectureTemplate(base: ArchitectureDocument): ArchitectureDocument {
+    const now = new Date().toISOString();
+    const availableTemplates = this.nodeCatalog.filter((template) => !this.isSimpleContainerKind(template.kind));
+    const columns = 12;
+    const cellWidth = 220;
+    const cellHeight = 190;
+    const rootPaddingX = 90;
+    const rootPaddingTop = 130;
+    const rows = Math.max(1, Math.ceil(availableTemplates.length / columns));
+    const rootWidth = rootPaddingX * 2 + columns * cellWidth;
+    const rootHeight = rootPaddingTop + 120 + rows * cellHeight;
+
+    const root: CanvasNode = {
+      id: "stress-root",
+      kind: "group-container-plus",
+      label: "Stress Matrix",
+      color: getNodeKindColor("group-container-plus"),
+      position: { x: 40, y: 40 },
+      size: { width: rootWidth, height: rootHeight },
+      collapsed: false,
+      collapsedIconKind: this.getDefaultCollapsedIconKind("group-container-plus"),
+      expandedSize: { width: rootWidth, height: rootHeight }
+    };
+
+    const nodes: CanvasNode[] = [root];
+    const styleBase: ArchitectureEdgeStyle = {
+      path: "smoothstep",
+      line: "solid",
+      color: "#111827",
+      animated: true,
+      bidirectional: false
+    };
+
+    for (let index = 0; index < availableTemplates.length; index += 1) {
+      const template = availableTemplates[index];
+      if (!template) continue;
+      const column = index % columns;
+      const row = Math.floor(index / columns);
+      const id = `stress-${template.kind}-${index}`;
+      const defaultSize = getDefaultNodeSize(template.kind);
+      const isContainerKind = isContainerNodeKind(template.kind);
+      const isCodeKind = isCodeSnippetNodeKind(template.kind);
+      const startsCollapsed = isContainerKind || isCodeKind;
+
+      nodes.push({
+        id,
+        kind: template.kind,
+        label: template.label,
+        parentId: root.id,
+        color: template.color,
+        position: {
+          x: rootPaddingX + column * cellWidth,
+          y: rootPaddingTop + row * cellHeight
+        },
+        size: startsCollapsed ? { ...CODE_SNIPPET_COLLAPSED_SIZE } : defaultSize,
+        collapsed: startsCollapsed ? true : undefined,
+        collapsedIconKind: isContainerKind
+          ? this.getDefaultCollapsedIconKind(template.kind)
+          : isCodeKind
+            ? template.kind
+            : undefined,
+        expandedSize: startsCollapsed
+          ? (isCodeKind ? { ...CODE_SNIPPET_EXPANDED_SIZE } : { ...defaultSize })
+          : undefined
+      });
+    }
+
+    const stressNodeIds = nodes
+      .filter((node) => node.id !== root.id)
+      .map((node) => node.id);
+
+    const edges: CanvasEdge[] = [];
+    for (let index = 0; index < stressNodeIds.length - 1; index += 1) {
+      const from = stressNodeIds[index];
+      const to = stressNodeIds[index + 1];
+      if (!from || !to) continue;
+      edges.push({
+        id: `stress-chain-${index}`,
+        from,
+        to,
+        label: `L${index + 1}`,
+        style: {
+          ...styleBase,
+          line: index % 3 === 0 ? "solid" : index % 3 === 1 ? "dashed" : "dotted",
+          path: index % 2 === 0 ? "smoothstep" : "step"
+        }
+      });
+    }
+
+    for (let index = 0; index < stressNodeIds.length - 12; index += 4) {
+      const from = stressNodeIds[index];
+      const to = stressNodeIds[index + 11];
+      if (!from || !to) continue;
+      edges.push({
+        id: `stress-cross-${index}`,
+        from,
+        to,
+        label: `X${index + 1}`,
+        style: {
+          ...styleBase,
+          line: "dashed",
+          path: "smoothstep",
+          bidirectional: index % 8 === 0
+        }
+      });
+    }
+
+    return {
+      ...base,
+      title: STRESS_TEMPLATE_TITLE,
+      description: "Matriz de cobertura completa com todos os blocos e conexoes cruzadas para testes de usabilidade.",
+      mermaidSource: `graph LR
+  Start["Stress Start"] --> Matrix["Stress Matrix"]
+  Matrix --> End["Coverage"]`,
+      nodes,
+      edges,
+      updatedAt: now
+    };
+  }
+
   private async refreshSummaries(): Promise<void> {
     this.summaries = await api.listArchitectures();
     this.markViewChanged();
@@ -3377,7 +3779,7 @@ spec:
 
   private ensureArchitectureNodesHaveCodeContent(architecture: ArchitectureDocument): ArchitectureDocument {
     let changed = false;
-    const nextNodes: ArchitectureNode[] = architecture.nodes.map((node) => {
+    const normalizedCodeNodes: ArchitectureNode[] = architecture.nodes.map((node) => {
       const supportsCode = isCodeSnippetNodeKind(node.kind) || CONTAINER_CODE_PROPERTY_KINDS.has(node.kind);
       const nextProperties: Record<string, string> = { ...(node.properties ?? {}) };
       let nodeChanged = false;
@@ -3445,11 +3847,92 @@ spec:
       };
     });
 
+    const bindingNormalization = this.normalizeNodeContainerBindings(normalizedCodeNodes);
+    if (bindingNormalization.changed) {
+      changed = true;
+    }
+
     if (!changed) return architecture;
     return {
       ...architecture,
-      nodes: nextNodes
+      nodes: bindingNormalization.nodes
     };
+  }
+
+  private normalizeNodeContainerBindings(
+    nodes: readonly ArchitectureNode[]
+  ): Readonly<{ nodes: readonly ArchitectureNode[]; changed: boolean }> {
+    const byId = new Map(nodes.map((node) => [node.id, node] as const));
+    const nextNodes = [...nodes];
+    const nextById = new Map(nextNodes.map((node) => [node.id, node] as const));
+    const containers = nextNodes.filter((node) => isContainerNodeKind(node.kind));
+    let changed = false;
+
+    const getAbsolutePosition = (
+      nodeId: string,
+      visiting: Set<string> = new Set()
+    ): Readonly<{ x: number; y: number }> => {
+      const node = nextById.get(nodeId);
+      if (!node) return { x: 0, y: 0 };
+      if (!node.parentId) return node.position;
+      if (visiting.has(nodeId)) return node.position;
+      const parent = nextById.get(node.parentId);
+      if (!parent) return node.position;
+      visiting.add(nodeId);
+      const parentAbsolute = getAbsolutePosition(parent.id, visiting);
+      visiting.delete(nodeId);
+      return {
+        x: parentAbsolute.x + node.position.x,
+        y: parentAbsolute.y + node.position.y
+      };
+    };
+
+    const containsPoint = (
+      node: ArchitectureNode,
+      point: Readonly<{ x: number; y: number }>
+    ): boolean => {
+      const absolute = getAbsolutePosition(node.id);
+      return (
+        point.x >= absolute.x &&
+        point.x <= absolute.x + node.size.width &&
+        point.y >= absolute.y &&
+        point.y <= absolute.y + node.size.height
+      );
+    };
+
+    for (let index = 0; index < nextNodes.length; index += 1) {
+      const node = nextNodes[index];
+      if (!node || isContainerNodeKind(node.kind)) continue;
+      const currentParent = node.parentId ? byId.get(node.parentId) : null;
+      const hasValidContainerParent = Boolean(currentParent && isContainerNodeKind(currentParent.kind));
+      if (hasValidContainerParent) continue;
+
+      const absolute = getAbsolutePosition(node.id);
+      const center = {
+        x: absolute.x + node.size.width / 2,
+        y: absolute.y + node.size.height / 2
+      };
+
+      const candidate = containers
+        .filter((container) => container.id !== node.id)
+        .filter((container) => containsPoint(container, center))
+        .sort((left, right) => this.area(left.size) - this.area(right.size))[0];
+      if (!candidate) continue;
+
+      const parentAbsolute = getAbsolutePosition(candidate.id);
+      nextNodes[index] = {
+        ...node,
+        parentId: candidate.id,
+        position: {
+          x: absolute.x - parentAbsolute.x,
+          y: absolute.y - parentAbsolute.y
+        }
+      };
+      nextById.set(node.id, nextNodes[index] as ArchitectureNode);
+      changed = true;
+    }
+
+    return { nodes: nextNodes, changed };
   }
 
   private normalizeCodeLanguageValue(value?: string): CodeLanguage | null {
@@ -3589,6 +4072,9 @@ spec:
     }
 
     this.fitContainerAndAncestorChain(nodeId);
+    if (collapsed) {
+      this.ensureNodeVisibleInViewport(nodeId);
+    }
     if (collapsed && this.maximizedNodeId === nodeId) {
       this.maximizedNodeId = null;
     }
@@ -3612,20 +4098,58 @@ spec:
 
         if (node.collapsed === false) return node;
         const nextExpandedSize = node.expandedSize ?? { ...CODE_SNIPPET_EXPANDED_SIZE };
+        const minimum = this.getExpandedCodeSnippetMinimumSize();
+        const safeExpandedSize = {
+          width: Math.max(nextExpandedSize.width, minimum.width),
+          height: Math.max(nextExpandedSize.height, minimum.height)
+        };
         return {
           ...node,
           collapsed: false,
-          size: nextExpandedSize,
-          expandedSize: nextExpandedSize,
+          size: safeExpandedSize,
+          expandedSize: safeExpandedSize,
           collapsedIconKind
         };
       })
     );
 
     this.fitContainerAndAncestorChain(nodeId);
+    if (collapsed) {
+      this.ensureNodeVisibleInViewport(nodeId);
+    }
     if (collapsed && this.maximizedNodeId === nodeId) {
       this.maximizedNodeId = null;
     }
+  }
+
+  private ensureNodeVisibleInViewport(nodeId: string): void {
+    const node = this.nodes.find((candidate) => candidate.id === nodeId);
+    if (!node) return;
+
+    const visible = this.getVisibleCanvasRect();
+    const absolute = this.getAbsolutePosition(node);
+    const nodeRect = {
+      left: absolute.x,
+      top: absolute.y,
+      right: absolute.x + node.size.width,
+      bottom: absolute.y + node.size.height
+    };
+    const margin = 36 / Math.max(this.canvasZoom, 0.001);
+    const fullyVisible =
+      nodeRect.left >= visible.left + margin
+      && nodeRect.right <= visible.left + visible.width - margin
+      && nodeRect.top >= visible.top + margin
+      && nodeRect.bottom <= visible.top + visible.height - margin;
+
+    if (fullyVisible) return;
+
+    const shellRect = this.canvasShell?.nativeElement.getBoundingClientRect();
+    if (!shellRect) return;
+    const center = this.getNodeCenter(node);
+    this.canvasPan = {
+      x: shellRect.width / 2 - center.x * this.canvasZoom,
+      y: shellRect.height / 2 - center.y * this.canvasZoom
+    };
   }
 
   private getForegroundExpandedNodeId(): string | null {
@@ -3720,6 +4244,22 @@ spec:
     return false;
   }
 
+  private getDragNodeIds(node: CanvasNode, isInSelection: boolean): readonly string[] {
+    const selectedIds = isInSelection && this.selectedNodeIds.length > 0
+      ? [...this.selectedNodeIds]
+      : [node.id];
+    const selectedIdSet = new Set(selectedIds);
+    if (!this.rendersAsContainer(node)) return selectedIds;
+
+    const descendantIds = this.getDescendantIds(node.id);
+    for (const descendantId of descendantIds) {
+      if (selectedIdSet.has(descendantId)) continue;
+      selectedIds.push(descendantId);
+      selectedIdSet.add(descendantId);
+    }
+    return selectedIds;
+  }
+
   private updateEdge(id: string, patch: Partial<CanvasEdge>): void {
     this.edges = this.edges.map((edge) => edge.id === id ? { ...edge, ...patch } : edge);
     this.markViewChanged();
@@ -3730,9 +4270,12 @@ spec:
     if (!node) return;
     const parent = node.parentId ? this.nodes.find((candidate) => candidate.id === node.parentId) : null;
     const parentPosition = parent ? this.getAbsolutePosition(parent) : null;
-    const position = parentPosition
+    const nextPosition = parentPosition
       ? { x: absolutePosition.x - parentPosition.x, y: absolutePosition.y - parentPosition.y }
       : absolutePosition;
+    const position = parent && this.rendersAsContainer(parent)
+      ? this.clampChildPositionWithinContainerHeader(parent, nextPosition)
+      : nextPosition;
     this.updateNode(nodeId, { position });
   }
 
@@ -3759,8 +4302,11 @@ spec:
       const position = parentPosition
         ? { x: target.x - parentPosition.x, y: target.y - parentPosition.y }
         : target;
+      const clampedPosition = parentNode && this.rendersAsContainer(parentNode)
+        ? this.clampChildPositionWithinContainerHeader(parentNode, position)
+        : position;
 
-      return { ...node, position };
+      return { ...node, position: clampedPosition };
     });
     this.markInteractionChanged();
   }
@@ -3789,8 +4335,8 @@ spec:
     if (!effective) return null;
     const { fromNode: source, toNode: target } = effective;
     if (source.id === target.id) return null;
-    const rawStart = this.getAnchorWithGap(source, target, EDGE_NODE_GAP, "source", edge.sourcePort);
-    const rawEnd = this.getAnchorWithGap(target, source, EDGE_NODE_GAP, "target", edge.targetPort);
+    const rawStart = this.getAnchorWithGap(source, target, EDGE_NODE_GAP, "source", edge.sourcePort, edge);
+    const rawEnd = this.getAnchorWithGap(target, source, EDGE_NODE_GAP, "target", edge.targetPort, edge);
     const sourceCenter = this.getNodeCenter(source);
     const targetCenter = this.getNodeCenter(target);
     const startAxis = this.getEdgeTerminalAxis(source, rawStart, sourceCenter);
@@ -3946,11 +4492,14 @@ spec:
       })
       .flatMap((node) => {
         const paddedRect = this.createEdgeObstacleRect(node.id, node, EDGE_OBSTACLE_PADDING);
-        if (node.id !== sourceId && node.id !== targetId) return [paddedRect];
+        const leafIconRect = this.createLeafIconObstacleRect(node.id, node, LEAF_ICON_OBSTACLE_PADDING);
+        if (node.id !== sourceId && node.id !== targetId) {
+          return leafIconRect ? [paddedRect, leafIconRect] : [paddedRect];
+        }
 
         // Keep a hard boundary for endpoints so routes never re-enter the source/target node body.
         const hardRect = this.createEdgeObstacleRect(`${node.id}__hard`, node, 0);
-        return [paddedRect, hardRect];
+        return leafIconRect ? [paddedRect, hardRect, leafIconRect] : [paddedRect, hardRect];
       });
   }
 
@@ -3962,6 +4511,22 @@ spec:
       top: absolute.y - padding,
       right: absolute.x + node.size.width + padding,
       bottom: absolute.y + node.size.height + padding
+    };
+  }
+
+  private createLeafIconObstacleRect(
+    nodeId: string,
+    node: CanvasNode,
+    padding: number
+  ): EdgeObstacleRect | null {
+    if (!this.usesLeafConnectionAnchorBox(node)) return null;
+    const anchorBox = this.getNodeConnectionAnchorBox(node);
+    return {
+      id: `${nodeId}__icon`,
+      left: anchorBox.center.x - anchorBox.halfWidth - padding,
+      top: anchorBox.center.y - anchorBox.halfHeight - padding,
+      right: anchorBox.center.x + anchorBox.halfWidth + padding,
+      bottom: anchorBox.center.y + anchorBox.halfHeight + padding
     };
   }
 
@@ -4040,6 +4605,126 @@ spec:
       traversed += segmentLength;
     }
     return points[points.length - 1] ?? { x: 0, y: 0 };
+  }
+
+  private getDistanceFromPointToPolyline(
+    point: Readonly<{ x: number; y: number }>,
+    points: readonly EdgePoint[]
+  ): number {
+    let minDistance = Number.POSITIVE_INFINITY;
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const start = points[index];
+      const end = points[index + 1];
+      if (!start || !end) continue;
+      const distance = this.getDistanceFromPointToSegment(point, start, end);
+      if (distance < minDistance) minDistance = distance;
+    }
+    return Number.isFinite(minDistance) ? minDistance : Number.POSITIVE_INFINITY;
+  }
+
+  private getDistanceFromPointToSegment(
+    point: Readonly<{ x: number; y: number }>,
+    start: Readonly<{ x: number; y: number }>,
+    end: Readonly<{ x: number; y: number }>
+  ): number {
+    const segmentX = end.x - start.x;
+    const segmentY = end.y - start.y;
+    const segmentLengthSquared = segmentX * segmentX + segmentY * segmentY;
+    if (segmentLengthSquared <= 0.000001) {
+      return Math.hypot(point.x - start.x, point.y - start.y);
+    }
+
+    const projection =
+      ((point.x - start.x) * segmentX + (point.y - start.y) * segmentY) / segmentLengthSquared;
+    const clampedProjection = Math.max(0, Math.min(1, projection));
+    const closestX = start.x + segmentX * clampedProjection;
+    const closestY = start.y + segmentY * clampedProjection;
+    return Math.hypot(point.x - closestX, point.y - closestY);
+  }
+
+  private rebuildEdgeLabelDyCache(): void {
+    this.edgeLabelDyCache.clear();
+    this.edgeLabelStartOffsetCache.clear();
+
+    const entries = this.edges
+      .filter((edge) => this.shouldRenderEdgeLabel(edge))
+      .map((edge) => {
+        const data = this.getEdgePathData(edge);
+        const pathLength = data ? this.getPolylineLength(data.points) : 0;
+        return { edge, position: this.getEdgeLabelPosition(edge), pathLength };
+      })
+      .sort((left, right) => {
+        const byY = left.position.y - right.position.y;
+        if (Math.abs(byY) > 0.001) return byY;
+        const byX = left.position.x - right.position.x;
+        if (Math.abs(byX) > 0.001) return byX;
+        return left.edge.id.localeCompare(right.edge.id);
+      });
+
+    const groups: Array<{
+      meanX: number;
+      meanY: number;
+      count: number;
+      items: Array<{ edgeId: string; x: number; y: number; pathLength: number }>;
+    }> = [];
+
+    for (const entry of entries) {
+      const group = groups.find((candidate) =>
+        Math.abs(entry.position.x - candidate.meanX) <= EDGE_LABEL_COLLISION_X_THRESHOLD
+        && Math.abs(entry.position.y - candidate.meanY) <= EDGE_LABEL_COLLISION_Y_THRESHOLD
+      );
+      if (!group) {
+        groups.push({
+          meanX: entry.position.x,
+          meanY: entry.position.y,
+          count: 1,
+          items: [{
+            edgeId: entry.edge.id,
+            x: entry.position.x,
+            y: entry.position.y,
+            pathLength: entry.pathLength
+          }]
+        });
+        continue;
+      }
+      group.items.push({
+        edgeId: entry.edge.id,
+        x: entry.position.x,
+        y: entry.position.y,
+        pathLength: entry.pathLength
+      });
+      group.count += 1;
+      group.meanX += (entry.position.x - group.meanX) / group.count;
+      group.meanY += (entry.position.y - group.meanY) / group.count;
+    }
+
+    for (const group of groups) {
+      const sortedItems = [...group.items].sort((left, right) => {
+        const byX = left.x - right.x;
+        if (Math.abs(byX) > 0.001) return byX;
+        const byY = left.y - right.y;
+        if (Math.abs(byY) > 0.001) return byY;
+        return left.edgeId.localeCompare(right.edgeId);
+      });
+      for (let index = 0; index < sortedItems.length; index += 1) {
+        const item = sortedItems[index];
+        if (!item) continue;
+        const centeredIndex = index - (sortedItems.length - 1) / 2;
+        const verticalOffset = centeredIndex * EDGE_LABEL_COLLISION_GAP;
+        this.edgeLabelDyCache.set(item.edgeId, verticalOffset);
+
+        const maxShiftByPathLength = item.pathLength < 160
+          ? 10
+          : item.pathLength < 280
+            ? 16
+            : EDGE_LABEL_OFFSET_MAX_PERCENT;
+        const horizontalShift = Math.max(
+          -maxShiftByPathLength,
+          Math.min(maxShiftByPathLength, centeredIndex * EDGE_LABEL_OFFSET_STEP_PERCENT)
+        );
+        this.edgeLabelStartOffsetCache.set(item.edgeId, `${50 + horizontalShift}%`);
+      }
+    }
   }
 
   private getHalfPolyline(points: readonly EdgePoint[], direction: EdgeFlowDirection): readonly EdgePoint[] {
@@ -4169,31 +4854,31 @@ spec:
     const directChildren = this.nodes.filter((node) => node.parentId === containerId);
     if (directChildren.length === 0) return;
 
-    const descendants = this.nodes.filter((node) => this.isDescendantOfContainer(node.id, containerId));
-    if (descendants.length === 0) return;
-
     const containerAbsolute = this.getAbsolutePosition(container);
+    const measuredChildren = directChildren.filter((node) => this.isVisibleNode(node));
+    if (measuredChildren.length === 0) return;
 
     const minSize = { width: 260, height: 180 };
+    const minimumTopInset = this.getContainerContentInsetTop(container);
     const minLeft = Math.min(
-      ...descendants.map((descendant) => this.getAbsolutePosition(descendant).x - containerAbsolute.x)
+      ...measuredChildren.map((child) => this.getAbsolutePosition(child).x - containerAbsolute.x)
     );
     const minTop = Math.min(
-      ...descendants.map((descendant) => this.getAbsolutePosition(descendant).y - containerAbsolute.y)
+      ...measuredChildren.map((child) => this.getAbsolutePosition(child).y - containerAbsolute.y)
     );
     const shiftX = minLeft < CONTAINER_CHILD_PADDING_LEFT ? CONTAINER_CHILD_PADDING_LEFT - minLeft : 0;
-    const shiftY = minTop < CONTAINER_CHILD_PADDING_TOP ? CONTAINER_CHILD_PADDING_TOP - minTop : 0;
+    const shiftY = minTop < minimumTopInset ? minimumTopInset - minTop : 0;
 
     const maxRight = Math.max(
-      ...descendants.map((descendant) => {
-        const absolute = this.getAbsolutePosition(descendant);
-        return absolute.x - containerAbsolute.x + shiftX + descendant.size.width;
+      ...measuredChildren.map((child) => {
+        const absolute = this.getAbsolutePosition(child);
+        return absolute.x - containerAbsolute.x + shiftX + child.size.width;
       })
     );
     const maxBottom = Math.max(
-      ...descendants.map((descendant) => {
-        const absolute = this.getAbsolutePosition(descendant);
-        return absolute.y - containerAbsolute.y + shiftY + descendant.size.height;
+      ...measuredChildren.map((child) => {
+        const absolute = this.getAbsolutePosition(child);
+        return absolute.y - containerAbsolute.y + shiftY + child.size.height;
       })
     );
     const requiredWidth = Math.max(
@@ -4234,6 +4919,30 @@ spec:
     });
   }
 
+  private getContainerContentInsetTop(container: CanvasNode): number {
+    if (!this.rendersAsContainer(container)) return CONTAINER_CHILD_PADDING_TOP;
+    const nodePaddingTop = 12;
+    const headerIconHeight = 88;
+    const headerBottomGap = 10;
+    const editableLabelReserve = Math.max(36, Math.round(this.nodeLabelFontSize * 1.25));
+    return Math.max(
+      CONTAINER_CHILD_PADDING_TOP,
+      nodePaddingTop + headerIconHeight + headerBottomGap + editableLabelReserve + 8
+    );
+  }
+
+  private clampChildPositionWithinContainerHeader(
+    container: CanvasNode,
+    position: Readonly<{ x: number; y: number }>
+  ): Readonly<{ x: number; y: number }> {
+    const minY = this.getContainerContentInsetTop(container);
+    if (position.y >= minY) return position;
+    return {
+      x: position.x,
+      y: minY
+    };
+  }
+
   private isDescendantOfContainer(nodeId: string, containerId: string): boolean {
     let currentParentId = this.nodes.find((node) => node.id === nodeId)?.parentId;
     while (currentParentId) {
@@ -4250,13 +4959,20 @@ spec:
     const unavailable = new Set([dragged.id, ...this.getDescendantIds(dragged.id)]);
     const draggedPosition = this.getAbsolutePosition(dragged);
     const candidates = this.nodes.filter((node) => !unavailable.has(node.id));
-    const target = dropPoint
+    const detectedTarget = dropPoint
       ? this.findContainingPoint(dropPoint, candidates)
       : this.findContainingNode(draggedPosition, dragged.size, candidates);
+    const currentParent = dragged.parentId
+      ? this.nodes.find((candidate) => candidate.id === dragged.parentId) ?? null
+      : null;
+    const target = detectedTarget ?? currentParent;
     const targetPosition = target ? this.getAbsolutePosition(target) : null;
-    const position = targetPosition
+    const nextPosition = targetPosition
       ? { x: draggedPosition.x - targetPosition.x, y: draggedPosition.y - targetPosition.y }
       : draggedPosition;
+    const position = target
+      ? this.clampChildPositionWithinContainerHeader(target, nextPosition)
+      : nextPosition;
 
     this.nodes = this.sortNodes(
       this.nodes.map((node) =>
@@ -4313,12 +5029,13 @@ spec:
     };
     const min = this.nodes.find((node) => node.id === this.resizeState?.nodeId);
     if (!min) return;
+    const codeSnippetMinSize = this.getExpandedCodeSnippetMinimumSize();
     const minSize = isContainerNodeKind(min.kind)
       ? { width: 260, height: 180 }
       : isCodeSnippetNodeKind(min.kind) && !this.isCodeSnippetCollapsed(min)
-        ? { width: 300, height: 190 }
+        ? codeSnippetMinSize
       : isIconOnlyNodeKind(min.kind)
-        ? { width: 118, height: 126 }
+        ? { width: 120, height: 124 }
         : { width: 170, height: 92 };
     const west = this.resizeState.direction.includes("w");
     const north = this.resizeState.direction.includes("n");
@@ -4333,16 +5050,43 @@ spec:
     const node = this.nodes.find((candidate) => candidate.id === this.resizeState?.nodeId);
     const parent = node?.parentId ? this.nodes.find((candidate) => candidate.id === node.parentId) : null;
     const parentPosition = parent ? this.getAbsolutePosition(parent) : null;
-    const position = parentPosition
+    const nextPosition = parentPosition
       ? { x: absolutePosition.x - parentPosition.x, y: absolutePosition.y - parentPosition.y }
       : absolutePosition;
+    const position = parent && this.rendersAsContainer(parent)
+      ? this.clampChildPositionWithinContainerHeader(parent, nextPosition)
+      : nextPosition;
     this.nodes = this.nodes.map((candidate) =>
       candidate.id === this.resizeState?.nodeId
         ? { ...candidate, position, size: { width, height } }
         : candidate
     );
+    if (node && this.isGloballySizedLeafNode(node)) {
+      this.applyGlobalLeafIconSizeFromResize(width, height);
+    }
     this.fitAncestorContainersForNodes([min.id]);
     this.markInteractionChanged();
+  }
+
+  private isGloballySizedLeafNode(node: CanvasNode): boolean {
+    return (
+      this.isContainerCollapsed(node)
+      || this.isCodeSnippetCollapsed(node)
+      || (isIconOnlyNodeKind(node.kind) && !this.isCodeSnippetExpanded(node))
+    );
+  }
+
+  private applyGlobalLeafIconSizeFromResize(width: number, height: number): void {
+    const currentLeafIconSize = Math.max(
+      32,
+      Math.round((this.nodeIconSize / DEFAULT_NODE_ICON_SIZE) * DEFAULT_LEAF_ICON_SIZE)
+    );
+    const currentLeafMinSide = Math.max(1, Math.min(this.resizeState?.startSize.width ?? width, this.resizeState?.startSize.height ?? height));
+    const nextLeafMinSide = Math.max(1, Math.min(width, height));
+    const scale = nextLeafMinSide / currentLeafMinSide;
+    const targetLeafIconSize = Math.max(32, Math.round(currentLeafIconSize * scale));
+    const mappedNodeIconSize = Math.round((targetLeafIconSize * DEFAULT_NODE_ICON_SIZE) / DEFAULT_LEAF_ICON_SIZE);
+    this.updateGlobalNodeIconSize(mappedNodeIconSize);
   }
 
   private detachNodeFromParent(node: CanvasNode): CanvasNode {
@@ -4357,10 +5101,11 @@ spec:
     const defaultSize = getDefaultNodeSize(kind);
     if (isCodeSnippetNodeKind(kind)) {
       const expanded = node.expandedSize ?? CODE_SNIPPET_EXPANDED_SIZE;
+      const minimum = this.getExpandedCodeSnippetMinimumSize();
       if (this.isCodeSnippetExpanded(node)) {
         return {
-          width: Math.max(node.size.width, expanded.width),
-          height: Math.max(node.size.height, expanded.height)
+          width: Math.max(node.size.width, expanded.width, minimum.width),
+          height: Math.max(node.size.height, expanded.height, minimum.height)
         };
       }
       return { ...CODE_SNIPPET_COLLAPSED_SIZE };
@@ -4497,10 +5242,12 @@ spec:
     target: Readonly<{ x: number; y: number }>,
     gap: number,
     role: "source" | "target",
-    preferredSide?: ArchitectureEdgePortSide
+    preferredSide?: ArchitectureEdgePortSide,
+    edge?: CanvasEdge
   ): Readonly<{ x: number; y: number }> {
-    const side = preferredSide ?? this.getNodeConnectionSideTowardPoint(from, target, role);
-    return this.getNodePortAnchor(from, side, gap);
+    const side = this.getHorizontalFlowConnectionSide(from, target, role, preferredSide);
+    const laneOffset = this.getEdgeSideLaneOffset(edge ?? null, from, role, side);
+    return this.getNodePortAnchor(from, side, gap, laneOffset);
   }
 
   private getAnchorWithGap(
@@ -4508,10 +5255,11 @@ spec:
     to: CanvasNode,
     gap: number,
     role: "source" | "target",
-    preferredSide?: ArchitectureEdgePortSide
+    preferredSide?: ArchitectureEdgePortSide,
+    edge?: CanvasEdge
   ): Readonly<{ x: number; y: number }> {
     const targetCenter = this.getNodeCenter(to);
-    return this.getAnchorTowardPoint(from, targetCenter, gap, role, preferredSide);
+    return this.getAnchorTowardPoint(from, targetCenter, gap, role, preferredSide, edge);
   }
 
   private getNodeConnectionSideTowardPoint(
@@ -4538,30 +5286,159 @@ spec:
     return dy >= 0 ? "bottom" : "top";
   }
 
+  private getHorizontalFlowConnectionSide(
+    node: CanvasNode,
+    target: Readonly<{ x: number; y: number }>,
+    role: "source" | "target",
+    preferredSide?: ArchitectureEdgePortSide
+  ): "left" | "right" {
+    if (preferredSide === "left" || preferredSide === "right") {
+      return preferredSide;
+    }
+
+    const inferred = this.getNodeConnectionSideTowardPoint(node, target, role);
+    if (inferred === "left" || inferred === "right") {
+      return inferred;
+    }
+
+    return role === "source" ? "right" : "left";
+  }
+
+  private getEdgeSideLaneOffset(
+    edge: CanvasEdge | null,
+    node: CanvasNode,
+    role: "source" | "target",
+    side: "left" | "right" | "top" | "bottom"
+  ): number {
+    if (STRICT_PORT_ANCHORING) return 0;
+    if (!edge) return 0;
+    const cacheKey = `${edge.id}:${node.id}:${role}:${side}`;
+    const cached = this.edgeSideLaneOffsetCache.get(cacheKey);
+    if (cached !== undefined) return cached;
+
+    const ids = this.getEdgeIdsForNodeSide(node, role, side);
+    const currentIndex = ids.indexOf(edge.id);
+    if (currentIndex < 0 || ids.length <= 1) {
+      this.edgeSideLaneOffsetCache.set(cacheKey, 0);
+      return 0;
+    }
+
+    const centeredIndex = currentIndex - (ids.length - 1) / 2;
+    const offset = Math.max(
+      -EDGE_SIDE_LANE_MAX_OFFSET,
+      Math.min(EDGE_SIDE_LANE_MAX_OFFSET, centeredIndex * EDGE_SIDE_LANE_GAP)
+    );
+    this.edgeSideLaneOffsetCache.set(cacheKey, offset);
+    return offset;
+  }
+
+  private getEdgeIdsForNodeSide(
+    node: CanvasNode,
+    role: "source" | "target",
+    side: "left" | "right" | "top" | "bottom"
+  ): readonly string[] {
+    return this.edges
+      .filter((candidate) => {
+        const effective = this.getEffectiveEdgeEndpoints(candidate);
+        if (!effective) return false;
+
+        const isSourceRole = role === "source";
+        const roleNode = isSourceRole ? effective.fromNode : effective.toNode;
+        if (roleNode.id !== node.id) return false;
+
+        const otherNode = isSourceRole ? effective.toNode : effective.fromNode;
+        const preferredSide = isSourceRole ? candidate.sourcePort : candidate.targetPort;
+        const resolvedSide = this.getHorizontalFlowConnectionSide(
+          node,
+          this.getNodeCenter(otherNode),
+          role,
+          preferredSide ?? undefined
+        );
+        return resolvedSide === side;
+      })
+      .map((candidate) => candidate.id)
+      .sort((left, right) => left.localeCompare(right));
+  }
+
   private getNodePortAnchor(
     node: CanvasNode,
     side: "left" | "right" | "top" | "bottom",
-    gap: number
+    gap: number,
+    laneOffset = 0
   ): Readonly<{ x: number; y: number }> {
-    const center = this.getNodeCenter(node);
-    const halfWidth = node.size.width / 2;
-    const halfHeight = node.size.height / 2;
+    const anchorBox = this.getNodeConnectionAnchorBox(node);
+    const center = anchorBox.center;
+    const halfWidth = anchorBox.halfWidth;
+    const halfHeight = anchorBox.halfHeight;
 
     if (side === "left") {
-      return { x: center.x - halfWidth - gap, y: center.y };
+      return { x: center.x - halfWidth - gap, y: center.y + laneOffset };
     }
     if (side === "right") {
-      return { x: center.x + halfWidth + gap, y: center.y };
+      return { x: center.x + halfWidth + gap, y: center.y + laneOffset };
     }
     if (side === "top") {
-      return { x: center.x, y: center.y - halfHeight - gap };
+      return { x: center.x + laneOffset, y: center.y - halfHeight - gap };
     }
-    return { x: center.x, y: center.y + halfHeight + gap };
+    return { x: center.x + laneOffset, y: center.y + halfHeight + gap };
+  }
+
+  private getNodeConnectionAnchorBox(node: CanvasNode): Readonly<{
+    center: Readonly<{ x: number; y: number }>;
+    halfWidth: number;
+    halfHeight: number;
+  }> {
+    if (!this.usesLeafConnectionAnchorBox(node)) {
+      return {
+        center: this.getNodeCenter(node),
+        halfWidth: node.size.width / 2,
+        halfHeight: node.size.height / 2
+      };
+    }
+
+    const position = this.getAbsolutePosition(node);
+    const iconSize = this.getLeafNodeIconSize();
+    const iconCenter = {
+      x: position.x + node.size.width / 2,
+      y: position.y + LEAF_ANCHOR_TOP_OFFSET + iconSize / 2
+    };
+    return {
+      center: iconCenter,
+      halfWidth: iconSize / 2,
+      halfHeight: iconSize / 2
+    };
+  }
+
+  private usesLeafConnectionAnchorBox(node: CanvasNode): boolean {
+    return (
+      this.isContainerCollapsed(node)
+      || this.isCodeSnippetCollapsed(node)
+      || (isIconOnlyNodeKind(node.kind) && !this.isCodeSnippetExpanded(node))
+    );
+  }
+
+  private getLeafNodeIconSize(): number {
+    return Math.max(
+      32,
+      Math.round((this.nodeIconSize / DEFAULT_NODE_ICON_SIZE) * LEAF_ANCHOR_ICON_SIZE)
+    );
+  }
+
+  private getExpandedCodeSnippetMinimumSize(): Readonly<{ width: number; height: number }> {
+    return { ...CODE_SNIPPET_EXPANDED_SIZE };
   }
 
   private getMiniMapBounds(): Readonly<{ x: number; y: number; width: number; height: number }> {
+    const visibleRect = this.getVisibleCanvasRect();
     const visibleNodes = this.nodes.filter((node) => this.isVisibleNode(node));
-    if (visibleNodes.length === 0) return { x: 0, y: 0, width: 1, height: 1 };
+    if (visibleNodes.length === 0) {
+      return {
+        x: visibleRect.left,
+        y: visibleRect.top,
+        width: Math.max(1, visibleRect.width),
+        height: Math.max(1, visibleRect.height)
+      };
+    }
 
     const boxes = visibleNodes.map((node) => {
       const position = this.getAbsolutePosition(node);
@@ -4577,12 +5454,18 @@ spec:
     const top = Math.min(...boxes.map((box) => box.top));
     const right = Math.max(...boxes.map((box) => box.right));
     const bottom = Math.max(...boxes.map((box) => box.bottom));
+    const visibleRight = visibleRect.left + visibleRect.width;
+    const visibleBottom = visibleRect.top + visibleRect.height;
+    const mergedLeft = Math.min(left, visibleRect.left);
+    const mergedTop = Math.min(top, visibleRect.top);
+    const mergedRight = Math.max(right, visibleRight);
+    const mergedBottom = Math.max(bottom, visibleBottom);
 
     return {
-      x: left,
-      y: top,
-      width: Math.max(1, right - left),
-      height: Math.max(1, bottom - top)
+      x: mergedLeft,
+      y: mergedTop,
+      width: Math.max(1, mergedRight - mergedLeft),
+      height: Math.max(1, mergedBottom - mergedTop)
     };
   }
 
@@ -4731,11 +5614,26 @@ spec:
       return;
     }
     if (this.edges.some((edge) => edge.from === from && edge.to === to)) return;
+    if (!ports?.sourcePort || !ports?.targetPort) {
+      this.status = "Conexao deve iniciar e terminar nas bolinhas";
+      this.requestViewRender();
+      return;
+    }
 
-    const inferredSourcePort = ports?.sourcePort
-      ?? this.getNodeConnectionSideTowardPoint(fromNode, this.getNodeCenter(toNode), "source");
-    const inferredTargetPort = ports?.targetPort
-      ?? this.getNodeConnectionSideTowardPoint(toNode, this.getNodeCenter(fromNode), "target");
+    const inferredSourcePort = ports.sourcePort;
+    const inferredTargetPort = ports.targetPort;
+    const resolvedSourcePort = this.getHorizontalFlowConnectionSide(
+      fromNode,
+      this.getNodeCenter(toNode),
+      "source",
+      inferredSourcePort
+    );
+    const resolvedTargetPort = this.getHorizontalFlowConnectionSide(
+      toNode,
+      this.getNodeCenter(fromNode),
+      "target",
+      inferredTargetPort
+    );
 
     const reverseEdge = this.edges.find((edge) => edge.from === to && edge.to === from);
     if (reverseEdge) {
@@ -4758,8 +5656,8 @@ spec:
         id: `edge-${from}-${to}-${crypto.randomUUID()}`,
         from,
         to,
-        sourcePort: inferredSourcePort,
-        targetPort: inferredTargetPort,
+        sourcePort: resolvedSourcePort,
+        targetPort: resolvedTargetPort,
         style
       }
     ];
@@ -4776,17 +5674,12 @@ spec:
       this.isAncestorOfNode(sourceNodeId, targetNodeId);
     const fromTargetPortElement = target?.closest<HTMLElement>("[data-target-port-node-id]") ?? null;
     const fromTargetPortNodeId = fromTargetPortElement?.dataset["targetPortNodeId"] ?? null;
-    if (fromTargetPortNodeId && fromTargetPortNodeId !== sourceNodeId) {
+    const fromTargetPort = this.parseEdgePortSide(fromTargetPortElement?.dataset["portSide"]);
+    if (fromTargetPortNodeId && fromTargetPort && !isImplicitlyInvalidTarget(fromTargetPortNodeId)) {
       return {
         nodeId: fromTargetPortNodeId,
-        targetPort: this.parseEdgePortSide(fromTargetPortElement?.dataset["portSide"])
+        targetPort: fromTargetPort
       };
-    }
-
-    const fromTargetNode =
-      target?.closest<HTMLElement>("[data-node-id]")?.dataset["nodeId"] ?? null;
-    if (fromTargetNode && !isImplicitlyInvalidTarget(fromTargetNode)) {
-      return { nodeId: fromTargetNode, targetPort: null };
     }
 
     const hoveredElements = document.elementsFromPoint(event.clientX, event.clientY);
@@ -4794,30 +5687,15 @@ spec:
       const hovered = hoveredElement as HTMLElement;
       const targetPortElement = hovered.closest<HTMLElement>("[data-target-port-node-id]") ?? null;
       const targetPortNodeId = targetPortElement?.dataset["targetPortNodeId"] ?? null;
-      if (targetPortNodeId && targetPortNodeId !== sourceNodeId) {
+      const targetPort = this.parseEdgePortSide(targetPortElement?.dataset["portSide"]);
+      if (targetPortNodeId && targetPort && !isImplicitlyInvalidTarget(targetPortNodeId)) {
         return {
           nodeId: targetPortNodeId,
-          targetPort: this.parseEdgePortSide(targetPortElement?.dataset["portSide"])
+          targetPort
         };
       }
     }
-
-    for (const hoveredElement of hoveredElements) {
-      const hovered = hoveredElement as HTMLElement;
-      const targetNodeId = hovered.closest<HTMLElement>("[data-node-id]")?.dataset["nodeId"] ?? null;
-      if (targetNodeId && !isImplicitlyInvalidTarget(targetNodeId)) {
-        return { nodeId: targetNodeId, targetPort: null };
-      }
-    }
-
-    const canvasPoint = this.toCanvasPoint(event);
-    const fallbackTargets = this.nodes
-      .filter((node) => !isImplicitlyInvalidTarget(node.id) && this.isVisibleNode(node))
-      .filter((node) => this.containsPoint(node, canvasPoint))
-      .sort((left, right) => this.area(left.size) - this.area(right.size));
-
-    const fallbackNode = fallbackTargets[0];
-    return fallbackNode ? { nodeId: fallbackNode.id, targetPort: null } : null;
+    return null;
   }
 
   private parseEdgePortSide(value: string | undefined): ArchitectureEdgePortSide | null {
@@ -4856,16 +5734,28 @@ spec:
     for (const containerId of lineageIds) {
       const container = this.nodes.find((candidate) => candidate.id === containerId);
       if (!container) continue;
-      if (container.id === node.id || this.isNodeCenterInsideContainer(node, container)) {
+      if (container.id === node.id || this.isNodeInsideContainerContext(node, container)) {
         active.push(container.id);
       }
     }
     return active;
   }
 
-  private isNodeCenterInsideContainer(node: CanvasNode, container: CanvasNode): boolean {
+  private isNodeInsideContainerContext(node: CanvasNode, container: CanvasNode): boolean {
     const center = this.getNodeCenter(node);
-    return this.containsPoint(container, center);
+    if (this.containsPoint(container, center)) return true;
+
+    const nodePosition = this.getAbsolutePosition(node);
+    const containerPosition = this.getAbsolutePosition(container);
+    return this.rectsIntersect(
+      { x: nodePosition.x, y: nodePosition.y, width: node.size.width, height: node.size.height },
+      {
+        x: containerPosition.x,
+        y: containerPosition.y,
+        width: container.size.width,
+        height: container.size.height
+      }
+    );
   }
 
   private isEdgeInsideContainerContext(fromNode: CanvasNode, toNode: CanvasNode): boolean {
@@ -4875,6 +5765,10 @@ spec:
 
     const toSet = new Set(toLineage);
     return fromLineage.some((containerId) => toSet.has(containerId));
+  }
+
+  private isPointInsideAnyVisibleContainer(point: Readonly<{ x: number; y: number }>): boolean {
+    return this.nodes.some((node) => this.rendersAsContainer(node) && this.isVisibleNode(node) && this.containsPoint(node, point));
   }
 
   private isForbiddenContainerHierarchyConnection(fromNode: CanvasNode, toNode: CanvasNode): boolean {
@@ -6132,6 +7026,9 @@ spec:
 
   private markViewChanged(): void {
     this.edgePathDataCache.clear();
+    this.edgeSideLaneOffsetCache.clear();
+    this.edgeLabelDyCache.clear();
+    this.edgeLabelStartOffsetCache.clear();
     if (!this.hasCollapsedNodeForDoubleClickHint()) {
       if (this.showDoubleClickHint) {
         this.showDoubleClickHint = false;
@@ -6153,6 +7050,9 @@ spec:
 
   private markInteractionChanged(): void {
     this.edgePathDataCache.clear();
+    this.edgeSideLaneOffsetCache.clear();
+    this.edgeLabelDyCache.clear();
+    this.edgeLabelStartOffsetCache.clear();
     this.requestViewRender();
   }
 

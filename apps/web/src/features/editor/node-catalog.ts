@@ -405,4 +405,4 @@ export const getDefaultNodeSize = (
     ? { width: 420, height: 280 }
     : kind.startsWith("flow-")
       ? { width: 220, height: 120 }
-      : { width: 136, height: 140 };
+      : { width: 120, height: 124 };
