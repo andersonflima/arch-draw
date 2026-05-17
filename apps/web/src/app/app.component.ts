@@ -2836,6 +2836,8 @@ LIMIT 50;`;
   }
 
   getEdgeProximityIndicatorStyle(): Record<string, string> | null {
+    const selectedContactStyle = this.getSelectedContactAreaIndicatorStyle();
+    if (selectedContactStyle) return selectedContactStyle;
     if (!this.isProximitySuppressionActive()) return null;
     const focusPoint = this.getInteractionFocusPoint();
     if (!focusPoint) return null;
@@ -2844,7 +2846,8 @@ LIMIT 50;`;
       left: `${focusPoint.x - radius}px`,
       top: `${focusPoint.y - radius}px`,
       width: `${radius * 2}px`,
-      height: `${radius * 2}px`
+      height: `${radius * 2}px`,
+      borderRadius: "999px"
     };
   }
 
@@ -2893,6 +2896,41 @@ LIMIT 50;`;
     }
 
     return null;
+  }
+
+  private getSelectedContactAreaIndicatorStyle(): Record<string, string> | null {
+    const selectedNodes = this.selectedNodeIds
+      .map((nodeId) => this.nodes.find((candidate) => candidate.id === nodeId))
+      .filter((node): node is CanvasNode => Boolean(node))
+      .filter((node) => !this.usesLeafConnectionAnchorBox(node));
+    if (selectedNodes.length === 0) return null;
+
+    let left = Number.POSITIVE_INFINITY;
+    let top = Number.POSITIVE_INFINITY;
+    let right = Number.NEGATIVE_INFINITY;
+    let bottom = Number.NEGATIVE_INFINITY;
+
+    for (const node of selectedNodes) {
+      const anchorBox = this.getNodeConnectionAnchorBox(node);
+      const metrics = this.getNodePortMetricsForGeometry(node);
+      const laneHalfThickness = Math.max(3, Math.round(metrics.laneWidth / 2) + 2);
+      left = Math.min(left, anchorBox.center.x - anchorBox.halfWidth - laneHalfThickness);
+      right = Math.max(right, anchorBox.center.x + anchorBox.halfWidth + laneHalfThickness);
+      top = Math.min(top, anchorBox.center.y - anchorBox.halfHeight - laneHalfThickness);
+      bottom = Math.max(bottom, anchorBox.center.y + anchorBox.halfHeight + laneHalfThickness);
+    }
+
+    if (!Number.isFinite(left) || !Number.isFinite(top) || !Number.isFinite(right) || !Number.isFinite(bottom)) {
+      return null;
+    }
+
+    return {
+      left: `${left}px`,
+      top: `${top}px`,
+      width: `${Math.max(1, right - left)}px`,
+      height: `${Math.max(1, bottom - top)}px`,
+      borderRadius: "10px"
+    };
   }
 
   private isEdgeTouchingActiveContactArea(edge: CanvasEdge): boolean {
