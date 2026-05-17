@@ -206,8 +206,8 @@ const DEFAULT_NODE_ICON_FONT_SIZE = 14;
 const DEFAULT_LEAF_ICON_FONT_SIZE = 40;
 const MIN_NODE_PORT_HIT_WIDTH = 26;
 const MAX_NODE_PORT_HIT_WIDTH = 48;
-const MIN_NODE_PORT_INSET = 2;
-const MAX_NODE_PORT_INSET = 12;
+const MIN_NODE_PORT_INSET = 0;
+const MAX_NODE_PORT_INSET = 8;
 const MIN_NODE_PORT_DOT_SIZE = 12;
 const MAX_NODE_PORT_DOT_SIZE = 18;
 const MIN_NODE_PORT_OMNI_SIZE = 24;
@@ -2679,13 +2679,13 @@ LIMIT 50;`;
       Math.min(MAX_NODE_PORT_HIT_WIDTH, Math.max(MIN_NODE_PORT_HIT_WIDTH, nodePortScaleBasis * 0.24))
     );
     const nodePortInset = Math.round(
-      Math.min(MAX_NODE_PORT_INSET, Math.max(MIN_NODE_PORT_INSET, nodePortScaleBasis * 0.06))
+      Math.min(MAX_NODE_PORT_INSET, Math.max(MIN_NODE_PORT_INSET, nodePortScaleBasis * 0.035))
     );
     const nodePortDotSize = Math.round(
       Math.min(MAX_NODE_PORT_DOT_SIZE, Math.max(MIN_NODE_PORT_DOT_SIZE, nodePortHitWidth * 0.48))
     );
     const nodePortEdgeOffset = nodePortDotSize + 1;
-    const nodePortLaneInset = Math.round(Math.max(4, Math.min(10, nodePortInset * 0.8)));
+    const nodePortLaneInset = Math.round(Math.max(0, Math.min(6, nodePortInset * 0.6)));
     const nodePortLaneWidth = Math.round(Math.max(4, Math.min(8, nodePortHitWidth * 0.24)));
     const nodePortMinHeight = Math.round(Math.max(36, nodePortHitWidth + 14));
     const nodePortOmniSize = Math.round(
