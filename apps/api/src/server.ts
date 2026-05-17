@@ -17,6 +17,7 @@ import {
 import { createRequestRateLimiter } from "./http/request-rate-limiter";
 import { createRedisClient } from "./infra/redis/redis-client";
 import { parseCookies } from "./http/cookies";
+import { createCollaborationHub } from "./http/realtime/collaboration-hub";
 
 export const createServer = async (config: AppConfig) => {
   const app = Fastify({
@@ -38,6 +39,7 @@ export const createServer = async (config: AppConfig) => {
   );
   const googleAuth = await createGoogleAuth(config, redisClient);
   const connection = await createSqliteConnection(config.databasePath);
+  const collaborationHub = createCollaborationHub();
 
   runMigrations(connection);
 
@@ -57,7 +59,8 @@ export const createServer = async (config: AppConfig) => {
     repository: makeSqliteArchitectureRepository(connection),
     clock: systemClock,
     idGenerator: cryptoIdGenerator,
-    forceSecureCookies: config.forceSecureCookies
+    forceSecureCookies: config.forceSecureCookies,
+    collaborationHub
   });
 
   app.get("/auth/session", async (request) => {

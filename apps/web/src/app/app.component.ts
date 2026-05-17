@@ -14,7 +14,13 @@ import {
   type ArchitectureNode,
   type ArchitectureNodeKind
 } from "@arch-draw/domain";
-import { api, type ArchitectureSummary, type AuthenticatedUser } from "../api/client";
+import {
+  API_BASE_URL,
+  api,
+  type ArchitectureSummary,
+  type AuthenticatedUser,
+  type SharedRealtimeEvent
+} from "../api/client";
 import { parseImportToSharePackage } from "../features/import/diagram-import";
 import {
   exportArchitectureToDrawIo,
@@ -142,6 +148,23 @@ type PaletteCategoryGroup = Readonly<{
   templates: readonly NodeTemplate[];
 }>;
 
+type CollaborationSessionState = Readonly<{
+  shareId: string;
+  clientId: string;
+  displayName: string;
+  color: string;
+}>;
+
+type RemoteCollaboratorCursor = Readonly<{
+  clientId: string;
+  displayName: string;
+  color: string;
+  x: number;
+  y: number;
+  visible: boolean;
+  updatedAt: number;
+}>;
+
 type EdgePathData = Readonly<{
   points: readonly EdgePoint[];
   style: ArchitectureEdgeStyle;
@@ -210,6 +233,9 @@ const AUTOSAVE_XL_COMPLEXITY_THRESHOLD = 1200;
 const ERROR_TOAST_DISMISS_MS = 6000;
 const SUCCESS_TOAST_DISMISS_MS = 3200;
 const AUTO_SAVE_TOAST_THROTTLE_MS = 8000;
+const COLLAB_SYNC_DEBOUNCE_MS = 220;
+const COLLAB_CURSOR_THROTTLE_MS = 80;
+const COLLAB_CURSOR_STALE_MS = 12_000;
 const DOUBLE_CLICK_HINT_INTERVAL_MS = 24000;
 const DOUBLE_CLICK_HINT_VISIBLE_MS = 5000;
 const CODE_SNIPPET_COLLAPSED_SIZE = { width: 172, height: 176 } as const;
@@ -293,6 +319,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "toolbar.example": "Exemplo",
     "toolbar.save": "Salvar",
     "toolbar.export": "Exportar",
+    "toolbar.share": "Compartilhar",
     "toolbar.tutorial": "Tutorial",
     "toolbar.import": "Importar",
     "toolbar.clear": "Limpar",
@@ -325,6 +352,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "toast.autoSaved": "Auto save concluido!",
     "toast.missionComplete": "Missão completa!",
     "toast.memoryCleared": "Memória limpa!",
+    "toast.shareLinkCopied": "Link de compartilhamento copiado!",
     "toast.close": "Fechar notificação",
     "toast.closeError": "Fechar erro",
     "auth.secureAccess": "Acesso seguro",
@@ -399,6 +427,8 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "status.noDiagramFound": "Nenhum diagrama encontrado",
     "status.architectureImported": "Arquitetura importada",
     "status.architectureLoaded": "Arquitetura carregada",
+    "status.sharedArchitectureLoaded": "Sessão compartilhada conectada",
+    "status.shareLinkCreated": "Link de compartilhamento criado",
     "status.loginRequired": "Login necessário",
     "status.linkContainerInternalDenied": "Vínculo entre container e elemento interno não é permitido",
     "status.undone": "Desfeito",
@@ -424,6 +454,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "aria.completeExample": "Criar exemplo completo",
     "aria.save": "Salvar",
     "aria.export": "Exportar diagramas",
+    "aria.share": "Compartilhar arquivo atual",
     "aria.tutorials": "Tutoriais guiados",
     "aria.import": "Importar",
     "aria.clear": "Apagar item selecionado ou limpar board"
@@ -433,6 +464,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "toolbar.example": "Example",
     "toolbar.save": "Save",
     "toolbar.export": "Export",
+    "toolbar.share": "Share",
     "toolbar.tutorial": "Tutorial",
     "toolbar.import": "Import",
     "toolbar.clear": "Clear",
@@ -465,6 +497,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "toast.autoSaved": "Auto save completed!",
     "toast.missionComplete": "Mission complete!",
     "toast.memoryCleared": "Memory card cleared!",
+    "toast.shareLinkCopied": "Share link copied!",
     "toast.close": "Close notification",
     "toast.closeError": "Close error",
     "auth.secureAccess": "Secure Access",
@@ -539,6 +572,8 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "status.noDiagramFound": "No diagram found",
     "status.architectureImported": "Architecture imported",
     "status.architectureLoaded": "Architecture loaded",
+    "status.sharedArchitectureLoaded": "Shared session connected",
+    "status.shareLinkCreated": "Share link created",
     "status.loginRequired": "Login required",
     "status.linkContainerInternalDenied": "Link between container and internal element is not allowed",
     "status.undone": "Undone",
@@ -564,6 +599,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "aria.completeExample": "Create complete example",
     "aria.save": "Save",
     "aria.export": "Export diagrams",
+    "aria.share": "Share current file",
     "aria.tutorials": "Guided tutorials",
     "aria.import": "Import",
     "aria.clear": "Delete selected item or clear board"
@@ -1457,6 +1493,8 @@ export class AppComponent implements OnDestroy {
   activeTutorialId: string | null = null;
   activeTutorialStepIndex = 0;
   tutorialStepClickSatisfied = false;
+  collaborationSession: CollaborationSessionState | null = null;
+  remoteCollaboratorCursors: readonly RemoteCollaboratorCursor[] = [];
 
   private dragState: DragState | null = null;
   private panState: PanState | null = null;
@@ -1474,6 +1512,13 @@ export class AppComponent implements OnDestroy {
   private doubleClickHintBootTimer: ReturnType<typeof setTimeout> | null = null;
   private doubleClickHintInterval: ReturnType<typeof setInterval> | null = null;
   private doubleClickHintTimer: ReturnType<typeof setTimeout> | null = null;
+  private collaborationStream: EventSource | null = null;
+  private collaborationSyncTimer: ReturnType<typeof setTimeout> | null = null;
+  private collaborationSyncInFlight = false;
+  private collaborationSyncQueued = false;
+  private collaborationApplyingRemoteDocument = false;
+  private lastCollaborationSignature = "";
+  private lastCursorPublishedAt = 0;
   private readonly nodeInlineCodeDrafts = new Map<string, string>();
   private autoSaveInFlight = false;
   private autoSaveQueued = false;
@@ -1520,6 +1565,8 @@ export class AppComponent implements OnDestroy {
       clearTimeout(this.successToastTimer);
       this.successToastTimer = null;
     }
+    this.disconnectCollaborationStream();
+    this.cancelCollaborationSync();
     this.cancelViewportCheckpointPersist();
     this.persistViewportCheckpointNow();
   }
@@ -1610,6 +1657,7 @@ export class AppComponent implements OnDestroy {
   async createArchitecture(): Promise<void> {
     await this.runSafely(async () => {
       this.cancelAutoSave();
+      this.disconnectCollaborationSession();
       const created = await api.createArchitecture(this.t("title.newArchitecture"));
       this.updateCurrent(created);
       await this.refreshSummaries();
@@ -1620,6 +1668,7 @@ export class AppComponent implements OnDestroy {
   async createCompleteExampleArchitecture(): Promise<void> {
     await this.runSafely(async () => {
       this.cancelAutoSave();
+      this.disconnectCollaborationSession();
       const created = await api.createArchitecture(this.t("title.demoTemplate"));
       const seeded = this.createFirstAccessArchitectureTemplate(created);
       const saved = await api.saveArchitecture(seeded);
@@ -1632,6 +1681,7 @@ export class AppComponent implements OnDestroy {
   async createStressTestArchitecture(): Promise<void> {
     await this.runSafely(async () => {
       this.cancelAutoSave();
+      this.disconnectCollaborationSession();
       const created = await api.createArchitecture(this.t("title.stressTemplate"));
       const seeded = this.createStressTestArchitectureTemplate(created);
       const saved = await api.saveArchitecture(seeded);
@@ -1923,6 +1973,7 @@ export class AppComponent implements OnDestroy {
     if (!file) return;
     await this.runSafely(async () => {
       this.cancelAutoSave();
+      this.disconnectCollaborationSession();
       const text = await file.text();
       const sharePackage = await parseImportToSharePackage({
         fileName: file.name,
@@ -1939,10 +1990,40 @@ export class AppComponent implements OnDestroy {
 
   async loadArchitecture(id: string): Promise<void> {
     this.cancelAutoSave();
+    this.disconnectCollaborationSession();
     const loaded = await api.readArchitecture(id);
     this.updateCurrent(loaded);
     this.status = this.t("status.architectureLoaded");
     this.markViewChanged();
+  }
+
+  async createShareLink(): Promise<void> {
+    await this.runSafely(async () => {
+      if (!this.architecture) return;
+      const shared = await api.createArchitectureShare(this.architecture.id);
+      const shareUrl = `${window.location.origin}${shared.sharePath}`;
+      await this.copyToClipboard(shareUrl);
+      if (!this.collaborationSession || this.collaborationSession.shareId !== shared.shareId) {
+        await this.loadSharedArchitecture(shared.shareId);
+      }
+      this.status = this.t("status.shareLinkCreated");
+      this.showSuccessToast("toast.shareLinkCopied");
+    });
+  }
+
+  getVisibleRemoteCollaboratorCursors(): readonly RemoteCollaboratorCursor[] {
+    const now = Date.now();
+    return this.remoteCollaboratorCursors.filter((cursor) =>
+      cursor.visible && now - cursor.updatedAt <= COLLAB_CURSOR_STALE_MS
+    );
+  }
+
+  getRemoteCursorStyle(cursor: RemoteCollaboratorCursor): Record<string, string> {
+    return {
+      left: `${cursor.x}px`,
+      top: `${cursor.y}px`,
+      "--cursor-color": cursor.color
+    };
   }
 
   updateTitle(title: string): void {
@@ -3191,6 +3272,8 @@ LIMIT 50;`;
 
   @HostListener("window:pointermove", ["$event"])
   onWindowPointerMove(event: PointerEvent): void {
+    this.maybePublishCollaborationCursor(event);
+
     if (this.miniMapDragState) {
       const miniMapElement = this.miniMap?.nativeElement;
       if (!miniMapElement) return;
@@ -4353,6 +4436,12 @@ LIMIT 50;`;
         return;
       }
 
+      const shareId = this.resolveShareIdFromUrl();
+      if (shareId) {
+        await this.loadSharedArchitecture(shareId);
+        return;
+      }
+
       const existing = await api.listArchitectures();
       const targetId = existing[0]?.id ?? null;
       if (!targetId) {
@@ -4372,6 +4461,64 @@ LIMIT 50;`;
     this.isAuthenticated = session.authenticated;
     this.authenticatedUser = session.user;
     if (session.authenticated) this.loginError = "";
+  }
+
+  private resolveShareIdFromUrl(): string | null {
+    try {
+      const value = new URL(window.location.href).searchParams.get("share");
+      if (!value) return null;
+      const normalized = value.trim();
+      if (!normalized) return null;
+      return normalized;
+    } catch {
+      return null;
+    }
+  }
+
+  private resolveCollaborationDisplayName(): string {
+    const userName = this.authenticatedUser?.name?.trim();
+    if (userName) return userName.slice(0, 96);
+    const suffix = this.resolveCollaborationClientId().slice(-4);
+    return `Editor ${suffix}`;
+  }
+
+  private resolveCollaborationClientId(): string {
+    try {
+      const storageKey = "arch-draw.collab-client-id";
+      const existing = localStorage.getItem(storageKey)?.trim();
+      if (existing && /^[a-zA-Z0-9_-]{6,120}$/.test(existing)) return existing;
+      const created = crypto.randomUUID().replaceAll("-", "");
+      localStorage.setItem(storageKey, created);
+      return created;
+    } catch {
+      return crypto.randomUUID().replaceAll("-", "");
+    }
+  }
+
+  private resolveCollaborationColor(clientId: string): string {
+    const palette = ["#f97316", "#0ea5e9", "#22c55e", "#f43f5e", "#a855f7", "#14b8a6", "#f59e0b"];
+    let hash = 0;
+    for (let index = 0; index < clientId.length; index += 1) {
+      hash = (hash * 31 + clientId.charCodeAt(index)) >>> 0;
+    }
+    return palette[hash % palette.length] ?? "#f97316";
+  }
+
+  private async loadSharedArchitecture(shareId: string): Promise<void> {
+    this.cancelAutoSave();
+    this.disconnectCollaborationSession();
+    const loaded = await api.readSharedArchitecture(shareId);
+    this.updateCurrent(loaded);
+    const clientId = this.resolveCollaborationClientId();
+    this.collaborationSession = {
+      shareId,
+      clientId,
+      displayName: this.resolveCollaborationDisplayName(),
+      color: this.resolveCollaborationColor(clientId)
+    };
+    this.connectCollaborationStream();
+    this.status = this.t("status.sharedArchitectureLoaded");
+    this.markViewChanged();
   }
 
   private captureAuthErrorFromUrl(): void {
@@ -4885,6 +5032,7 @@ spec:
     this.nodeInlineCodeDrafts.clear();
     this.cancelAutoSave();
     this.lastPersistedSignature = this.buildPersistenceSignature();
+    this.lastCollaborationSignature = this.lastPersistedSignature;
     this.applyPreferredInitialViewport(normalized);
     this.resetHistory();
     void this.renderMermaid();
@@ -4892,6 +5040,7 @@ spec:
   }
 
   private clearCurrentArchitecture(): void {
+    this.disconnectCollaborationSession();
     this.cancelViewportCheckpointPersist();
     this.persistViewportCheckpointNow();
     this.architecture = null;
@@ -4910,6 +5059,7 @@ spec:
     this.cancelAutoSave();
     this.lastViewportCheckpointSignature = "";
     this.lastPersistedSignature = "";
+    this.lastCollaborationSignature = "";
     this.lastCanvasTopologySignature = this.buildCanvasTopologySignature();
     this.resetHistory();
     void this.renderMermaid();
@@ -7158,7 +7308,272 @@ spec:
     return target.closest("[contenteditable='true']") !== null;
   }
 
+  private disconnectCollaborationSession(): void {
+    this.disconnectCollaborationStream();
+    this.cancelCollaborationSync();
+    this.collaborationSession = null;
+    this.remoteCollaboratorCursors = [];
+    this.lastCollaborationSignature = "";
+    this.lastCursorPublishedAt = 0;
+  }
+
+  private connectCollaborationStream(): void {
+    const session = this.collaborationSession;
+    if (!session) return;
+    this.disconnectCollaborationStream();
+
+    const streamUrl = new URL(`${API_BASE_URL}/architectures/shared/${encodeURIComponent(session.shareId)}/events`);
+    streamUrl.searchParams.set("clientId", session.clientId);
+    streamUrl.searchParams.set("displayName", session.displayName);
+    streamUrl.searchParams.set("color", session.color);
+    const source = new EventSource(streamUrl.toString(), { withCredentials: true });
+
+    source.addEventListener("snapshot", (event) => {
+      const parsed = this.parseJsonPayload(event);
+      const architecture = parsed?.["architecture"] as ArchitectureDocument | undefined;
+      if (architecture) {
+        this.collaborationApplyingRemoteDocument = true;
+        try {
+          this.updateCurrent(architecture);
+          this.lastCollaborationSignature = this.buildPersistenceSignature();
+        } finally {
+          this.collaborationApplyingRemoteDocument = false;
+        }
+      }
+      const participants = parsed?.["participants"];
+      if (Array.isArray(participants)) {
+        const normalizedParticipants = participants
+          .map((participant) => {
+            if (!participant || typeof participant !== "object") return null;
+            const candidate = participant as Record<string, unknown>;
+            const clientId = typeof candidate["clientId"] === "string" ? candidate["clientId"] : null;
+            const displayName = typeof candidate["displayName"] === "string" ? candidate["displayName"] : null;
+            const color = typeof candidate["color"] === "string" ? candidate["color"] : null;
+            const joinedAt = typeof candidate["joinedAt"] === "string" ? candidate["joinedAt"] : "";
+            const lastSeenAt = typeof candidate["lastSeenAt"] === "string" ? candidate["lastSeenAt"] : "";
+            if (!clientId || !displayName || !color) return null;
+            return { clientId, displayName, color, joinedAt, lastSeenAt };
+          })
+          .filter((value): value is {
+            clientId: string;
+            displayName: string;
+            color: string;
+            joinedAt: string;
+            lastSeenAt: string;
+          } => value !== null);
+        this.handlePresenceEvent({
+          type: "presence",
+          participants: normalizedParticipants
+        });
+      }
+    });
+
+    source.addEventListener("event", (event) => {
+      const parsed = this.parseJsonPayload(event) as SharedRealtimeEvent | null;
+      if (!parsed || typeof parsed !== "object" || !("type" in parsed)) return;
+      this.handleSharedRealtimeEvent(parsed);
+    });
+
+    source.onerror = () => {
+      this.status = this.t("status.operationFailed");
+      this.requestViewRender();
+    };
+
+    this.collaborationStream = source;
+  }
+
+  private disconnectCollaborationStream(): void {
+    if (!this.collaborationStream) return;
+    this.collaborationStream.close();
+    this.collaborationStream = null;
+  }
+
+  private parseJsonPayload(event: Event): Record<string, unknown> | null {
+    const message = event as MessageEvent<string>;
+    const raw = typeof message.data === "string" ? message.data.trim() : "";
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  }
+
+  private handleSharedRealtimeEvent(event: SharedRealtimeEvent): void {
+    const session = this.collaborationSession;
+    if (!session) return;
+    if (event.type === "presence") {
+      this.handlePresenceEvent(event);
+      return;
+    }
+    if (event.type === "cursor") {
+      if (event.clientId === session.clientId) return;
+      this.upsertRemoteCursor({
+        clientId: event.clientId,
+        displayName: event.displayName,
+        color: event.color,
+        x: event.x,
+        y: event.y,
+        visible: event.visible,
+        updatedAt: Date.now()
+      });
+      return;
+    }
+    if (event.type === "document") {
+      if (event.clientId === session.clientId) return;
+      void this.pullSharedArchitectureSnapshot(session.shareId);
+    }
+  }
+
+  private handlePresenceEvent(
+    event: Extract<SharedRealtimeEvent, { type: "presence" }>
+  ): void {
+    const session = this.collaborationSession;
+    if (!session) return;
+    const participantIds = new Set(event.participants.map((participant) => participant.clientId));
+    this.remoteCollaboratorCursors = this.remoteCollaboratorCursors
+      .filter((cursor) => participantIds.has(cursor.clientId) && cursor.clientId !== session.clientId);
+    this.requestViewRender();
+  }
+
+  private upsertRemoteCursor(cursor: RemoteCollaboratorCursor): void {
+    const next = [...this.remoteCollaboratorCursors];
+    const index = next.findIndex((current) => current.clientId === cursor.clientId);
+    if (index >= 0) {
+      next[index] = cursor;
+    } else {
+      next.push(cursor);
+    }
+    this.remoteCollaboratorCursors = next;
+    this.requestViewRender();
+  }
+
+  private scheduleCollaborationSync(): void {
+    if (!this.collaborationSession || !this.architecture) return;
+    if (this.collaborationApplyingRemoteDocument) return;
+    const signature = this.buildPersistenceSignature();
+    if (signature === this.lastCollaborationSignature) return;
+
+    if (this.collaborationSyncInFlight) {
+      this.collaborationSyncQueued = true;
+      return;
+    }
+
+    if (this.collaborationSyncTimer) clearTimeout(this.collaborationSyncTimer);
+    this.collaborationSyncTimer = setTimeout(() => {
+      this.collaborationSyncTimer = null;
+      void this.pushSharedArchitectureSnapshot();
+    }, COLLAB_SYNC_DEBOUNCE_MS);
+  }
+
+  private cancelCollaborationSync(): void {
+    if (this.collaborationSyncTimer) {
+      clearTimeout(this.collaborationSyncTimer);
+      this.collaborationSyncTimer = null;
+    }
+    this.collaborationSyncQueued = false;
+  }
+
+  private async pushSharedArchitectureSnapshot(): Promise<void> {
+    const session = this.collaborationSession;
+    if (!session || !this.architecture) return;
+    if (this.collaborationApplyingRemoteDocument) return;
+    const signature = this.buildPersistenceSignature();
+    if (signature === this.lastCollaborationSignature) return;
+
+    if (this.collaborationSyncInFlight) {
+      this.collaborationSyncQueued = true;
+      return;
+    }
+
+    this.collaborationSyncInFlight = true;
+    try {
+      const document = toArchitectureDocument(
+        { ...this.architecture, mermaidSource: this.mermaidDraft },
+        this.nodes,
+        this.edges
+      );
+      const saved = await api.saveSharedArchitecture(session.shareId, document, {
+        clientId: session.clientId
+      });
+      this.architecture = {
+        ...this.architecture,
+        title: saved.title,
+        description: saved.description,
+        createdAt: saved.createdAt,
+        updatedAt: saved.updatedAt,
+        mermaidSource: this.mermaidDraft
+      };
+      this.lastPersistedSignature = this.buildPersistenceSignature();
+      this.lastCollaborationSignature = this.lastPersistedSignature;
+      this.upsertCurrentSummary(saved.updatedAt);
+    } finally {
+      this.collaborationSyncInFlight = false;
+      if (this.collaborationSyncQueued) {
+        this.collaborationSyncQueued = false;
+        this.scheduleCollaborationSync();
+      }
+    }
+  }
+
+  private async pullSharedArchitectureSnapshot(shareId: string): Promise<void> {
+    const activeShareId = this.collaborationSession?.shareId;
+    if (!activeShareId || activeShareId !== shareId) return;
+    const remote = await api.readSharedArchitecture(shareId);
+    if (remote.id !== this.architecture?.id) return;
+    this.collaborationApplyingRemoteDocument = true;
+    try {
+      this.updateCurrent(remote);
+      this.lastCollaborationSignature = this.buildPersistenceSignature();
+    } finally {
+      this.collaborationApplyingRemoteDocument = false;
+    }
+  }
+
+  private maybePublishCollaborationCursor(event: PointerEvent): void {
+    const session = this.collaborationSession;
+    if (!session) return;
+    const now = Date.now();
+    if (now - this.lastCursorPublishedAt < COLLAB_CURSOR_THROTTLE_MS) return;
+    const rect = this.canvasShell?.nativeElement.getBoundingClientRect();
+    if (!rect) return;
+    const inside =
+      event.clientX >= rect.left &&
+      event.clientX <= rect.right &&
+      event.clientY >= rect.top &&
+      event.clientY <= rect.bottom;
+    if (!inside) return;
+
+    this.lastCursorPublishedAt = now;
+    const point = this.toCanvasPoint(event);
+    void api.publishSharedCursor(session.shareId, {
+      clientId: session.clientId,
+      displayName: session.displayName,
+      color: session.color,
+      x: point.x,
+      y: point.y,
+      visible: true
+    }).catch(() => undefined);
+  }
+
+  private async copyToClipboard(content: string): Promise<void> {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(content);
+      return;
+    }
+    const helper = document.createElement("textarea");
+    helper.value = content;
+    helper.setAttribute("readonly", "true");
+    helper.style.position = "fixed";
+    helper.style.left = "-99999px";
+    document.body.appendChild(helper);
+    helper.select();
+    document.execCommand("copy");
+    helper.remove();
+  }
+
   private scheduleAutoSave(): void {
+    if (this.collaborationSession) return;
     if (!this.architecture) return;
     const signature = this.buildPersistenceSignature();
     if (signature === this.lastPersistedSignature) return;
@@ -7351,7 +7766,11 @@ spec:
         this.nodes,
         this.edges
       );
-      const saved = await api.saveArchitecture(document);
+      const saved = this.collaborationSession
+        ? await api.saveSharedArchitecture(this.collaborationSession.shareId, document, {
+            clientId: this.collaborationSession.clientId
+          })
+        : await api.saveArchitecture(document);
       this.architecture = {
         ...this.architecture,
         title: saved.title,
@@ -7361,6 +7780,7 @@ spec:
         mermaidSource: this.mermaidDraft
       };
       this.lastPersistedSignature = this.buildPersistenceSignature();
+      this.lastCollaborationSignature = this.lastPersistedSignature;
       this.upsertCurrentSummary(saved.updatedAt);
 
       if (mode === "auto") {
@@ -8766,7 +9186,11 @@ spec:
     }
     this.syncMermaidFromCanvasIfNeeded();
     this.recordHistory();
-    this.scheduleAutoSave();
+    if (this.collaborationSession) {
+      this.scheduleCollaborationSync();
+    } else {
+      this.scheduleAutoSave();
+    }
     this.scheduleViewportCheckpointPersist();
     this.requestViewRender();
   }
