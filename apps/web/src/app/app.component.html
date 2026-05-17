@@ -1,6 +1,6 @@
 <ng-container *ngIf="authChecked; else sessionBoot">
 <ng-container *ngIf="!authEnabled || isAuthenticated; else loginGate">
-<div class="app-shell" [class.theme-dark]="isDarkMode">
+<div class="app-shell" [class.theme-dark]="isDarkMode" [class.app-shell--tutorial-lock]="isTutorialActive()">
   <header class="topbar">
     <div class="brand-lockup">
       <img class="brand-logo" src="assets/brand/logo-mark.svg" alt="Arch Draw" />
@@ -18,9 +18,9 @@
     />
 
     <div class="toolbar">
-      <button class="toolbar-action" type="button" [title]="t('aria.newArchitecture')" [attr.aria-label]="t('aria.newArchitecture')" (click)="createArchitecture()">{{ t("toolbar.new") }}</button>
-      <button class="toolbar-action" type="button" [title]="t('aria.completeExample')" [attr.aria-label]="t('aria.completeExample')" (click)="createCompleteExampleArchitecture()">{{ t("toolbar.example") }}</button>
-      <button class="toolbar-action" type="button" [title]="t('aria.save')" [attr.aria-label]="t('aria.save')" (click)="saveCurrent()">{{ t("toolbar.save") }}</button>
+      <button class="toolbar-action" data-tour="toolbar-new" type="button" [title]="t('aria.newArchitecture')" [attr.aria-label]="t('aria.newArchitecture')" (click)="createArchitecture()">{{ t("toolbar.new") }}</button>
+      <button class="toolbar-action" data-tour="toolbar-example" type="button" [title]="t('aria.completeExample')" [attr.aria-label]="t('aria.completeExample')" (click)="createCompleteExampleArchitecture()">{{ t("toolbar.example") }}</button>
+      <button class="toolbar-action" data-tour="toolbar-save" type="button" [title]="t('aria.save')" [attr.aria-label]="t('aria.save')" (click)="saveCurrent()">{{ t("toolbar.save") }}</button>
       <details class="toolbar-dropdown">
         <summary class="toolbar-action toolbar-dropdown__trigger" [title]="t('aria.share')" [attr.aria-label]="t('aria.share')">
           {{ t("toolbar.share") }}
@@ -31,7 +31,7 @@
         </div>
       </details>
       <details class="toolbar-dropdown">
-        <summary class="toolbar-action toolbar-dropdown__trigger" [title]="t('aria.export')" [attr.aria-label]="t('aria.export')">
+        <summary class="toolbar-action toolbar-dropdown__trigger" data-tour="toolbar-export" [title]="t('aria.export')" [attr.aria-label]="t('aria.export')">
           {{ t("toolbar.export") }}
         </summary>
         <div class="toolbar-dropdown__menu">
@@ -60,7 +60,7 @@
           </button>
         </div>
       </details>
-      <button class="toolbar-action" type="button" [title]="t('aria.import')" [attr.aria-label]="t('aria.import')" (click)="openImport()">{{ t("toolbar.import") }}</button>
+      <button class="toolbar-action" data-tour="toolbar-import" type="button" [title]="t('aria.import')" [attr.aria-label]="t('aria.import')" (click)="openImport()">{{ t("toolbar.import") }}</button>
       <button
         class="toolbar-action"
         type="button"
@@ -73,6 +73,7 @@
       </button>
       <button
         class="toolbar-action"
+        data-tour="toolbar-clear"
         type="button"
         [title]="t('aria.clear')"
         [attr.aria-label]="t('aria.clear')"
@@ -128,10 +129,34 @@
       </button>
     </div>
     <p class="tutorial-panel__description">{{ activeTutorial.description }}</p>
-    <ol class="tutorial-panel__steps">
-      <li *ngFor="let step of activeTutorial.steps">{{ step.text }}</li>
-    </ol>
+    <p class="tutorial-panel__progress">{{ getTutorialStepProgressLabel() }}</p>
+    <p class="tutorial-panel__step">{{ getTutorialCurrentStepText() }}</p>
+    <p *ngIf="shouldShowTutorialPendingClick()" class="tutorial-panel__pending">{{ t("tutorial.pendingClick") }}</p>
+    <div class="tutorial-panel__actions">
+      <button
+        class="secondary-action"
+        type="button"
+        [disabled]="activeTutorialStepIndex <= 0"
+        (click)="previousTutorialStep()"
+      >
+        {{ t("tutorial.previous") }}
+      </button>
+      <button
+        class="primary-action"
+        type="button"
+        [disabled]="!canAdvanceTutorialStep()"
+        (click)="nextTutorialStep()"
+      >
+        {{ isLastTutorialStep() ? t("tutorial.finish") : t("tutorial.next") }}
+      </button>
+    </div>
   </aside>
+  <div
+    *ngIf="isTutorialActive() && getTutorialSpotlightStyle() as tutorialSpotlightStyle"
+    class="tutorial-spotlight"
+    [ngStyle]="tutorialSpotlightStyle"
+    aria-hidden="true"
+  ></div>
 
   <div class="workspace">
     <nav class="sidebar">
@@ -172,7 +197,7 @@
       </footer>
     </nav>
 
-    <aside class="palette" [attr.aria-label]="t('palette.aria')">
+    <aside class="palette" data-tour="palette" [attr.aria-label]="t('palette.aria')">
       <div class="panel-heading">
         <div>
           <span>{{ t("palette.title") }}</span>
@@ -221,6 +246,7 @@
     <main
       #canvasShell
       class="canvas-shell"
+      data-tour="canvas-shell"
       [class.canvas-shell--grabbing]="isPointerDragging()"
       (click)="onCanvasClick($event)"
       (pointerdown)="onCanvasPointerDown($event)"
@@ -254,7 +280,7 @@
               orient="0"
               markerUnits="userSpaceOnUse"
             >
-              <path d="M 0 0 L 9 4.5 L 0 9 z" fill="context-stroke"></path>
+              <path d="M 0 0 L 9 4.5 L 0 9 z" fill="currentColor"></path>
             </marker>
             <marker
               id="edge-arrow-left"
@@ -266,7 +292,7 @@
               orient="0"
               markerUnits="userSpaceOnUse"
             >
-              <path d="M 9 0 L 0 4.5 L 9 9 z" fill="context-stroke"></path>
+              <path d="M 9 0 L 0 4.5 L 9 9 z" fill="currentColor"></path>
             </marker>
             <clipPath
               *ngFor="let containerNode of getEdgeClipContainers()"
@@ -301,6 +327,7 @@
               [attr.id]="'edge-path-' + edge.id"
               [attr.d]="getEdgePath(edge)"
               [attr.stroke]="getEdgeColor(edge)"
+              [attr.color]="getEdgeColor(edge)"
               [attr.stroke-dasharray]="getEdgeDash(edge)"
               [attr.marker-start]="getEdgeStartMarker(edge)"
               [attr.marker-end]="getEdgeEndMarker(edge)"
@@ -400,6 +427,7 @@
             *ngIf="getConnectionPreviewPath() as previewPath"
             class="canvas-edge canvas-edge-preview"
             [attr.d]="previewPath"
+            color="#2563eb"
             [attr.marker-end]="getConnectionPreviewMarkerEnd()"
           />
           <ng-container *ngFor="let node of getLeafLabelKnockoutNodes()">
@@ -608,7 +636,7 @@
       </div>
 
       <section class="canvas-map" [attr.aria-label]="t('map.aria')" (click)="$event.stopPropagation()">
-        <div #miniMap class="mini-map" (pointerdown)="onMiniMapPointerDown($event)">
+        <div #miniMap class="mini-map" data-tour="mini-map" (pointerdown)="onMiniMapPointerDown($event)">
           <ng-container *ngFor="let node of nodes">
             <span
               *ngIf="isVisibleNode(node)"
@@ -623,7 +651,7 @@
           ></span>
         </div>
         <p class="mini-map-legend">{{ t("map.currentView") }}</p>
-        <div class="zoom-controls">
+        <div class="zoom-controls" data-tour="zoom-controls">
           <button class="icon-button" type="button" [title]="t('map.zoomOut')" (click)="zoomOut()">-</button>
           <button class="zoom-value" type="button" [title]="t('map.zoomReset')" (click)="resetZoom()">{{ getZoomPercent() }}%</button>
           <button class="icon-button" type="button" [title]="t('map.zoomIn')" (click)="zoomIn()">+</button>
@@ -632,6 +660,7 @@
 
       <section
         class="context-properties-popup"
+        data-tour="properties-popup"
         *ngIf="contextPropertiesPanel && (selectedNode || selectedEdge)"
         [ngStyle]="getContextPropertiesPanelStyle()"
         (click)="$event.stopPropagation()"

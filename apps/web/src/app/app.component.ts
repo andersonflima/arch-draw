@@ -1552,6 +1552,8 @@ export class AppComponent implements OnDestroy {
   private readonly edgeSideLaneOffsetCache = new Map<string, number>();
   private readonly edgeLabelDyCache = new Map<string, number>();
   private readonly edgeLabelStartOffsetCache = new Map<string, string>();
+  private tutorialActiveTargetSelector: string | null = null;
+  private tutorialActiveTargetElement: HTMLElement | null = null;
 
   constructor(
     private readonly changeDetectorRef: ChangeDetectorRef
@@ -1585,6 +1587,7 @@ export class AppComponent implements OnDestroy {
     this.cancelCollaborationSync();
     this.cancelViewportCheckpointPersist();
     this.persistViewportCheckpointNow();
+    this.clearTutorialTargetHighlight();
   }
 
   get selectedNode(): CanvasNode | null {
@@ -1791,7 +1794,9 @@ export class AppComponent implements OnDestroy {
     event?.stopPropagation();
     this.activeTutorialId = guideId;
     this.activeTutorialStepIndex = 0;
-    this.tutorialStepClickSatisfied = false;
+    this.syncTutorialStepRequirements();
+    this.refreshTutorialTargetHighlight();
+    this.ensureTutorialTargetVisible();
     this.status = this.t("status.tutorialOpened");
     const trigger = event?.currentTarget as HTMLElement | null;
     trigger?.closest("details")?.removeAttribute("open");
@@ -1802,6 +1807,7 @@ export class AppComponent implements OnDestroy {
     this.activeTutorialId = null;
     this.activeTutorialStepIndex = 0;
     this.tutorialStepClickSatisfied = false;
+    this.clearTutorialTargetHighlight();
     this.status = this.t("status.tutorialClosed");
     this.markInteractionChanged();
   }
@@ -1835,7 +1841,7 @@ export class AppComponent implements OnDestroy {
     const step = this.getActiveTutorialStep();
     if (!step) return false;
     if (!step.requiresClick) return true;
-    return this.tutorialStepClickSatisfied;
+    return this.tutorialStepClickSatisfied || !this.getActiveTutorialTargetElement();
   }
 
   previousTutorialStep(): void {
@@ -1843,6 +1849,8 @@ export class AppComponent implements OnDestroy {
     if (!guide || this.activeTutorialStepIndex <= 0) return;
     this.activeTutorialStepIndex -= 1;
     this.syncTutorialStepRequirements();
+    this.refreshTutorialTargetHighlight();
+    this.ensureTutorialTargetVisible();
     this.markInteractionChanged();
   }
 
@@ -1858,23 +1866,26 @@ export class AppComponent implements OnDestroy {
     }
     this.activeTutorialStepIndex += 1;
     this.syncTutorialStepRequirements();
+    this.refreshTutorialTargetHighlight();
+    this.ensureTutorialTargetVisible();
     this.markInteractionChanged();
   }
 
   shouldShowTutorialPendingClick(): boolean {
     const step = this.getActiveTutorialStep();
     if (!step?.requiresClick) return false;
-    return !this.tutorialStepClickSatisfied;
+    return !this.tutorialStepClickSatisfied && Boolean(this.getActiveTutorialTargetElement());
+  }
+
+  isTutorialActive(): boolean {
+    return this.getActiveTutorialGuide() !== null;
   }
 
   getTutorialSpotlightStyle(): Record<string, string> | null {
-    const step = this.getActiveTutorialStep();
-    const selector = step?.targetSelector;
-    if (!selector) return null;
-    const target = document.querySelector<HTMLElement>(selector);
+    const target = this.getActiveTutorialTargetElement();
     if (!target) return null;
     const rect = target.getBoundingClientRect();
-    const padding = 8;
+    const padding = 10;
     return {
       left: `${Math.max(0, rect.left - padding)}px`,
       top: `${Math.max(0, rect.top - padding)}px`,
@@ -1883,8 +1894,83 @@ export class AppComponent implements OnDestroy {
     };
   }
 
+  getTutorialCurrentStepText(): string {
+    return this.getActiveTutorialStep()?.text ?? "";
+  }
+
+  private getActiveTutorialTargetElement(): HTMLElement | null {
+    const step = this.getActiveTutorialStep();
+    const selector = step?.targetSelector?.trim() ?? "";
+    if (selector.length === 0) {
+      this.clearTutorialTargetHighlight();
+      return null;
+    }
+    const target = document.querySelector<HTMLElement>(selector);
+    this.refreshTutorialTargetHighlight(selector, target);
+    return target;
+  }
+
+  private refreshTutorialTargetHighlight(selector?: string, target?: HTMLElement | null): void {
+    const resolvedSelector = selector ?? this.getActiveTutorialStep()?.targetSelector?.trim() ?? "";
+    if (resolvedSelector.length === 0) {
+      this.clearTutorialTargetHighlight();
+      return;
+    }
+
+    const resolvedTarget = target ?? document.querySelector<HTMLElement>(resolvedSelector);
+    if (!resolvedTarget) {
+      this.clearTutorialTargetHighlight();
+      return;
+    }
+
+    if (
+      this.tutorialActiveTargetSelector === resolvedSelector
+      && this.tutorialActiveTargetElement === resolvedTarget
+      && resolvedTarget.getAttribute("data-tutorial-active-target") === "true"
+    ) {
+      return;
+    }
+
+    this.clearTutorialTargetHighlight();
+    resolvedTarget.setAttribute("data-tutorial-active-target", "true");
+    this.tutorialActiveTargetSelector = resolvedSelector;
+    this.tutorialActiveTargetElement = resolvedTarget;
+  }
+
+  private clearTutorialTargetHighlight(): void {
+    if (this.tutorialActiveTargetElement) {
+      this.tutorialActiveTargetElement.removeAttribute("data-tutorial-active-target");
+    }
+    this.tutorialActiveTargetSelector = null;
+    this.tutorialActiveTargetElement = null;
+  }
+
+  private ensureTutorialTargetVisible(): void {
+    const target = this.getActiveTutorialTargetElement();
+    if (!target) return;
+    target.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+      inline: "center"
+    });
+  }
+
+  @HostListener("window:pointerdown", ["$event"])
+  onWindowPointerDown(event: PointerEvent): void {
+    if (!this.isTutorialActive()) return;
+    const target = event.target as Element | null;
+    if (!target) return;
+    const activeTarget = this.getActiveTutorialTargetElement();
+    const isInsideActiveTarget = Boolean(activeTarget && target.closest("[data-tutorial-active-target='true']"));
+    const isInsideTutorialPanel = Boolean(target.closest(".tutorial-panel"));
+    if (isInsideActiveTarget || isInsideTutorialPanel) return;
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
   @HostListener("window:click", ["$event"])
   onWindowClick(event: MouseEvent): void {
+    if (!this.isTutorialActive()) return;
     const step = this.getActiveTutorialStep();
     if (!step?.requiresClick || !step.targetSelector) return;
     const target = event.target as Element | null;
@@ -3494,6 +3580,12 @@ LIMIT 50;`;
 
   @HostListener("window:keydown", ["$event"])
   onWindowKeyDown(event: KeyboardEvent): void {
+    if (this.isTutorialActive() && event.key !== "Escape") {
+      if (this.isTypingTarget(event.target)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     const isUndoShortcut = (
       (event.metaKey || event.ctrlKey)
       && !event.altKey
@@ -3560,11 +3652,15 @@ LIMIT 50;`;
 
   @HostListener("window:resize")
   onWindowResize(): void {
-    if (!this.contextPropertiesPanel) return;
-    this.contextPropertiesPanel = this.layoutContextPropertiesPanel(
-      this.contextPropertiesPanel.x,
-      this.contextPropertiesPanel.y
-    );
+    if (this.contextPropertiesPanel) {
+      this.contextPropertiesPanel = this.layoutContextPropertiesPanel(
+        this.contextPropertiesPanel.x,
+        this.contextPropertiesPanel.y
+      );
+    }
+    if (this.isTutorialActive()) {
+      this.refreshTutorialTargetHighlight();
+    }
     this.markInteractionChanged();
   }
 
@@ -4329,18 +4425,10 @@ LIMIT 50;`;
   }
 
   getLeafNodeLabelKnockoutColor(
-    node: CanvasNode,
-    rect?: Readonly<{ x: number; y: number; width: number; height: number }>
+    _node: CanvasNode,
+    _rect?: Readonly<{ x: number; y: number; width: number; height: number }>
   ): string {
-    const labelRect = rect ?? this.getLeafNodeLabelKnockoutRect(node);
-    if (!labelRect) return this.isDarkMode ? "#020617" : "#f8fafc";
-    const labelPoint = {
-      x: labelRect.x + labelRect.width / 2,
-      y: labelRect.y + labelRect.height / 2
-    };
-    const container = this.getDeepestVisibleContainerAtPoint(labelPoint);
-    if (container) return container.color;
-    return this.isDarkMode ? "#020617" : "#f8fafc";
+    return "transparent";
   }
 
   getEdgeContextOverlayColor(): string {
