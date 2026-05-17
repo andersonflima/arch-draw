@@ -1,4 +1,5 @@
-<ng-container *ngIf="authChecked && (!authEnabled || isAuthenticated); else loginGate">
+<ng-container *ngIf="authChecked; else sessionBoot">
+<ng-container *ngIf="!authEnabled || isAuthenticated; else loginGate">
 <div class="app-shell" [class.theme-dark]="isDarkMode">
   <header class="topbar">
     <div class="brand-lockup">
@@ -17,51 +18,41 @@
     />
 
     <div class="toolbar">
-      <button class="icon-button" type="button" title="Nova arquitetura" aria-label="Nova arquitetura" (click)="createArchitecture()">
-        <i class="fa-solid fa-file-circle-plus" aria-hidden="true"></i>
-      </button>
-      <button class="icon-button" type="button" title="Salvar" aria-label="Salvar" (click)="saveCurrent()">
-        <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
-      </button>
-      <button class="icon-button" type="button" title="Exportar JSON" aria-label="Exportar JSON" (click)="exportCurrent()">
-        <i class="fa-solid fa-file-code" aria-hidden="true"></i>
-      </button>
-      <button class="icon-button" type="button" title="Exportar draw.io" aria-label="Exportar draw.io" (click)="exportDrawIoCurrent()">
-        <i class="fa-solid fa-project-diagram" aria-hidden="true"></i>
-      </button>
-      <button class="icon-button" type="button" title="Exportar Excalidraw" aria-label="Exportar Excalidraw" (click)="exportExcalidrawCurrent()">
-        <i class="fa-solid fa-pen-ruler" aria-hidden="true"></i>
-      </button>
-      <button class="icon-button" type="button" title="Exportar Mermaid" aria-label="Exportar Mermaid" (click)="exportMermaidCurrent()">
-        <i class="fa-solid fa-code-branch" aria-hidden="true"></i>
-      </button>
-      <button class="icon-button" type="button" title="Exportar SVG" aria-label="Exportar SVG" (click)="exportSvgCurrent()">
-        <i class="fa-solid fa-bezier-curve" aria-hidden="true"></i>
-      </button>
-      <button class="icon-button" type="button" title="Exportar PNG" aria-label="Exportar PNG" (click)="exportPngCurrent()">
-        <i class="fa-solid fa-image" aria-hidden="true"></i>
-      </button>
-      <button class="icon-button" type="button" title="Importar" aria-label="Importar" (click)="openImport()">
-        <i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i>
-      </button>
+      <button class="toolbar-action" type="button" title="Nova arquitetura" aria-label="Nova arquitetura" (click)="createArchitecture()">Nova</button>
+      <button class="toolbar-action" type="button" title="Criar exemplo completo" aria-label="Criar exemplo completo" (click)="createCompleteExampleArchitecture()">Exemplo</button>
+      <button class="toolbar-action" type="button" title="Salvar" aria-label="Salvar" (click)="saveCurrent()">Salvar</button>
+      <details class="toolbar-dropdown">
+        <summary class="toolbar-action toolbar-dropdown__trigger" title="Exportar diagramas" aria-label="Exportar diagramas">
+          Exportar
+        </summary>
+        <div class="toolbar-dropdown__menu">
+          <button class="toolbar-dropdown__item" type="button" title="Exportar Arch-Draw" aria-label="Exportar Arch-Draw" (click)="exportCurrent()">Arch-Draw</button>
+          <button class="toolbar-dropdown__item" type="button" title="Exportar draw.io" aria-label="Exportar draw.io" (click)="exportDrawIoCurrent()">Draw.io</button>
+          <button class="toolbar-dropdown__item" type="button" title="Exportar Excalidraw" aria-label="Exportar Excalidraw" (click)="exportExcalidrawCurrent()">Excalidraw</button>
+          <button class="toolbar-dropdown__item" type="button" title="Exportar Mermaid" aria-label="Exportar Mermaid" (click)="exportMermaidCurrent()">Mermaid</button>
+          <button class="toolbar-dropdown__item" type="button" title="Exportar SVG" aria-label="Exportar SVG" (click)="exportSvgCurrent()">SVG</button>
+          <button class="toolbar-dropdown__item" type="button" title="Exportar PNG" aria-label="Exportar PNG" (click)="exportPngCurrent()">PNG</button>
+        </div>
+      </details>
+      <button class="toolbar-action" type="button" title="Importar" aria-label="Importar" (click)="openImport()">Importar</button>
       <button
-        class="icon-button"
+        class="toolbar-action"
         type="button"
         [title]="isDarkMode ? 'Desativar dark mode' : 'Ativar dark mode'"
         [attr.aria-label]="isDarkMode ? 'Desativar dark mode' : 'Ativar dark mode'"
         [class.is-active]="isDarkMode"
         (click)="toggleDarkMode()"
       >
-        <i [class]="isDarkMode ? 'fa-solid fa-sun' : 'fa-solid fa-moon'" aria-hidden="true"></i>
+        {{ isDarkMode ? "Light" : "Dark" }}
       </button>
       <button
-        class="icon-button"
+        class="toolbar-action"
         type="button"
         title="Apagar item selecionado ou limpar board"
         aria-label="Apagar item selecionado ou limpar board"
         (click)="onToolbarDeleteClick()"
       >
-        <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+        Limpar
       </button>
       <button
         *ngIf="authEnabled && authenticatedUser"
@@ -115,12 +106,12 @@
             (pointerdown)="$event.stopPropagation()"
             (click)="deleteArchitectureById(summary.id, $event)"
           >
-            <i class="fa-solid fa-trash" aria-hidden="true"></i>
+            <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
           </button>
         </div>
       </div>
       <footer class="sidebar-footer">
-        <small class="muted-copy">&copy; {{ currentYear }} Anderson Espindola</small>
+        <small class="muted-copy">&copy; {{ currentYear }} Substructa</small>
       </footer>
     </nav>
 
@@ -156,12 +147,7 @@
               [style.--icon-color]="getIconColor(template.color)"
               [attr.title]="getNodeIcon(template.kind)"
             >
-              <ng-container *ngIf="getNodeIconAsset(template.kind) as iconAsset; else paletteFontIcon">
-                <img class="node-icon__svg" [src]="iconAsset" [alt]="template.label" />
-              </ng-container>
-              <ng-template #paletteFontIcon>
-                <i [class]="getNodeIconClass(template.kind)" aria-hidden="true"></i>
-              </ng-template>
+              <i [class]="getNodeIconClass(template.kind)" aria-hidden="true"></i>
               <span class="node-icon__label">{{ getNodeIcon(template.kind) }}</span>
             </span>
             <span class="palette-item__label" [title]="template.label">{{ template.label }}</span>
@@ -178,6 +164,7 @@
     <main
       #canvasShell
       class="canvas-shell"
+      [class.canvas-shell--grabbing]="isPointerDragging()"
       (click)="onCanvasClick($event)"
       (pointerdown)="onCanvasPointerDown($event)"
       (dragover)="$event.preventDefault()"
@@ -197,15 +184,26 @@
         <svg class="canvas-edge-layer" [class.canvas-edge-layer--elevated]="isEdgeLayerElevated()">
           <defs>
             <marker
-              id="edge-arrow"
-              markerWidth="10"
-              markerHeight="10"
-              refX="9"
-              refY="5"
-              orient="auto-start-reverse"
-              markerUnits="userSpaceOnUse"
+              id="edge-arrow-right"
+              markerWidth="9"
+              markerHeight="9"
+              refX="8.4"
+              refY="4.5"
+              orient="0"
+              markerUnits="strokeWidth"
             >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"></path>
+              <path d="M 0 0 L 9 4.5 L 0 9 z" fill="context-stroke"></path>
+            </marker>
+            <marker
+              id="edge-arrow-left"
+              markerWidth="9"
+              markerHeight="9"
+              refX="0.6"
+              refY="4.5"
+              orient="0"
+              markerUnits="strokeWidth"
+            >
+              <path d="M 9 0 L 0 4.5 L 9 9 z" fill="context-stroke"></path>
             </marker>
             <clipPath
               *ngFor="let containerNode of getEdgeClipContainers()"
@@ -219,10 +217,16 @@
               ></rect>
             </clipPath>
           </defs>
-          <g *ngFor="let edge of edges" [attr.display]="isVisibleEdge(edge) ? null : 'none'">
+          <g
+            *ngFor="let edge of edges"
+            [attr.display]="isVisibleEdge(edge) ? null : 'none'"
+            [class.canvas-edge-group--muted]="isEdgeTemporarilyMuted(edge)"
+          >
             <path
               class="canvas-edge-hit"
               [attr.d]="getEdgePath(edge)"
+              (pointerenter)="onEdgePointerEnter(edge.id)"
+              (pointerleave)="onEdgePointerLeave(edge.id)"
               (click)="onEdgeClick(edge.id, $event)"
               (dblclick)="onEdgeDoubleClick(edge.id, $event)"
               (contextmenu)="onEdgeContextMenu(edge.id, $event)"
@@ -235,8 +239,8 @@
               [attr.d]="getEdgePath(edge)"
               [attr.stroke]="getEdgeColor(edge)"
               [attr.stroke-dasharray]="getEdgeDash(edge)"
-              [attr.marker-start]="isBidirectional(edge) ? 'url(#edge-arrow)' : null"
-              marker-end="url(#edge-arrow)"
+              [attr.marker-start]="getEdgeStartMarker(edge)"
+              [attr.marker-end]="getEdgeEndMarker(edge)"
               (click)="onEdgeClick(edge.id, $event)"
               (dblclick)="onEdgeDoubleClick(edge.id, $event)"
               (contextmenu)="onEdgeContextMenu(edge.id, $event)"
@@ -282,8 +286,14 @@
               [attr.stroke-dasharray]="getEdgeDash(edge)"
               [attr.clip-path]="'url(#' + getEdgeContainerClipPathId(clipContainerId) + ')'"
             />
-            <text *ngIf="edge.label && !isEditingEdge(edge.id)" class="canvas-edge-label">
-              <textPath [attr.href]="'#edge-path-' + edge.id" startOffset="50%">
+            <text
+              *ngIf="shouldRenderEdgeLabel(edge) && !isEditingEdge(edge.id)"
+              class="canvas-edge-label"
+              [style.font-size.px]="edgeLabelFontSize"
+              [style.fill]="getEdgeLabelColor(edge)"
+              [attr.dy]="getEdgeLabelDy(edge)"
+            >
+              <textPath [attr.href]="'#edge-path-' + edge.id" [attr.startOffset]="getEdgeLabelStartOffset(edge)">
                 {{ edge.label }}
               </textPath>
             </text>
@@ -299,6 +309,7 @@
                 [attr.data-edge-editor-id]="edge.id"
                 [ngModel]="editingEdgeLabelDraft"
                 (ngModelChange)="editingEdgeLabelDraft = $event"
+                [style.font-size.px]="edgeLabelFontSize"
                 (blur)="commitEdgeLabelEditing(edge.id)"
                 (click)="$event.stopPropagation()"
                 (pointerdown)="$event.stopPropagation()"
@@ -310,9 +321,16 @@
             *ngIf="getConnectionPreviewPath() as previewPath"
             class="canvas-edge canvas-edge-preview"
             [attr.d]="previewPath"
-            marker-end="url(#edge-arrow)"
+            [attr.marker-end]="getConnectionPreviewMarkerEnd()"
           />
         </svg>
+
+        <div
+          *ngIf="getEdgeProximityIndicatorStyle() as proximityStyle"
+          class="canvas-edge-proximity-indicator"
+          [ngStyle]="proximityStyle"
+          aria-hidden="true"
+        ></div>
 
         <ng-container *ngFor="let node of nodes">
           <ng-container *ngIf="isLeafLayerNode(node)">
@@ -389,12 +407,7 @@
                 [style.--icon-color]="getIconColor(node.color)"
                 [attr.title]="getNodeIcon(getNodeIconKind(node))"
               >
-                <ng-container *ngIf="getNodeIconAsset(getNodeIconKind(node)) as iconAsset; else boardFontIcon">
-                  <img class="node-icon__svg" [src]="iconAsset" [alt]="getNodeLabel(node.kind)" />
-                </ng-container>
-                <ng-template #boardFontIcon>
-                  <i [class]="getNodeIconClass(getNodeIconKind(node))" aria-hidden="true"></i>
-                </ng-template>
+                <i [class]="getNodeIconClass(getNodeIconKind(node))" aria-hidden="true"></i>
                 <span class="node-icon__label">{{ getNodeIcon(getNodeIconKind(node)) }}</span>
               </span>
               <span class="architecture-node__kind-label">{{ getNodeLabel(node.kind) }}</span>
@@ -411,8 +424,8 @@
                 <i [class]="(isCollapsibleCodeSnippetNode(node)
                   ? isCodeSnippetCollapsed(node)
                   : isContainerCollapsed(node))
-                    ? 'fa-solid fa-up-right-and-down-left-from-center'
-                    : 'fa-solid fa-down-left-and-up-right-to-center'" aria-hidden="true"></i>
+                    ? 'fa-solid fa-compress'
+                    : 'fa-solid fa-expand'" aria-hidden="true"></i>
               </button>
             </div>
             <div
@@ -505,7 +518,9 @@
               [ngStyle]="getMiniMapNodeStyle(node)"
             ></span>
           </ng-container>
+          <span class="mini-map-viewport" [ngStyle]="getMiniMapViewportStyle()"></span>
         </div>
+        <p class="mini-map-legend">Visao atual</p>
         <div class="zoom-controls">
           <button class="icon-button" type="button" title="Diminuir zoom" (click)="zoomOut()">-</button>
           <button class="zoom-value" type="button" title="Resetar zoom" (click)="resetZoom()">{{ getZoomPercent() }}%</button>
@@ -543,6 +558,28 @@
           <label class="property-field">
             Cor
             <input class="property-color-input" type="color" [ngModel]="node.color" (ngModelChange)="updateNodeColor($event)" />
+          </label>
+          <label class="property-field">
+            Fonte dos elementos (global)
+            <input
+              type="number"
+              min="10"
+              max="64"
+              step="1"
+              [ngModel]="nodeLabelFontSize"
+              (ngModelChange)="updateGlobalNodeLabelFontSize($event)"
+            />
+          </label>
+          <label class="property-field">
+            Icones dos elementos (global)
+            <input
+              type="number"
+              min="16"
+              max="120"
+              step="1"
+              [ngModel]="nodeIconSize"
+              (ngModelChange)="updateGlobalNodeIconSize($event)"
+            />
           </label>
           <ng-container *ngFor="let field of getNodePropertyFields(node)">
             <label class="property-field">
@@ -639,6 +676,17 @@
             Cor
             <input class="property-color-input" type="color" [ngModel]="edge.style.color" (ngModelChange)="updateSelectedEdgeStyle({ color: $event })" />
           </label>
+          <label class="property-field">
+            Fonte das ancoras (global)
+            <input
+              type="number"
+              min="10"
+              max="28"
+              step="1"
+              [ngModel]="edgeLabelFontSize"
+              (ngModelChange)="updateGlobalEdgeLabelFontSize($event)"
+            />
+          </label>
           <button class="danger-action" type="button" (click)="deleteSelectedEdge()">Remover linha</button>
         </div>
       </section>
@@ -655,6 +703,37 @@
 
 </div>
 </ng-container>
+</ng-container>
+
+<ng-template #sessionBoot>
+  <div class="auth-screen" [class.theme-dark]="isDarkMode">
+    <header class="auth-screen__topbar">
+      <div class="brand-lockup">
+        <span class="brand-icon">AD</span>
+        <div>
+          <strong>Arch Draw</strong>
+          <span>Workspace protegido por SSO</span>
+        </div>
+      </div>
+      <button
+        class="icon-button"
+        type="button"
+        [title]="isDarkMode ? 'Desativar dark mode' : 'Ativar dark mode'"
+        [attr.aria-label]="isDarkMode ? 'Desativar dark mode' : 'Ativar dark mode'"
+        [class.is-active]="isDarkMode"
+        (click)="toggleDarkMode()"
+      >
+        <i [class]="isDarkMode ? 'fa-solid fa-sun' : 'fa-solid fa-moon'" aria-hidden="true"></i>
+      </button>
+    </header>
+
+    <main class="auth-card">
+      <p class="auth-kicker">Secure Access</p>
+      <h1>Validando sua sessão</h1>
+      <p class="auth-copy">Aguarde enquanto verificamos seu acesso com SSO.</p>
+    </main>
+  </div>
+</ng-template>
 
 <ng-template #loginGate>
   <div class="auth-screen" [class.theme-dark]="isDarkMode">
@@ -685,13 +764,12 @@
         Use sua conta Google para entrar com segurança no ambiente de arquitetura.
       </p>
 
-      <p class="auth-copy" *ngIf="!authChecked">Validando sessão...</p>
       <p class="error-text" *ngIf="loginError">{{ loginError }}</p>
 
       <button
         class="primary-action auth-login-button"
         type="button"
-        [disabled]="!authChecked || authActionInFlight"
+        [disabled]="authActionInFlight"
         (click)="startGoogleLogin()"
       >
         <i class="fa-brands fa-google" aria-hidden="true"></i>

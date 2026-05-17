@@ -2,18 +2,23 @@
 
 Arch Draw é um editor visual de diagramas de arquitetura e fluxo de software.
 
-Ele combina modelagem visual por drag and drop com edição textual via Mermaid, permitindo sair de uma visão macro (cloud, rede, domínio) para uma visão micro (serviços, código, dados e relações) no mesmo board.
+Ele combina modelagem visual por drag and drop com importação/exportação Mermaid, permitindo sair de uma visão macro (cloud, rede, domínio) para uma visão micro (serviços, código, dados e relações) no mesmo board.
 
 ## O que o projeto entrega
 
 - Canvas interativo para desenhar arquiteturas completas.
+- Login opcional com Google SSO para proteger o workspace e isolar acesso.
 - Biblioteca de blocos para cloud, software, Kubernetes, algoritmos, bancos e integrações.
-- Conexões avançadas entre elementos com estilos e direções configuráveis.
+- Conexões avançadas entre elementos com estilos, direções e roteamento com desvio de obstáculos.
 - Elementos expansíveis/minimizáveis para navegar entre níveis de detalhe.
+- Colapso de elementos aninhados com manutenção do foco visual no canvas e redução de ruído em labels agregadas.
+- Normalização automática de vínculo em containers ao carregar/importar templates (nós internos sem `parentId` válido são reanexados ao container correto pelo contexto visual).
 - Blocos que suportam conteúdo técnico (código, YAML, SQL, Mermaid e configurações).
-- Importação e exportação de diagramas em múltiplos formatos (incluindo `.archdraw.json`, SVG e PNG).
-- Fluxo Mermaid com preview e aplicação no board sem perder o contexto existente.
+- Exportação de diagramas em múltiplos formatos (`.archdraw.json`, `.drawio`, `.excalidraw`, `.mmd`, SVG e PNG).
+- Importação de diagramas em múltiplos formatos (`.archdraw`, JSON, `.drawio`/XML, `.excalidraw`, `.mmd`/`.mermaid`).
+- Painel de propriedades contextual no ponto do clique, com ajustes globais de fonte de labels, fonte de âncoras e tamanho de ícones.
 - Isolamento por sessão para cada usuário ver apenas seus próprios arquivos e template.
+- Criação rápida de “Exemplo completo” para acelerar demonstrações e validações.
 
 ## Casos de uso
 
@@ -25,12 +30,18 @@ Ele combina modelagem visual por drag and drop com edição textual via Mermaid,
 
 ## Experiência principal
 
-1. Adicione blocos pela barra lateral.
+1. Adicione blocos pela barra lateral (clique ou arraste).
 2. Organize em containers para agrupar domínios, ambientes ou contextos.
 3. Conecte elementos com setas e rótulos de relacionamento.
-4. Abra elementos que suportam código para detalhar implementação.
-5. Use Mermaid para acelerar criação de estruturas grandes.
-6. Exporte o resultado final para documentação ou compartilhamento.
+4. Abra o popup de propriedades para ajustar tipo, cor, campos técnicos e estilos globais.
+5. Minimize/maximize containers e snippets de código para navegar em arquiteturas grandes.
+6. Exporte em Arch-Draw, Draw.io, Excalidraw, Mermaid, SVG ou PNG.
+
+Atalhos de edição:
+
+- `Ctrl/Cmd + Z`: desfaz alterações recentes.
+- `Ctrl/Cmd + A`: seleciona todos os nós visíveis no board.
+- `Delete/Backspace`: remove seleção atual (nó/linha).
 
 ## Stack
 
@@ -58,6 +69,59 @@ URLs padrão:
 docker compose up --build
 ```
 
+Modo seguro para servidor compartilhado (recomendado):
+
+- Apenas a interface web é publicada no host e fica limitada a loopback (`127.0.0.1:8080`).
+- API e Redis rodam sem `ports` públicas e ficam acessíveis apenas por rede interna do Compose.
+- A rede `backend` é `internal`, impedindo acesso externo direto aos serviços internos.
+- Containers usam `no-new-privileges`, limites de PIDs e filesystem `read_only` com `tmpfs` apenas nos caminhos necessários.
+- `web` roda com Nginx não-root e porta interna não privilegiada (`8080`).
+- Sessões OAuth e rate-limit usam Redis com expiração (TTL), reduzindo risco de bypass entre réplicas.
+- Requisições mutáveis exigem CSRF token (`double-submit cookie`) e validação de `Origin/Referer`.
+- API pode validar `Host` por allowlist (`ALLOWED_HOSTS`) para reduzir ataques de host header injection.
+- Nginx aplica `client_max_body_size`, timeouts curtos e limitador de burst em `/api`.
+
+Hardening obrigatório no host:
+
+1. Não exponha Docker API em TCP. Deixe apenas o socket local Unix.
+2. Aplique firewall padrão `deny incoming` e libere somente as portas realmente necessárias do reverse proxy.
+3. Use segredo forte em `REDIS_PASSWORD` e rotacione credenciais OAuth antes de produção.
+
+Exemplo de `daemon.json` (host Linux):
+
+```json
+{
+  "hosts": ["unix:///var/run/docker.sock"],
+  "icc": false,
+  "live-restore": true,
+  "userland-proxy": false,
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  }
+}
+```
+
+Após alterar o daemon:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+```
+
+Exemplo de firewall com UFW:
+
+```bash
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow 22/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw enable
+sudo ufw status verbose
+```
+
 ## Scripts úteis
 
 ```bash
@@ -77,7 +141,7 @@ apps/api
   Casos de uso, rotas HTTP e persistência.
 
 apps/web
-  UI, canvas, editor Mermaid, propriedades e import/export.
+  UI, canvas, propriedades e import/export.
 ```
 
 ## Configuração
@@ -90,12 +154,34 @@ cp .env.example .env
 
 Variáveis relevantes de autenticação e segurança:
 
-- `TRUST_PROXY=true` para respeitar `x-forwarded-proto` atrás de proxy/reverse proxy.
+- `TRUST_PROXY` e `TRUST_PROXY_HOPS` para respeitar `x-forwarded-proto` atrás de proxy de forma restrita.
+- `ALLOWED_HOSTS` para allowlist de hostnames aceitos no header `Host` (ex.: `app.exemplo.com,localhost`).
+- `FORCE_SECURE_COOKIES=true` em produção para forçar cookies `Secure` independentemente do protocolo percebido.
 - `SECURITY_METRICS_TOKEN` para proteger `GET /security/metrics`.
+- `CSRF_COOKIE_NAME` e `CSRF_HEADER_NAME` para política de CSRF (default: `archdraw_csrf` + `x-csrf-token`).
+- `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX_REQUESTS` e `RATE_LIMIT_MAX_ENTRIES` para hardening de rate-limit.
+- `REDIS_URL` para sessão OAuth e rate-limit distribuído com expiração.
 - `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI` para habilitar SSO Google.
 - `AUTH_POST_LOGIN_REDIRECT` para definir rota padrão após login.
+- `REDIS_PASSWORD` para proteger o Redis interno no ambiente Docker (quando `REDIS_URL` usa senha).
 
 Quando as três variáveis `GOOGLE_OAUTH_*` estiverem definidas, a API passa a exigir autenticação para rotas de arquitetura (`/architectures...`) e o frontend exibe a tela de login.
+
+Para desenvolvimento com Docker Compose (`web` em `localhost:8080`), use callback OAuth no proxy web:
+
+```env
+WEB_ORIGINS=http://localhost:8080,http://127.0.0.1:8080
+GOOGLE_OAUTH_REDIRECT_URI=http://localhost:8080/api/auth/google/callback
+```
+
+Exemplo recomendado para produção em `archdraw.com.br`:
+
+```env
+WEB_ORIGINS=https://archdraw.com.br,https://www.archdraw.com.br
+ALLOWED_HOSTS=archdraw.com.br,www.archdraw.com.br
+GOOGLE_OAUTH_REDIRECT_URI=https://archdraw.com.br/api/auth/google/callback
+FORCE_SECURE_COOKIES=true
+```
 
 ## Licença
 
@@ -103,4 +189,4 @@ Este projeto está licenciado sob a MIT License. Consulte [LICENSE](./LICENSE).
 
 ## Copyright
 
-Copyright (c) 2026 Anderson Espindola. Consulte [COPYRIGHT](./COPYRIGHT).
+Copyright (c) 2026 Substructa. Consulte [COPYRIGHT](./COPYRIGHT).

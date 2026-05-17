@@ -3,19 +3,51 @@ services:
     build:
       context: .
       dockerfile: docker/api.Dockerfile
+    depends_on:
+      redis:
+        condition: service_healthy
     environment:
       API_HOST: 0.0.0.0
       API_PORT: 3333
       DATABASE_PATH: /app/data/arch-draw.sqlite
-      WEB_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
+      WEB_ORIGINS: ${WEB_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
       TRUST_PROXY: "true"
+      TRUST_PROXY_HOPS: "1"
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+      FORCE_SECURE_COOKIES: ${FORCE_SECURE_COOKIES:-false}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-local-dev-only-change-me}@redis:6379/0
       SECURITY_METRICS_TOKEN: ${SECURITY_METRICS_TOKEN:-}
+      CSRF_COOKIE_NAME: ${CSRF_COOKIE_NAME:-archdraw_csrf}
+      CSRF_HEADER_NAME: ${CSRF_HEADER_NAME:-x-csrf-token}
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
+      RATE_LIMIT_MAX_REQUESTS: ${RATE_LIMIT_MAX_REQUESTS:-240}
+      RATE_LIMIT_MAX_ENTRIES: ${RATE_LIMIT_MAX_ENTRIES:-20000}
       GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
       GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
       GOOGLE_OAUTH_REDIRECT_URI: ${GOOGLE_OAUTH_REDIRECT_URI:-}
       AUTH_POST_LOGIN_REDIRECT: ${AUTH_POST_LOGIN_REDIRECT:-/}
     volumes:
       - arch_draw_data:/app/data
+    expose:
+      - "3333"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:3333/health | grep -q '\"ok\":true'"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks:
+      - edge
+      - backend
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    pids_limit: 256
+    init: true
     restart: unless-stopped
 
   web:
@@ -23,10 +55,74 @@ services:
       context: .
       dockerfile: docker/web.Dockerfile
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     ports:
-      - "8080:80"
+      - "127.0.0.1:8080:8080"
+    networks:
+      - edge
+      - backend
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8080/ >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    tmpfs:
+      - /var/cache/nginx:rw,noexec,nosuid,size=32m
+      - /var/run:rw,noexec,nosuid,size=16m
+      - /tmp:rw,noexec,nosuid,size=16m
+    pids_limit: 128
+    init: true
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.2-alpine
+    command:
+      - /bin/sh
+      - -c
+      - >-
+        exec redis-server
+        --save ""
+        --appendonly no
+        --maxmemory 256mb
+        --maxmemory-policy allkeys-lru
+        --requirepass "$$REDIS_PASSWORD"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-local-dev-only-change-me}
+    expose:
+      - "6379"
+    networks:
+      - backend
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+      - /data:rw,nosuid,size=32m
+    pids_limit: 128
+    init: true
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
     restart: unless-stopped
 
 volumes:
   arch_draw_data:
+
+networks:
+  edge:
+    driver: bridge
+  backend:
+    driver: bridge
+    internal: true
