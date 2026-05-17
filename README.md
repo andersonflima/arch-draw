@@ -51,7 +51,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 Atalhos de edição:
 
 - `Ctrl/Cmd + Z`: desfaz alterações recentes.
-- `Ctrl/Cmd + A`: seleciona todos os nós visíveis no board.
+- `Ctrl/Cmd + A`: seleciona todos os nós no board (independente da camada visual/z-index).
 - `Delete/Backspace`: remove seleção atual (nó/linha).
 
 ## Stack

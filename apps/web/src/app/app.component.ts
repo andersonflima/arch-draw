@@ -348,7 +348,7 @@ const TUTORIAL_GUIDES: readonly TutorialGuide[] = [
     description: "Comandos rapidos para acelerar a modelagem.",
     steps: [
       "Ctrl/Cmd + Z desfaz alteracoes recentes.",
-      "Ctrl/Cmd + A seleciona todos os nos visiveis do board.",
+      "Ctrl/Cmd + A seleciona todos os nos do board, independente da camada visual.",
       "Delete/Backspace remove o item selecionado.",
       "Use Limpar para apagar selecao atual ou esvaziar o board."
     ]
@@ -2707,7 +2707,7 @@ LIMIT 50;`;
     if (isSelectAllShortcut) {
       if (this.isTypingTarget(event.target)) return;
       event.preventDefault();
-      this.selectAllVisibleBoardNodes();
+      this.selectAllCanvasNodes();
       return;
     }
 
@@ -2732,14 +2732,12 @@ LIMIT 50;`;
     }
   }
 
-  private selectAllVisibleBoardNodes(): void {
-    const visibleNodeIds = this.nodes
-      .filter((node) => this.isVisibleNode(node))
-      .map((node) => node.id);
-    if (visibleNodeIds.length === 0) return;
+  private selectAllCanvasNodes(): void {
+    const allNodeIds = this.nodes.map((node) => node.id);
+    if (allNodeIds.length === 0) return;
 
-    this.selectedNodeIds = visibleNodeIds;
-    this.selectedNodeId = visibleNodeIds.length === 1 ? (visibleNodeIds[0] ?? null) : null;
+    this.selectedNodeIds = allNodeIds;
+    this.selectedNodeId = allNodeIds.length === 1 ? (allNodeIds[0] ?? null) : null;
     this.selectedEdgeId = null;
     this.connectionSourceId = null;
     this.connectionSourcePort = null;
