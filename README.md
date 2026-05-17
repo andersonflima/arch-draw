@@ -10,7 +10,9 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Login opcional com Google SSO para proteger o workspace e isolar acesso.
 - Biblioteca de blocos para cloud, software, Kubernetes, algoritmos, bancos e integrações.
 - Conexões avançadas entre elementos com estilos, direções e roteamento com desvio de obstáculos.
+- Estilo de conexão `smoothstep` com curvas suaves contínuas para leitura de fluxo.
 - Elementos expansíveis/minimizáveis para navegar entre níveis de detalhe.
+- Containers não expandem automaticamente durante drag and drop; ajuste dinâmico ocorre apenas em fluxos de expansão/maximização.
 - Colapso de elementos aninhados com manutenção do foco visual no canvas e redução de ruído em labels agregadas.
 - Normalização automática de vínculo em containers ao carregar/importar templates (nós internos sem `parentId` válido são reanexados ao container correto pelo contexto visual).
 - Blocos que suportam conteúdo técnico (código, YAML, SQL, Mermaid e configurações).

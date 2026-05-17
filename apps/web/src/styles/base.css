@@ -2331,10 +2331,10 @@ app-flow-document-node {
 .node-port {
   position: absolute;
   z-index: 4;
-  top: 18px;
-  bottom: 18px;
-  width: 28px;
-  min-height: 42px;
+  top: var(--node-port-hit-inset, 18px);
+  bottom: var(--node-port-hit-inset, 18px);
+  width: var(--node-port-hit-width, 28px);
+  min-height: var(--node-port-hit-min-height, 42px);
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -2347,8 +2347,8 @@ app-flow-document-node {
   content: "";
   position: absolute;
   top: 50%;
-  width: 14px;
-  height: 14px;
+  width: var(--node-port-dot-size, 14px);
+  height: var(--node-port-dot-size, 14px);
   border: 2px solid #111827;
   border-radius: 999px;
   background: #ffffff;
@@ -2359,9 +2359,9 @@ app-flow-document-node {
 .node-port::after {
   content: "";
   position: absolute;
-  top: 11px;
-  bottom: 11px;
-  width: 4px;
+  top: var(--node-port-lane-inset, 11px);
+  bottom: var(--node-port-lane-inset, 11px);
+  width: var(--node-port-lane-width, 4px);
   border-radius: 999px;
   background: rgba(17, 24, 39, 0.08);
   opacity: 0;
@@ -2374,7 +2374,7 @@ app-flow-document-node {
 }
 
 .node-port--target {
-  left: -15px;
+  left: calc(-1 * var(--node-port-edge-offset, 15px));
 }
 
 .node-port--target::before {
@@ -2382,11 +2382,11 @@ app-flow-document-node {
 }
 
 .node-port--target::after {
-  left: 8px;
+  left: calc(var(--node-port-dot-size, 14px) / 2 + 1px);
 }
 
 .node-port--source {
-  right: -15px;
+  right: calc(-1 * var(--node-port-edge-offset, 15px));
 }
 
 .node-port--source::before {
@@ -2394,7 +2394,7 @@ app-flow-document-node {
 }
 
 .node-port--source::after {
-  right: 8px;
+  right: calc(var(--node-port-dot-size, 14px) / 2 + 1px);
 }
 
 .architecture-node--leaf .node-port {
@@ -2405,17 +2405,17 @@ app-flow-document-node {
 }
 
 .architecture-node--leaf .node-port--target {
-  left: calc(50% - (var(--leaf-node-icon-size, 70px) / 2 + 7px));
+  left: calc(50% - (var(--leaf-node-icon-size, 70px) / 2 + var(--node-port-dot-size, 14px) / 2));
 }
 
 .architecture-node--leaf .node-port--source {
-  right: calc(50% - (var(--leaf-node-icon-size, 70px) / 2 + 7px));
+  right: calc(50% - (var(--leaf-node-icon-size, 70px) / 2 + var(--node-port-dot-size, 14px) / 2));
 }
 
 .node-port--omni {
-  width: 28px;
-  height: 28px;
-  min-height: 28px;
+  width: var(--node-port-omni-size, 28px);
+  height: var(--node-port-omni-size, 28px);
+  min-height: var(--node-port-omni-size, 28px);
   top: auto;
   bottom: auto;
 }
@@ -2430,30 +2430,30 @@ app-flow-document-node {
   left: 50%;
   top: 50%;
   bottom: auto;
-  width: 16px;
-  height: 16px;
+  width: var(--node-port-omni-halo-size, 16px);
+  height: var(--node-port-omni-halo-size, 16px);
   border-radius: 999px;
   transform: translate(-50%, -50%);
 }
 
 .node-port--omni-top {
-  top: -15px;
-  left: calc(50% - 14px);
+  top: calc(-1 * var(--node-port-omni-offset, 15px));
+  left: calc(50% - var(--node-port-omni-size, 28px) / 2);
 }
 
 .node-port--omni-right {
-  top: calc(50% - 14px);
-  right: -15px;
+  top: calc(50% - var(--node-port-omni-size, 28px) / 2);
+  right: calc(-1 * var(--node-port-omni-offset, 15px));
 }
 
 .node-port--omni-bottom {
-  bottom: -15px;
-  left: calc(50% - 14px);
+  bottom: calc(-1 * var(--node-port-omni-offset, 15px));
+  left: calc(50% - var(--node-port-omni-size, 28px) / 2);
 }
 
 .node-port--omni-left {
-  top: calc(50% - 14px);
-  left: -15px;
+  top: calc(50% - var(--node-port-omni-size, 28px) / 2);
+  left: calc(-1 * var(--node-port-omni-offset, 15px));
 }
 
 .canvas-edge-layer {
