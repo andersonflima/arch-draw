@@ -136,9 +136,7 @@ const buildDrawIoEdgeStyle = (edge: ArchitectureEdge): string => {
     ? "edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;"
     : style?.path === "straight"
       ? "edgeStyle=none;rounded=0;"
-      : style?.path === "bezier"
-        ? "edgeStyle=orthogonalEdgeStyle;curved=1;rounded=0;"
-        : "edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;";
+      : "edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;";
 
   const line = style?.line === "dashed"
     ? "dashed=1;dashPattern=14 8;"

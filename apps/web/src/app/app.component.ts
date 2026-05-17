@@ -204,6 +204,14 @@ const MAX_NODE_ICON_SIZE = 120;
 const DEFAULT_LEAF_ICON_SIZE = 84;
 const DEFAULT_NODE_ICON_FONT_SIZE = 14;
 const DEFAULT_LEAF_ICON_FONT_SIZE = 40;
+const MIN_NODE_PORT_HIT_WIDTH = 26;
+const MAX_NODE_PORT_HIT_WIDTH = 48;
+const MIN_NODE_PORT_INSET = 12;
+const MAX_NODE_PORT_INSET = 28;
+const MIN_NODE_PORT_DOT_SIZE = 12;
+const MAX_NODE_PORT_DOT_SIZE = 18;
+const MIN_NODE_PORT_OMNI_SIZE = 24;
+const MAX_NODE_PORT_OMNI_SIZE = 36;
 const EDGE_OBSTACLE_PADDING = 18;
 const LEAF_ICON_OBSTACLE_PADDING = 20;
 const EDGE_OBSTACLE_CLEARANCE = 30;
@@ -788,7 +796,7 @@ export class AppComponent implements OnDestroy {
         .filter((kind) => !kind.startsWith("flow-"))
     )
   ];
-  readonly edgePaths: readonly ArchitectureEdgePath[] = ["smoothstep", "step", "straight", "bezier"];
+  readonly edgePaths: readonly ArchitectureEdgePath[] = ["smoothstep", "step", "straight"];
   readonly edgeLines: readonly ArchitectureEdgeLineStyle[] = ["solid", "dashed", "dotted"];
   readonly edgeDirections: readonly EdgeDirection[] = ["left-to-right", "right-to-left", "both"];
   readonly codeLanguageOptions: readonly CodeLanguageOption[] = CODE_LANGUAGE_OPTIONS;
@@ -2481,7 +2489,6 @@ LIMIT 50;`;
       for (const dragged of rootNodes) {
         this.attachNodeToContainer(dragged, dropPoint);
       }
-      this.fitAncestorContainersForNodes([...selectedIds]);
     }
 
     if (this.marqueeState) {
@@ -2663,6 +2670,25 @@ LIMIT 50;`;
     const nodeTextColor = this.isDarkMode
       ? (prefersDarkTextInDarkMode ? "#111827" : "#f8fafc")
       : "#111827";
+    const nodePortScaleBasis = Math.max(48, Math.min(node.size.width, node.size.height));
+    const nodePortHitWidth = Math.round(
+      Math.min(MAX_NODE_PORT_HIT_WIDTH, Math.max(MIN_NODE_PORT_HIT_WIDTH, nodePortScaleBasis * 0.24))
+    );
+    const nodePortInset = Math.round(
+      Math.min(MAX_NODE_PORT_INSET, Math.max(MIN_NODE_PORT_INSET, nodePortScaleBasis * 0.18))
+    );
+    const nodePortDotSize = Math.round(
+      Math.min(MAX_NODE_PORT_DOT_SIZE, Math.max(MIN_NODE_PORT_DOT_SIZE, nodePortHitWidth * 0.48))
+    );
+    const nodePortEdgeOffset = nodePortDotSize + 1;
+    const nodePortLaneInset = Math.round(Math.max(8, Math.min(16, nodePortInset * 0.62)));
+    const nodePortLaneWidth = Math.round(Math.max(4, Math.min(8, nodePortHitWidth * 0.24)));
+    const nodePortMinHeight = Math.round(Math.max(36, nodePortHitWidth + 14));
+    const nodePortOmniSize = Math.round(
+      Math.min(MAX_NODE_PORT_OMNI_SIZE, Math.max(MIN_NODE_PORT_OMNI_SIZE, nodePortHitWidth))
+    );
+    const nodePortOmniOffset = Math.round(nodePortOmniSize / 2 + 1);
+    const nodePortOmniHaloSize = Math.round(Math.max(14, Math.min(22, nodePortDotSize + 4)));
     return {
       left: `${position.x}px`,
       top: `${position.y}px`,
@@ -2676,6 +2702,16 @@ LIMIT 50;`;
       "--leaf-node-icon-size": `${Math.max(32, Math.round((this.nodeIconSize / DEFAULT_NODE_ICON_SIZE) * DEFAULT_LEAF_ICON_SIZE))}px`,
       "--leaf-node-icon-font-size": `${Math.max(16, Math.round((this.nodeIconSize / DEFAULT_NODE_ICON_SIZE) * DEFAULT_LEAF_ICON_FONT_SIZE))}px`,
       "--leaf-anchor-top-offset": `${LEAF_ANCHOR_TOP_OFFSET}px`,
+      "--node-port-hit-width": `${nodePortHitWidth}px`,
+      "--node-port-hit-inset": `${nodePortInset}px`,
+      "--node-port-hit-min-height": `${nodePortMinHeight}px`,
+      "--node-port-dot-size": `${nodePortDotSize}px`,
+      "--node-port-edge-offset": `${nodePortEdgeOffset}px`,
+      "--node-port-lane-inset": `${nodePortLaneInset}px`,
+      "--node-port-lane-width": `${nodePortLaneWidth}px`,
+      "--node-port-omni-size": `${nodePortOmniSize}px`,
+      "--node-port-omni-offset": `${nodePortOmniOffset}px`,
+      "--node-port-omni-halo-size": `${nodePortOmniHaloSize}px`,
       zIndex: resolvedZIndex
     };
   }
@@ -4416,7 +4452,45 @@ spec:
       const rest = points.slice(1);
       return `M ${first.x} ${first.y} ${rest.map((point) => `L ${point.x} ${point.y}`).join(" ")}`;
     }
-    return this.buildRoundedPolylinePath(points, path === "bezier" ? 16 : 12);
+    if (path === "smoothstep") {
+      return this.buildSmoothCurvePath(points);
+    }
+    return this.buildRoundedPolylinePath(points, 12);
+  }
+
+  private buildSmoothCurvePath(points: readonly EdgePoint[]): string {
+    if (points.length < 2) return "";
+    if (points.length === 2) {
+      const first = points[0];
+      const last = points[1];
+      if (!first || !last) return "";
+      const controlX = (first.x + last.x) / 2;
+      return `M ${first.x} ${first.y} C ${controlX} ${first.y} ${controlX} ${last.y} ${last.x} ${last.y}`;
+    }
+
+    const clampedTension = 0.42;
+    let path = `M ${points[0]?.x ?? 0} ${points[0]?.y ?? 0}`;
+
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const previous = points[Math.max(index - 1, 0)];
+      const current = points[index];
+      const next = points[index + 1];
+      const nextNext = points[Math.min(index + 2, points.length - 1)];
+      if (!previous || !current || !next || !nextNext) continue;
+
+      const control1 = {
+        x: current.x + ((next.x - previous.x) * clampedTension) / 6,
+        y: current.y + ((next.y - previous.y) * clampedTension) / 6
+      };
+      const control2 = {
+        x: next.x - ((nextNext.x - current.x) * clampedTension) / 6,
+        y: next.y - ((nextNext.y - current.y) * clampedTension) / 6
+      };
+
+      path += ` C ${control1.x} ${control1.y} ${control2.x} ${control2.y} ${next.x} ${next.y}`;
+    }
+
+    return path;
   }
 
   private buildRoundedPolylinePath(points: readonly EdgePoint[], radius: number): string {
@@ -4962,10 +5036,7 @@ spec:
     const detectedTarget = dropPoint
       ? this.findContainingPoint(dropPoint, candidates)
       : this.findContainingNode(draggedPosition, dragged.size, candidates);
-    const currentParent = dragged.parentId
-      ? this.nodes.find((candidate) => candidate.id === dragged.parentId) ?? null
-      : null;
-    const target = detectedTarget ?? currentParent;
+    const target = detectedTarget;
     const targetPosition = target ? this.getAbsolutePosition(target) : null;
     const nextPosition = targetPosition
       ? { x: draggedPosition.x - targetPosition.x, y: draggedPosition.y - targetPosition.y }
@@ -4981,7 +5052,6 @@ spec:
           : node
       )
     );
-    this.fitAncestorContainersForNodes(target ? [dragged.id, target.id] : [dragged.id]);
   }
 
   private findContainingNode(
