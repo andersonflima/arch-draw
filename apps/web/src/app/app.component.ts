@@ -2826,7 +2826,7 @@ LIMIT 50;`;
     if (edge.id === this.selectedEdgeId || edge.id === this.editingEdgeId || edge.id === this.hoveredEdgeId) {
       return false;
     }
-    if (this.isEdgeTouchingActiveContactArea(edge)) return true;
+    if (this.isDragDropContactAreaActive() && this.isEdgeTouchingActiveContactArea(edge)) return true;
     if (!this.isProximitySuppressionActive()) return false;
 
     const focusPoint = this.getInteractionFocusPoint();
@@ -2840,7 +2840,9 @@ LIMIT 50;`;
   }
 
   getEdgeProximityIndicatorStyle(): Record<string, string> | null {
-    const selectedContactStyle = this.getSelectedContactAreaIndicatorStyle();
+    const selectedContactStyle = this.isDragDropContactAreaActive()
+      ? this.getSelectedContactAreaIndicatorStyle()
+      : null;
     if (selectedContactStyle) return selectedContactStyle;
     if (!this.isProximitySuppressionActive()) return null;
     const focusPoint = this.getInteractionFocusPoint();
@@ -2900,6 +2902,10 @@ LIMIT 50;`;
     }
 
     return null;
+  }
+
+  private isDragDropContactAreaActive(): boolean {
+    return Boolean(this.dragState?.hasMoved);
   }
 
   private getSelectedContactAreaIndicatorStyle(): Record<string, string> | null {
