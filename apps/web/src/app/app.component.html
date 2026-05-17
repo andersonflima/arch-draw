@@ -618,10 +618,19 @@
         (pointerdown)="$event.stopPropagation()"
       >
         <div class="panel-heading">
-          <div>
+          <div class="context-properties-popup__heading-content">
             <span>{{ t("properties.title") }}</span>
             <small>{{ selectedNode ? t("properties.selectedNode") : t("properties.selectedEdge") }}</small>
           </div>
+          <button
+            class="context-properties-popup__close"
+            type="button"
+            [title]="t('properties.close')"
+            [attr.aria-label]="t('properties.close')"
+            (click)="clearSelection()"
+          >
+            {{ t("properties.close") }}
+          </button>
         </div>
 
         <div class="property-stack" *ngIf="selectedNode as node">
