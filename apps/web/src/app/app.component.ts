@@ -183,8 +183,9 @@ const DOUBLE_CLICK_HINT_VISIBLE_MS = 5000;
 const CODE_SNIPPET_COLLAPSED_SIZE = { width: 172, height: 176 } as const;
 const CODE_SNIPPET_EXPANDED_SIZE = { width: 560, height: 420 } as const;
 const CONTAINER_COLLAPSED_SIZE = { width: 136, height: 140 } as const;
-const EDGE_NODE_GAP = 4;
-const EDGE_MARKER_CLEARANCE = 8;
+const EDGE_ARROW_LENGTH = 9;
+const EDGE_NODE_GAP = 0;
+const EDGE_MARKER_CLEARANCE = EDGE_ARROW_LENGTH;
 const EDGE_ENDPOINT_STUB = 8;
 const LEAF_ANCHOR_ICON_SIZE = 84;
 const LEAF_ANCHOR_TOP_OFFSET = 4;
@@ -5483,10 +5484,43 @@ spec:
     halfWidth: number;
     halfHeight: number;
   }> {
+    const portMetrics = this.getNodePortMetricsForGeometry(node);
+    const horizontalOuterExtent = this.hasOmniConnectionPorts(node)
+      ? Math.abs(portMetrics.omniSize / 2 - portMetrics.omniOffset) + portMetrics.dotSize / 2
+      : portMetrics.edgeOffset;
+    const verticalOuterExtent = this.hasOmniConnectionPorts(node)
+      ? Math.abs(portMetrics.omniSize / 2 - portMetrics.omniOffset) + portMetrics.dotSize / 2
+      : 0;
     return {
       center: this.getNodeCenter(node),
-      halfWidth: node.size.width / 2,
-      halfHeight: node.size.height / 2
+      halfWidth: node.size.width / 2 + horizontalOuterExtent,
+      halfHeight: node.size.height / 2 + verticalOuterExtent
+    };
+  }
+
+  private getNodePortMetricsForGeometry(node: CanvasNode): Readonly<{
+    dotSize: number;
+    edgeOffset: number;
+    omniSize: number;
+    omniOffset: number;
+  }> {
+    const nodePortScaleBasis = Math.max(48, Math.min(node.size.width, node.size.height));
+    const nodePortHitWidth = Math.round(
+      Math.min(MAX_NODE_PORT_HIT_WIDTH, Math.max(MIN_NODE_PORT_HIT_WIDTH, nodePortScaleBasis * 0.24))
+    );
+    const nodePortDotSize = Math.round(
+      Math.min(MAX_NODE_PORT_DOT_SIZE, Math.max(MIN_NODE_PORT_DOT_SIZE, nodePortHitWidth * 0.48))
+    );
+    const nodePortEdgeOffset = nodePortDotSize + 1;
+    const nodePortOmniSize = Math.round(
+      Math.min(MAX_NODE_PORT_OMNI_SIZE, Math.max(MIN_NODE_PORT_OMNI_SIZE, nodePortHitWidth))
+    );
+    const nodePortOmniOffset = Math.round(nodePortOmniSize / 2 + 1);
+    return {
+      dotSize: nodePortDotSize,
+      edgeOffset: nodePortEdgeOffset,
+      omniSize: nodePortOmniSize,
+      omniOffset: nodePortOmniOffset
     };
   }
 
