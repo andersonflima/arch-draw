@@ -103,6 +103,12 @@ type ConnectionDragState = Readonly<{
   current: Readonly<{ x: number; y: number }>;
 }>;
 
+type PendingPortGestureState = Readonly<{
+  nodeId: string;
+  sourcePort: ArchitectureEdgePortSide | null;
+  start: Readonly<{ x: number; y: number }>;
+}>;
+
 type ConnectionTarget = Readonly<{
   nodeId: string;
   targetPort: ArchitectureEdgePortSide | null;
@@ -856,6 +862,7 @@ export class AppComponent implements OnDestroy {
   private suppressCanvasClickClear = false;
   private resizeEnabledNodeId: string | null = null;
   private connectionDragState: ConnectionDragState | null = null;
+  private pendingPortGestureState: PendingPortGestureState | null = null;
   private autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
   private errorToastTimer: ReturnType<typeof setTimeout> | null = null;
   private doubleClickHintBootTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1381,6 +1388,7 @@ export class AppComponent implements OnDestroy {
     this.connectionSourceId = null;
     this.connectionSourcePort = null;
     this.connectionDragState = null;
+    this.pendingPortGestureState = null;
     this.editingEdgeId = null;
     this.editingEdgeLabelDraft = "";
     this.editingNodeId = null;
@@ -2317,33 +2325,8 @@ LIMIT 50;`;
     if (event.button !== 0) return;
     if ((event.target as HTMLElement).closest(".node-port, .resize-control, .node-inline-label-input, .node-collapse-toggle, .code-snippet-inline-editor")) return;
     event.stopPropagation();
-    const isInSelection = this.selectedNodeIds.includes(node.id);
-    const draggedIds = this.getDragNodeIds(node, isInSelection);
-    if (!isInSelection || this.selectedNodeIds.length === 0) {
-      this.selectedNodeId = node.id;
-      this.selectedNodeIds = [node.id];
-      this.selectedEdgeId = null;
-    }
-    this.editingNodeId = null;
-    this.resizeEnabledNodeId = null;
-
     const point = this.toCanvasPoint(event);
-    const pointerOffsets = new Map<string, Readonly<{ x: number; y: number }>>();
-    for (const draggedId of draggedIds) {
-      const draggedNode = this.nodes.find((candidate) => candidate.id === draggedId);
-      if (!draggedNode) continue;
-      const absolute = this.getAbsolutePosition(draggedNode);
-      pointerOffsets.set(draggedId, {
-        x: point.x - absolute.x,
-        y: point.y - absolute.y
-      });
-    }
-
-    this.dragState = {
-      pointerOffsets,
-      startPoint: point,
-      hasMoved: false
-    };
+    this.beginNodeDrag(node.id, point);
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
     this.markViewChanged();
   }
@@ -2415,6 +2398,7 @@ LIMIT 50;`;
     this.selectedEdgeId = null;
     this.connectionSourceId = null;
     this.connectionSourcePort = null;
+    this.pendingPortGestureState = null;
     this.resizeEnabledNodeId = null;
     this.markViewChanged();
   }
@@ -2462,6 +2446,27 @@ LIMIT 50;`;
       return;
     }
 
+    if (this.pendingPortGestureState) {
+      const point = this.toCanvasPoint(event);
+      if (!this.hasExceededDragStartThreshold(this.pendingPortGestureState.start, point)) return;
+
+      if (this.shouldStartConnectionDragFromPortGesture(this.pendingPortGestureState, point)) {
+        this.startConnectDragFromGesture(this.pendingPortGestureState.nodeId, this.pendingPortGestureState.sourcePort, point);
+      } else {
+        const dragState = this.beginNodeDrag(this.pendingPortGestureState.nodeId, this.pendingPortGestureState.start);
+        if (dragState) {
+          this.dragState = {
+            pointerOffsets: dragState.pointerOffsets,
+            startPoint: dragState.startPoint,
+            hasMoved: true
+          };
+          this.moveSelectedNodes(point);
+        }
+      }
+      this.pendingPortGestureState = null;
+      return;
+    }
+
     if (this.connectionDragState) {
       this.connectionDragState = {
         ...this.connectionDragState,
@@ -2486,6 +2491,7 @@ LIMIT 50;`;
     const hadDragState = this.dragState !== null;
     const hadResizeState = this.resizeState !== null;
     const hadConnectionDragState = this.connectionDragState !== null;
+    const hadPendingPortGestureState = this.pendingPortGestureState !== null;
     if (this.dragState?.hasMoved) {
       const selectedIds = new Set(this.dragState.pointerOffsets.keys());
       const dropPoint = this.toCanvasPoint(event);
@@ -2525,10 +2531,14 @@ LIMIT 50;`;
       this.markViewChanged();
     }
 
+    if (this.pendingPortGestureState) {
+      this.pendingPortGestureState = null;
+    }
+
     this.panState = null;
     this.dragState = null;
     this.resizeState = null;
-    if (hadPanState || hadDragState || hadResizeState || hadConnectionDragState) {
+    if (hadPanState || hadDragState || hadResizeState || hadConnectionDragState || hadPendingPortGestureState) {
       this.hoveredEdgeId = null;
     }
 
@@ -2543,11 +2553,13 @@ LIMIT 50;`;
       this.dragState !== null ||
       this.resizeState !== null ||
       this.connectionDragState !== null ||
+      this.pendingPortGestureState !== null ||
       this.marqueeState !== null;
     this.panState = null;
     this.dragState = null;
     this.resizeState = null;
     this.connectionDragState = null;
+    this.pendingPortGestureState = null;
     this.marqueeState = null;
     this.hoveredEdgeId = null;
     if (hadInteraction) this.markInteractionChanged();
@@ -2611,6 +2623,7 @@ LIMIT 50;`;
     this.connectionSourceId = null;
     this.connectionSourcePort = null;
     this.connectionDragState = null;
+    this.pendingPortGestureState = null;
     this.editingEdgeId = null;
     this.editingEdgeLabelDraft = "";
     this.editingNodeId = null;
@@ -5798,16 +5811,23 @@ spec:
     });
   }
 
-  private startConnectDrag(nodeId: string, sourcePort: ArchitectureEdgePortSide | null, event: PointerEvent): void {
-    this.startConnect(nodeId, sourcePort, event);
-    const point = this.toCanvasPoint(event);
+  private startConnectDragFromGesture(
+    nodeId: string,
+    sourcePort: ArchitectureEdgePortSide | null,
+    point: Readonly<{ x: number; y: number }>
+  ): void {
+    this.connectionSourceId = nodeId;
+    this.connectionSourcePort = sourcePort;
+    this.selectedNodeId = nodeId;
+    this.selectedNodeIds = [nodeId];
+    this.selectedEdgeId = null;
+    this.resizeEnabledNodeId = null;
     this.connectionDragState = {
       sourceId: nodeId,
       sourcePort,
       start: point,
       current: point
     };
-    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
     this.markViewChanged();
   }
 
@@ -5826,8 +5846,67 @@ spec:
     // If a source is already armed from the previous click, preserve it so
     // the next click can finish the connection instead of resetting the source.
     if (this.connectionSourceId && this.connectionSourceId !== nodeId) return;
+    this.pendingPortGestureState = {
+      nodeId,
+      sourcePort: side,
+      start: this.toCanvasPoint(event)
+    };
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+  }
 
-    this.startConnectDrag(nodeId, side, event);
+  private beginNodeDrag(nodeId: string, point: Readonly<{ x: number; y: number }>): DragState | null {
+    const node = this.nodes.find((candidate) => candidate.id === nodeId);
+    if (!node) return null;
+    const isInSelection = this.selectedNodeIds.includes(node.id);
+    const draggedIds = this.getDragNodeIds(node, isInSelection);
+    if (!isInSelection || this.selectedNodeIds.length === 0) {
+      this.selectedNodeId = node.id;
+      this.selectedNodeIds = [node.id];
+      this.selectedEdgeId = null;
+    }
+    this.editingNodeId = null;
+    this.resizeEnabledNodeId = null;
+
+    const pointerOffsets = new Map<string, Readonly<{ x: number; y: number }>>();
+    for (const draggedId of draggedIds) {
+      const draggedNode = this.nodes.find((candidate) => candidate.id === draggedId);
+      if (!draggedNode) continue;
+      const absolute = this.getAbsolutePosition(draggedNode);
+      pointerOffsets.set(draggedId, {
+        x: point.x - absolute.x,
+        y: point.y - absolute.y
+      });
+    }
+
+    this.dragState = {
+      pointerOffsets,
+      startPoint: point,
+      hasMoved: false
+    };
+    return this.dragState;
+  }
+
+  private shouldStartConnectionDragFromPortGesture(
+    gesture: PendingPortGestureState,
+    currentPoint: Readonly<{ x: number; y: number }>
+  ): boolean {
+    if (!gesture.sourcePort) return false;
+    const deltaX = currentPoint.x - gesture.start.x;
+    const deltaY = currentPoint.y - gesture.start.y;
+    const isHorizontalIntent = Math.abs(deltaX) >= Math.abs(deltaY);
+
+    switch (gesture.sourcePort) {
+      case "right":
+        return isHorizontalIntent && deltaX > 0;
+      case "left":
+        return isHorizontalIntent && deltaX < 0;
+      case "top":
+        return !isHorizontalIntent && deltaY < 0;
+      case "bottom":
+        return !isHorizontalIntent && deltaY > 0;
+      default:
+        return false;
+    }
   }
 
   private startCanvasPan(event: PointerEvent): void {
@@ -6190,6 +6269,7 @@ spec:
       this.connectionSourceId = null;
       this.connectionSourcePort = null;
       this.connectionDragState = null;
+      this.pendingPortGestureState = null;
       this.nodeInlineCodeDrafts.clear();
       this.status = "Desfeito";
       void this.renderMermaid();
