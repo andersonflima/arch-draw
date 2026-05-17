@@ -694,7 +694,7 @@ const TUTORIAL_GUIDES: readonly TutorialGuide[] = [
         targetSelector: "[data-tour='canvas-shell']"
       },
       {
-        text: "Gesto direcional na bolinha inicia conexão; gesto divergente vira drag do elemento.",
+        text: "Gesto direcional na bolinha inicia conexão; o drag do elemento inicia apenas sobre o ícone.",
         targetSelector: "[data-tour='canvas-shell']"
       },
       {
@@ -856,7 +856,7 @@ const TUTORIAL_GUIDES_EN_LOCALIZATION: Readonly<Record<string, Readonly<{
     description: "How to create precise links without disrupting drag and drop.",
     steps: [
       "Connections leave from contact circles and connect only to target circles.",
-      "A directional gesture on the circle starts a connection; a divergent gesture becomes node drag.",
+      "A directional gesture on the circle starts a connection; element drag starts only from the icon.",
       "Arrows remain aligned to the anchor and label text does not visually cover the line.",
       "Adjust line style in properties: smoothstep, step, and straight."
     ]
@@ -3222,9 +3222,8 @@ LIMIT 50;`;
     if (!edge) return;
 
     if (direction === "both") {
-      this.updateEdge(edge.id, {
-        style: normalizeEdgeStyle({ ...edge.style, bidirectional: true })
-      });
+      this.enableBidirectionalForNodePair(edge.id, edge.from, edge.to);
+      this.markViewChanged();
       return;
     }
 
@@ -3256,6 +3255,39 @@ LIMIT 50;`;
     this.editingEdgeId = null;
     this.editingEdgeLabelDraft = "";
     this.markViewChanged();
+  }
+
+  private enableBidirectionalForNodePair(
+    primaryEdgeId: string,
+    firstNodeId: string,
+    secondNodeId: string
+  ): void {
+    if (!this.canEditArchitecture()) return;
+    const primaryEdge = this.edges.find((edge) => edge.id === primaryEdgeId);
+    if (!primaryEdge) return;
+    const pairEdgeIds = new Set(
+      this.edges
+        .filter((edge) =>
+          (edge.from === firstNodeId && edge.to === secondNodeId)
+          || (edge.from === secondNodeId && edge.to === firstNodeId)
+        )
+        .map((edge) => edge.id)
+    );
+    const bidirectionalStyle = normalizeEdgeStyle({
+      ...primaryEdge.style,
+      bidirectional: true
+    });
+    this.edges = this.edges
+      .filter((edge) => edge.id === primaryEdgeId || !pairEdgeIds.has(edge.id))
+      .map((edge) => edge.id === primaryEdgeId
+        ? { ...edge, style: bidirectionalStyle }
+        : edge);
+    if (this.selectedEdgeId && pairEdgeIds.has(this.selectedEdgeId) && this.selectedEdgeId !== primaryEdgeId) {
+      this.selectedEdgeId = primaryEdgeId;
+    }
+    if (this.hoveredEdgeId && pairEdgeIds.has(this.hoveredEdgeId) && this.hoveredEdgeId !== primaryEdgeId) {
+      this.hoveredEdgeId = primaryEdgeId;
+    }
   }
 
   startConnect(nodeId: string, sourcePort: ArchitectureEdgePortSide | null, event: Event): void {
@@ -3315,7 +3347,9 @@ LIMIT 50;`;
       return;
     }
     if (event.button !== 0) return;
-    if ((event.target as HTMLElement).closest(".node-port, .resize-control, .node-inline-label-input, .node-collapse-toggle, .code-snippet-inline-editor")) return;
+    const target = event.target as HTMLElement;
+    if (target.closest(".node-port, .resize-control, .node-inline-label-input, .node-collapse-toggle, .code-snippet-inline-editor")) return;
+    if (this.usesLeafConnectionAnchorBox(node) && !target.closest(".node-icon")) return;
     if (!this.canEditArchitecture()) return;
     event.stopPropagation();
     const point = this.toCanvasPoint(event);
@@ -3460,16 +3494,6 @@ LIMIT 50;`;
 
       if (this.shouldStartConnectionDragFromPortGesture(this.pendingPortGestureState, point)) {
         this.startConnectDragFromGesture(this.pendingPortGestureState.nodeId, this.pendingPortGestureState.sourcePort, point);
-      } else {
-        const dragState = this.beginNodeDrag(this.pendingPortGestureState.nodeId, this.pendingPortGestureState.start);
-        if (dragState) {
-          this.dragState = {
-            pointerOffsets: dragState.pointerOffsets,
-            startPoint: dragState.startPoint,
-            hasMoved: true
-          };
-          this.moveSelectedNodes(point);
-        }
       }
       this.pendingPortGestureState = null;
       return;
@@ -7531,15 +7555,7 @@ spec:
 
     const reverseEdge = this.edges.find((edge) => edge.from === to && edge.to === from);
     if (reverseEdge) {
-      const bidirectionalStyle = normalizeEdgeStyle({
-        ...reverseEdge.style,
-        bidirectional: true
-      });
-      this.edges = this.edges.map((edge) =>
-        edge.id === reverseEdge.id
-          ? { ...edge, style: bidirectionalStyle }
-          : edge
-      );
+      this.enableBidirectionalForNodePair(reverseEdge.id, from, to);
       return;
     }
 

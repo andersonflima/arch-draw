@@ -2776,11 +2776,11 @@ app-flow-document-node {
 }
 
 .canvas-edge-flow--forward {
-  animation: edge-flow-dash 0.22s linear infinite;
+  animation: edge-flow-ping-pong 2.6s ease-in-out infinite;
 }
 
 .canvas-edge-flow--reverse {
-  animation: edge-flow-dash 0.22s linear infinite;
+  animation: edge-flow-ping-pong 2.6s ease-in-out infinite reverse;
 }
 
 .canvas-edge-proximity-indicator {
@@ -2807,6 +2807,18 @@ app-flow-document-node {
   }
   to {
     stroke-dashoffset: -14;
+  }
+}
+
+@keyframes edge-flow-ping-pong {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dashoffset: -28;
+  }
+  100% {
+    stroke-dashoffset: 0;
   }
 }
 
@@ -3307,6 +3319,7 @@ app-flow-document-node {
   position: fixed;
   right: 20px;
   bottom: 86px;
+  width: fit-content;
   max-width: min(460px, calc(100vw - 24px));
   border: 2px solid #111827;
   border-radius: 9px;
@@ -3339,7 +3352,8 @@ app-flow-document-node {
   top: -62px;
   left: 50%;
   transform: translateX(-50%);
-  max-width: min(320px, calc(100% + 72px));
+  width: fit-content;
+  max-width: min(calc(100vw - 32px), calc(100% + 72px));
   border: 2px solid #7c2d12;
   border-radius: 8px;
   background: #fef08a;
