@@ -192,7 +192,7 @@ export const registerRoutes = async (
     if (existingShare) {
       return reply.send({
         shareId: existingShare.shareId,
-        sharePath: `/?share=${encodeURIComponent(existingShare.shareId)}&mode=${encodeURIComponent(existingShare.accessMode)}`
+        sharePath: `/?share=${encodeURIComponent(existingShare.shareId)}`
       });
     }
 
@@ -209,7 +209,7 @@ export const registerRoutes = async (
       if (!created) continue;
       return reply.code(201).send({
         shareId: created.shareId,
-        sharePath: `/?share=${encodeURIComponent(created.shareId)}&mode=${encodeURIComponent(created.accessMode)}`
+        sharePath: `/?share=${encodeURIComponent(created.shareId)}`
       });
     }
 
@@ -224,9 +224,14 @@ export const registerRoutes = async (
         request.log.warn({ event: "invalid_id", route: "/architectures/shared/:shareId", shareId: request.params.shareId }, "Rejected invalid share id");
         return reply.code(400).send({ errors: ["Invalid share id"] });
       }
+      const share = await dependencies.repository.findShareById(request.params.shareId);
+      if (!share) return reply.code(404).send({ error: "Shared architecture not found" });
       const architecture = await dependencies.repository.findByShareId(request.params.shareId);
       if (!architecture) return reply.code(404).send({ error: "Shared architecture not found" });
-      return architecture;
+      return {
+        architecture,
+        accessMode: share.accessMode
+      };
     }
   );
 
@@ -349,7 +354,6 @@ export const registerRoutes = async (
 
     const share = await dependencies.repository.findShareById(request.params.shareId);
     if (!share) return reply.code(404).send({ error: "Shared architecture not found" });
-    if (share.accessMode !== "edit") return reply.code(204).send();
 
     dependencies.collaborationHub.publishView({
       shareId: request.params.shareId,

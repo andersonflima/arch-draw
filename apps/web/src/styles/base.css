@@ -640,7 +640,7 @@ button {
 .canvas-marquee {
   position: absolute;
   border: 2px dashed #2563eb;
-  background: rgba(37, 99, 235, 0.14);
+  background: transparent;
   border-radius: 6px;
   pointer-events: none;
   z-index: 18;
@@ -2525,6 +2525,12 @@ app-flow-document-node {
   opacity: 0;
 }
 
+.architecture-node.is-selected .node-port::before {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.22), 1px 1px 0 #111827;
+}
+
 .node-port--target {
   left: calc(-1 * var(--node-port-edge-offset, 15px));
 }
@@ -3278,6 +3284,8 @@ app-flow-document-node {
   padding: 10px 14px;
   box-shadow: 3px 3px 0 #7c2d12;
   white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
   pointer-events: none;
   z-index: 8;
   animation: maximize-hint-pulse 1.1s ease-in-out infinite;
@@ -3541,6 +3549,12 @@ app-flow-document-node {
 .app-shell.theme-dark .architecture-node--leaf.is-selected .node-port::after {
   background: transparent;
   opacity: 0;
+}
+
+.app-shell.theme-dark .architecture-node.is-selected .node-port::before {
+  border-color: #f59e0b;
+  background: #422006;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.28), 1px 1px 0 #0b1220;
 }
 
 .app-shell.theme-dark .node-collapse-toggle,

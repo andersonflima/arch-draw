@@ -253,9 +253,12 @@ const LEAF_ANCHOR_TOP_OFFSET = 4;
 const NODE_LAYER_CONTAINER_BASE_Z_INDEX = 120;
 const NODE_LAYER_LEAF_BASE_Z_INDEX = 180;
 const NODE_LAYER_DEPTH_STEP = 6;
-const NODE_LAYER_EXPANDED_CONTAINER_BOOST = 8;
+const NODE_LAYER_EXPANDED_CONTAINER_BOOST = 0;
 const NODE_LAYER_EXPANDED_LEAF_BOOST = 120;
 const NODE_LAYER_DRAG_Z_INDEX_BASE = 1000;
+const EDGE_LAYER_BASE_Z_INDEX = 150;
+const EDGE_LAYER_INTERACTION_Z_INDEX = 160;
+const EDGE_LAYER_CONTAINER_CONTEXT_BASE_Z_INDEX = 188;
 const DEFAULT_EDGE_LABEL_FONT_SIZE = 28;
 const MIN_EDGE_LABEL_FONT_SIZE = 10;
 const MAX_EDGE_LABEL_FONT_SIZE = 28;
@@ -1668,6 +1671,7 @@ export class AppComponent implements OnDestroy {
   }
 
   async createArchitecture(): Promise<void> {
+    if (!this.canEditArchitecture()) return;
     await this.runSafely(async () => {
       this.cancelAutoSave();
       this.disconnectCollaborationSession();
@@ -1679,6 +1683,7 @@ export class AppComponent implements OnDestroy {
   }
 
   async createCompleteExampleArchitecture(): Promise<void> {
+    if (!this.canEditArchitecture()) return;
     await this.runSafely(async () => {
       this.cancelAutoSave();
       this.disconnectCollaborationSession();
@@ -1692,6 +1697,7 @@ export class AppComponent implements OnDestroy {
   }
 
   async createStressTestArchitecture(): Promise<void> {
+    if (!this.canEditArchitecture()) return;
     await this.runSafely(async () => {
       this.cancelAutoSave();
       this.disconnectCollaborationSession();
@@ -1705,6 +1711,7 @@ export class AppComponent implements OnDestroy {
   }
 
   async deleteCurrent(): Promise<void> {
+    if (!this.canEditArchitecture()) return;
     await this.runSafely(async () => {
       this.cancelAutoSave();
       await this.waitForPersistenceIdle();
@@ -1723,6 +1730,7 @@ export class AppComponent implements OnDestroy {
   }
 
   async deleteArchitectureById(id: string, event?: MouseEvent): Promise<void> {
+    if (!this.canEditArchitecture()) return;
     event?.preventDefault();
     event?.stopPropagation();
     await this.runSafely(async () => {
@@ -1747,6 +1755,7 @@ export class AppComponent implements OnDestroy {
   }
 
   async saveCurrent(): Promise<void> {
+    if (!this.canEditArchitecture()) return;
     await this.runSafely(async () => {
       const saved = await this.persistCurrent("manual");
       this.status = saved ? this.t("status.saved") : this.t("status.noChanges");
@@ -1755,6 +1764,7 @@ export class AppComponent implements OnDestroy {
   }
 
   onToolbarDeleteClick(): void {
+    if (!this.canEditArchitecture()) return;
     if (this.selectedEdgeId) {
       this.deleteSelectedEdge();
       this.status = this.t("status.edgeRemoved");
@@ -1977,10 +1987,12 @@ export class AppComponent implements OnDestroy {
   }
 
   openImport(): void {
+    if (!this.canEditArchitecture()) return;
     this.importInput?.nativeElement.click();
   }
 
   async importArchitecture(event: Event): Promise<void> {
+    if (!this.canEditArchitecture()) return;
     const input = event.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
@@ -2002,6 +2014,7 @@ export class AppComponent implements OnDestroy {
   }
 
   async loadArchitecture(id: string): Promise<void> {
+    if (!this.canEditArchitecture()) return;
     this.cancelAutoSave();
     this.disconnectCollaborationSession();
     const loaded = await api.readArchitecture(id);
@@ -2021,7 +2034,7 @@ export class AppComponent implements OnDestroy {
         || this.collaborationSession.shareId !== shared.shareId
         || this.collaborationSession.accessMode !== accessMode
       ) {
-        await this.loadSharedArchitecture(shared.shareId, accessMode);
+        await this.loadSharedArchitecture(shared.shareId);
       }
       this.status = this.t("status.shareLinkCreated");
       this.showSuccessToast("toast.shareLinkCopied");
@@ -2044,6 +2057,7 @@ export class AppComponent implements OnDestroy {
   }
 
   updateTitle(title: string): void {
+    if (!this.canEditArchitecture()) return;
     if (!this.architecture) return;
     this.architecture = { ...this.architecture, title };
     this.markViewChanged();
@@ -2073,6 +2087,7 @@ export class AppComponent implements OnDestroy {
     position = this.nextNodePosition(),
     options: Readonly<{ attachToContainer: boolean }> = { attachToContainer: false }
   ): void {
+    if (!this.canEditArchitecture()) return;
     const id = `${template.kind}-${crypto.randomUUID()}`;
     const defaultSize = getDefaultNodeSize(template.kind);
     const isContainerKind = isContainerNodeKind(template.kind);
@@ -2138,6 +2153,7 @@ export class AppComponent implements OnDestroy {
   }
 
   onCanvasDrop(event: DragEvent): void {
+    if (!this.canEditArchitecture()) return;
     event.preventDefault();
     const rawTemplate = event.dataTransfer?.getData("application/arch-draw-node");
     if (!rawTemplate) return;
@@ -2366,6 +2382,7 @@ export class AppComponent implements OnDestroy {
       return;
     }
 
+    if (!this.canEditArchitecture()) return;
     this.startNodeLabelEditing(node.id, event);
   }
 
@@ -2374,6 +2391,7 @@ export class AppComponent implements OnDestroy {
   }
 
   startNodeLabelEditing(nodeId: string, event: MouseEvent): void {
+    if (!this.canEditArchitecture()) return;
     event.stopPropagation();
     const node = this.nodes.find((candidate) => candidate.id === nodeId);
     if (!node) return;
@@ -3021,6 +3039,7 @@ LIMIT 50;`;
   }
 
   deleteSelectedNode(): void {
+    if (!this.canEditArchitecture()) return;
     const selectedIds = this.selectedNodeIds.length > 0
       ? this.selectedNodeIds
       : this.selectedNode
@@ -3140,6 +3159,7 @@ LIMIT 50;`;
   }
 
   deleteSelectedEdge(): void {
+    if (!this.canEditArchitecture()) return;
     const edge = this.selectedEdge;
     if (!edge) return;
     this.edges = this.edges.filter((candidate) => candidate.id !== edge.id);
@@ -3153,6 +3173,7 @@ LIMIT 50;`;
   }
 
   startConnect(nodeId: string, sourcePort: ArchitectureEdgePortSide | null, event: Event): void {
+    if (!this.canEditArchitecture()) return;
     event.stopPropagation();
     this.connectionSourceId = nodeId;
     this.connectionSourcePort = sourcePort;
@@ -3180,6 +3201,10 @@ LIMIT 50;`;
   }
 
   finishOrStartConnect(nodeId: string, targetPort: ArchitectureEdgePortSide | null, event: Event): void {
+    if (!this.canEditArchitecture()) {
+      event.stopPropagation();
+      return;
+    }
     event.stopPropagation();
     if (!this.connectionSourceId) {
       this.startConnect(nodeId, targetPort, event);
@@ -3205,6 +3230,7 @@ LIMIT 50;`;
     }
     if (event.button !== 0) return;
     if ((event.target as HTMLElement).closest(".node-port, .resize-control, .node-inline-label-input, .node-collapse-toggle, .code-snippet-inline-editor")) return;
+    if (!this.canEditArchitecture()) return;
     event.stopPropagation();
     const point = this.toCanvasPoint(event);
     this.beginNodeDrag(node.id, point);
@@ -3240,6 +3266,7 @@ LIMIT 50;`;
       return;
     }
     if (event.button !== 0) return;
+    if (!this.canEditArchitecture()) return;
     if (!this.canResizeNode(node.id)) return;
     event.stopPropagation();
     this.selectedNodeId = node.id;
@@ -3567,7 +3594,8 @@ LIMIT 50;`;
       ? (rendersAsContainer ? NODE_LAYER_EXPANDED_CONTAINER_BOOST : NODE_LAYER_EXPANDED_LEAF_BOOST)
       : 0;
     const expandedZIndex = baseZIndex + expandedBoost;
-    const collapseToggleZIndexFloor = this.shouldRenderNodeCollapseToggle(node) ? 175 : 0;
+    const collapseToggleZIndexFloor =
+      !rendersAsContainer && this.shouldRenderNodeCollapseToggle(node) ? 175 : 0;
     const resolvedZIndex = Math.max(baseZIndex, expandedZIndex, dragZIndex, collapseToggleZIndexFloor);
     const nestedInsideContainer = Boolean(node.parentId);
     const isExpandedCodeSnippet = this.isCodeSnippetExpanded(node);
@@ -3753,6 +3781,68 @@ LIMIT 50;`;
       || this.editingEdgeId
       || this.hoveredEdgeId
     );
+  }
+
+  getEdgeLayerStyle(): Record<string, string> {
+    return {
+      zIndex: `${this.getEdgeLayerZIndex()}`
+    };
+  }
+
+  private getEdgeLayerZIndex(): number {
+    const interactionLayerZIndex = this.isEdgeLayerElevated()
+      ? EDGE_LAYER_INTERACTION_Z_INDEX
+      : EDGE_LAYER_BASE_Z_INDEX;
+    const containerContextLayerZIndex = this.getContainerContextEdgeLayerZIndex();
+    const containerLayerCeiling = this.getVisibleContainerLayerCeilingZIndex();
+    return Math.max(
+      interactionLayerZIndex,
+      containerContextLayerZIndex,
+      containerLayerCeiling + 1
+    );
+  }
+
+  private getVisibleContainerLayerCeilingZIndex(): number {
+    let ceiling = NODE_LAYER_CONTAINER_BASE_Z_INDEX;
+    for (const node of this.nodes) {
+      if (!this.isVisibleNode(node)) continue;
+      if (!this.rendersAsContainer(node)) continue;
+      const depth = this.getNodeHierarchyDepth(node);
+      const zIndex = NODE_LAYER_CONTAINER_BASE_Z_INDEX + depth * NODE_LAYER_DEPTH_STEP;
+      ceiling = Math.max(ceiling, zIndex);
+    }
+    return ceiling;
+  }
+
+  private getContainerContextEdgeLayerZIndex(): number {
+    let deepestSharedContainerDepth = -1;
+    for (const edge of this.edges) {
+      if (!this.isVisibleEdge(edge)) continue;
+      const effective = this.getEffectiveEdgeEndpoints(edge);
+      if (!effective) continue;
+      const { fromNode, toNode } = effective;
+      if (!this.isEdgeInsideContainerContext(fromNode, toNode)) continue;
+      deepestSharedContainerDepth = Math.max(
+        deepestSharedContainerDepth,
+        this.getSharedContainerContextDepth(fromNode, toNode)
+      );
+    }
+    if (deepestSharedContainerDepth < 0) return 0;
+    return EDGE_LAYER_CONTAINER_CONTEXT_BASE_Z_INDEX + deepestSharedContainerDepth * NODE_LAYER_DEPTH_STEP;
+  }
+
+  private getSharedContainerContextDepth(fromNode: CanvasNode, toNode: CanvasNode): number {
+    const fromLineage = this.getActiveContainerContextLineage(fromNode);
+    const toLineage = this.getActiveContainerContextLineage(toNode);
+    if (fromLineage.length === 0 || toLineage.length === 0) return 0;
+
+    const toSet = new Set(toLineage);
+    return fromLineage.reduce((deepest, containerId) => {
+      if (!toSet.has(containerId)) return deepest;
+      const container = this.nodes.find((candidate) => candidate.id === containerId);
+      if (!container) return deepest;
+      return Math.max(deepest, this.getNodeHierarchyDepth(container));
+    }, 0);
   }
 
   isEdgeTemporarilyMuted(edge: CanvasEdge): boolean {
@@ -4463,7 +4553,7 @@ LIMIT 50;`;
 
       const shareId = this.resolveShareIdFromUrl();
       if (shareId) {
-        await this.loadSharedArchitecture(shareId, this.resolveShareModeFromUrl());
+        await this.loadSharedArchitecture(shareId);
         return;
       }
 
@@ -4490,22 +4580,27 @@ LIMIT 50;`;
 
   private resolveShareIdFromUrl(): string | null {
     try {
-      const value = new URL(window.location.href).searchParams.get("share");
+      const locationUrl = new URL(window.location.href);
+      const value = locationUrl.searchParams.get("share");
       if (!value) return null;
       const normalized = value.trim();
       if (!normalized) return null;
+      locationUrl.searchParams.set("share", normalized);
+      locationUrl.searchParams.delete("mode");
+      locationUrl.searchParams.delete("accessMode");
+      locationUrl.searchParams.delete("shareMode");
+      this.replaceHistoryUrl(locationUrl);
       return normalized;
     } catch {
       return null;
     }
   }
 
-  private resolveShareModeFromUrl(): ShareAccessMode {
+  private replaceHistoryUrl(url: URL): void {
     try {
-      const mode = new URL(window.location.href).searchParams.get("mode");
-      return mode === "read-only" ? "read-only" : "edit";
+      window.history.replaceState({}, "", url.toString());
     } catch {
-      return "edit";
+      // Ignore history API failures in restricted contexts.
     }
   }
 
@@ -4538,24 +4633,21 @@ LIMIT 50;`;
     return palette[hash % palette.length] ?? "#f97316";
   }
 
-  private async loadSharedArchitecture(
-    shareId: string,
-    accessMode: ShareAccessMode
-  ): Promise<void> {
+  private async loadSharedArchitecture(shareId: string): Promise<void> {
     this.cancelAutoSave();
     this.disconnectCollaborationSession();
-    const loaded = await api.readSharedArchitecture(shareId);
-    this.updateCurrent(loaded);
+    const shared = await api.readSharedArchitecture(shareId);
+    this.updateCurrent(shared.architecture);
     const clientId = this.resolveCollaborationClientId();
     this.collaborationSession = {
       shareId,
       clientId,
       displayName: this.resolveCollaborationDisplayName(),
       color: this.resolveCollaborationColor(clientId),
-      accessMode
+      accessMode: shared.accessMode
     };
     this.connectCollaborationStream();
-    this.status = accessMode === "read-only"
+    this.status = shared.accessMode === "read-only"
       ? this.t("status.sharedReadOnly")
       : this.t("status.sharedArchitectureLoaded");
     this.markViewChanged();
@@ -5333,6 +5425,7 @@ spec:
   }
 
   private updateNode(id: string, patch: Partial<CanvasNode>): void {
+    if (!this.canEditArchitecture()) return;
     this.nodes = this.nodes.map((node) => node.id === id ? { ...node, ...patch } : node);
     this.markViewChanged();
   }
@@ -5585,6 +5678,7 @@ spec:
   }
 
   private updateEdge(id: string, patch: Partial<CanvasEdge>): void {
+    if (!this.canEditArchitecture()) return;
     this.edges = this.edges.map((edge) => edge.id === id ? { ...edge, ...patch } : edge);
     this.markViewChanged();
   }
@@ -5649,6 +5743,8 @@ spec:
   ): Readonly<{
     sourceId: string;
     targetId: string;
+    sourceSide: "left" | "right";
+    targetSide: "left" | "right";
     start: Readonly<{ x: number; y: number }>;
     startLead: Readonly<{ x: number; y: number }>;
     end: Readonly<{ x: number; y: number }>;
@@ -5706,7 +5802,7 @@ spec:
     const endLeadBase = this.offsetTerminalPoint(end, targetCenter, endAxis, EDGE_ENDPOINT_STUB, true);
     const startLead = this.offsetPointByConnectionSide(startLeadBase, sourceSide, sourceLaneOffset);
     const endLead = this.offsetPointByConnectionSide(endLeadBase, targetSide, targetLaneOffset);
-    return { sourceId: source.id, targetId: target.id, start, startLead, end, endLead, style };
+    return { sourceId: source.id, targetId: target.id, sourceSide, targetSide, start, startLead, end, endLead, style };
   }
 
   private getEdgePathData(edge: CanvasEdge): EdgePathData | null {
@@ -5721,10 +5817,13 @@ spec:
     }
     const basePolyline = this.getBaseEdgePolyline(geometry);
     const obstacleRects = this.getEdgeObstacleRects(edge, geometry.sourceId, geometry.targetId);
-    const routeCore = this.compactPolyline(basePolyline.slice(1, -1));
-    const routedCore = routeCore.length >= 2
+    const routeCoreFixedTerminals = this.compactPolyline(basePolyline.slice(1, -1));
+    const routeCoreStart = routeCoreFixedTerminals[0] ?? null;
+    const routeCoreEnd = routeCoreFixedTerminals[routeCoreFixedTerminals.length - 1] ?? null;
+    const routeCoreMiddle = this.compactPolyline(routeCoreFixedTerminals.slice(1, -1));
+    const routedCoreMiddle = routeCoreMiddle.length >= 2
       ? routeEdgePolylineAroundObstacles(
-        routeCore,
+        routeCoreMiddle,
         obstacleRects,
         geometry.sourceId,
         geometry.targetId,
@@ -5733,23 +5832,83 @@ spec:
           obstacleClearance: EDGE_OBSTACLE_CLEARANCE
         }
       )
-      : routeCore;
+      : routeCoreMiddle;
+    const routedCore = this.compactPolyline([
+      ...(routeCoreStart ? [routeCoreStart] : []),
+      ...routedCoreMiddle,
+      ...(routeCoreEnd ? [routeCoreEnd] : [])
+    ]);
     const routed = this.compactPolyline([
       geometry.start,
       ...routedCore,
       geometry.end
     ]);
-    if (routed.length < 2) {
+    const constrained = this.enforceEdgeEndpointSideConstraints(
+      routed,
+      geometry.sourceId,
+      geometry.targetId,
+      geometry.sourceSide,
+      geometry.targetSide
+    );
+    if (constrained.length < 2) {
       this.edgePathDataCache.set(edge.id, null);
       return null;
     }
 
     const data = {
-      points: routed,
+      points: constrained,
       style: geometry.style
     };
     this.edgePathDataCache.set(edge.id, data);
     return data;
+  }
+
+  private enforceEdgeEndpointSideConstraints(
+    points: readonly EdgePoint[],
+    sourceId: string,
+    targetId: string,
+    sourceSide: "left" | "right",
+    targetSide: "left" | "right"
+  ): readonly EdgePoint[] {
+    if (points.length < 2) return points;
+    const sourceNode = this.nodes.find((node) => node.id === sourceId);
+    const targetNode = this.nodes.find((node) => node.id === targetId);
+    if (!sourceNode || !targetNode) return points;
+
+    const sourceAnchorBox = this.getNodeConnectionAnchorBox(sourceNode);
+    const targetAnchorBox = this.getNodeConnectionAnchorBox(targetNode);
+    const sourceTop = sourceAnchorBox.center.y - sourceAnchorBox.halfHeight;
+    const sourceBottom = sourceAnchorBox.center.y + sourceAnchorBox.halfHeight;
+    const targetTop = targetAnchorBox.center.y - targetAnchorBox.halfHeight;
+    const targetBottom = targetAnchorBox.center.y + targetAnchorBox.halfHeight;
+    const sourceBoundaryX = points[0]?.x ?? sourceAnchorBox.center.x;
+    const targetBoundaryX = points[points.length - 1]?.x ?? targetAnchorBox.center.x;
+
+    const constrained = points.map((point) => ({ x: point.x, y: point.y }));
+    for (let index = 1; index < constrained.length - 1; index += 1) {
+      const point = constrained[index];
+      if (!point) continue;
+
+      if (point.y >= sourceTop && point.y <= sourceBottom) {
+        if (sourceSide === "right" && point.x < sourceBoundaryX) {
+          point.x = sourceBoundaryX;
+        }
+        if (sourceSide === "left" && point.x > sourceBoundaryX) {
+          point.x = sourceBoundaryX;
+        }
+      }
+
+      if (point.y >= targetTop && point.y <= targetBottom) {
+        if (targetSide === "right" && point.x < targetBoundaryX) {
+          point.x = targetBoundaryX;
+        }
+        if (targetSide === "left" && point.x > targetBoundaryX) {
+          point.x = targetBoundaryX;
+        }
+      }
+    }
+
+    return this.compactPolyline(constrained);
   }
 
   private getBaseEdgePolyline(
@@ -5796,13 +5955,33 @@ spec:
       const first = points[0];
       const last = points[1];
       if (!first || !last) return "";
-      const controlX = (first.x + last.x) / 2;
-      return `M ${first.x} ${first.y} C ${controlX} ${first.y} ${controlX} ${last.y} ${last.x} ${last.y}`;
+      return `M ${first.x} ${first.y} L ${last.x} ${last.y}`;
     }
 
-    const clampedTension = 0.42;
-    let path = `M ${points[0]?.x ?? 0} ${points[0]?.y ?? 0}`;
+    // Keep terminal segments straight near connection ports so the curve never
+    // overshoots the source/target anchor circles.
+    if (points.length >= 4) {
+      const start = points[0];
+      const startLead = points[1];
+      const endLead = points[points.length - 2];
+      const end = points[points.length - 1];
+      if (!start || !startLead || !endLead || !end) return "";
+      const corePoints = points.slice(1, -1);
+      let path = `M ${start.x} ${start.y} L ${startLead.x} ${startLead.y}`;
+      path += this.buildSmoothCurveCoreCommands(corePoints);
+      path += ` L ${end.x} ${end.y}`;
+      return path;
+    }
 
+    let path = `M ${points[0]?.x ?? 0} ${points[0]?.y ?? 0}`;
+    path += this.buildSmoothCurveCoreCommands(points);
+    return path;
+  }
+
+  private buildSmoothCurveCoreCommands(points: readonly EdgePoint[]): string {
+    if (points.length < 2) return "";
+    const clampedTension = 0.42;
+    let commands = "";
     for (let index = 0; index < points.length - 1; index += 1) {
       const previous = points[Math.max(index - 1, 0)];
       const current = points[index];
@@ -5827,10 +6006,9 @@ spec:
         control2.y = next.y;
       }
 
-      path += ` C ${control1.x} ${control1.y} ${control2.x} ${control2.y} ${next.x} ${next.y}`;
+      commands += ` C ${control1.x} ${control1.y} ${control2.x} ${control2.y} ${next.x} ${next.y}`;
     }
-
-    return path;
+    return commands;
   }
 
   private buildRoundedPolylinePath(points: readonly EdgePoint[], radius: number): string {
@@ -5988,7 +6166,11 @@ spec:
       const bcX = c.x - b.x;
       const bcY = c.y - b.y;
       const cross = abX * bcY - abY * bcX;
-      if (Math.abs(cross) <= 0.001) {
+      const dot = abX * bcX + abY * bcY;
+      // Only collapse when collinear and moving in the same direction.
+      // If direction reverses, keeping the middle point preserves the terminal
+      // stub outside the anchor bubble and prevents re-entering node bounds.
+      if (Math.abs(cross) <= 0.001 && dot >= 0) {
         compacted.splice(compacted.length - 2, 1);
       }
     }
@@ -7131,6 +7313,7 @@ spec:
       return;
     }
     if (event.button !== 0) return;
+    if (!this.canEditArchitecture()) return;
     event.stopPropagation();
 
     // If a source is already armed from the previous click, preserve it so
@@ -7218,6 +7401,7 @@ spec:
       targetPort: ArchitectureEdgePortSide | null;
     }>
   ): void {
+    if (!this.canEditArchitecture()) return;
     if (from === to) return;
     const fromNode = this.nodes.find((node) => node.id === from) ?? null;
     const toNode = this.nodes.find((node) => node.id === to) ?? null;
@@ -7550,6 +7734,13 @@ spec:
     return this.collaborationSession?.accessMode === "edit";
   }
 
+  private canEditArchitecture(): boolean {
+    if (this.collaborationSession?.accessMode !== "read-only") return true;
+    this.status = this.t("status.sharedReadOnly");
+    this.requestViewRender();
+    return false;
+  }
+
   private buildCollaborationViewSignature(): string {
     const normalizedZoom = this.clampZoom(this.canvasZoom);
     const normalizedPanX = Number(this.canvasPan.x.toFixed(2));
@@ -7569,7 +7760,7 @@ spec:
 
   private scheduleCollaborationViewPublish(): void {
     const session = this.collaborationSession;
-    if (!session || !this.canPublishCollaborationChanges()) return;
+    if (!session) return;
     if (this.collaborationApplyingRemoteView || this.collaborationApplyingRemoteDocument) return;
     const signature = this.buildCollaborationViewSignature();
     if (signature === this.lastCollaborationViewSignature) return;
@@ -7585,7 +7776,7 @@ spec:
 
   private async publishCollaborationView(): Promise<void> {
     const session = this.collaborationSession;
-    if (!session || !this.canPublishCollaborationChanges()) return;
+    if (!session) return;
     if (this.collaborationApplyingRemoteView || this.collaborationApplyingRemoteDocument) return;
     const signature = this.buildCollaborationViewSignature();
     if (signature === this.lastCollaborationViewSignature) return;
@@ -7722,10 +7913,10 @@ spec:
     const activeShareId = this.collaborationSession?.shareId;
     if (!activeShareId || activeShareId !== shareId) return;
     const remote = await api.readSharedArchitecture(shareId);
-    if (remote.id !== this.architecture?.id) return;
+    if (remote.architecture.id !== this.architecture?.id) return;
     this.collaborationApplyingRemoteDocument = true;
     try {
-      this.updateCurrent(remote);
+      this.updateCurrent(remote.architecture);
       this.lastCollaborationSignature = this.buildPersistenceSignature();
     } finally {
       this.collaborationApplyingRemoteDocument = false;
