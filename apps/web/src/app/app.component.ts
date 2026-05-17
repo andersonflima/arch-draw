@@ -2693,6 +2693,16 @@ LIMIT 50;`;
     );
     const nodePortOmniOffset = Math.round(nodePortOmniSize / 2 + 1);
     const nodePortOmniHaloSize = Math.round(Math.max(14, Math.min(22, nodePortDotSize + 4)));
+    const leafNodeIconSize = Math.max(
+      32,
+      Math.round(
+        Math.min(
+          Math.max(32, node.size.width - 20),
+          Math.max(32, node.size.height - LEAF_ANCHOR_TOP_OFFSET - 14),
+          Math.max(32, (this.nodeIconSize / DEFAULT_NODE_ICON_SIZE) * DEFAULT_LEAF_ICON_SIZE)
+        )
+      )
+    );
     return {
       left: `${position.x}px`,
       top: `${position.y}px`,
@@ -2703,8 +2713,8 @@ LIMIT 50;`;
       "--node-label-font-size": `${this.nodeLabelFontSize}px`,
       "--node-icon-size": `${this.nodeIconSize}px`,
       "--node-icon-font-size": `${Math.max(10, Math.round((this.nodeIconSize / DEFAULT_NODE_ICON_SIZE) * DEFAULT_NODE_ICON_FONT_SIZE))}px`,
-      "--leaf-node-icon-size": `${Math.max(32, Math.round((this.nodeIconSize / DEFAULT_NODE_ICON_SIZE) * DEFAULT_LEAF_ICON_SIZE))}px`,
-      "--leaf-node-icon-font-size": `${Math.max(16, Math.round((this.nodeIconSize / DEFAULT_NODE_ICON_SIZE) * DEFAULT_LEAF_ICON_FONT_SIZE))}px`,
+      "--leaf-node-icon-size": `${leafNodeIconSize}px`,
+      "--leaf-node-icon-font-size": `${Math.max(16, Math.round((leafNodeIconSize / DEFAULT_LEAF_ICON_SIZE) * DEFAULT_LEAF_ICON_FONT_SIZE))}px`,
       "--leaf-anchor-top-offset": `${LEAF_ANCHOR_TOP_OFFSET}px`,
       "--node-port-hit-width": `${nodePortHitWidth}px`,
       "--node-port-hit-inset": `${nodePortInset}px`,
@@ -4074,6 +4084,7 @@ spec:
   }
 
   private setContainerCollapsed(nodeId: string, collapsed: boolean): void {
+    const previousNodeScreenCenter = !collapsed ? this.getNodeScreenCenter(nodeId) : null;
     this.nodes = this.sortNodes(
       this.nodes.map((node) => {
         if (node.id !== nodeId || !isContainerNodeKind(node.kind)) return node;
@@ -4112,6 +4123,9 @@ spec:
     }
 
     this.fitContainerAndAncestorChain(nodeId);
+    if (!collapsed && previousNodeScreenCenter) {
+      this.preserveNodeScreenCenter(nodeId, previousNodeScreenCenter);
+    }
     if (collapsed) {
       this.ensureNodeVisibleInViewport(nodeId);
     }
@@ -4121,6 +4135,7 @@ spec:
   }
 
   private setCodeSnippetCollapsed(nodeId: string, collapsed: boolean): void {
+    const previousNodeScreenCenter = !collapsed ? this.getNodeScreenCenter(nodeId) : null;
     this.nodes = this.sortNodes(
       this.nodes.map((node) => {
         if (node.id !== nodeId || !isCodeSnippetNodeKind(node.kind)) return node;
@@ -4154,6 +4169,9 @@ spec:
     );
 
     this.fitContainerAndAncestorChain(nodeId);
+    if (!collapsed && previousNodeScreenCenter) {
+      this.preserveNodeScreenCenter(nodeId, previousNodeScreenCenter);
+    }
     if (collapsed) {
       this.ensureNodeVisibleInViewport(nodeId);
     }
@@ -4189,6 +4207,29 @@ spec:
     this.canvasPan = {
       x: shellRect.width / 2 - center.x * this.canvasZoom,
       y: shellRect.height / 2 - center.y * this.canvasZoom
+    };
+  }
+
+  private getNodeScreenCenter(nodeId: string): Readonly<{ x: number; y: number }> | null {
+    const node = this.nodes.find((candidate) => candidate.id === nodeId);
+    if (!node) return null;
+    const center = this.getNodeCenter(node);
+    return {
+      x: center.x * this.canvasZoom + this.canvasPan.x,
+      y: center.y * this.canvasZoom + this.canvasPan.y
+    };
+  }
+
+  private preserveNodeScreenCenter(
+    nodeId: string,
+    screenCenter: Readonly<{ x: number; y: number }>
+  ): void {
+    const node = this.nodes.find((candidate) => candidate.id === nodeId);
+    if (!node) return;
+    const center = this.getNodeCenter(node);
+    this.canvasPan = {
+      x: screenCenter.x - center.x * this.canvasZoom,
+      y: screenCenter.y - center.y * this.canvasZoom
     };
   }
 
