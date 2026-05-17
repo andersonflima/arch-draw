@@ -386,6 +386,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "properties.directionRtl": "Direita para esquerda",
     "properties.directionBoth": "Bidirecional",
     "properties.edgeFontGlobal": "Fonte das âncoras (global)",
+    "properties.close": "Fechar",
     "properties.removeEdge": "Remover linha",
     "status.initializing": "Inicializando",
     "status.darkEnabled": "Dark mode ativado",
@@ -525,6 +526,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "properties.directionRtl": "Right to left",
     "properties.directionBoth": "Bidirectional",
     "properties.edgeFontGlobal": "Anchor font (global)",
+    "properties.close": "Close",
     "properties.removeEdge": "Remove edge",
     "status.initializing": "Initializing",
     "status.darkEnabled": "Dark mode enabled",
@@ -3772,7 +3774,38 @@ LIMIT 50;`;
     if (activeNodes.length === 0) return false;
     const data = this.getEdgePathData(edge);
     if (!data || data.points.length < 2) return false;
-    return activeNodes.some((node) => this.isEdgeTouchingNodeContactArea(data.points, node));
+    return activeNodes.some((node) => {
+      if (this.shouldIgnoreEdgeFromActiveContactArea(edge, node)) return false;
+      return this.isEdgeTouchingNodeContactArea(data.points, node);
+    });
+  }
+
+  private shouldIgnoreEdgeFromActiveContactArea(edge: CanvasEdge, activeNode: CanvasNode): boolean {
+    // While dragging an expanded container, keep internal links visible;
+    // suppress only links that actually cross the external contact area.
+    if (!this.rendersAsContainer(activeNode)) return false;
+    return this.isEdgeFullyInsideContainer(edge, activeNode.id);
+  }
+
+  private isEdgeFullyInsideContainer(edge: CanvasEdge, containerId: string): boolean {
+    return this.isNodeInsideContainerHierarchy(edge.from, containerId)
+      && this.isNodeInsideContainerHierarchy(edge.to, containerId);
+  }
+
+  private isNodeInsideContainerHierarchy(nodeId: string, containerId: string): boolean {
+    if (nodeId === containerId) return true;
+    const visited = new Set<string>();
+    let currentNodeId: string | null = nodeId;
+    while (currentNodeId && !visited.has(currentNodeId)) {
+      visited.add(currentNodeId);
+      const currentNode = this.nodes.find((candidate) => candidate.id === currentNodeId);
+      if (!currentNode) return false;
+      const parentId = currentNode.parentId ?? null;
+      if (!parentId) return false;
+      if (parentId === containerId) return true;
+      currentNodeId = parentId;
+    }
+    return false;
   }
 
   private isEdgeTouchingNodeContactArea(points: readonly EdgePoint[], node: CanvasNode): boolean {
@@ -5970,6 +6003,10 @@ spec:
     anchor: Readonly<{ x: number; y: number }>,
     center: Readonly<{ x: number; y: number }>
   ): "horizontal" | "vertical" {
+    // Non-omni nodes must always anchor through left/right ports.
+    // Forcing horizontal terminal axis keeps arrowheads locked to the contact bubble,
+    // even when lane offset is high.
+    if (!this.hasOmniConnectionPorts(node)) return "horizontal";
     return getEdgeTerminalAxisCore(node.size, anchor, center);
   }
 
