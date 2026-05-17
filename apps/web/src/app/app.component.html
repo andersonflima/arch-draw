@@ -34,6 +34,23 @@
           <button class="toolbar-dropdown__item" type="button" title="Exportar PNG" aria-label="Exportar PNG" (click)="exportPngCurrent()">PNG</button>
         </div>
       </details>
+      <details class="toolbar-dropdown toolbar-dropdown--tutorial">
+        <summary class="toolbar-action toolbar-dropdown__trigger" title="Tutoriais guiados" aria-label="Tutoriais guiados">
+          Tutorial
+        </summary>
+        <div class="toolbar-dropdown__menu">
+          <button
+            *ngFor="let guide of tutorialGuides"
+            class="toolbar-dropdown__item"
+            type="button"
+            [title]="'Abrir tutorial: ' + guide.title"
+            [attr.aria-label]="'Abrir tutorial: ' + guide.title"
+            (click)="openTutorialGuide(guide.id, $event)"
+          >
+            {{ guide.title }}
+          </button>
+        </div>
+      </details>
       <button class="toolbar-action" type="button" title="Importar" aria-label="Importar" (click)="openImport()">Importar</button>
       <button
         class="toolbar-action"
@@ -75,6 +92,28 @@
       (change)="importArchitecture($event)"
     />
   </header>
+
+  <aside *ngIf="getActiveTutorialGuide() as activeTutorial" class="tutorial-panel" aria-live="polite">
+    <div class="tutorial-panel__header">
+      <div>
+        <strong>{{ activeTutorial.title }}</strong>
+        <small>Tutorial guiado</small>
+      </div>
+      <button
+        class="secondary-action tutorial-panel__close"
+        type="button"
+        title="Fechar tutorial"
+        aria-label="Fechar tutorial"
+        (click)="closeTutorialGuide()"
+      >
+        Fechar
+      </button>
+    </div>
+    <p class="tutorial-panel__description">{{ activeTutorial.description }}</p>
+    <ol class="tutorial-panel__steps">
+      <li *ngFor="let step of activeTutorial.steps">{{ step }}</li>
+    </ol>
+  </aside>
 
   <div class="workspace">
     <nav class="sidebar">

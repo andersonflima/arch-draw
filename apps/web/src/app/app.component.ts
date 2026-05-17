@@ -151,6 +151,13 @@ type ContextPropertiesPanelState = Readonly<{
   maxHeight: number;
 }>;
 
+type TutorialGuide = Readonly<{
+  id: string;
+  title: string;
+  description: string;
+  steps: readonly string[];
+}>;
+
 type CodeLanguage =
   | "python"
   | "javascript"
@@ -267,6 +274,97 @@ const CLOUD_PROPERTY_FIELDS: readonly NodePropertyField[] = [
 const GENERIC_NODE_PROPERTY_FIELDS: readonly NodePropertyField[] = [
   { key: "description", label: "Descricao", placeholder: "Resumo tecnico", multiline: true }
 ];
+
+const TUTORIAL_GUIDES: readonly TutorialGuide[] = [
+  {
+    id: "getting-started",
+    title: "Comecar Rapido",
+    description: "Fluxo essencial para montar seu primeiro diagrama no Arch Draw.",
+    steps: [
+      "Crie uma arquitetura em Nova ou use Exemplo para carregar um modelo completo.",
+      "Arraste blocos da sidebar para o canvas e organize por contexto.",
+      "Clique em Salvar para persistir no workspace.",
+      "Use Exportar para gerar Arch-Draw, Draw.io, Excalidraw, Mermaid, SVG ou PNG."
+    ]
+  },
+  {
+    id: "containers-and-hierarchy",
+    title: "Containers e Hierarquia",
+    description: "Como estruturar dominios, ambientes e recursos aninhados.",
+    steps: [
+      "Use blocos de container para agrupar recursos relacionados.",
+      "Arraste recursos para dentro do container; filhos permanecem visualmente acima do pai.",
+      "Minimize e maximize containers para navegar entre visao macro e micro.",
+      "Ao abrir um container, confira se o conteudo interno continua legivel e sem sobreposicao."
+    ]
+  },
+  {
+    id: "connections-and-anchors",
+    title: "Conexoes e Ancoras",
+    description: "Como criar vinculos precisos sem atrapalhar drag and drop.",
+    steps: [
+      "As conexoes saem das bolinhas de contato e conectam apenas em bolinhas de destino.",
+      "Gesto direcional na bolinha inicia conexao; gesto divergente vira drag do elemento.",
+      "As setas ficam alinhadas com a ancora e o texto nao cobre visualmente a linha.",
+      "Ajuste estilo da linha em propriedades: smoothstep, step, straight; solid, dashed, dotted."
+    ]
+  },
+  {
+    id: "contact-area-behavior",
+    title: "Area de Contato",
+    description: "Regra de visibilidade e supressao temporaria das linhas proximas.",
+    steps: [
+      "A area de contato aparece durante drag and drop para reduzir ruido visual.",
+      "Linhas que encostam nessa area podem ser ocultadas temporariamente.",
+      "A area se ajusta ao tamanho do elemento (aberto ou minimizado).",
+      "Em elementos dentro de container, a regra continua valendo durante o arraste."
+    ]
+  },
+  {
+    id: "properties-and-editing",
+    title: "Propriedades e Edicao",
+    description: "Ajuste tecnico e visual de nos, ancoras e labels.",
+    steps: [
+      "Clique no elemento para abrir propriedades no ponto de contexto.",
+      "Edite campos tecnicos (codigo, YAML, SQL, metadados) por tipo de recurso.",
+      "Ajuste fonte de labels e tamanho de icones globalmente quando necessario.",
+      "Use duplo clique para editar labels inline de elementos e conexoes."
+    ]
+  },
+  {
+    id: "zoom-map-and-navigation",
+    title: "Zoom, Mapa e Navegacao",
+    description: "Como manter foco em diagramas grandes.",
+    steps: [
+      "Use os controles de zoom para aproximar e afastar sem perder contexto.",
+      "No mini mapa, acompanhe o viewport e a distribuicao geral dos elementos.",
+      "Arraste o canvas com botao do meio ou gestos de pan para navegar rapido.",
+      "Quando abrir um elemento, a navegacao deve preservar foco visual."
+    ]
+  },
+  {
+    id: "shortcuts-and-productivity",
+    title: "Atalhos e Produtividade",
+    description: "Comandos rapidos para acelerar a modelagem.",
+    steps: [
+      "Ctrl/Cmd + Z desfaz alteracoes recentes.",
+      "Ctrl/Cmd + A seleciona todos os nos visiveis do board.",
+      "Delete/Backspace remove o item selecionado.",
+      "Use Limpar para apagar selecao atual ou esvaziar o board."
+    ]
+  },
+  {
+    id: "import-export-workflow",
+    title: "Importacao e Exportacao",
+    description: "Interoperabilidade com outras ferramentas e formato nativo.",
+    steps: [
+      "Importe JSON/ArchDraw, Draw.io, Excalidraw e Mermaid.",
+      "Exporte em Arch-Draw para preservar dados completos do projeto.",
+      "Use Mermaid para documentacao textual e revisoes de fluxo.",
+      "Use SVG/PNG para compartilhamento visual rapido."
+    ]
+  }
+] as const;
 
 const CODE_LANGUAGE_OPTIONS: readonly CodeLanguageOption[] = [
   { value: "python", label: "Python" },
@@ -815,6 +913,7 @@ export class AppComponent implements OnDestroy {
   readonly edgeLines: readonly ArchitectureEdgeLineStyle[] = ["solid", "dashed", "dotted"];
   readonly edgeDirections: readonly EdgeDirection[] = ["left-to-right", "right-to-left", "both"];
   readonly codeLanguageOptions: readonly CodeLanguageOption[] = CODE_LANGUAGE_OPTIONS;
+  readonly tutorialGuides: readonly TutorialGuide[] = TUTORIAL_GUIDES;
   readonly currentYear = new Date().getFullYear();
 
   summaries: readonly ArchitectureSummary[] = [];
@@ -854,6 +953,7 @@ export class AppComponent implements OnDestroy {
   edgeLabelFontSize = DEFAULT_EDGE_LABEL_FONT_SIZE;
   nodeLabelFontSize = DEFAULT_NODE_LABEL_FONT_SIZE;
   nodeIconSize = DEFAULT_NODE_ICON_SIZE;
+  activeTutorialId: string | null = null;
 
   private dragState: DragState | null = null;
   private panState: PanState | null = null;
@@ -1050,6 +1150,27 @@ export class AppComponent implements OnDestroy {
     this.edges = [];
     this.clearSelection();
     this.status = "Board limpo";
+  }
+
+  openTutorialGuide(guideId: string, event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.activeTutorialId = guideId;
+    this.status = "Tutorial guiado aberto";
+    const trigger = event?.currentTarget as HTMLElement | null;
+    trigger?.closest("details")?.removeAttribute("open");
+    this.markInteractionChanged();
+  }
+
+  closeTutorialGuide(): void {
+    this.activeTutorialId = null;
+    this.status = "Tutorial guiado fechado";
+    this.markInteractionChanged();
+  }
+
+  getActiveTutorialGuide(): TutorialGuide | null {
+    if (!this.activeTutorialId) return null;
+    return this.tutorialGuides.find((guide) => guide.id === this.activeTutorialId) ?? null;
   }
 
   async exportCurrent(): Promise<void> {

@@ -170,6 +170,10 @@ button {
   box-shadow: 3px 3px 0 #111827;
 }
 
+.toolbar-dropdown--tutorial .toolbar-dropdown__menu {
+  min-width: 250px;
+}
+
 .toolbar-dropdown__item {
   display: inline-flex;
   align-items: center;
@@ -202,6 +206,66 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.tutorial-panel {
+  position: absolute;
+  top: 86px;
+  right: 16px;
+  z-index: 335;
+  width: min(440px, calc(100vw - 28px));
+  border: 2px solid #111827;
+  border-radius: 8px;
+  background: #fffaf0;
+  box-shadow: 3px 3px 0 #111827;
+  padding: 12px;
+  max-height: calc(100dvh - 112px);
+  overflow: auto;
+}
+
+.tutorial-panel__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.tutorial-panel__header strong {
+  display: block;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.tutorial-panel__header small {
+  color: #4b5563;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.tutorial-panel__close {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.tutorial-panel__description {
+  margin: 10px 0 0;
+  color: #1f2937;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.tutorial-panel__steps {
+  margin: 10px 0 0;
+  padding: 0 0 0 18px;
+  display: grid;
+  gap: 8px;
+  color: #111827;
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 600;
 }
 
 .icon-button i {
@@ -3256,6 +3320,21 @@ app-flow-document-node {
   border-color: #4b5563;
   background: #1f2937;
   box-shadow: 2px 2px 0 #0b1220;
+}
+
+.app-shell.theme-dark .tutorial-panel {
+  border-color: #4b5563;
+  background: #111827;
+  box-shadow: 2px 2px 0 #0b1220;
+}
+
+.app-shell.theme-dark .tutorial-panel__header small {
+  color: #94a3b8;
+}
+
+.app-shell.theme-dark .tutorial-panel__description,
+.app-shell.theme-dark .tutorial-panel__steps {
+  color: #e5e7eb;
 }
 
 .app-shell.theme-dark .file-delete-button {
