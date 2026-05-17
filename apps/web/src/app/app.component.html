@@ -288,6 +288,16 @@
               [attr.stroke-dasharray]="getEdgeDash(edge)"
               [attr.clip-path]="'url(#' + getEdgeContainerClipPathId(clipContainerId) + ')'"
             />
+            <rect
+              *ngIf="shouldRenderEdgeLabel(edge) && !isEditingEdge(edge.id)"
+              class="canvas-edge-label-knockout"
+              [attr.x]="getEdgeLabelPosition(edge).x - 130"
+              [attr.y]="getEdgeLabelPosition(edge).y - getEdgeLabelBoxHeight() / 2"
+              width="260"
+              [attr.height]="getEdgeLabelBoxHeight()"
+              rx="6"
+              [attr.fill]="getEdgeLabelKnockoutColor(edge)"
+            />
             <foreignObject
               *ngIf="shouldRenderEdgeLabel(edge) && !isEditingEdge(edge.id)"
               class="canvas-edge-label"
