@@ -13,6 +13,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Setas de conexão ancoradas pela borda externa da bolinha de contato (apenas lados esquerdo/direito), com ponta da seta na bolinha e linha terminando no centro traseiro da seta.
 - Camadas visuais por hierarquia de container (filhos sempre acima do container pai), sem elevar z-index apenas por foco de clique.
 - Supressão automática de linhas de conexão que encostam na área de contato do elemento ativo, para reduzir interferência visual durante edição.
+- Labels de âncoras exibidos em caixa horizontal fixa (sem seguir ângulo da linha e sem quebra de palavra).
 - Estilo de conexão `smoothstep` com curvas suaves contínuas para leitura de fluxo.
 - Elementos expansíveis/minimizáveis para navegar entre níveis de detalhe.
 - Containers não expandem automaticamente durante drag and drop; ajuste dinâmico ocorre apenas em fluxos de expansão/maximização.
