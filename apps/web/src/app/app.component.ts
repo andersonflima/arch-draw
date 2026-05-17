@@ -275,8 +275,6 @@ const UI_LANGUAGE_STORAGE_KEY = "arch-draw.ui-language";
 const VIEWPORT_CHECKPOINT_STORAGE_PREFIX = "arch-draw.viewport";
 const VIEWPORT_CHECKPOINT_DEBOUNCE_MS = 260;
 const DEFAULT_INITIAL_CANVAS_ZOOM = 0.27;
-const DEMO_TEMPLATE_TITLE = "Exemplo Completo: Macro para Micro";
-const STRESS_TEMPLATE_TITLE = "Stress Test: Todos os Blocos e Juncoes";
 const CONTAINER_CHILD_PADDING_LEFT = 16;
 const CONTAINER_CHILD_PADDING_RIGHT = 16;
 const CONTAINER_CHILD_PADDING_TOP = 56;
@@ -299,19 +297,114 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "toolbar.import": "Importar",
     "toolbar.clear": "Limpar",
     "toolbar.languageSwitch": "Idioma",
+    "title.newArchitecture": "Nova arquitetura",
+    "title.demoTemplate": "Exemplo Completo: Macro para Micro",
+    "title.demoDescription": "Modelo em camadas com borda pública, app, dados e observabilidade.",
+    "title.stressTemplate": "Stress Test: Todos os Blocos e Junções",
+    "title.stressDescription": "Matriz de cobertura completa com todos os blocos e conexões cruzadas para testes de usabilidade.",
+    "export.archdraw": "Exportar Arch-Draw",
+    "export.drawio": "Exportar draw.io",
+    "export.excalidraw": "Exportar Excalidraw",
+    "export.mermaid": "Exportar Mermaid",
+    "export.svg": "Exportar SVG",
+    "export.png": "Exportar PNG",
+    "theme.enableDark": "Ativar dark mode",
+    "theme.disableDark": "Desativar dark mode",
+    "theme.light": "Light",
+    "theme.dark": "Dark",
     "tutorial.guided": "Tutorial guiado",
+    "tutorial.openPrefix": "Abrir tutorial",
     "tutorial.progress": "Passo",
     "tutorial.pendingClick": "Clique no destaque para liberar o próximo passo.",
     "tutorial.previous": "Anterior",
     "tutorial.next": "Próximo",
     "tutorial.finish": "Concluir",
     "tutorial.close": "Fechar tutorial",
+    "tutorial.closeButton": "Fechar",
     "toast.checkpointCreated": "Checkpoint criado!",
     "toast.autoSaved": "Auto save concluido!",
     "toast.missionComplete": "Missão completa!",
     "toast.memoryCleared": "Memória limpa!",
     "toast.close": "Fechar notificação",
     "toast.closeError": "Fechar erro",
+    "auth.secureAccess": "Acesso seguro",
+    "auth.workspaceProtected": "Workspace protegido por SSO",
+    "auth.validatingSession": "Validando sua sessão",
+    "auth.waitingSsoValidation": "Aguarde enquanto verificamos seu acesso com SSO.",
+    "auth.loginTitle": "Faça login para acessar seus diagramas",
+    "auth.loginSubtitle": "Use sua conta Google para entrar com segurança no ambiente de arquitetura.",
+    "auth.redirecting": "Redirecionando...",
+    "auth.loginWithGoogle": "Entrar com Google",
+    "auth.logout": "Encerrar sessão",
+    "auth.error.missingCodeOrState": "Login interrompido: código de autorização ausente.",
+    "auth.error.invalidState": "Login inválido: estado de segurança expirou.",
+    "auth.error.oauthFailure": "Não foi possível concluir o login com Google.",
+    "auth.error.generic": "Falha de autenticação.",
+    "sidebar.files": "Arquivos",
+    "sidebar.savedLocally": "{count} salvos localmente",
+    "sidebar.dir": "DIR",
+    "sidebar.summaryStats": "{nodes} nós, {edges} conexões",
+    "sidebar.deleteFile": "Excluir arquivo",
+    "palette.aria": "Paleta de blocos",
+    "palette.title": "Blocos",
+    "palette.subtitle": "Arraste para o canvas.",
+    "palette.searchPlaceholder": "Buscar recurso...",
+    "palette.empty": "Nenhum recurso encontrado.",
+    "node.connect": "Conectar",
+    "node.connectHere": "Conectar aqui",
+    "node.createConnection": "Criar conexão",
+    "node.maximizeCode": "Maximizar código",
+    "node.minimizeCode": "Minimizar código",
+    "node.expandContainer": "Expandir container",
+    "node.maximizeContainer": "Maximizar container",
+    "node.minimizeToIcon": "Minimizar para ícone",
+    "node.doubleClickHint": "Dê duplo clique para maximizar",
+    "map.aria": "Mapa do canvas",
+    "map.currentView": "Visão atual",
+    "map.zoomOut": "Diminuir zoom",
+    "map.zoomReset": "Resetar zoom",
+    "map.zoomIn": "Aumentar zoom",
+    "properties.title": "Propriedades",
+    "properties.selectedNode": "Nó selecionado",
+    "properties.selectedEdge": "Linha selecionada",
+    "properties.containerName": "Nome do container",
+    "properties.name": "Nome",
+    "properties.type": "Tipo",
+    "properties.color": "Cor",
+    "properties.nodeFontGlobal": "Fonte dos elementos (global)",
+    "properties.nodeIconsGlobal": "Ícones dos elementos (global)",
+    "properties.collapsedIcon": "Ícone minimizado",
+    "properties.language": "Linguagem",
+    "properties.code": "Código",
+    "properties.codePlaceholder": "Cole ou escreva o trecho de código aqui",
+    "properties.removeNode": "Remover nó",
+    "properties.label": "Rótulo",
+    "properties.path": "Caminho",
+    "properties.stroke": "Traço",
+    "properties.direction": "Direção",
+    "properties.directionLtr": "Esquerda para direita",
+    "properties.directionRtl": "Direita para esquerda",
+    "properties.directionBoth": "Bidirecional",
+    "properties.edgeFontGlobal": "Fonte das âncoras (global)",
+    "properties.removeEdge": "Remover linha",
+    "status.initializing": "Inicializando",
+    "status.darkEnabled": "Dark mode ativado",
+    "status.darkDisabled": "Dark mode desativado",
+    "status.sessionEnded": "Sessão encerrada",
+    "status.newArchitectureCreated": "Nova arquitetura criada",
+    "status.exampleCreated": "Exemplo completo criado",
+    "status.stressCreated": "Arquitetura de stress criada",
+    "status.diagramDeleted": "Diagrama excluído",
+    "status.noDiagramFound": "Nenhum diagrama encontrado",
+    "status.architectureImported": "Arquitetura importada",
+    "status.architectureLoaded": "Arquitetura carregada",
+    "status.loginRequired": "Login necessário",
+    "status.linkContainerInternalDenied": "Vínculo entre container e elemento interno não é permitido",
+    "status.undone": "Desfeito",
+    "status.autoSaveFailed": "Falha no auto save",
+    "status.operationFailed": "Operação falhou",
+    "status.apiUnavailable": "API indisponível",
+    "status.mermaidApplied": "Mermaid aplicado: +{nodes} nós, +{edges} vínculos",
     "status.saved": "Salvo no SQLite",
     "status.noChanges": "Sem alterações para salvar",
     "status.exportedArchDraw": "Arquivo de compartilhamento exportado",
@@ -343,19 +436,114 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "toolbar.import": "Import",
     "toolbar.clear": "Clear",
     "toolbar.languageSwitch": "Language",
+    "title.newArchitecture": "New architecture",
+    "title.demoTemplate": "Complete Example: Macro to Micro",
+    "title.demoDescription": "Layered model with public edge, app, data, and observability.",
+    "title.stressTemplate": "Stress Test: All Blocks and Junctions",
+    "title.stressDescription": "Full coverage matrix with all blocks and cross-connections for usability testing.",
+    "export.archdraw": "Export Arch-Draw",
+    "export.drawio": "Export draw.io",
+    "export.excalidraw": "Export Excalidraw",
+    "export.mermaid": "Export Mermaid",
+    "export.svg": "Export SVG",
+    "export.png": "Export PNG",
+    "theme.enableDark": "Enable dark mode",
+    "theme.disableDark": "Disable dark mode",
+    "theme.light": "Light",
+    "theme.dark": "Dark",
     "tutorial.guided": "Guided tutorial",
+    "tutorial.openPrefix": "Open tutorial",
     "tutorial.progress": "Step",
     "tutorial.pendingClick": "Click the highlight to unlock the next step.",
     "tutorial.previous": "Previous",
     "tutorial.next": "Next",
     "tutorial.finish": "Finish",
     "tutorial.close": "Close tutorial",
+    "tutorial.closeButton": "Close",
     "toast.checkpointCreated": "Checkpoint created!",
     "toast.autoSaved": "Auto save completed!",
     "toast.missionComplete": "Mission complete!",
     "toast.memoryCleared": "Memory card cleared!",
     "toast.close": "Close notification",
     "toast.closeError": "Close error",
+    "auth.secureAccess": "Secure Access",
+    "auth.workspaceProtected": "SSO-protected workspace",
+    "auth.validatingSession": "Validating your session",
+    "auth.waitingSsoValidation": "Please wait while we verify your SSO access.",
+    "auth.loginTitle": "Sign in to access your diagrams",
+    "auth.loginSubtitle": "Use your Google account to securely access the architecture workspace.",
+    "auth.redirecting": "Redirecting...",
+    "auth.loginWithGoogle": "Sign in with Google",
+    "auth.logout": "Sign out",
+    "auth.error.missingCodeOrState": "Login interrupted: missing authorization code.",
+    "auth.error.invalidState": "Invalid login: security state expired.",
+    "auth.error.oauthFailure": "Could not complete Google login.",
+    "auth.error.generic": "Authentication failed.",
+    "sidebar.files": "Files",
+    "sidebar.savedLocally": "{count} saved locally",
+    "sidebar.dir": "DIR",
+    "sidebar.summaryStats": "{nodes} nodes, {edges} connections",
+    "sidebar.deleteFile": "Delete file",
+    "palette.aria": "Block palette",
+    "palette.title": "Blocks",
+    "palette.subtitle": "Drag to canvas.",
+    "palette.searchPlaceholder": "Search resource...",
+    "palette.empty": "No resources found.",
+    "node.connect": "Connect",
+    "node.connectHere": "Connect here",
+    "node.createConnection": "Create connection",
+    "node.maximizeCode": "Maximize code",
+    "node.minimizeCode": "Minimize code",
+    "node.expandContainer": "Expand container",
+    "node.maximizeContainer": "Maximize container",
+    "node.minimizeToIcon": "Minimize to icon",
+    "node.doubleClickHint": "Double-click to maximize",
+    "map.aria": "Canvas map",
+    "map.currentView": "Current view",
+    "map.zoomOut": "Zoom out",
+    "map.zoomReset": "Reset zoom",
+    "map.zoomIn": "Zoom in",
+    "properties.title": "Properties",
+    "properties.selectedNode": "Selected node",
+    "properties.selectedEdge": "Selected edge",
+    "properties.containerName": "Container name",
+    "properties.name": "Name",
+    "properties.type": "Type",
+    "properties.color": "Color",
+    "properties.nodeFontGlobal": "Element font (global)",
+    "properties.nodeIconsGlobal": "Element icons (global)",
+    "properties.collapsedIcon": "Collapsed icon",
+    "properties.language": "Language",
+    "properties.code": "Code",
+    "properties.codePlaceholder": "Paste or write the code snippet here",
+    "properties.removeNode": "Remove node",
+    "properties.label": "Label",
+    "properties.path": "Path",
+    "properties.stroke": "Stroke",
+    "properties.direction": "Direction",
+    "properties.directionLtr": "Left to right",
+    "properties.directionRtl": "Right to left",
+    "properties.directionBoth": "Bidirectional",
+    "properties.edgeFontGlobal": "Anchor font (global)",
+    "properties.removeEdge": "Remove edge",
+    "status.initializing": "Initializing",
+    "status.darkEnabled": "Dark mode enabled",
+    "status.darkDisabled": "Dark mode disabled",
+    "status.sessionEnded": "Session ended",
+    "status.newArchitectureCreated": "New architecture created",
+    "status.exampleCreated": "Complete example created",
+    "status.stressCreated": "Stress architecture created",
+    "status.diagramDeleted": "Diagram deleted",
+    "status.noDiagramFound": "No diagram found",
+    "status.architectureImported": "Architecture imported",
+    "status.architectureLoaded": "Architecture loaded",
+    "status.loginRequired": "Login required",
+    "status.linkContainerInternalDenied": "Link between container and internal element is not allowed",
+    "status.undone": "Undone",
+    "status.autoSaveFailed": "Auto save failed",
+    "status.operationFailed": "Operation failed",
+    "status.apiUnavailable": "API unavailable",
+    "status.mermaidApplied": "Mermaid applied: +{nodes} nodes, +{edges} links",
     "status.saved": "Saved to SQLite",
     "status.noChanges": "No changes to save",
     "status.exportedArchDraw": "Share file exported",
@@ -586,6 +774,94 @@ const TUTORIAL_GUIDES: readonly TutorialGuide[] = [
     ]
   }
 ] as const;
+
+const TUTORIAL_GUIDES_EN_LOCALIZATION: Readonly<Record<string, Readonly<{
+  title: string;
+  description: string;
+  steps: readonly string[];
+}>>> = {
+  "getting-started": {
+    title: "Quick Start",
+    description: "Essential flow to build your first diagram in Arch Draw.",
+    steps: [
+      "Create a new architecture or use Example to load a complete model.",
+      "Open Example to load a complete baseline and speed up your start.",
+      "Drag blocks from the sidebar to the canvas and organize by context.",
+      "Click Save to persist your workspace.",
+      "Use Export to generate Arch-Draw, Draw.io, Excalidraw, Mermaid, SVG, or PNG."
+    ]
+  },
+  "containers-and-hierarchy": {
+    title: "Containers and Hierarchy",
+    description: "How to structure domains, environments, and nested resources.",
+    steps: [
+      "Use container blocks to group related resources.",
+      "Drag resources inside the container; children stay visually above the parent.",
+      "Minimize and maximize containers to switch between macro and micro views.",
+      "When opening a container, ensure internal content stays readable with no overlap."
+    ]
+  },
+  "connections-and-anchors": {
+    title: "Connections and Anchors",
+    description: "How to create precise links without disrupting drag and drop.",
+    steps: [
+      "Connections leave from contact circles and connect only to target circles.",
+      "A directional gesture on the circle starts a connection; a divergent gesture becomes node drag.",
+      "Arrows remain aligned to the anchor and label text does not visually cover the line.",
+      "Adjust line style in properties: smoothstep, step, and straight."
+    ]
+  },
+  "contact-area-behavior": {
+    title: "Contact Area",
+    description: "Visibility rules and temporary suppression of nearby lines.",
+    steps: [
+      "Contact area appears during drag and drop to reduce visual noise.",
+      "Lines touching this area can be temporarily hidden.",
+      "The area adapts to element size (expanded or minimized).",
+      "For elements inside containers, the same rule applies during drag."
+    ]
+  },
+  "properties-and-editing": {
+    title: "Properties and Editing",
+    description: "Technical and visual adjustments for nodes, anchors, and labels.",
+    steps: [
+      "Click an element to open properties at the context point.",
+      "Edit technical fields (code, YAML, SQL, metadata) by resource type.",
+      "Adjust global label font and icon size when needed.",
+      "Double-click to edit element and connection labels inline."
+    ]
+  },
+  "zoom-map-and-navigation": {
+    title: "Zoom, Map, and Navigation",
+    description: "How to keep focus in large diagrams.",
+    steps: [
+      "Use zoom controls to move in and out without losing context.",
+      "In the mini map, track viewport and overall element distribution.",
+      "Drag the canvas with middle mouse button or pan gestures for fast navigation.",
+      "When opening an element, navigation should preserve visual focus."
+    ]
+  },
+  "shortcuts-and-productivity": {
+    title: "Shortcuts and Productivity",
+    description: "Quick commands to speed up modeling.",
+    steps: [
+      "Ctrl/Cmd + Z undoes recent changes.",
+      "Ctrl/Cmd + A selects all nodes on the board regardless of visual layer.",
+      "Delete/Backspace removes the selected item.",
+      "Use Clear to remove current selection or empty the board."
+    ]
+  },
+  "import-export-workflow": {
+    title: "Import and Export",
+    description: "Interoperability with other tools and native format.",
+    steps: [
+      "Import JSON/ArchDraw, Draw.io, Excalidraw, and Mermaid.",
+      "Export to Arch-Draw to preserve complete project data.",
+      "Use Mermaid for text-based documentation and flow reviews.",
+      "Use SVG/PNG for quick visual sharing."
+    ]
+  }
+};
 
 const CODE_LANGUAGE_OPTIONS: readonly CodeLanguageOption[] = [
   { value: "python", label: "Python" },
@@ -1135,7 +1411,6 @@ export class AppComponent implements OnDestroy {
   readonly edgeLines: readonly ArchitectureEdgeLineStyle[] = ["solid", "dashed", "dotted"];
   readonly edgeDirections: readonly EdgeDirection[] = ["left-to-right", "right-to-left", "both"];
   readonly codeLanguageOptions: readonly CodeLanguageOption[] = CODE_LANGUAGE_OPTIONS;
-  readonly tutorialGuides: readonly TutorialGuide[] = TUTORIAL_GUIDES;
   readonly currentYear = new Date().getFullYear();
 
   summaries: readonly ArchitectureSummary[] = [];
@@ -1157,7 +1432,7 @@ export class AppComponent implements OnDestroy {
   mermaidSvg = "";
   mermaidError = "";
   lintStatus: "empty" | "valid" | "invalid" = "empty";
-  status = "Inicializando";
+  status = "";
   error = "";
   successToast = "";
   authChecked = false;
@@ -1220,6 +1495,7 @@ export class AppComponent implements OnDestroy {
   ) {
     this.loadUiLanguagePreference();
     this.loadUiThemePreference();
+    this.status = this.t("status.initializing");
     this.rebuildPaletteGroups();
     this.startDoubleClickHintLoop();
     void this.boot();
@@ -1264,6 +1540,31 @@ export class AppComponent implements OnDestroy {
     return table[key] ?? fallback[key] ?? key;
   }
 
+  tf(key: string, values: Readonly<Record<string, string | number>>): string {
+    let output = this.t(key);
+    for (const [token, value] of Object.entries(values)) {
+      output = output.replaceAll(`{${token}}`, String(value));
+    }
+    return output;
+  }
+
+  get tutorialGuides(): readonly TutorialGuide[] {
+    if (this.uiLanguage === "pt-BR") return TUTORIAL_GUIDES;
+    return TUTORIAL_GUIDES.map((guide) => {
+      const localized = TUTORIAL_GUIDES_EN_LOCALIZATION[guide.id];
+      if (!localized) return guide;
+      return {
+        ...guide,
+        title: localized.title,
+        description: localized.description,
+        steps: guide.steps.map((step, index) => ({
+          ...step,
+          text: localized.steps[index] ?? step.text
+        }))
+      };
+    });
+  }
+
   getCurrentLanguageShortLabel(): string {
     return this.uiLanguage === "pt-BR" ? "PT" : "EN";
   }
@@ -1277,7 +1578,7 @@ export class AppComponent implements OnDestroy {
   toggleDarkMode(): void {
     this.uiTheme = this.isDarkMode ? "light" : "dark";
     this.persistUiThemePreference();
-    this.status = this.isDarkMode ? "Dark mode ativado" : "Dark mode desativado";
+    this.status = this.isDarkMode ? this.t("status.darkEnabled") : this.t("status.darkDisabled");
     void this.renderMermaid();
     this.markViewChanged();
   }
@@ -1298,7 +1599,7 @@ export class AppComponent implements OnDestroy {
       this.authenticatedUser = null;
       this.clearCurrentArchitecture();
       await this.boot();
-      this.status = "Sessao encerrada";
+      this.status = this.t("status.sessionEnded");
     });
     this.authActionInFlight = false;
     this.markViewChanged();
@@ -1307,34 +1608,34 @@ export class AppComponent implements OnDestroy {
   async createArchitecture(): Promise<void> {
     await this.runSafely(async () => {
       this.cancelAutoSave();
-      const created = await api.createArchitecture("Nova arquitetura");
+      const created = await api.createArchitecture(this.t("title.newArchitecture"));
       this.updateCurrent(created);
       await this.refreshSummaries();
-      this.status = "Nova arquitetura criada";
+      this.status = this.t("status.newArchitectureCreated");
     });
   }
 
   async createCompleteExampleArchitecture(): Promise<void> {
     await this.runSafely(async () => {
       this.cancelAutoSave();
-      const created = await api.createArchitecture(DEMO_TEMPLATE_TITLE);
+      const created = await api.createArchitecture(this.t("title.demoTemplate"));
       const seeded = this.createFirstAccessArchitectureTemplate(created);
       const saved = await api.saveArchitecture(seeded);
       this.updateCurrent(saved);
       await this.refreshSummaries();
-      this.status = "Exemplo completo criado";
+      this.status = this.t("status.exampleCreated");
     });
   }
 
   async createStressTestArchitecture(): Promise<void> {
     await this.runSafely(async () => {
       this.cancelAutoSave();
-      const created = await api.createArchitecture(STRESS_TEMPLATE_TITLE);
+      const created = await api.createArchitecture(this.t("title.stressTemplate"));
       const seeded = this.createStressTestArchitectureTemplate(created);
       const saved = await api.saveArchitecture(seeded);
       this.updateCurrent(saved);
       await this.refreshSummaries();
-      this.status = "Arquitetura de stress criada";
+      this.status = this.t("status.stressCreated");
     });
   }
 
@@ -1348,11 +1649,11 @@ export class AppComponent implements OnDestroy {
       this.summaries = remaining;
       if (remaining[0]) {
         await this.loadArchitecture(remaining[0].id);
-        this.status = "Diagrama excluido";
+        this.status = this.t("status.diagramDeleted");
         return;
       }
       this.clearCurrentArchitecture();
-      this.status = "Nenhum diagrama encontrado";
+      this.status = this.t("status.noDiagramFound");
     });
   }
 
@@ -1375,7 +1676,7 @@ export class AppComponent implements OnDestroy {
         }
       }
 
-      this.status = "Diagrama excluido";
+      this.status = this.t("status.diagramDeleted");
       this.markViewChanged();
     });
   }
@@ -1629,7 +1930,7 @@ export class AppComponent implements OnDestroy {
       const imported = await api.importArchitecture(sharePackage);
       this.updateCurrent(imported);
       await this.refreshSummaries();
-      this.status = "Arquitetura importada";
+      this.status = this.t("status.architectureImported");
     });
     input.value = "";
   }
@@ -1638,7 +1939,7 @@ export class AppComponent implements OnDestroy {
     this.cancelAutoSave();
     const loaded = await api.readArchitecture(id);
     this.updateCurrent(loaded);
-    this.status = "Arquitetura carregada";
+    this.status = this.t("status.architectureLoaded");
     this.markViewChanged();
   }
 
@@ -2696,6 +2997,12 @@ LIMIT 50;`;
     const fromCenter = this.getNodeCenter(fromNode);
     const toCenter = this.getNodeCenter(toNode);
     return fromCenter.x <= toCenter.x ? "left-to-right" : "right-to-left";
+  }
+
+  getEdgeDirectionLabel(direction: EdgeDirection): string {
+    if (direction === "left-to-right") return this.t("properties.directionLtr");
+    if (direction === "right-to-left") return this.t("properties.directionRtl");
+    return this.t("properties.directionBoth");
   }
 
   updateSelectedEdgeDirection(direction: EdgeDirection): void {
@@ -3999,7 +4306,7 @@ LIMIT 50;`;
       mermaidSource: this.mermaidDraft,
       updatedAt: new Date().toISOString()
     };
-    this.status = `Mermaid aplicado: +${appendedNodes.length} nos, +${appendedEdges.length} vinculos`;
+    this.status = this.tf("status.mermaidApplied", { nodes: appendedNodes.length, edges: appendedEdges.length });
     this.markViewChanged();
   }
 
@@ -4009,7 +4316,7 @@ LIMIT 50;`;
       await this.refreshAuthSession();
       if (this.authEnabled && !this.isAuthenticated) {
         this.clearCurrentArchitecture();
-        this.status = "Login necessario";
+        this.status = this.t("status.loginRequired");
         return;
       }
 
@@ -4017,12 +4324,12 @@ LIMIT 50;`;
       const targetId = existing[0]?.id ?? null;
       if (!targetId) {
         this.clearCurrentArchitecture();
-        this.status = "Nenhum diagrama encontrado";
+        this.status = this.t("status.noDiagramFound");
         return;
       }
       this.summaries = existing;
       await this.loadArchitecture(targetId);
-    }, "API indisponível");
+    }, this.t("status.apiUnavailable"));
   }
 
   private async refreshAuthSession(): Promise<void> {
@@ -4046,13 +4353,13 @@ LIMIT 50;`;
   private resolveLoginErrorMessage(code: string): string {
     switch (code) {
       case "missing_code_or_state":
-        return "Login interrompido: codigo de autorizacao ausente.";
+        return this.t("auth.error.missingCodeOrState");
       case "invalid_state":
-        return "Login invalido: estado de seguranca expirou.";
+        return this.t("auth.error.invalidState");
       case "oauth_failure":
-        return "Nao foi possivel concluir o login com Google.";
+        return this.t("auth.error.oauthFailure");
       default:
-        return "Falha de autenticacao.";
+        return this.t("auth.error.generic");
     }
   }
 
@@ -4380,8 +4687,8 @@ spec:
 
     return {
       ...base,
-      title: DEMO_TEMPLATE_TITLE,
-      description: "Modelo em camadas com borda publica, app, dados e observabilidade.",
+      title: this.t("title.demoTemplate"),
+      description: this.t("title.demoDescription"),
       mermaidSource: `graph LR
   User["Users"] --> DNS["Route53"]
   DNS --> WAF["WAF"]
@@ -4510,8 +4817,8 @@ spec:
 
     return {
       ...base,
-      title: STRESS_TEMPLATE_TITLE,
-      description: "Matriz de cobertura completa com todos os blocos e conexoes cruzadas para testes de usabilidade.",
+      title: this.t("title.stressTemplate"),
+      description: this.t("title.stressDescription"),
       mermaidSource: `graph LR
   Start["Stress Start"] --> Matrix["Stress Matrix"]
   Matrix --> End["Coverage"]`,
@@ -4752,7 +5059,7 @@ spec:
       this.clearError();
       await operation();
     } catch (cause) {
-      this.setError(cause instanceof Error ? cause.message : "Operacao falhou");
+      this.setError(cause instanceof Error ? cause.message : this.t("status.operationFailed"));
       if (fallbackStatus) this.status = fallbackStatus;
     } finally {
       this.markViewChanged();
@@ -6642,7 +6949,7 @@ spec:
     const toNode = this.nodes.find((node) => node.id === to) ?? null;
     if (!fromNode || !toNode) return;
     if (this.isForbiddenContainerHierarchyConnection(fromNode, toNode)) {
-      this.status = "Vinculo entre container e elemento interno nao e permitido";
+      this.status = this.t("status.linkContainerInternalDenied");
       this.requestViewRender();
       return;
     }
@@ -6980,7 +7287,7 @@ spec:
       this.connectionDragState = null;
       this.pendingPortGestureState = null;
       this.nodeInlineCodeDrafts.clear();
-      this.status = "Desfeito";
+      this.status = this.t("status.undone");
       void this.renderMermaid();
       this.markViewChanged();
     } finally {
@@ -7020,14 +7327,14 @@ spec:
       this.upsertCurrentSummary(saved.updatedAt);
 
       if (mode === "auto") {
-        this.status = "Auto save";
+        this.status = this.t("status.saved");
         this.maybeShowAutoSaveToast();
       }
       return true;
     } catch (cause) {
       if (mode === "manual") throw cause;
-      this.setError(cause instanceof Error ? cause.message : "Falha no auto save");
-      this.status = "Falha no auto save";
+      this.setError(cause instanceof Error ? cause.message : this.t("status.autoSaveFailed"));
+      this.status = this.t("status.autoSaveFailed");
       return false;
     } finally {
       this.autoSaveInFlight = false;
@@ -7042,7 +7349,7 @@ spec:
     const now = Date.now();
     if (now - this.lastAutoSaveToastAt < AUTO_SAVE_TOAST_THROTTLE_MS) return;
     this.lastAutoSaveToastAt = now;
-    this.showSuccessToast("toast.autoSaved");
+    this.showSuccessToast("toast.checkpointCreated");
   }
 
   private upsertCurrentSummary(updatedAt: string): void {

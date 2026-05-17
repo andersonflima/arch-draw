@@ -26,12 +26,12 @@
           {{ t("toolbar.export") }}
         </summary>
         <div class="toolbar-dropdown__menu">
-          <button class="toolbar-dropdown__item" type="button" title="Exportar Arch-Draw" aria-label="Exportar Arch-Draw" (click)="exportCurrent()">Arch-Draw</button>
-          <button class="toolbar-dropdown__item" type="button" title="Exportar draw.io" aria-label="Exportar draw.io" (click)="exportDrawIoCurrent()">Draw.io</button>
-          <button class="toolbar-dropdown__item" type="button" title="Exportar Excalidraw" aria-label="Exportar Excalidraw" (click)="exportExcalidrawCurrent()">Excalidraw</button>
-          <button class="toolbar-dropdown__item" type="button" title="Exportar Mermaid" aria-label="Exportar Mermaid" (click)="exportMermaidCurrent()">Mermaid</button>
-          <button class="toolbar-dropdown__item" type="button" title="Exportar SVG" aria-label="Exportar SVG" (click)="exportSvgCurrent()">SVG</button>
-          <button class="toolbar-dropdown__item" type="button" title="Exportar PNG" aria-label="Exportar PNG" (click)="exportPngCurrent()">PNG</button>
+          <button class="toolbar-dropdown__item" type="button" [title]="t('export.archdraw')" [attr.aria-label]="t('export.archdraw')" (click)="exportCurrent()">Arch-Draw</button>
+          <button class="toolbar-dropdown__item" type="button" [title]="t('export.drawio')" [attr.aria-label]="t('export.drawio')" (click)="exportDrawIoCurrent()">Draw.io</button>
+          <button class="toolbar-dropdown__item" type="button" [title]="t('export.excalidraw')" [attr.aria-label]="t('export.excalidraw')" (click)="exportExcalidrawCurrent()">Excalidraw</button>
+          <button class="toolbar-dropdown__item" type="button" [title]="t('export.mermaid')" [attr.aria-label]="t('export.mermaid')" (click)="exportMermaidCurrent()">Mermaid</button>
+          <button class="toolbar-dropdown__item" type="button" [title]="t('export.svg')" [attr.aria-label]="t('export.svg')" (click)="exportSvgCurrent()">SVG</button>
+          <button class="toolbar-dropdown__item" type="button" [title]="t('export.png')" [attr.aria-label]="t('export.png')" (click)="exportPngCurrent()">PNG</button>
         </div>
       </details>
       <details class="toolbar-dropdown toolbar-dropdown--tutorial">
@@ -43,8 +43,8 @@
             *ngFor="let guide of tutorialGuides"
             class="toolbar-dropdown__item"
             type="button"
-            [title]="'Abrir tutorial: ' + guide.title"
-            [attr.aria-label]="'Abrir tutorial: ' + guide.title"
+            [title]="t('tutorial.openPrefix') + ': ' + guide.title"
+            [attr.aria-label]="t('tutorial.openPrefix') + ': ' + guide.title"
             (click)="openTutorialGuide(guide.id, $event)"
           >
             {{ guide.title }}
@@ -55,12 +55,12 @@
       <button
         class="toolbar-action"
         type="button"
-        [title]="isDarkMode ? 'Desativar dark mode' : 'Ativar dark mode'"
-        [attr.aria-label]="isDarkMode ? 'Desativar dark mode' : 'Ativar dark mode'"
+        [title]="isDarkMode ? t('theme.disableDark') : t('theme.enableDark')"
+        [attr.aria-label]="isDarkMode ? t('theme.disableDark') : t('theme.enableDark')"
         [class.is-active]="isDarkMode"
         (click)="toggleDarkMode()"
       >
-        {{ isDarkMode ? "Light" : "Dark" }}
+        {{ isDarkMode ? t("theme.light") : t("theme.dark") }}
       </button>
       <button
         class="toolbar-action"
@@ -84,8 +84,8 @@
         *ngIf="authEnabled && authenticatedUser"
         class="secondary-action toolbar-auth-action"
         type="button"
-        title="Encerrar sessao"
-        aria-label="Encerrar sessao"
+        [title]="t('auth.logout')"
+        [attr.aria-label]="t('auth.logout')"
         (click)="logoutFromSession()"
       >
         <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
@@ -106,21 +106,21 @@
     <div class="tutorial-panel__header">
       <div>
         <strong>{{ activeTutorial.title }}</strong>
-        <small>Tutorial guiado</small>
+        <small>{{ t("tutorial.guided") }}</small>
       </div>
       <button
         class="secondary-action tutorial-panel__close"
         type="button"
-        title="Fechar tutorial"
-        aria-label="Fechar tutorial"
+        [title]="t('tutorial.close')"
+        [attr.aria-label]="t('tutorial.close')"
         (click)="closeTutorialGuide()"
       >
-        Fechar
+        {{ t("tutorial.closeButton") }}
       </button>
     </div>
     <p class="tutorial-panel__description">{{ activeTutorial.description }}</p>
     <ol class="tutorial-panel__steps">
-      <li *ngFor="let step of activeTutorial.steps">{{ step }}</li>
+      <li *ngFor="let step of activeTutorial.steps">{{ step.text }}</li>
     </ol>
   </aside>
 
@@ -128,10 +128,10 @@
     <nav class="sidebar">
       <div class="panel-heading">
         <div>
-          <span>Arquivos</span>
-          <small>{{ summaries.length }} salvos localmente</small>
+          <span>{{ t("sidebar.files") }}</span>
+          <small>{{ tf("sidebar.savedLocally", { count: summaries.length }) }}</small>
         </div>
-        <span>DIR</span>
+        <span>{{ t("sidebar.dir") }}</span>
       </div>
       <div class="file-list">
         <div
@@ -144,13 +144,13 @@
             (click)="loadArchitecture(summary.id)"
           >
             <strong>{{ summary.title }}</strong>
-            <span>{{ summary.nodeCount }} nos, {{ summary.edgeCount }} conexoes</span>
+            <span>{{ tf("sidebar.summaryStats", { nodes: summary.nodeCount, edges: summary.edgeCount }) }}</span>
           </button>
           <button
             class="file-delete-button"
             type="button"
-            title="Excluir arquivo"
-            aria-label="Excluir arquivo"
+            [title]="t('sidebar.deleteFile')"
+            [attr.aria-label]="t('sidebar.deleteFile')"
             (pointerdown)="$event.stopPropagation()"
             (click)="deleteArchitectureById(summary.id, $event)"
           >
@@ -163,17 +163,17 @@
       </footer>
     </nav>
 
-    <aside class="palette" aria-label="Node palette">
+    <aside class="palette" [attr.aria-label]="t('palette.aria')">
       <div class="panel-heading">
         <div>
-          <span>Blocos</span>
-          <small>Arraste para o canvas.</small>
+          <span>{{ t("palette.title") }}</span>
+          <small>{{ t("palette.subtitle") }}</small>
         </div>
       </div>
       <label class="palette-search">
         <input
           type="search"
-          placeholder="Buscar recurso..."
+          [placeholder]="t('palette.searchPlaceholder')"
           [ngModel]="blockSearch"
           (ngModelChange)="onBlockSearchChange($event)"
         />
@@ -205,7 +205,7 @@
         </ng-container>
       </div>
       <p class="muted-copy" *ngIf="blockSearch && displayedPaletteGroups.length === 0">
-        Nenhum recurso encontrado.
+        {{ t("palette.empty") }}
       </p>
     </aside>
 
@@ -434,7 +434,7 @@
               <button
                 class="node-port node-port--omni node-port--omni-top"
                 type="button"
-                title="Conectar"
+                [title]="t('node.connect')"
                 [attr.data-target-port-node-id]="node.id"
                 data-port-side="top"
                 (pointerdown)="onTargetPortPointerDown($event, node.id, 'top')"
@@ -443,7 +443,7 @@
               <button
                 class="node-port node-port--omni node-port--omni-right"
                 type="button"
-                title="Conectar"
+                [title]="t('node.connect')"
                 [attr.data-target-port-node-id]="node.id"
                 data-port-side="right"
                 (pointerdown)="onTargetPortPointerDown($event, node.id, 'right')"
@@ -452,7 +452,7 @@
               <button
                 class="node-port node-port--omni node-port--omni-bottom"
                 type="button"
-                title="Conectar"
+                [title]="t('node.connect')"
                 [attr.data-target-port-node-id]="node.id"
                 data-port-side="bottom"
                 (pointerdown)="onTargetPortPointerDown($event, node.id, 'bottom')"
@@ -461,7 +461,7 @@
               <button
                 class="node-port node-port--omni node-port--omni-left"
                 type="button"
-                title="Conectar"
+                [title]="t('node.connect')"
                 [attr.data-target-port-node-id]="node.id"
                 data-port-side="left"
                 (pointerdown)="onTargetPortPointerDown($event, node.id, 'left')"
@@ -472,7 +472,7 @@
               <button
                 class="node-port node-port--target"
                 type="button"
-                title="Conectar aqui"
+                [title]="t('node.connectHere')"
                 [attr.data-target-port-node-id]="node.id"
                 data-port-side="left"
                 (pointerdown)="onTargetPortPointerDown($event, node.id, 'left')"
@@ -494,8 +494,8 @@
                 class="node-collapse-toggle"
                 type="button"
                 [title]="isCollapsibleCodeSnippetNode(node)
-                  ? (isCodeSnippetCollapsed(node) ? 'Maximizar codigo' : 'Minimizar codigo')
-                  : (isContainerCollapsed(node) ? 'Expandir container' : 'Minimizar para icone')"
+                  ? (isCodeSnippetCollapsed(node) ? t('node.maximizeCode') : t('node.minimizeCode'))
+                  : (isContainerCollapsed(node) ? t('node.expandContainer') : t('node.minimizeToIcon'))"
                 (pointerdown)="$event.stopPropagation()"
                 (click)="onNodeCollapseToggle(node, $event)"
               >
@@ -511,7 +511,7 @@
               class="node-maximize-hint"
               aria-hidden="true"
             >
-              <span>Click twice, maximize me!</span>
+              <span>{{ t("node.doubleClickHint") }}</span>
             </div>
             <ng-container *ngIf="!isEditingNode(node.id); else nodeLabelEditor">
               <ng-container *ngIf="isCodeSnippetExpanded(node); else nodeDisplay">
@@ -567,7 +567,7 @@
               *ngIf="!hasOmniConnectionPorts(node)"
               class="node-port node-port--source"
               type="button"
-              title="Criar conexao"
+              [title]="t('node.createConnection')"
               [attr.data-target-port-node-id]="node.id"
               data-port-side="right"
               (pointerdown)="onSourcePortPointerDown($event, node.id, 'right')"
@@ -587,7 +587,7 @@
         </ng-template>
       </div>
 
-      <section class="canvas-map" aria-label="Mapa do canvas" (click)="$event.stopPropagation()">
+      <section class="canvas-map" [attr.aria-label]="t('map.aria')" (click)="$event.stopPropagation()">
         <div #miniMap class="mini-map" (pointerdown)="onMiniMapPointerDown($event)">
           <ng-container *ngFor="let node of nodes">
             <span
@@ -602,11 +602,11 @@
             [ngStyle]="getMiniMapViewportStyle()"
           ></span>
         </div>
-        <p class="mini-map-legend">Visao atual</p>
+        <p class="mini-map-legend">{{ t("map.currentView") }}</p>
         <div class="zoom-controls">
-          <button class="icon-button" type="button" title="Diminuir zoom" (click)="zoomOut()">-</button>
-          <button class="zoom-value" type="button" title="Resetar zoom" (click)="resetZoom()">{{ getZoomPercent() }}%</button>
-          <button class="icon-button" type="button" title="Aumentar zoom" (click)="zoomIn()">+</button>
+          <button class="icon-button" type="button" [title]="t('map.zoomOut')" (click)="zoomOut()">-</button>
+          <button class="zoom-value" type="button" [title]="t('map.zoomReset')" (click)="resetZoom()">{{ getZoomPercent() }}%</button>
+          <button class="icon-button" type="button" [title]="t('map.zoomIn')" (click)="zoomIn()">+</button>
         </div>
       </section>
 
@@ -619,18 +619,18 @@
       >
         <div class="panel-heading">
           <div>
-            <span>Propriedades</span>
-            <small>{{ selectedNode ? "No selecionado" : "Linha selecionada" }}</small>
+            <span>{{ t("properties.title") }}</span>
+            <small>{{ selectedNode ? t("properties.selectedNode") : t("properties.selectedEdge") }}</small>
           </div>
         </div>
 
         <div class="property-stack" *ngIf="selectedNode as node">
           <label class="property-field">
-            {{ isContainer(node.kind) ? "Nome do container" : "Nome" }}
+            {{ isContainer(node.kind) ? t("properties.containerName") : t("properties.name") }}
             <input [ngModel]="node.label" (ngModelChange)="updateNodeLabel($event)" />
           </label>
           <label class="property-field">
-            Tipo
+            {{ t("properties.type") }}
             <select [ngModel]="node.kind" (ngModelChange)="updateNodeKind($event)">
               <option *ngFor="let kind of getNodeKindOptions(node.kind)" [ngValue]="kind">
                 {{ getNodeLabel(kind) }}
@@ -638,11 +638,11 @@
             </select>
           </label>
           <label class="property-field">
-            Cor
+            {{ t("properties.color") }}
             <input class="property-color-input" type="color" [ngModel]="node.color" (ngModelChange)="updateNodeColor($event)" />
           </label>
           <label class="property-field">
-            Fonte dos elementos (global)
+            {{ t("properties.nodeFontGlobal") }}
             <input
               type="number"
               min="10"
@@ -653,7 +653,7 @@
             />
           </label>
           <label class="property-field">
-            Icones dos elementos (global)
+            {{ t("properties.nodeIconsGlobal") }}
             <input
               type="number"
               min="16"
@@ -683,7 +683,7 @@
           </ng-container>
           <ng-container *ngIf="isCollapsibleContainerNode(node)">
             <label class="property-field">
-              Icone minimizado
+              {{ t("properties.collapsedIcon") }}
               <select
                 [ngModel]="node.collapsedIconKind || (isContainerPlusNode(node) ? 'system' : node.kind)"
                 (ngModelChange)="updateSelectedCollapsedIcon($event)"
@@ -698,12 +698,12 @@
               type="button"
               (click)="setSelectedContainerCollapsed(!isContainerCollapsed(node))"
             >
-              {{ isContainerCollapsed(node) ? "Maximizar container" : "Minimizar para icone" }}
+              {{ isContainerCollapsed(node) ? t("node.maximizeContainer") : t("node.minimizeToIcon") }}
             </button>
           </ng-container>
           <ng-container *ngIf="supportsNodeCodeAuthoring(node)">
             <label class="property-field">
-              Linguagem
+              {{ t("properties.language") }}
               <select [ngModel]="getNodeCodeLanguage(node)" (ngModelChange)="updateSelectedCodeLanguage($event)">
                 <option *ngFor="let option of codeLanguageOptions" [ngValue]="option.value">
                   {{ option.label }}
@@ -711,12 +711,12 @@
               </select>
             </label>
             <label class="property-field">
-              Codigo
+              {{ t("properties.code") }}
               <textarea
                 class="property-textarea property-code-textarea"
                 [ngModel]="getNodeCodeContent(node)"
                 (ngModelChange)="updateSelectedCodeContent($event)"
-                placeholder="Cole ou escreva o trecho de codigo aqui"
+                [placeholder]="t('properties.codePlaceholder')"
               ></textarea>
             </label>
             <button
@@ -725,41 +725,41 @@
               type="button"
               (click)="setSelectedCodeSnippetCollapsed(!isCodeSnippetCollapsed(node))"
             >
-              {{ isCodeSnippetCollapsed(node) ? "Maximizar codigo" : "Minimizar codigo" }}
+              {{ isCodeSnippetCollapsed(node) ? t("node.maximizeCode") : t("node.minimizeCode") }}
             </button>
           </ng-container>
-          <button class="danger-action" type="button" (click)="deleteSelectedNode()">Remover no</button>
+          <button class="danger-action" type="button" (click)="deleteSelectedNode()">{{ t("properties.removeNode") }}</button>
         </div>
 
         <div class="property-stack" *ngIf="!selectedNode && selectedEdge as edge">
           <label class="property-field">
-            Rotulo
+            {{ t("properties.label") }}
             <input [ngModel]="edge.label || ''" (ngModelChange)="updateSelectedEdgeLabel($event)" />
           </label>
           <label class="property-field">
-            Caminho
+            {{ t("properties.path") }}
             <select [ngModel]="edge.style.path" (ngModelChange)="updateSelectedEdgeStyle({ path: $event })">
               <option *ngFor="let path of edgePaths" [ngValue]="path">{{ path }}</option>
             </select>
           </label>
           <label class="property-field">
-            Traco
+            {{ t("properties.stroke") }}
             <select [ngModel]="edge.style.line" (ngModelChange)="updateSelectedEdgeStyle({ line: $event })">
               <option *ngFor="let line of edgeLines" [ngValue]="line">{{ line }}</option>
             </select>
           </label>
           <label class="property-field">
-            Direction
+            {{ t("properties.direction") }}
             <select [ngModel]="getSelectedEdgeDirection(edge)" (ngModelChange)="updateSelectedEdgeDirection($event)">
-              <option *ngFor="let direction of edgeDirections" [ngValue]="direction">{{ direction }}</option>
+              <option *ngFor="let direction of edgeDirections" [ngValue]="direction">{{ getEdgeDirectionLabel(direction) }}</option>
             </select>
           </label>
           <label class="property-field">
-            Cor
+            {{ t("properties.color") }}
             <input class="property-color-input" type="color" [ngModel]="edge.style.color" (ngModelChange)="updateSelectedEdgeStyle({ color: $event })" />
           </label>
           <label class="property-field">
-            Fonte das ancoras (global)
+            {{ t("properties.edgeFontGlobal") }}
             <input
               type="number"
               min="10"
@@ -769,7 +769,7 @@
               (ngModelChange)="updateGlobalEdgeLabelFontSize($event)"
             />
           </label>
-          <button class="danger-action" type="button" (click)="deleteSelectedEdge()">Remover linha</button>
+          <button class="danger-action" type="button" (click)="deleteSelectedEdge()">{{ t("properties.removeEdge") }}</button>
         </div>
       </section>
     </main>
@@ -801,14 +801,14 @@
         <img class="brand-logo" src="assets/brand/logo-mark.svg" alt="Arch Draw" />
         <div>
           <strong>Arch Draw</strong>
-          <span>Workspace protegido por SSO</span>
+          <span>{{ t("auth.workspaceProtected") }}</span>
         </div>
       </div>
       <button
         class="icon-button"
         type="button"
-        [title]="isDarkMode ? 'Desativar dark mode' : 'Ativar dark mode'"
-        [attr.aria-label]="isDarkMode ? 'Desativar dark mode' : 'Ativar dark mode'"
+        [title]="isDarkMode ? t('theme.disableDark') : t('theme.enableDark')"
+        [attr.aria-label]="isDarkMode ? t('theme.disableDark') : t('theme.enableDark')"
         [class.is-active]="isDarkMode"
         (click)="toggleDarkMode()"
       >
@@ -817,9 +817,9 @@
     </header>
 
     <main class="auth-card">
-      <p class="auth-kicker">Secure Access</p>
-      <h1>Validando sua sessão</h1>
-      <p class="auth-copy">Aguarde enquanto verificamos seu acesso com SSO.</p>
+      <p class="auth-kicker">{{ t("auth.secureAccess") }}</p>
+      <h1>{{ t("auth.validatingSession") }}</h1>
+      <p class="auth-copy">{{ t("auth.waitingSsoValidation") }}</p>
     </main>
   </div>
 </ng-template>
@@ -831,14 +831,14 @@
         <img class="brand-logo" src="assets/brand/logo-mark.svg" alt="Arch Draw" />
         <div>
           <strong>Arch Draw</strong>
-          <span>Workspace protegido por SSO</span>
+          <span>{{ t("auth.workspaceProtected") }}</span>
         </div>
       </div>
       <button
         class="icon-button"
         type="button"
-        [title]="isDarkMode ? 'Desativar dark mode' : 'Ativar dark mode'"
-        [attr.aria-label]="isDarkMode ? 'Desativar dark mode' : 'Ativar dark mode'"
+        [title]="isDarkMode ? t('theme.disableDark') : t('theme.enableDark')"
+        [attr.aria-label]="isDarkMode ? t('theme.disableDark') : t('theme.enableDark')"
         [class.is-active]="isDarkMode"
         (click)="toggleDarkMode()"
       >
@@ -847,10 +847,10 @@
     </header>
 
     <main class="auth-card">
-      <p class="auth-kicker">Secure Access</p>
-      <h1>Faça login para acessar seus diagramas</h1>
+      <p class="auth-kicker">{{ t("auth.secureAccess") }}</p>
+      <h1>{{ t("auth.loginTitle") }}</h1>
       <p class="auth-copy">
-        Use sua conta Google para entrar com segurança no ambiente de arquitetura.
+        {{ t("auth.loginSubtitle") }}
       </p>
 
       <p class="error-text" *ngIf="loginError">{{ loginError }}</p>
@@ -862,7 +862,7 @@
         (click)="startGoogleLogin()"
       >
         <i class="fa-brands fa-google" aria-hidden="true"></i>
-        <span>{{ authActionInFlight ? "Redirecionando..." : "Entrar com Google" }}</span>
+        <span>{{ authActionInFlight ? t("auth.redirecting") : t("auth.loginWithGoogle") }}</span>
       </button>
     </main>
   </div>
