@@ -263,15 +263,81 @@ button {
   line-height: 1.45;
 }
 
-.tutorial-panel__steps {
+.tutorial-panel__progress {
   margin: 10px 0 0;
-  padding: 0 0 0 18px;
-  display: grid;
-  gap: 8px;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tutorial-panel__step {
+  margin: 8px 0 0;
   color: #111827;
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 700;
+}
+
+.tutorial-panel__pending {
+  margin: 8px 0 0;
+  color: #7c2d12;
   font-size: 12px;
-  line-height: 1.45;
-  font-weight: 600;
+  font-weight: 700;
+}
+
+.tutorial-panel__actions {
+  margin: 12px 0 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.tutorial-panel__actions .primary-action,
+.tutorial-panel__actions .secondary-action {
+  justify-content: center;
+  min-width: 96px;
+}
+
+.tutorial-spotlight {
+  position: fixed;
+  z-index: 334;
+  border-radius: 10px;
+  border: 2px solid #f59e0b;
+  box-shadow:
+    0 0 0 9999px rgba(2, 6, 23, 0.56),
+    0 0 0 4px rgba(245, 158, 11, 0.24),
+    0 10px 28px rgba(15, 23, 42, 0.34);
+  pointer-events: none;
+  animation: tutorial-spotlight-pulse 1.35s ease-in-out infinite;
+}
+
+@keyframes tutorial-spotlight-pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.01);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.app-shell--tutorial-lock .topbar,
+.app-shell--tutorial-lock .workspace {
+  pointer-events: none;
+}
+
+.app-shell--tutorial-lock .tutorial-panel,
+.app-shell--tutorial-lock .tutorial-panel * {
+  pointer-events: auto;
+}
+
+.app-shell--tutorial-lock [data-tutorial-active-target="true"],
+.app-shell--tutorial-lock [data-tutorial-active-target="true"] * {
+  pointer-events: auto;
 }
 
 .icon-button i {
@@ -3460,8 +3526,16 @@ app-flow-document-node {
 }
 
 .app-shell.theme-dark .tutorial-panel__description,
-.app-shell.theme-dark .tutorial-panel__steps {
+.app-shell.theme-dark .tutorial-panel__step {
   color: #e5e7eb;
+}
+
+.app-shell.theme-dark .tutorial-panel__progress {
+  color: #94a3b8;
+}
+
+.app-shell.theme-dark .tutorial-panel__pending {
+  color: #fdba74;
 }
 
 .app-shell.theme-dark .file-delete-button {
