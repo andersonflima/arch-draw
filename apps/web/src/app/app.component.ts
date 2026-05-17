@@ -4490,6 +4490,14 @@ spec:
         x: next.x - ((nextNext.x - current.x) * clampedTension) / 6,
         y: next.y - ((nextNext.y - current.y) * clampedTension) / 6
       };
+      if (index === 0) {
+        // Keep entry tangent flat so the line exits centered from the anchor/arrow axis.
+        control1.y = current.y;
+      }
+      if (index === points.length - 2) {
+        // Keep terminal tangent flat so the line arrives centered into the arrow marker.
+        control2.y = next.y;
+      }
 
       path += ` C ${control1.x} ${control1.y} ${control2.x} ${control2.y} ${next.x} ${next.y}`;
     }
