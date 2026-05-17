@@ -189,10 +189,9 @@ const EDGE_MARKER_CLEARANCE = EDGE_ARROW_LENGTH;
 const EDGE_ENDPOINT_STUB = 8;
 const LEAF_ANCHOR_ICON_SIZE = 84;
 const LEAF_ANCHOR_TOP_OFFSET = 4;
-const NODE_LAYER_BASE_Z_INDEX = 170;
-const NODE_LAYER_DEPTH_STEP = 20;
-const NODE_LAYER_CONTAINER_OFFSET = 0;
-const NODE_LAYER_LEAF_OFFSET = 6;
+const NODE_LAYER_CONTAINER_BASE_Z_INDEX = 120;
+const NODE_LAYER_LEAF_BASE_Z_INDEX = 180;
+const NODE_LAYER_DEPTH_STEP = 6;
 const NODE_LAYER_EXPANDED_BOOST = 8;
 const NODE_LAYER_DRAG_Z_INDEX_BASE = 1000;
 const DEFAULT_EDGE_LABEL_FONT_SIZE = 28;
@@ -2630,8 +2629,8 @@ LIMIT 50;`;
     const isBeingDragged = this.dragState?.pointerOffsets.has(node.id) ?? false;
     const isDescendantOfDragged = this.hasDraggedAncestor(node);
     const hierarchyDepth = this.getNodeHierarchyDepth(node);
-    const layerOffset = rendersAsContainer ? NODE_LAYER_CONTAINER_OFFSET : NODE_LAYER_LEAF_OFFSET;
-    const baseZIndex = NODE_LAYER_BASE_Z_INDEX + hierarchyDepth * NODE_LAYER_DEPTH_STEP + layerOffset;
+    const layerBase = rendersAsContainer ? NODE_LAYER_CONTAINER_BASE_Z_INDEX : NODE_LAYER_LEAF_BASE_Z_INDEX;
+    const baseZIndex = layerBase + hierarchyDepth * NODE_LAYER_DEPTH_STEP;
     const dragZIndexBase = NODE_LAYER_DRAG_Z_INDEX_BASE + hierarchyDepth;
     const dragZIndex = isDescendantOfDragged
       ? dragZIndexBase + 1
