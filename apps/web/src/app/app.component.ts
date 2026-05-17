@@ -5651,10 +5651,40 @@ spec:
     if (!effective) return null;
     const { fromNode: source, toNode: target } = effective;
     if (source.id === target.id) return null;
-    const rawStart = this.getAnchorWithGap(source, target, EDGE_NODE_GAP, "source", edge.sourcePort, edge);
-    const rawEnd = this.getAnchorWithGap(target, source, EDGE_NODE_GAP, "target", edge.targetPort, edge);
+    const rawStart = this.getAnchorWithGap(
+      source,
+      target,
+      EDGE_NODE_GAP,
+      "source",
+      edge.sourcePort,
+      edge,
+      false
+    );
+    const rawEnd = this.getAnchorWithGap(
+      target,
+      source,
+      EDGE_NODE_GAP,
+      "target",
+      edge.targetPort,
+      edge,
+      false
+    );
     const sourceCenter = this.getNodeCenter(source);
     const targetCenter = this.getNodeCenter(target);
+    const sourceSide = this.getHorizontalFlowConnectionSide(
+      source,
+      targetCenter,
+      "source",
+      edge.sourcePort
+    );
+    const targetSide = this.getHorizontalFlowConnectionSide(
+      target,
+      sourceCenter,
+      "target",
+      edge.targetPort
+    );
+    const sourceLaneOffset = this.getEdgeSideLaneOffset(edge, source, "source", sourceSide);
+    const targetLaneOffset = this.getEdgeSideLaneOffset(edge, target, "target", targetSide);
     const startAxis = this.getEdgeTerminalAxis(source, rawStart, sourceCenter);
     const endAxis = this.getEdgeTerminalAxis(target, rawEnd, targetCenter);
     const style = normalizeEdgeStyle(edge.style);
@@ -5664,8 +5694,10 @@ spec:
     const end = this.offsetTerminalPoint(rawEnd, targetCenter, endAxis, EDGE_MARKER_CLEARANCE, true);
     // Keep an external stub at source and an internal approach at target to prevent line reversal near the marker.
     const startLeadDistance = EDGE_ENDPOINT_STUB;
-    const startLead = this.offsetTerminalPoint(start, sourceCenter, startAxis, startLeadDistance, false);
-    const endLead = this.offsetTerminalPoint(end, targetCenter, endAxis, EDGE_ENDPOINT_STUB, true);
+    const startLeadBase = this.offsetTerminalPoint(start, sourceCenter, startAxis, startLeadDistance, false);
+    const endLeadBase = this.offsetTerminalPoint(end, targetCenter, endAxis, EDGE_ENDPOINT_STUB, true);
+    const startLead = this.offsetPointByConnectionSide(startLeadBase, sourceSide, sourceLaneOffset);
+    const endLead = this.offsetPointByConnectionSide(endLeadBase, targetSide, targetLaneOffset);
     return { sourceId: source.id, targetId: target.id, start, startLead, end, endLead, style };
   }
 
@@ -6641,10 +6673,13 @@ spec:
     gap: number,
     role: "source" | "target",
     preferredSide?: ArchitectureEdgePortSide,
-    edge?: CanvasEdge
+    edge?: CanvasEdge,
+    applyLaneOffset = true
   ): Readonly<{ x: number; y: number }> {
     const side = this.getHorizontalFlowConnectionSide(from, target, role, preferredSide);
-    const laneOffset = this.getEdgeSideLaneOffset(edge ?? null, from, role, side);
+    const laneOffset = applyLaneOffset
+      ? this.getEdgeSideLaneOffset(edge ?? null, from, role, side)
+      : 0;
     return this.getNodePortAnchor(from, side, gap, laneOffset);
   }
 
@@ -6654,10 +6689,22 @@ spec:
     gap: number,
     role: "source" | "target",
     preferredSide?: ArchitectureEdgePortSide,
-    edge?: CanvasEdge
+    edge?: CanvasEdge,
+    applyLaneOffset = true
   ): Readonly<{ x: number; y: number }> {
     const targetCenter = this.getNodeCenter(to);
-    return this.getAnchorTowardPoint(from, targetCenter, gap, role, preferredSide, edge);
+    return this.getAnchorTowardPoint(from, targetCenter, gap, role, preferredSide, edge, applyLaneOffset);
+  }
+
+  private offsetPointByConnectionSide(
+    point: Readonly<{ x: number; y: number }>,
+    side: "left" | "right" | "top" | "bottom",
+    offset: number
+  ): Readonly<{ x: number; y: number }> {
+    if (side === "left" || side === "right") {
+      return { x: point.x, y: point.y + offset };
+    }
+    return { x: point.x + offset, y: point.y };
   }
 
   private getNodeConnectionSideTowardPoint(
