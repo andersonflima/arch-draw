@@ -56,6 +56,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 6. Exporte em Arch-Draw, Draw.io, Excalidraw, Mermaid, SVG ou PNG.
 7. Clique em `Compartilhar` e escolha `Link com edição` ou `Link somente leitura` para copiar o link colaborativo no modo desejado.
    A permissão é validada no backend e não depende de parâmetro de modo na URL.
+   Se uma URL antiga contiver `mode/accessMode/shareMode`, o app remove esses parâmetros automaticamente ao abrir.
 
 Atalhos de edição:
 

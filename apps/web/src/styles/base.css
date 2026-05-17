@@ -640,7 +640,7 @@ button {
 .canvas-marquee {
   position: absolute;
   border: 2px dashed #2563eb;
-  background: rgba(37, 99, 235, 0.14);
+  background: transparent;
   border-radius: 6px;
   pointer-events: none;
   z-index: 18;
@@ -2513,22 +2513,22 @@ app-flow-document-node {
 }
 
 .architecture-node.is-selected:not(.architecture-node--leaf) .node-port::after {
-  opacity: 1;
-  background: rgba(14, 165, 233, 0.35);
+  opacity: 0;
+  background: transparent;
 }
 
 .architecture-node--leaf .node-port::after,
 .architecture-node--leaf .node-port:hover::after,
 .architecture-node--leaf .node-port:focus-visible::after,
 .architecture-node--leaf.is-selected .node-port::after {
-  background: rgba(14, 165, 233, 0.35);
-  opacity: 1;
+  background: transparent;
+  opacity: 0;
 }
 
 .architecture-node.is-selected .node-port::before {
-  border-color: #0284c7;
-  background: #ecfeff;
-  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2), 1px 1px 0 #111827;
+  border-color: #f59e0b;
+  background: #fffbeb;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.22), 1px 1px 0 #111827;
 }
 
 .node-port--target {
@@ -3284,6 +3284,8 @@ app-flow-document-node {
   padding: 10px 14px;
   box-shadow: 3px 3px 0 #7c2d12;
   white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
   pointer-events: none;
   z-index: 8;
   animation: maximize-hint-pulse 1.1s ease-in-out infinite;
@@ -3537,22 +3539,22 @@ app-flow-document-node {
 }
 
 .app-shell.theme-dark .architecture-node.is-selected:not(.architecture-node--leaf) .node-port::after {
-  opacity: 1;
-  background: rgba(56, 189, 248, 0.4);
+  opacity: 0;
+  background: transparent;
 }
 
 .app-shell.theme-dark .architecture-node--leaf .node-port::after,
 .app-shell.theme-dark .architecture-node--leaf .node-port:hover::after,
 .app-shell.theme-dark .architecture-node--leaf .node-port:focus-visible::after,
 .app-shell.theme-dark .architecture-node--leaf.is-selected .node-port::after {
-  background: rgba(56, 189, 248, 0.4);
-  opacity: 1;
+  background: transparent;
+  opacity: 0;
 }
 
 .app-shell.theme-dark .architecture-node.is-selected .node-port::before {
-  border-color: #38bdf8;
-  background: #082f49;
-  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25), 1px 1px 0 #0b1220;
+  border-color: #f59e0b;
+  background: #422006;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.28), 1px 1px 0 #0b1220;
 }
 
 .app-shell.theme-dark .node-collapse-toggle,

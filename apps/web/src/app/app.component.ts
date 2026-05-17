@@ -4580,13 +4580,27 @@ LIMIT 50;`;
 
   private resolveShareIdFromUrl(): string | null {
     try {
-      const value = new URL(window.location.href).searchParams.get("share");
+      const locationUrl = new URL(window.location.href);
+      const value = locationUrl.searchParams.get("share");
       if (!value) return null;
       const normalized = value.trim();
       if (!normalized) return null;
+      locationUrl.searchParams.set("share", normalized);
+      locationUrl.searchParams.delete("mode");
+      locationUrl.searchParams.delete("accessMode");
+      locationUrl.searchParams.delete("shareMode");
+      this.replaceHistoryUrl(locationUrl);
       return normalized;
     } catch {
       return null;
+    }
+  }
+
+  private replaceHistoryUrl(url: URL): void {
+    try {
+      window.history.replaceState({}, "", url.toString());
+    } catch {
+      // Ignore history API failures in restricted contexts.
     }
   }
 
@@ -5729,6 +5743,8 @@ spec:
   ): Readonly<{
     sourceId: string;
     targetId: string;
+    sourceSide: "left" | "right";
+    targetSide: "left" | "right";
     start: Readonly<{ x: number; y: number }>;
     startLead: Readonly<{ x: number; y: number }>;
     end: Readonly<{ x: number; y: number }>;
@@ -5786,7 +5802,7 @@ spec:
     const endLeadBase = this.offsetTerminalPoint(end, targetCenter, endAxis, EDGE_ENDPOINT_STUB, true);
     const startLead = this.offsetPointByConnectionSide(startLeadBase, sourceSide, sourceLaneOffset);
     const endLead = this.offsetPointByConnectionSide(endLeadBase, targetSide, targetLaneOffset);
-    return { sourceId: source.id, targetId: target.id, start, startLead, end, endLead, style };
+    return { sourceId: source.id, targetId: target.id, sourceSide, targetSide, start, startLead, end, endLead, style };
   }
 
   private getEdgePathData(edge: CanvasEdge): EdgePathData | null {
@@ -5801,10 +5817,13 @@ spec:
     }
     const basePolyline = this.getBaseEdgePolyline(geometry);
     const obstacleRects = this.getEdgeObstacleRects(edge, geometry.sourceId, geometry.targetId);
-    const routeCore = this.compactPolyline(basePolyline.slice(1, -1));
-    const routedCore = routeCore.length >= 2
+    const routeCoreFixedTerminals = this.compactPolyline(basePolyline.slice(1, -1));
+    const routeCoreStart = routeCoreFixedTerminals[0] ?? null;
+    const routeCoreEnd = routeCoreFixedTerminals[routeCoreFixedTerminals.length - 1] ?? null;
+    const routeCoreMiddle = this.compactPolyline(routeCoreFixedTerminals.slice(1, -1));
+    const routedCoreMiddle = routeCoreMiddle.length >= 2
       ? routeEdgePolylineAroundObstacles(
-        routeCore,
+        routeCoreMiddle,
         obstacleRects,
         geometry.sourceId,
         geometry.targetId,
@@ -5813,23 +5832,83 @@ spec:
           obstacleClearance: EDGE_OBSTACLE_CLEARANCE
         }
       )
-      : routeCore;
+      : routeCoreMiddle;
+    const routedCore = this.compactPolyline([
+      ...(routeCoreStart ? [routeCoreStart] : []),
+      ...routedCoreMiddle,
+      ...(routeCoreEnd ? [routeCoreEnd] : [])
+    ]);
     const routed = this.compactPolyline([
       geometry.start,
       ...routedCore,
       geometry.end
     ]);
-    if (routed.length < 2) {
+    const constrained = this.enforceEdgeEndpointSideConstraints(
+      routed,
+      geometry.sourceId,
+      geometry.targetId,
+      geometry.sourceSide,
+      geometry.targetSide
+    );
+    if (constrained.length < 2) {
       this.edgePathDataCache.set(edge.id, null);
       return null;
     }
 
     const data = {
-      points: routed,
+      points: constrained,
       style: geometry.style
     };
     this.edgePathDataCache.set(edge.id, data);
     return data;
+  }
+
+  private enforceEdgeEndpointSideConstraints(
+    points: readonly EdgePoint[],
+    sourceId: string,
+    targetId: string,
+    sourceSide: "left" | "right",
+    targetSide: "left" | "right"
+  ): readonly EdgePoint[] {
+    if (points.length < 2) return points;
+    const sourceNode = this.nodes.find((node) => node.id === sourceId);
+    const targetNode = this.nodes.find((node) => node.id === targetId);
+    if (!sourceNode || !targetNode) return points;
+
+    const sourceAnchorBox = this.getNodeConnectionAnchorBox(sourceNode);
+    const targetAnchorBox = this.getNodeConnectionAnchorBox(targetNode);
+    const sourceTop = sourceAnchorBox.center.y - sourceAnchorBox.halfHeight;
+    const sourceBottom = sourceAnchorBox.center.y + sourceAnchorBox.halfHeight;
+    const targetTop = targetAnchorBox.center.y - targetAnchorBox.halfHeight;
+    const targetBottom = targetAnchorBox.center.y + targetAnchorBox.halfHeight;
+    const sourceBoundaryX = points[0]?.x ?? sourceAnchorBox.center.x;
+    const targetBoundaryX = points[points.length - 1]?.x ?? targetAnchorBox.center.x;
+
+    const constrained = points.map((point) => ({ x: point.x, y: point.y }));
+    for (let index = 1; index < constrained.length - 1; index += 1) {
+      const point = constrained[index];
+      if (!point) continue;
+
+      if (point.y >= sourceTop && point.y <= sourceBottom) {
+        if (sourceSide === "right" && point.x < sourceBoundaryX) {
+          point.x = sourceBoundaryX;
+        }
+        if (sourceSide === "left" && point.x > sourceBoundaryX) {
+          point.x = sourceBoundaryX;
+        }
+      }
+
+      if (point.y >= targetTop && point.y <= targetBottom) {
+        if (targetSide === "right" && point.x < targetBoundaryX) {
+          point.x = targetBoundaryX;
+        }
+        if (targetSide === "left" && point.x > targetBoundaryX) {
+          point.x = targetBoundaryX;
+        }
+      }
+    }
+
+    return this.compactPolyline(constrained);
   }
 
   private getBaseEdgePolyline(
@@ -5876,13 +5955,33 @@ spec:
       const first = points[0];
       const last = points[1];
       if (!first || !last) return "";
-      const controlX = (first.x + last.x) / 2;
-      return `M ${first.x} ${first.y} C ${controlX} ${first.y} ${controlX} ${last.y} ${last.x} ${last.y}`;
+      return `M ${first.x} ${first.y} L ${last.x} ${last.y}`;
     }
 
-    const clampedTension = 0.42;
-    let path = `M ${points[0]?.x ?? 0} ${points[0]?.y ?? 0}`;
+    // Keep terminal segments straight near connection ports so the curve never
+    // overshoots the source/target anchor circles.
+    if (points.length >= 4) {
+      const start = points[0];
+      const startLead = points[1];
+      const endLead = points[points.length - 2];
+      const end = points[points.length - 1];
+      if (!start || !startLead || !endLead || !end) return "";
+      const corePoints = points.slice(1, -1);
+      let path = `M ${start.x} ${start.y} L ${startLead.x} ${startLead.y}`;
+      path += this.buildSmoothCurveCoreCommands(corePoints);
+      path += ` L ${end.x} ${end.y}`;
+      return path;
+    }
 
+    let path = `M ${points[0]?.x ?? 0} ${points[0]?.y ?? 0}`;
+    path += this.buildSmoothCurveCoreCommands(points);
+    return path;
+  }
+
+  private buildSmoothCurveCoreCommands(points: readonly EdgePoint[]): string {
+    if (points.length < 2) return "";
+    const clampedTension = 0.42;
+    let commands = "";
     for (let index = 0; index < points.length - 1; index += 1) {
       const previous = points[Math.max(index - 1, 0)];
       const current = points[index];
@@ -5907,10 +6006,9 @@ spec:
         control2.y = next.y;
       }
 
-      path += ` C ${control1.x} ${control1.y} ${control2.x} ${control2.y} ${next.x} ${next.y}`;
+      commands += ` C ${control1.x} ${control1.y} ${control2.x} ${control2.y} ${next.x} ${next.y}`;
     }
-
-    return path;
+    return commands;
   }
 
   private buildRoundedPolylinePath(points: readonly EdgePoint[], radius: number): string {
@@ -6068,7 +6166,11 @@ spec:
       const bcX = c.x - b.x;
       const bcY = c.y - b.y;
       const cross = abX * bcY - abY * bcX;
-      if (Math.abs(cross) <= 0.001) {
+      const dot = abX * bcX + abY * bcY;
+      // Only collapse when collinear and moving in the same direction.
+      // If direction reverses, keeping the middle point preserves the terminal
+      // stub outside the anchor bubble and prevents re-entering node bounds.
+      if (Math.abs(cross) <= 0.001 && dot >= 0) {
         compacted.splice(compacted.length - 2, 1);
       }
     }
