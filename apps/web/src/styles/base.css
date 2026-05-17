@@ -646,6 +646,40 @@ button {
   z-index: 18;
 }
 
+.remote-cursor {
+  position: absolute;
+  z-index: 220;
+  pointer-events: none;
+  transform: translate(-1px, -1px);
+}
+
+.remote-cursor__pointer {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-top: 12px solid var(--cursor-color, #f97316);
+  border-right: 8px solid transparent;
+  border-left: 2px solid transparent;
+  transform: rotate(-20deg);
+  filter: drop-shadow(1px 1px 0 #111827);
+}
+
+.remote-cursor__label {
+  position: absolute;
+  left: 10px;
+  top: 12px;
+  border: 2px solid #111827;
+  border-radius: 6px;
+  background: var(--cursor-color, #f97316);
+  color: #111827;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  padding: 5px 8px 4px;
+  box-shadow: 2px 2px 0 #111827;
+}
+
 .architecture-node {
   position: absolute;
   width: 100%;
