@@ -2717,8 +2717,8 @@ app-flow-document-node {
 .node-collapse-toggle {
   margin-left: auto;
   flex-shrink: 0;
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   border: 2px solid #111827;
   border-radius: 999px;
   background: #fef3c7;
@@ -2732,7 +2732,7 @@ app-flow-document-node {
 }
 
 .node-collapse-toggle i {
-  font-size: 10px;
+  font-size: 13px;
   pointer-events: none;
 }
 
