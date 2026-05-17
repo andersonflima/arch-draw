@@ -21,7 +21,15 @@
       <button class="toolbar-action" type="button" [title]="t('aria.newArchitecture')" [attr.aria-label]="t('aria.newArchitecture')" (click)="createArchitecture()">{{ t("toolbar.new") }}</button>
       <button class="toolbar-action" type="button" [title]="t('aria.completeExample')" [attr.aria-label]="t('aria.completeExample')" (click)="createCompleteExampleArchitecture()">{{ t("toolbar.example") }}</button>
       <button class="toolbar-action" type="button" [title]="t('aria.save')" [attr.aria-label]="t('aria.save')" (click)="saveCurrent()">{{ t("toolbar.save") }}</button>
-      <button class="toolbar-action" type="button" [title]="t('aria.share')" [attr.aria-label]="t('aria.share')" (click)="createShareLink()">{{ t("toolbar.share") }}</button>
+      <details class="toolbar-dropdown">
+        <summary class="toolbar-action toolbar-dropdown__trigger" [title]="t('aria.share')" [attr.aria-label]="t('aria.share')">
+          {{ t("toolbar.share") }}
+        </summary>
+        <div class="toolbar-dropdown__menu">
+          <button class="toolbar-dropdown__item" type="button" (click)="createShareLink('edit')">{{ t("toolbar.shareEdit") }}</button>
+          <button class="toolbar-dropdown__item" type="button" (click)="createShareLink('read-only')">{{ t("toolbar.shareReadOnly") }}</button>
+        </div>
+      </details>
       <details class="toolbar-dropdown">
         <summary class="toolbar-action toolbar-dropdown__trigger" [title]="t('aria.export')" [attr.aria-label]="t('aria.export')">
           {{ t("toolbar.export") }}

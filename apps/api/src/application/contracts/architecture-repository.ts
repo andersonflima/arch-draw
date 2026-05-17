@@ -13,6 +13,7 @@ export type ArchitectureSummary = Readonly<{
 export type ArchitectureShare = Readonly<{
   shareId: string;
   architectureId: string;
+  accessMode: "edit" | "read-only";
   createdAt: string;
   updatedAt: string;
 }>;
@@ -27,13 +28,16 @@ export type ArchitectureRepository = Readonly<{
   deleteById: (id: string, sessionToken: string) => Promise<boolean>;
   findShareByArchitectureId: (
     architectureId: string,
-    sessionToken: string
+    sessionToken: string,
+    accessMode: "edit" | "read-only"
   ) => Promise<ArchitectureShare | null>;
+  findShareById: (shareId: string) => Promise<ArchitectureShare | null>;
   createShare: (
     shareId: string,
     architectureId: string,
     sessionToken: string,
-    now: string
+    now: string,
+    accessMode: "edit" | "read-only"
   ) => Promise<ArchitectureShare | null>;
   findByShareId: (shareId: string) => Promise<ArchitectureDocument | null>;
   saveByShareId: (

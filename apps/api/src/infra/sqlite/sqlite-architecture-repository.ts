@@ -20,6 +20,7 @@ type ArchitectureShareRow = Readonly<{
   share_id: string;
   architecture_id: string;
   owner_session_token: string;
+  access_mode: "edit" | "read-only";
   created_at: string;
   updated_at: string;
 }>;
@@ -128,24 +129,41 @@ export const makeSqliteArchitectureRepository = (
       connection.persist();
       return true;
     },
-    findShareByArchitectureId: async (architectureId, sessionToken) => {
+    findShareByArchitectureId: async (architectureId, sessionToken, accessMode) => {
       const row = selectShareRows(
         connection,
         `
-          SELECT share_id, architecture_id, owner_session_token, created_at, updated_at
+          SELECT share_id, architecture_id, owner_session_token, access_mode, created_at, updated_at
           FROM architecture_shares
-          WHERE architecture_id = $architectureId AND owner_session_token = $sessionToken
+          WHERE architecture_id = $architectureId
+            AND owner_session_token = $sessionToken
+            AND access_mode = $accessMode
           LIMIT 1
         `,
         {
           $architectureId: architectureId,
-          $sessionToken: sessionToken
+          $sessionToken: sessionToken,
+          $accessMode: accessMode
         }
       )[0];
       if (!row) return null;
       return toArchitectureShare(row);
     },
-    createShare: async (shareId, architectureId, sessionToken, now) => {
+    findShareById: async (shareId) => {
+      const row = selectShareRows(
+        connection,
+        `
+          SELECT share_id, architecture_id, owner_session_token, access_mode, created_at, updated_at
+          FROM architecture_shares
+          WHERE share_id = $shareId
+          LIMIT 1
+        `,
+        { $shareId: shareId }
+      )[0];
+      if (!row) return null;
+      return toArchitectureShare(row);
+    },
+    createShare: async (shareId, architectureId, sessionToken, now, accessMode) => {
       const architecture = selectRows(
         connection,
         `
@@ -164,13 +182,21 @@ export const makeSqliteArchitectureRepository = (
       runStatement(
         connection,
         `
-          INSERT OR IGNORE INTO architecture_shares (share_id, architecture_id, owner_session_token, created_at, updated_at)
-          VALUES ($shareId, $architectureId, $sessionToken, $now, $now)
+          INSERT OR IGNORE INTO architecture_shares (
+            share_id,
+            architecture_id,
+            owner_session_token,
+            access_mode,
+            created_at,
+            updated_at
+          )
+          VALUES ($shareId, $architectureId, $sessionToken, $accessMode, $now, $now)
         `,
         {
           $shareId: shareId,
           $architectureId: architectureId,
           $sessionToken: sessionToken,
+          $accessMode: accessMode,
           $now: now
         }
       );
@@ -178,7 +204,7 @@ export const makeSqliteArchitectureRepository = (
       const row = selectShareRows(
         connection,
         `
-          SELECT share_id, architecture_id, owner_session_token, created_at, updated_at
+          SELECT share_id, architecture_id, owner_session_token, access_mode, created_at, updated_at
           FROM architecture_shares
           WHERE share_id = $shareId
           LIMIT 1
@@ -208,7 +234,7 @@ export const makeSqliteArchitectureRepository = (
       const shareRow = selectShareRows(
         connection,
         `
-          SELECT share_id, architecture_id, owner_session_token, created_at, updated_at
+          SELECT share_id, architecture_id, owner_session_token, access_mode, created_at, updated_at
           FROM architecture_shares
           WHERE share_id = $shareId
           LIMIT 1
@@ -216,6 +242,7 @@ export const makeSqliteArchitectureRepository = (
         { $shareId: shareId }
       )[0];
       if (!shareRow) return null;
+      if (shareRow.access_mode !== "edit") return null;
       if (shareRow.architecture_id !== architecture.id) return null;
 
       runStatement(
@@ -288,6 +315,7 @@ const toSummary = (row: ArchitectureRow): ArchitectureSummary | null => {
 const toArchitectureShare = (row: ArchitectureShareRow): ArchitectureShare => ({
   shareId: row.share_id,
   architectureId: row.architecture_id,
+  accessMode: row.access_mode,
   createdAt: row.created_at,
   updatedAt: row.updated_at
 });
