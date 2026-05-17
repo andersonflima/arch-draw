@@ -17,6 +17,7 @@ export const runMigrations = (connection: SqliteConnection): void => {
   `);
 
   ensureSessionTokenColumn(connection);
+  ensureShareAccessModeColumn(connection);
   connection.db.exec(`
     CREATE INDEX IF NOT EXISTS idx_architectures_session_updated_at
       ON architectures(session_token, updated_at DESC);
@@ -38,8 +39,6 @@ export const runMigrations = (connection: SqliteConnection): void => {
     CREATE INDEX IF NOT EXISTS idx_architecture_shares_architecture
       ON architecture_shares(architecture_id);
   `);
-  ensureShareAccessModeColumn(connection);
-
   connection.persist();
 };
 
@@ -52,6 +51,14 @@ const ensureSessionTokenColumn = (connection: SqliteConnection): void => {
 };
 
 const ensureShareAccessModeColumn = (connection: SqliteConnection): void => {
+  const tableExists = (connection.db.exec(`
+    SELECT name
+    FROM sqlite_master
+    WHERE type = 'table' AND name = 'architecture_shares'
+    LIMIT 1;
+  `)[0]?.values?.length ?? 0) > 0;
+  if (!tableExists) return;
+
   const columns = connection.db.exec("PRAGMA table_info(architecture_shares);")[0]?.values ?? [];
   const hasAccessMode = columns.some((column) => String(column[1]) === "access_mode");
   if (hasAccessMode) return;
