@@ -2556,6 +2556,13 @@ export class AppComponent implements OnDestroy {
     return this.isCollapsibleCodeSnippetNode(node) && !this.isCodeSnippetCollapsed(node);
   }
 
+  private shouldRenderNodeCollapseToggle(node: CanvasNode): boolean {
+    return (
+      (this.isCollapsibleContainerNode(node) && !this.isContainerCollapsed(node))
+      || (this.isCollapsibleCodeSnippetNode(node) && !this.isCodeSnippetCollapsed(node))
+    );
+  }
+
   setSelectedContainerCollapsed(collapsed: boolean): void {
     const selected = this.selectedNode;
     if (!selected || !this.isCollapsibleContainerNode(selected)) return;
@@ -3560,7 +3567,8 @@ LIMIT 50;`;
       ? (rendersAsContainer ? NODE_LAYER_EXPANDED_CONTAINER_BOOST : NODE_LAYER_EXPANDED_LEAF_BOOST)
       : 0;
     const expandedZIndex = baseZIndex + expandedBoost;
-    const resolvedZIndex = Math.max(baseZIndex, expandedZIndex, dragZIndex);
+    const collapseToggleZIndexFloor = this.shouldRenderNodeCollapseToggle(node) ? 175 : 0;
+    const resolvedZIndex = Math.max(baseZIndex, expandedZIndex, dragZIndex, collapseToggleZIndexFloor);
     const nestedInsideContainer = Boolean(node.parentId);
     const isExpandedCodeSnippet = this.isCodeSnippetExpanded(node);
     const prefersDarkTextInDarkMode =
