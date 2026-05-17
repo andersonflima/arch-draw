@@ -206,8 +206,8 @@ const DEFAULT_NODE_ICON_FONT_SIZE = 14;
 const DEFAULT_LEAF_ICON_FONT_SIZE = 40;
 const MIN_NODE_PORT_HIT_WIDTH = 26;
 const MAX_NODE_PORT_HIT_WIDTH = 48;
-const MIN_NODE_PORT_INSET = 12;
-const MAX_NODE_PORT_INSET = 28;
+const MIN_NODE_PORT_INSET = 2;
+const MAX_NODE_PORT_INSET = 12;
 const MIN_NODE_PORT_DOT_SIZE = 12;
 const MAX_NODE_PORT_DOT_SIZE = 18;
 const MIN_NODE_PORT_OMNI_SIZE = 24;
@@ -2679,13 +2679,13 @@ LIMIT 50;`;
       Math.min(MAX_NODE_PORT_HIT_WIDTH, Math.max(MIN_NODE_PORT_HIT_WIDTH, nodePortScaleBasis * 0.24))
     );
     const nodePortInset = Math.round(
-      Math.min(MAX_NODE_PORT_INSET, Math.max(MIN_NODE_PORT_INSET, nodePortScaleBasis * 0.18))
+      Math.min(MAX_NODE_PORT_INSET, Math.max(MIN_NODE_PORT_INSET, nodePortScaleBasis * 0.06))
     );
     const nodePortDotSize = Math.round(
       Math.min(MAX_NODE_PORT_DOT_SIZE, Math.max(MIN_NODE_PORT_DOT_SIZE, nodePortHitWidth * 0.48))
     );
     const nodePortEdgeOffset = nodePortDotSize + 1;
-    const nodePortLaneInset = Math.round(Math.max(8, Math.min(16, nodePortInset * 0.62)));
+    const nodePortLaneInset = Math.round(Math.max(4, Math.min(10, nodePortInset * 0.8)));
     const nodePortLaneWidth = Math.round(Math.max(4, Math.min(8, nodePortHitWidth * 0.24)));
     const nodePortMinHeight = Math.round(Math.max(36, nodePortHitWidth + 14));
     const nodePortOmniSize = Math.round(
@@ -5511,24 +5511,10 @@ spec:
     halfWidth: number;
     halfHeight: number;
   }> {
-    if (!this.usesLeafConnectionAnchorBox(node)) {
-      return {
-        center: this.getNodeCenter(node),
-        halfWidth: node.size.width / 2,
-        halfHeight: node.size.height / 2
-      };
-    }
-
-    const position = this.getAbsolutePosition(node);
-    const iconSize = this.getLeafNodeIconSize();
-    const iconCenter = {
-      x: position.x + node.size.width / 2,
-      y: position.y + LEAF_ANCHOR_TOP_OFFSET + iconSize / 2
-    };
     return {
-      center: iconCenter,
-      halfWidth: iconSize / 2,
-      halfHeight: iconSize / 2
+      center: this.getNodeCenter(node),
+      halfWidth: node.size.width / 2,
+      halfHeight: node.size.height / 2
     };
   }
 

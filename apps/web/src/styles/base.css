@@ -2404,21 +2404,6 @@ app-flow-document-node {
   right: calc(var(--node-port-dot-size, 14px) / 2 + 1px);
 }
 
-.architecture-node--leaf .node-port {
-  top: var(--leaf-anchor-top-offset, 4px);
-  bottom: auto;
-  height: var(--leaf-node-icon-size, 70px);
-  min-height: var(--leaf-node-icon-size, 70px);
-}
-
-.architecture-node--leaf .node-port--target {
-  left: calc(50% - (var(--leaf-node-icon-size, 70px) / 2 + var(--node-port-dot-size, 14px) / 2));
-}
-
-.architecture-node--leaf .node-port--source {
-  right: calc(50% - (var(--leaf-node-icon-size, 70px) / 2 + var(--node-port-dot-size, 14px) / 2));
-}
-
 .node-port--omni {
   width: var(--node-port-omni-size, 28px);
   height: var(--node-port-omni-size, 28px);
