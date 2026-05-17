@@ -2945,8 +2945,7 @@ LIMIT 50;`;
   private isEdgeTouchingActiveContactArea(edge: CanvasEdge): boolean {
     const activeNodes = this.selectedNodeIds
       .map((nodeId) => this.nodes.find((candidate) => candidate.id === nodeId))
-      .filter((node): node is CanvasNode => Boolean(node))
-      .filter((node) => !this.usesLeafConnectionAnchorBox(node));
+      .filter((node): node is CanvasNode => Boolean(node));
     if (activeNodes.length === 0) return false;
     const data = this.getEdgePathData(edge);
     if (!data || data.points.length < 2) return false;
