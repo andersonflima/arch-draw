@@ -58,7 +58,6 @@ import {
   getNodeIconLabel
 } from "../features/editor/node-icons";
 import {
-  applyEdgeMarkerClearance as applyEdgeMarkerClearanceCore,
   type EdgePoint,
   getEdgeLeadPoint as getEdgeLeadPointCore,
   getEdgeTerminalAxis as getEdgeTerminalAxisCore,
@@ -119,6 +118,10 @@ type PanState = Readonly<{
   startPan: Readonly<{ x: number; y: number }>;
 }>;
 
+type MiniMapDragState = Readonly<{
+  offsetFromViewportCenter: Readonly<{ x: number; y: number }>;
+}>;
+
 type EditorSnapshot = Readonly<{
   title: string;
   description: string;
@@ -155,7 +158,13 @@ type TutorialGuide = Readonly<{
   id: string;
   title: string;
   description: string;
-  steps: readonly string[];
+  steps: readonly TutorialStep[];
+}>;
+
+type TutorialStep = Readonly<{
+  text: string;
+  targetSelector?: string;
+  requiresClick?: boolean;
 }>;
 
 type CodeLanguage =
@@ -177,6 +186,8 @@ type CodeLanguageOption = Readonly<{
   label: string;
 }>;
 
+type UiLanguage = "pt-BR" | "en-US";
+
 const DEFAULT_MERMAID_SOURCE = `graph LR
   User["User"] --> Api["API"]
   Api --> Db["SQLite"]`;
@@ -197,6 +208,8 @@ const AUTOSAVE_MEDIUM_COMPLEXITY_THRESHOLD = 150;
 const AUTOSAVE_LARGE_COMPLEXITY_THRESHOLD = 500;
 const AUTOSAVE_XL_COMPLEXITY_THRESHOLD = 1200;
 const ERROR_TOAST_DISMISS_MS = 6000;
+const SUCCESS_TOAST_DISMISS_MS = 3200;
+const AUTO_SAVE_TOAST_THROTTLE_MS = 8000;
 const DOUBLE_CLICK_HINT_INTERVAL_MS = 24000;
 const DOUBLE_CLICK_HINT_VISIBLE_MS = 5000;
 const CODE_SNIPPET_COLLAPSED_SIZE = { width: 172, height: 176 } as const;
@@ -241,15 +254,27 @@ const EDGE_PROXIMITY_SUPPRESSION_RADIUS = 190;
 const EDGE_ROUTE_MAX_PASSES = 10;
 const EDGE_SIDE_LANE_GAP = 14;
 const EDGE_SIDE_LANE_MAX_OFFSET = 42;
+const EDGE_SHARED_ANCHOR_MIN_GAP = 11;
 const EDGE_LABEL_COLLISION_X_THRESHOLD = 220;
 const EDGE_LABEL_COLLISION_Y_THRESHOLD = 44;
 const EDGE_LABEL_COLLISION_GAP = 26;
 const EDGE_LABEL_OFFSET_STEP_PERCENT = 7;
 const EDGE_LABEL_OFFSET_MAX_PERCENT = 24;
+const EDGE_LABEL_RENDER_MIN_WIDTH = 92;
+const EDGE_LABEL_RENDER_MAX_WIDTH = 260;
+const EDGE_LABEL_RENDER_HORIZONTAL_PADDING = 16;
+const LEAF_LABEL_RENDER_HORIZONTAL_PADDING = 16;
+const LEAF_LABEL_RENDER_VERTICAL_PADDING = 6;
+const LEAF_NODE_LABEL_TRUNCATE_BASE_CHARS = 24;
+const LEAF_NODE_LABEL_TRUNCATE_MAX_CHARS = 44;
 const MAX_UNDO_HISTORY = 1000;
 const DRAG_START_THRESHOLD = 4;
 const STRICT_PORT_ANCHORING = true;
 const UI_THEME_STORAGE_KEY = "arch-draw.ui-theme";
+const UI_LANGUAGE_STORAGE_KEY = "arch-draw.ui-language";
+const VIEWPORT_CHECKPOINT_STORAGE_PREFIX = "arch-draw.viewport";
+const VIEWPORT_CHECKPOINT_DEBOUNCE_MS = 260;
+const DEFAULT_INITIAL_CANVAS_ZOOM = 0.27;
 const DEMO_TEMPLATE_TITLE = "Exemplo Completo: Macro para Micro";
 const STRESS_TEMPLATE_TITLE = "Stress Test: Todos os Blocos e Juncoes";
 const CONTAINER_CHILD_PADDING_LEFT = 16;
@@ -263,6 +288,96 @@ const EXPORT_EXCLUDED_SELECTORS = [
   ".canvas-edge-label-editor",
   ".node-inline-label-input"
 ] as const;
+const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, string>>>> = {
+  "pt-BR": {
+    "toolbar.new": "Nova",
+    "toolbar.example": "Exemplo",
+    "toolbar.save": "Salvar",
+    "toolbar.export": "Exportar",
+    "toolbar.tutorial": "Tutorial",
+    "toolbar.import": "Importar",
+    "toolbar.clear": "Limpar",
+    "toolbar.languageSwitch": "Idioma",
+    "tutorial.guided": "Tutorial guiado",
+    "tutorial.progress": "Passo",
+    "tutorial.pendingClick": "Clique no destaque para liberar o próximo passo.",
+    "tutorial.previous": "Anterior",
+    "tutorial.next": "Próximo",
+    "tutorial.finish": "Concluir",
+    "tutorial.close": "Fechar tutorial",
+    "toast.checkpointCreated": "Checkpoint criado!",
+    "toast.autoSaved": "Auto save concluido!",
+    "toast.missionComplete": "Missão completa!",
+    "toast.memoryCleared": "Memória limpa!",
+    "toast.close": "Fechar notificação",
+    "toast.closeError": "Fechar erro",
+    "status.saved": "Salvo no SQLite",
+    "status.noChanges": "Sem alterações para salvar",
+    "status.exportedArchDraw": "Arquivo de compartilhamento exportado",
+    "status.exportedSvg": "Arquivo SVG exportado",
+    "status.exportedPng": "Arquivo PNG exportado",
+    "status.exportedDrawIo": "Arquivo draw.io exportado",
+    "status.exportedExcalidraw": "Arquivo Excalidraw exportado",
+    "status.exportedMermaid": "Arquivo Mermaid exportado",
+    "status.edgeRemoved": "Linha removida",
+    "status.nodeRemoved": "Nó removido",
+    "status.boardCleared": "Board limpo",
+    "status.tutorialOpened": "Tutorial guiado aberto",
+    "status.tutorialClosed": "Tutorial guiado fechado",
+    "status.tutorialCompleted": "Tutorial concluído",
+    "aria.newArchitecture": "Nova arquitetura",
+    "aria.completeExample": "Criar exemplo completo",
+    "aria.save": "Salvar",
+    "aria.export": "Exportar diagramas",
+    "aria.tutorials": "Tutoriais guiados",
+    "aria.import": "Importar",
+    "aria.clear": "Apagar item selecionado ou limpar board"
+  },
+  "en-US": {
+    "toolbar.new": "New",
+    "toolbar.example": "Example",
+    "toolbar.save": "Save",
+    "toolbar.export": "Export",
+    "toolbar.tutorial": "Tutorial",
+    "toolbar.import": "Import",
+    "toolbar.clear": "Clear",
+    "toolbar.languageSwitch": "Language",
+    "tutorial.guided": "Guided tutorial",
+    "tutorial.progress": "Step",
+    "tutorial.pendingClick": "Click the highlight to unlock the next step.",
+    "tutorial.previous": "Previous",
+    "tutorial.next": "Next",
+    "tutorial.finish": "Finish",
+    "tutorial.close": "Close tutorial",
+    "toast.checkpointCreated": "Checkpoint created!",
+    "toast.autoSaved": "Auto save completed!",
+    "toast.missionComplete": "Mission complete!",
+    "toast.memoryCleared": "Memory card cleared!",
+    "toast.close": "Close notification",
+    "toast.closeError": "Close error",
+    "status.saved": "Saved to SQLite",
+    "status.noChanges": "No changes to save",
+    "status.exportedArchDraw": "Share file exported",
+    "status.exportedSvg": "SVG file exported",
+    "status.exportedPng": "PNG file exported",
+    "status.exportedDrawIo": "draw.io file exported",
+    "status.exportedExcalidraw": "Excalidraw file exported",
+    "status.exportedMermaid": "Mermaid file exported",
+    "status.edgeRemoved": "Edge removed",
+    "status.nodeRemoved": "Node removed",
+    "status.boardCleared": "Board cleared",
+    "status.tutorialOpened": "Guided tutorial opened",
+    "status.tutorialClosed": "Guided tutorial closed",
+    "status.tutorialCompleted": "Tutorial completed",
+    "aria.newArchitecture": "New architecture",
+    "aria.completeExample": "Create complete example",
+    "aria.save": "Save",
+    "aria.export": "Export diagrams",
+    "aria.tutorials": "Guided tutorials",
+    "aria.import": "Import",
+    "aria.clear": "Delete selected item or clear board"
+  }
+};
 const CLOUD_PROPERTY_FIELDS: readonly NodePropertyField[] = [
   { key: "provider", label: "Provider", placeholder: "aws, azure, gcp" },
   { key: "accountId", label: "Account ID", placeholder: "123456789012" },
@@ -281,10 +396,30 @@ const TUTORIAL_GUIDES: readonly TutorialGuide[] = [
     title: "Comecar Rapido",
     description: "Fluxo essencial para montar seu primeiro diagrama no Arch Draw.",
     steps: [
-      "Crie uma arquitetura em Nova ou use Exemplo para carregar um modelo completo.",
-      "Arraste blocos da sidebar para o canvas e organize por contexto.",
-      "Clique em Salvar para persistir no workspace.",
-      "Use Exportar para gerar Arch-Draw, Draw.io, Excalidraw, Mermaid, SVG ou PNG."
+      {
+        text: "Crie uma arquitetura em Nova ou use Exemplo para carregar um modelo completo.",
+        targetSelector: "[data-tour='toolbar-new']",
+        requiresClick: true
+      },
+      {
+        text: "Abra Exemplo para carregar uma base completa e acelerar o início.",
+        targetSelector: "[data-tour='toolbar-example']",
+        requiresClick: true
+      },
+      {
+        text: "Arraste blocos da sidebar para o canvas e organize por contexto.",
+        targetSelector: "[data-tour='palette']"
+      },
+      {
+        text: "Clique em Salvar para persistir no workspace.",
+        targetSelector: "[data-tour='toolbar-save']",
+        requiresClick: true
+      },
+      {
+        text: "Use Exportar para gerar Arch-Draw, Draw.io, Excalidraw, Mermaid, SVG ou PNG.",
+        targetSelector: "[data-tour='toolbar-export']",
+        requiresClick: true
+      }
     ]
   },
   {
@@ -292,10 +427,22 @@ const TUTORIAL_GUIDES: readonly TutorialGuide[] = [
     title: "Containers e Hierarquia",
     description: "Como estruturar dominios, ambientes e recursos aninhados.",
     steps: [
-      "Use blocos de container para agrupar recursos relacionados.",
-      "Arraste recursos para dentro do container; filhos permanecem visualmente acima do pai.",
-      "Minimize e maximize containers para navegar entre visao macro e micro.",
-      "Ao abrir um container, confira se o conteudo interno continua legivel e sem sobreposicao."
+      {
+        text: "Use blocos de container para agrupar recursos relacionados.",
+        targetSelector: "[data-tour='palette']"
+      },
+      {
+        text: "Arraste recursos para dentro do container; filhos permanecem visualmente acima do pai.",
+        targetSelector: "[data-tour='canvas-shell']"
+      },
+      {
+        text: "Minimize e maximize containers para navegar entre visao macro e micro.",
+        targetSelector: "[data-tour='canvas-shell']"
+      },
+      {
+        text: "Ao abrir um container, confira se o conteúdo interno continua legível e sem sobreposição.",
+        targetSelector: "[data-tour='canvas-shell']"
+      }
     ]
   },
   {
@@ -303,10 +450,22 @@ const TUTORIAL_GUIDES: readonly TutorialGuide[] = [
     title: "Conexoes e Ancoras",
     description: "Como criar vinculos precisos sem atrapalhar drag and drop.",
     steps: [
-      "As conexoes saem das bolinhas de contato e conectam apenas em bolinhas de destino.",
-      "Gesto direcional na bolinha inicia conexao; gesto divergente vira drag do elemento.",
-      "As setas ficam alinhadas com a ancora e o texto nao cobre visualmente a linha.",
-      "Ajuste estilo da linha em propriedades: smoothstep, step, straight; solid, dashed, dotted."
+      {
+        text: "As conexões saem das bolinhas de contato e conectam apenas em bolinhas de destino.",
+        targetSelector: "[data-tour='canvas-shell']"
+      },
+      {
+        text: "Gesto direcional na bolinha inicia conexão; gesto divergente vira drag do elemento.",
+        targetSelector: "[data-tour='canvas-shell']"
+      },
+      {
+        text: "As setas ficam alinhadas com a âncora e o texto não cobre visualmente a linha.",
+        targetSelector: "[data-tour='canvas-shell']"
+      },
+      {
+        text: "Ajuste estilo da linha em propriedades: smoothstep, step e straight.",
+        targetSelector: "[data-tour='properties-popup']"
+      }
     ]
   },
   {
@@ -314,10 +473,22 @@ const TUTORIAL_GUIDES: readonly TutorialGuide[] = [
     title: "Area de Contato",
     description: "Regra de visibilidade e supressao temporaria das linhas proximas.",
     steps: [
-      "A area de contato aparece durante drag and drop para reduzir ruido visual.",
-      "Linhas que encostam nessa area podem ser ocultadas temporariamente.",
-      "A area se ajusta ao tamanho do elemento (aberto ou minimizado).",
-      "Em elementos dentro de container, a regra continua valendo durante o arraste."
+      {
+        text: "A área de contato aparece durante drag and drop para reduzir ruído visual.",
+        targetSelector: "[data-tour='canvas-shell']"
+      },
+      {
+        text: "Linhas que encostam nessa área podem ser ocultadas temporariamente.",
+        targetSelector: "[data-tour='canvas-shell']"
+      },
+      {
+        text: "A área se ajusta ao tamanho do elemento (aberto ou minimizado).",
+        targetSelector: "[data-tour='canvas-shell']"
+      },
+      {
+        text: "Em elementos dentro de container, a regra continua valendo durante o arraste.",
+        targetSelector: "[data-tour='canvas-shell']"
+      }
     ]
   },
   {
@@ -325,10 +496,22 @@ const TUTORIAL_GUIDES: readonly TutorialGuide[] = [
     title: "Propriedades e Edicao",
     description: "Ajuste tecnico e visual de nos, ancoras e labels.",
     steps: [
-      "Clique no elemento para abrir propriedades no ponto de contexto.",
-      "Edite campos tecnicos (codigo, YAML, SQL, metadados) por tipo de recurso.",
-      "Ajuste fonte de labels e tamanho de icones globalmente quando necessario.",
-      "Use duplo clique para editar labels inline de elementos e conexoes."
+      {
+        text: "Clique no elemento para abrir propriedades no ponto de contexto.",
+        targetSelector: "[data-tour='canvas-shell']"
+      },
+      {
+        text: "Edite campos técnicos (código, YAML, SQL, metadados) por tipo de recurso.",
+        targetSelector: "[data-tour='properties-popup']"
+      },
+      {
+        text: "Ajuste fonte de labels e tamanho de ícones globalmente quando necessário.",
+        targetSelector: "[data-tour='properties-popup']"
+      },
+      {
+        text: "Use duplo clique para editar labels inline de elementos e conexões.",
+        targetSelector: "[data-tour='canvas-shell']"
+      }
     ]
   },
   {
@@ -336,10 +519,23 @@ const TUTORIAL_GUIDES: readonly TutorialGuide[] = [
     title: "Zoom, Mapa e Navegacao",
     description: "Como manter foco em diagramas grandes.",
     steps: [
-      "Use os controles de zoom para aproximar e afastar sem perder contexto.",
-      "No mini mapa, acompanhe o viewport e a distribuicao geral dos elementos.",
-      "Arraste o canvas com botao do meio ou gestos de pan para navegar rapido.",
-      "Quando abrir um elemento, a navegacao deve preservar foco visual."
+      {
+        text: "Use os controles de zoom para aproximar e afastar sem perder contexto.",
+        targetSelector: "[data-tour='zoom-controls']",
+        requiresClick: true
+      },
+      {
+        text: "No mini mapa, acompanhe o viewport e a distribuição geral dos elementos.",
+        targetSelector: "[data-tour='mini-map']"
+      },
+      {
+        text: "Arraste o canvas com botão do meio ou gestos de pan para navegar rápido.",
+        targetSelector: "[data-tour='canvas-shell']"
+      },
+      {
+        text: "Quando abrir um elemento, a navegação deve preservar foco visual.",
+        targetSelector: "[data-tour='canvas-shell']"
+      }
     ]
   },
   {
@@ -347,10 +543,20 @@ const TUTORIAL_GUIDES: readonly TutorialGuide[] = [
     title: "Atalhos e Produtividade",
     description: "Comandos rapidos para acelerar a modelagem.",
     steps: [
-      "Ctrl/Cmd + Z desfaz alteracoes recentes.",
-      "Ctrl/Cmd + A seleciona todos os nos do board, independente da camada visual.",
-      "Delete/Backspace remove o item selecionado.",
-      "Use Limpar para apagar selecao atual ou esvaziar o board."
+      {
+        text: "Ctrl/Cmd + Z desfaz alterações recentes."
+      },
+      {
+        text: "Ctrl/Cmd + A seleciona todos os nós do board, independente da camada visual."
+      },
+      {
+        text: "Delete/Backspace remove o item selecionado."
+      },
+      {
+        text: "Use Limpar para apagar seleção atual ou esvaziar o board.",
+        targetSelector: "[data-tour='toolbar-clear']",
+        requiresClick: true
+      }
     ]
   },
   {
@@ -358,10 +564,24 @@ const TUTORIAL_GUIDES: readonly TutorialGuide[] = [
     title: "Importacao e Exportacao",
     description: "Interoperabilidade com outras ferramentas e formato nativo.",
     steps: [
-      "Importe JSON/ArchDraw, Draw.io, Excalidraw e Mermaid.",
-      "Exporte em Arch-Draw para preservar dados completos do projeto.",
-      "Use Mermaid para documentacao textual e revisoes de fluxo.",
-      "Use SVG/PNG para compartilhamento visual rapido."
+      {
+        text: "Importe JSON/ArchDraw, Draw.io, Excalidraw e Mermaid.",
+        targetSelector: "[data-tour='toolbar-import']",
+        requiresClick: true
+      },
+      {
+        text: "Exporte em Arch-Draw para preservar dados completos do projeto.",
+        targetSelector: "[data-tour='toolbar-export']",
+        requiresClick: true
+      },
+      {
+        text: "Use Mermaid para documentação textual e revisões de fluxo.",
+        targetSelector: "[data-tour='toolbar-export']"
+      },
+      {
+        text: "Use SVG/PNG para compartilhamento visual rápido.",
+        targetSelector: "[data-tour='toolbar-export']"
+      }
     ]
   }
 ] as const;
@@ -897,6 +1117,7 @@ mermaid.initialize({
 })
 export class AppComponent implements OnDestroy {
   @ViewChild("canvasShell") private readonly canvasShell?: ElementRef<HTMLElement>;
+  @ViewChild("miniMap") private readonly miniMap?: ElementRef<HTMLElement>;
   @ViewChild("importInput") private readonly importInput?: ElementRef<HTMLInputElement>;
   @ViewChild("mermaidTextarea") private readonly mermaidTextarea?: ElementRef<HTMLTextAreaElement>;
 
@@ -937,6 +1158,7 @@ export class AppComponent implements OnDestroy {
   lintStatus: "empty" | "valid" | "invalid" = "empty";
   status = "Inicializando";
   error = "";
+  successToast = "";
   authChecked = false;
   authEnabled = false;
   isAuthenticated = false;
@@ -945,6 +1167,7 @@ export class AppComponent implements OnDestroy {
   loginError = "";
   showDoubleClickHint = false;
   uiTheme: "light" | "dark" = "light";
+  uiLanguage: UiLanguage = "pt-BR";
   blockSearch = "";
   displayedPaletteGroups: readonly PaletteCategoryGroup[] = [];
   contextPropertiesPanel: ContextPropertiesPanelState | null = null;
@@ -954,9 +1177,12 @@ export class AppComponent implements OnDestroy {
   nodeLabelFontSize = DEFAULT_NODE_LABEL_FONT_SIZE;
   nodeIconSize = DEFAULT_NODE_ICON_SIZE;
   activeTutorialId: string | null = null;
+  activeTutorialStepIndex = 0;
+  tutorialStepClickSatisfied = false;
 
   private dragState: DragState | null = null;
   private panState: PanState | null = null;
+  private miniMapDragState: MiniMapDragState | null = null;
   private resizeState: ResizeState | null = null;
   marqueeState: MarqueeState | null = null;
   private suppressCanvasClickClear = false;
@@ -964,13 +1190,17 @@ export class AppComponent implements OnDestroy {
   private connectionDragState: ConnectionDragState | null = null;
   private pendingPortGestureState: PendingPortGestureState | null = null;
   private autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  private viewportCheckpointTimer: ReturnType<typeof setTimeout> | null = null;
   private errorToastTimer: ReturnType<typeof setTimeout> | null = null;
+  private successToastTimer: ReturnType<typeof setTimeout> | null = null;
   private doubleClickHintBootTimer: ReturnType<typeof setTimeout> | null = null;
   private doubleClickHintInterval: ReturnType<typeof setInterval> | null = null;
   private doubleClickHintTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly nodeInlineCodeDrafts = new Map<string, string>();
   private autoSaveInFlight = false;
   private autoSaveQueued = false;
+  private lastAutoSaveToastAt = 0;
+  private lastViewportCheckpointSignature = "";
   private lastPersistedSignature = "";
   private lastCanvasTopologySignature = "";
   private history: EditorSnapshot[] = [];
@@ -987,6 +1217,7 @@ export class AppComponent implements OnDestroy {
   constructor(
     private readonly changeDetectorRef: ChangeDetectorRef
   ) {
+    this.loadUiLanguagePreference();
     this.loadUiThemePreference();
     this.rebuildPaletteGroups();
     this.startDoubleClickHintLoop();
@@ -1006,6 +1237,12 @@ export class AppComponent implements OnDestroy {
       clearTimeout(this.doubleClickHintTimer);
       this.doubleClickHintTimer = null;
     }
+    if (this.successToastTimer) {
+      clearTimeout(this.successToastTimer);
+      this.successToastTimer = null;
+    }
+    this.cancelViewportCheckpointPersist();
+    this.persistViewportCheckpointNow();
   }
 
   get selectedNode(): CanvasNode | null {
@@ -1018,6 +1255,22 @@ export class AppComponent implements OnDestroy {
 
   get isDarkMode(): boolean {
     return this.uiTheme === "dark";
+  }
+
+  t(key: string): string {
+    const table = UI_TRANSLATIONS[this.uiLanguage];
+    const fallback = UI_TRANSLATIONS["pt-BR"];
+    return table[key] ?? fallback[key] ?? key;
+  }
+
+  getCurrentLanguageShortLabel(): string {
+    return this.uiLanguage === "pt-BR" ? "PT" : "EN";
+  }
+
+  toggleUiLanguage(): void {
+    this.uiLanguage = this.uiLanguage === "pt-BR" ? "en-US" : "pt-BR";
+    this.persistUiLanguagePreference();
+    this.markInteractionChanged();
   }
 
   toggleDarkMode(): void {
@@ -1129,34 +1382,40 @@ export class AppComponent implements OnDestroy {
   async saveCurrent(): Promise<void> {
     await this.runSafely(async () => {
       const saved = await this.persistCurrent("manual");
-      this.status = saved ? "Salvo no SQLite" : "Sem alteracoes para salvar";
+      this.status = saved ? this.t("status.saved") : this.t("status.noChanges");
+      this.showSuccessToast("toast.checkpointCreated");
     });
   }
 
   onToolbarDeleteClick(): void {
     if (this.selectedEdgeId) {
       this.deleteSelectedEdge();
-      this.status = "Linha removida";
+      this.status = this.t("status.edgeRemoved");
+      this.showSuccessToast("toast.memoryCleared");
       return;
     }
 
     if (this.selectedNodeIds.length > 0 || this.selectedNodeId) {
       this.deleteSelectedNode();
-      this.status = "No removido";
+      this.status = this.t("status.nodeRemoved");
+      this.showSuccessToast("toast.memoryCleared");
       return;
     }
 
     this.nodes = [];
     this.edges = [];
     this.clearSelection();
-    this.status = "Board limpo";
+    this.status = this.t("status.boardCleared");
+    this.showSuccessToast("toast.memoryCleared");
   }
 
   openTutorialGuide(guideId: string, event?: Event): void {
     event?.preventDefault();
     event?.stopPropagation();
     this.activeTutorialId = guideId;
-    this.status = "Tutorial guiado aberto";
+    this.activeTutorialStepIndex = 0;
+    this.tutorialStepClickSatisfied = false;
+    this.status = this.t("status.tutorialOpened");
     const trigger = event?.currentTarget as HTMLElement | null;
     trigger?.closest("details")?.removeAttribute("open");
     this.markInteractionChanged();
@@ -1164,13 +1423,99 @@ export class AppComponent implements OnDestroy {
 
   closeTutorialGuide(): void {
     this.activeTutorialId = null;
-    this.status = "Tutorial guiado fechado";
+    this.activeTutorialStepIndex = 0;
+    this.tutorialStepClickSatisfied = false;
+    this.status = this.t("status.tutorialClosed");
     this.markInteractionChanged();
   }
 
   getActiveTutorialGuide(): TutorialGuide | null {
     if (!this.activeTutorialId) return null;
     return this.tutorialGuides.find((guide) => guide.id === this.activeTutorialId) ?? null;
+  }
+
+  getActiveTutorialStep(): TutorialStep | null {
+    const guide = this.getActiveTutorialGuide();
+    if (!guide) return null;
+    return guide.steps[this.activeTutorialStepIndex] ?? null;
+  }
+
+  getTutorialStepProgressLabel(): string {
+    const guide = this.getActiveTutorialGuide();
+    if (!guide) return "";
+    const total = guide.steps.length;
+    const current = Math.min(total, this.activeTutorialStepIndex + 1);
+    return `${this.t("tutorial.progress")} ${current}/${total}`;
+  }
+
+  isLastTutorialStep(): boolean {
+    const guide = this.getActiveTutorialGuide();
+    if (!guide) return true;
+    return this.activeTutorialStepIndex >= guide.steps.length - 1;
+  }
+
+  canAdvanceTutorialStep(): boolean {
+    const step = this.getActiveTutorialStep();
+    if (!step) return false;
+    if (!step.requiresClick) return true;
+    return this.tutorialStepClickSatisfied;
+  }
+
+  previousTutorialStep(): void {
+    const guide = this.getActiveTutorialGuide();
+    if (!guide || this.activeTutorialStepIndex <= 0) return;
+    this.activeTutorialStepIndex -= 1;
+    this.syncTutorialStepRequirements();
+    this.markInteractionChanged();
+  }
+
+  nextTutorialStep(): void {
+    const guide = this.getActiveTutorialGuide();
+    if (!guide) return;
+    if (!this.canAdvanceTutorialStep()) return;
+    if (this.activeTutorialStepIndex >= guide.steps.length - 1) {
+      this.closeTutorialGuide();
+      this.status = this.t("status.tutorialCompleted");
+      this.markInteractionChanged();
+      return;
+    }
+    this.activeTutorialStepIndex += 1;
+    this.syncTutorialStepRequirements();
+    this.markInteractionChanged();
+  }
+
+  shouldShowTutorialPendingClick(): boolean {
+    const step = this.getActiveTutorialStep();
+    if (!step?.requiresClick) return false;
+    return !this.tutorialStepClickSatisfied;
+  }
+
+  getTutorialSpotlightStyle(): Record<string, string> | null {
+    const step = this.getActiveTutorialStep();
+    const selector = step?.targetSelector;
+    if (!selector) return null;
+    const target = document.querySelector<HTMLElement>(selector);
+    if (!target) return null;
+    const rect = target.getBoundingClientRect();
+    const padding = 8;
+    return {
+      left: `${Math.max(0, rect.left - padding)}px`,
+      top: `${Math.max(0, rect.top - padding)}px`,
+      width: `${Math.max(0, rect.width + padding * 2)}px`,
+      height: `${Math.max(0, rect.height + padding * 2)}px`
+    };
+  }
+
+  @HostListener("window:click", ["$event"])
+  onWindowClick(event: MouseEvent): void {
+    const step = this.getActiveTutorialStep();
+    if (!step?.requiresClick || !step.targetSelector) return;
+    const target = event.target as Element | null;
+    if (!target) return;
+    if (!target.closest(step.targetSelector)) return;
+    if (this.tutorialStepClickSatisfied) return;
+    this.tutorialStepClickSatisfied = true;
+    this.markInteractionChanged();
   }
 
   async exportCurrent(): Promise<void> {
@@ -1187,7 +1532,8 @@ export class AppComponent implements OnDestroy {
       link.download = `${this.architecture.title.replaceAll(/\s+/g, "-").toLowerCase()}.archdraw.json`;
       link.click();
       URL.revokeObjectURL(url);
-      this.status = "Arquivo de compartilhamento exportado";
+      this.status = this.t("status.exportedArchDraw");
+      this.showSuccessToast("toast.missionComplete");
     });
   }
 
@@ -1208,7 +1554,8 @@ export class AppComponent implements OnDestroy {
         });
       });
       this.downloadDataUrl(dataUrl, `${this.getExportFileBaseName()}.svg`);
-      this.status = "Arquivo SVG exportado";
+      this.status = this.t("status.exportedSvg");
+      this.showSuccessToast("toast.missionComplete");
     });
   }
 
@@ -1230,7 +1577,8 @@ export class AppComponent implements OnDestroy {
         });
       });
       this.downloadDataUrl(dataUrl, `${this.getExportFileBaseName()}.png`);
-      this.status = "Arquivo PNG exportado";
+      this.status = this.t("status.exportedPng");
+      this.showSuccessToast("toast.missionComplete");
     });
   }
 
@@ -1240,7 +1588,8 @@ export class AppComponent implements OnDestroy {
       if (!architecture) return;
       const xml = exportArchitectureToDrawIo(architecture);
       this.downloadTextFile(xml, `${this.getExportFileBaseName()}.drawio`, "application/xml");
-      this.status = "Arquivo draw.io exportado";
+      this.status = this.t("status.exportedDrawIo");
+      this.showSuccessToast("toast.missionComplete");
     });
   }
 
@@ -1250,7 +1599,8 @@ export class AppComponent implements OnDestroy {
       if (!architecture) return;
       const payload = exportArchitectureToExcalidraw(architecture);
       this.downloadTextFile(payload, `${this.getExportFileBaseName()}.excalidraw`, "application/json");
-      this.status = "Arquivo Excalidraw exportado";
+      this.status = this.t("status.exportedExcalidraw");
+      this.showSuccessToast("toast.missionComplete");
     });
   }
 
@@ -1260,7 +1610,8 @@ export class AppComponent implements OnDestroy {
       if (!architecture) return;
       const source = exportArchitectureToMermaid(architecture);
       this.downloadTextFile(source, `${this.getExportFileBaseName()}.mmd`, "text/plain;charset=utf-8");
-      this.status = "Arquivo Mermaid exportado";
+      this.status = this.t("status.exportedMermaid");
+      this.showSuccessToast("toast.missionComplete");
     });
   }
 
@@ -2536,6 +2887,18 @@ LIMIT 50;`;
 
   @HostListener("window:pointermove", ["$event"])
   onWindowPointerMove(event: PointerEvent): void {
+    if (this.miniMapDragState) {
+      const miniMapElement = this.miniMap?.nativeElement;
+      if (!miniMapElement) return;
+      const rect = miniMapElement.getBoundingClientRect();
+      const localPoint = {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top
+      };
+      this.panCanvasFromMiniMapPoint(localPoint, this.miniMapDragState.offsetFromViewportCenter);
+      return;
+    }
+
     if (this.panState) {
       const deltaX = event.clientX - this.panState.startPointer.x;
       const deltaY = event.clientY - this.panState.startPointer.y;
@@ -2608,6 +2971,7 @@ LIMIT 50;`;
 
   @HostListener("window:pointerup", ["$event"])
   onWindowPointerUp(event: PointerEvent): void {
+    const hadMiniMapDragState = this.miniMapDragState !== null;
     const hadPanState = this.panState !== null;
     const hadDragState = this.dragState !== null;
     const hadResizeState = this.resizeState !== null;
@@ -2656,26 +3020,30 @@ LIMIT 50;`;
       this.pendingPortGestureState = null;
     }
 
+    this.miniMapDragState = null;
     this.panState = null;
     this.dragState = null;
     this.resizeState = null;
-    if (hadPanState || hadDragState || hadResizeState || hadConnectionDragState || hadPendingPortGestureState) {
+    if (hadMiniMapDragState || hadPanState || hadDragState || hadResizeState || hadConnectionDragState || hadPendingPortGestureState) {
       this.hoveredEdgeId = null;
     }
 
-    if (hadPanState) this.markInteractionChanged();
+    if (hadMiniMapDragState || hadPanState) this.markInteractionChanged();
+    if (hadMiniMapDragState || hadPanState) this.persistViewportCheckpointNow();
     if (hadDragState || hadResizeState) this.markViewChanged();
   }
 
   @HostListener("window:pointercancel", ["$event"])
   onWindowPointerCancel(_event: PointerEvent): void {
     const hadInteraction =
+      this.miniMapDragState !== null ||
       this.panState !== null ||
       this.dragState !== null ||
       this.resizeState !== null ||
       this.connectionDragState !== null ||
       this.pendingPortGestureState !== null ||
       this.marqueeState !== null;
+    this.miniMapDragState = null;
     this.panState = null;
     this.dragState = null;
     this.resizeState = null;
@@ -2762,6 +3130,11 @@ LIMIT 50;`;
     this.markInteractionChanged();
   }
 
+  @HostListener("window:beforeunload")
+  onWindowBeforeUnload(): void {
+    this.persistViewportCheckpointNow();
+  }
+
   getNodeStyle(node: CanvasNode): Record<string, string | number> {
     const position = this.getAbsolutePosition(node);
     const rendersAsContainer = this.rendersAsContainer(node);
@@ -2810,16 +3183,7 @@ LIMIT 50;`;
     );
     const nodePortOmniOffset = Math.round(nodePortOmniSize / 2 + 1);
     const nodePortOmniHaloSize = Math.round(Math.max(14, Math.min(22, nodePortDotSize + 4)));
-    const leafNodeIconSize = Math.max(
-      32,
-      Math.round(
-        Math.min(
-          Math.max(32, node.size.width - 20),
-          Math.max(32, node.size.height - LEAF_ANCHOR_TOP_OFFSET - 14),
-          Math.max(32, (this.nodeIconSize / DEFAULT_NODE_ICON_SIZE) * DEFAULT_LEAF_ICON_SIZE)
-        )
-      )
-    );
+    const leafNodeIconSize = this.getLeafNodeIconSizeForNode(node);
     return {
       left: `${position.x}px`,
       top: `${position.y}px`,
@@ -2883,31 +3247,50 @@ LIMIT 50;`;
   }
 
   getMiniMapViewportStyle(): Record<string, string> {
-    const bounds = this.getMiniMapBounds();
-    const visibleRect = this.getVisibleCanvasRect();
-    const availableWidth = MINI_MAP_SIZE.width - MINI_MAP_PADDING * 2;
-    const availableHeight = MINI_MAP_SIZE.height - MINI_MAP_PADDING * 2;
-    const scale = Math.min(availableWidth / bounds.width, availableHeight / bounds.height);
-
-    const rawLeft = MINI_MAP_PADDING + (visibleRect.left - bounds.x) * scale;
-    const rawTop = MINI_MAP_PADDING + (visibleRect.top - bounds.y) * scale;
-    const rawWidth = visibleRect.width * scale;
-    const rawHeight = visibleRect.height * scale;
-    const minSize = 8;
-
-    const clampedLeft = Math.max(MINI_MAP_PADDING, Math.min(rawLeft, MINI_MAP_PADDING + availableWidth));
-    const clampedTop = Math.max(MINI_MAP_PADDING, Math.min(rawTop, MINI_MAP_PADDING + availableHeight));
-    const maxWidth = MINI_MAP_PADDING + availableWidth - clampedLeft;
-    const maxHeight = MINI_MAP_PADDING + availableHeight - clampedTop;
-    const clampedWidth = Math.max(minSize, Math.min(rawWidth, Math.max(minSize, maxWidth)));
-    const clampedHeight = Math.max(minSize, Math.min(rawHeight, Math.max(minSize, maxHeight)));
+    const layout = this.getMiniMapLayout();
 
     return {
-      left: `${clampedLeft}px`,
-      top: `${clampedTop}px`,
-      width: `${clampedWidth}px`,
-      height: `${clampedHeight}px`
+      left: `${layout.viewport.left}px`,
+      top: `${layout.viewport.top}px`,
+      width: `${layout.viewport.width}px`,
+      height: `${layout.viewport.height}px`
     };
+  }
+
+  isMiniMapDragging(): boolean {
+    return this.miniMapDragState !== null;
+  }
+
+  onMiniMapPointerDown(event: PointerEvent): void {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const miniMapElement = this.miniMap?.nativeElement;
+    if (!miniMapElement) return;
+
+    const rect = miniMapElement.getBoundingClientRect();
+    const localPoint = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top
+    };
+    const layout = this.getMiniMapLayout();
+    const viewportCenter = {
+      x: layout.viewport.left + layout.viewport.width / 2,
+      y: layout.viewport.top + layout.viewport.height / 2
+    };
+    const clickedViewport =
+      localPoint.x >= layout.viewport.left &&
+      localPoint.x <= layout.viewport.left + layout.viewport.width &&
+      localPoint.y >= layout.viewport.top &&
+      localPoint.y <= layout.viewport.top + layout.viewport.height;
+
+    this.miniMapDragState = {
+      offsetFromViewportCenter: clickedViewport
+        ? { x: localPoint.x - viewportCenter.x, y: localPoint.y - viewportCenter.y }
+        : { x: 0, y: 0 }
+    };
+    this.panCanvasFromMiniMapPoint(localPoint, this.miniMapDragState.offsetFromViewportCenter);
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
   }
 
   getNodeClass(node: CanvasNode): string {
@@ -3205,6 +3588,13 @@ LIMIT 50;`;
     return getNodeKindLabel(kind);
   }
 
+  getNodeDisplayLabel(node: CanvasNode): string {
+    const normalizedLabel = node.label.replace(/\s+/g, " ").trim();
+    if (!this.usesLeafConnectionAnchorBox(node)) return normalizedLabel;
+    const characterLimit = this.getLeafLabelCharacterLimit(node);
+    return this.truncateLeafNodeLabel(normalizedLabel, characterLimit);
+  }
+
   getNodeIcon(kind: ArchitectureNodeKind): string {
     return getNodeIconLabel(kind);
   }
@@ -3248,14 +3638,14 @@ LIMIT 50;`;
   }
 
   getEdgeEndMarker(edge: CanvasEdge): string {
-    return this.getEdgeHorizontalDirection(edge) === "left"
+    return this.getEdgeHorizontalDirection(edge, "end") === "left"
       ? "url(#edge-arrow-left)"
       : "url(#edge-arrow-right)";
   }
 
   getEdgeStartMarker(edge: CanvasEdge): string | null {
     if (!this.isBidirectional(edge)) return null;
-    return this.getEdgeHorizontalDirection(edge) === "left"
+    return this.getEdgeHorizontalDirection(edge, "start") === "left"
       ? "url(#edge-arrow-right)"
       : "url(#edge-arrow-left)";
   }
@@ -3278,6 +3668,25 @@ LIMIT 50;`;
     if (!data || data.points.length < 2) return { x: 0, y: 0 };
     const totalLength = this.getPolylineLength(data.points);
     return this.getPointAtPolylineDistance(data.points, totalLength / 2);
+  }
+
+  getEdgeLabelRenderWidth(edge: CanvasEdge): number {
+    const label = edge.label?.trim() ?? "";
+    if (label.length === 0) return EDGE_LABEL_RENDER_MIN_WIDTH;
+    const estimatedTextWidth = label.length * this.edgeLabelFontSize * 0.52;
+    return Math.max(
+      EDGE_LABEL_RENDER_MIN_WIDTH,
+      Math.min(
+        EDGE_LABEL_RENDER_MAX_WIDTH,
+        Math.round(estimatedTextWidth + EDGE_LABEL_RENDER_HORIZONTAL_PADDING * 2)
+      )
+    );
+  }
+
+  getEdgeLabelRenderX(edge: CanvasEdge): number {
+    const center = this.getEdgeLabelPosition(edge);
+    const width = this.getEdgeLabelRenderWidth(edge);
+    return center.x - width / 2;
   }
 
   getEdgeLabelDy(edge: CanvasEdge): number {
@@ -3338,6 +3747,64 @@ LIMIT 50;`;
 
   getEdgeLabelKnockoutColor(edge: CanvasEdge): string {
     const labelPoint = this.getEdgeLabelPosition(edge);
+    const container = this.getDeepestVisibleContainerAtPoint(labelPoint);
+    if (container) return container.color;
+    return this.isDarkMode ? "#020617" : "#f8fafc";
+  }
+
+  getLeafLabelKnockoutNodes(): readonly CanvasNode[] {
+    return this.nodes.filter((node) =>
+      this.isVisibleNode(node)
+      && this.usesLeafConnectionAnchorBox(node)
+      && !this.isEditingNode(node.id)
+      && node.label.trim().length > 0
+    );
+  }
+
+  getLeafNodeLabelKnockoutRect(
+    node: CanvasNode
+  ): Readonly<{ x: number; y: number; width: number; height: number }> | null {
+    if (!this.isVisibleNode(node)) return null;
+    if (!this.usesLeafConnectionAnchorBox(node)) return null;
+    const displayLabel = this.getNodeDisplayLabel(node);
+    if (displayLabel.length === 0) return null;
+
+    const position = this.getAbsolutePosition(node);
+    const leafIconSize = this.getLeafNodeIconSizeForNode(node);
+    const labelTop = position.y + 4 + leafIconSize + 6;
+    const labelBottom = position.y + node.size.height - 4;
+    const labelHeight = Math.max(
+      20,
+      Math.round(this.nodeLabelFontSize * 1.15 + LEAF_LABEL_RENDER_VERTICAL_PADDING * 2)
+    );
+    const clampedHeight = Math.min(labelHeight, Math.max(0, labelBottom - labelTop));
+    if (clampedHeight <= 0) return null;
+
+    const maxLabelWidth = Math.max(40, node.size.width - 8);
+    const estimatedLabelWidth =
+      displayLabel.length * this.nodeLabelFontSize * 0.52
+      + LEAF_LABEL_RENDER_HORIZONTAL_PADDING * 2;
+    const labelWidth = Math.max(28, Math.min(maxLabelWidth, Math.round(estimatedLabelWidth)));
+    const labelX = position.x + (node.size.width - labelWidth) / 2;
+
+    return {
+      x: labelX,
+      y: labelTop,
+      width: labelWidth,
+      height: clampedHeight
+    };
+  }
+
+  getLeafNodeLabelKnockoutColor(
+    node: CanvasNode,
+    rect?: Readonly<{ x: number; y: number; width: number; height: number }>
+  ): string {
+    const labelRect = rect ?? this.getLeafNodeLabelKnockoutRect(node);
+    if (!labelRect) return this.isDarkMode ? "#020617" : "#f8fafc";
+    const labelPoint = {
+      x: labelRect.x + labelRect.width / 2,
+      y: labelRect.y + labelRect.height / 2
+    };
     const container = this.getDeepestVisibleContainerAtPoint(labelPoint);
     if (container) return container.color;
     return this.isDarkMode ? "#020617" : "#f8fafc";
@@ -3417,14 +3884,27 @@ LIMIT 50;`;
     return !this.isEdgeRepresentedByCollapsedEndpoint(edge);
   }
 
-  private getEdgeHorizontalDirection(edge: CanvasEdge): "left" | "right" {
+  private getEdgeHorizontalDirection(
+    edge: CanvasEdge,
+    terminal: "start" | "end"
+  ): "left" | "right" {
     const data = this.getEdgePathData(edge);
     if (!data || data.points.length < 2) return "right";
-    const start = data.points.at(0);
-    const end = data.points.at(-1);
-    if (!start || !end) return "right";
-    if (Math.abs(end.x - start.x) <= 0.5) return "right";
-    return end.x < start.x ? "left" : "right";
+    const pointA = terminal === "end" ? data.points.at(-2) : data.points.at(0);
+    const pointB = terminal === "end" ? data.points.at(-1) : data.points.at(1);
+    if (!pointA || !pointB) return "right";
+
+    const deltaX = pointB.x - pointA.x;
+    if (Math.abs(deltaX) > 0.5) {
+      return deltaX < 0 ? "left" : "right";
+    }
+
+    const effective = this.getEffectiveEdgeEndpoints(edge);
+    if (!effective) return "right";
+    const referenceNode = terminal === "end" ? effective.toNode : effective.fromNode;
+    const referencePort = terminal === "end" ? edge.targetPort : edge.sourcePort;
+    if (referencePort === "left" || referencePort === "right") return referencePort;
+    return "right";
   }
 
   private isEdgeRepresentedByCollapsedEndpoint(edge: CanvasEdge): boolean {
@@ -4052,6 +4532,7 @@ spec:
   }
 
   private updateCurrent(architecture: ArchitectureDocument): void {
+    this.cancelViewportCheckpointPersist();
     const normalized = this.ensureArchitectureNodesHaveCodeContent(architecture);
     this.architecture = normalized;
     this.nodes = this.sortNodes(toCanvasNodes(normalized));
@@ -4076,6 +4557,8 @@ spec:
   }
 
   private clearCurrentArchitecture(): void {
+    this.cancelViewportCheckpointPersist();
+    this.persistViewportCheckpointNow();
     this.architecture = null;
     this.nodes = [];
     this.edges = [];
@@ -4090,6 +4573,7 @@ spec:
     this.resizeEnabledNodeId = null;
     this.nodeInlineCodeDrafts.clear();
     this.cancelAutoSave();
+    this.lastViewportCheckpointSignature = "";
     this.lastPersistedSignature = "";
     this.lastCanvasTopologySignature = this.buildCanvasTopologySignature();
     this.resetHistory();
@@ -4264,13 +4748,8 @@ spec:
   }
 
   private applyPreferredInitialViewport(architecture: ArchitectureDocument): void {
-    if (architecture.title === DEMO_TEMPLATE_TITLE) {
-      this.canvasZoom = 0.56;
-      this.canvasPan = DEFAULT_CANVAS_PAN;
-      return;
-    }
-    this.canvasZoom = 1;
-    this.canvasPan = DEFAULT_CANVAS_PAN;
+    if (this.tryRestoreViewportCheckpoint(architecture.id)) return;
+    this.applyCenteredDefaultViewport();
   }
 
   private async runSafely(operation: () => Promise<void>, fallbackStatus?: string): Promise<void> {
@@ -4662,10 +5141,14 @@ spec:
     const startAxis = this.getEdgeTerminalAxis(source, rawStart, sourceCenter);
     const endAxis = this.getEdgeTerminalAxis(target, rawEnd, targetCenter);
     const style = normalizeEdgeStyle(edge.style);
-    const { start, end } = this.applyEdgeMarkerClearance(rawStart, rawEnd, style.bidirectional);
-    const startLeadDistance = style.bidirectional ? EDGE_ENDPOINT_STUB : 0;
-    const startLead = this.getEdgeLeadPoint(start, sourceCenter, startAxis, startLeadDistance);
-    const endLead = this.getEdgeLeadPoint(end, targetCenter, endAxis, EDGE_ENDPOINT_STUB);
+    const start = style.bidirectional
+      ? this.offsetTerminalPoint(rawStart, sourceCenter, startAxis, EDGE_MARKER_CLEARANCE, true)
+      : rawStart;
+    const end = this.offsetTerminalPoint(rawEnd, targetCenter, endAxis, EDGE_MARKER_CLEARANCE, true);
+    // Keep an external stub at source and an internal approach at target to prevent line reversal near the marker.
+    const startLeadDistance = EDGE_ENDPOINT_STUB;
+    const startLead = this.offsetTerminalPoint(start, sourceCenter, startAxis, startLeadDistance, false);
+    const endLead = this.offsetTerminalPoint(end, targetCenter, endAxis, EDGE_ENDPOINT_STUB, true);
     return { sourceId: source.id, targetId: target.id, start, startLead, end, endLead, style };
   }
 
@@ -4681,16 +5164,24 @@ spec:
     }
     const basePolyline = this.getBaseEdgePolyline(geometry);
     const obstacleRects = this.getEdgeObstacleRects(edge, geometry.sourceId, geometry.targetId);
-    const routed = routeEdgePolylineAroundObstacles(
-      basePolyline,
-      obstacleRects,
-      geometry.sourceId,
-      geometry.targetId,
-      {
-        maxPasses: EDGE_ROUTE_MAX_PASSES,
-        obstacleClearance: EDGE_OBSTACLE_CLEARANCE
-      }
-    );
+    const routeCore = this.compactPolyline(basePolyline.slice(1, -1));
+    const routedCore = routeCore.length >= 2
+      ? routeEdgePolylineAroundObstacles(
+        routeCore,
+        obstacleRects,
+        geometry.sourceId,
+        geometry.targetId,
+        {
+          maxPasses: EDGE_ROUTE_MAX_PASSES,
+          obstacleClearance: EDGE_OBSTACLE_CLEARANCE
+        }
+      )
+      : routeCore;
+    const routed = this.compactPolyline([
+      geometry.start,
+      ...routedCore,
+      geometry.end
+    ]);
     if (routed.length < 2) {
       this.edgePathDataCache.set(edge.id, null);
       return null;
@@ -5189,12 +5680,22 @@ spec:
     return getEdgeLeadPointCore(point, center, axis, distance);
   }
 
-  private applyEdgeMarkerClearance(
+  private offsetTerminalPoint(
     start: Readonly<{ x: number; y: number }>,
-    end: Readonly<{ x: number; y: number }>,
-    hasStartMarker: boolean
-  ): Readonly<{ start: Readonly<{ x: number; y: number }>; end: Readonly<{ x: number; y: number }> }> {
-    return applyEdgeMarkerClearanceCore(start, end, hasStartMarker, EDGE_MARKER_CLEARANCE);
+    center: Readonly<{ x: number; y: number }>,
+    axis: "horizontal" | "vertical",
+    distance: number,
+    towardCenter: boolean
+  ): Readonly<{ x: number; y: number }> {
+    if (distance <= 0) return start;
+    if (axis === "horizontal") {
+      const side = Math.sign(start.x - center.x) || 1;
+      const direction = towardCenter ? -side : side;
+      return { x: start.x + direction * distance, y: start.y };
+    }
+    const side = Math.sign(start.y - center.y) || 1;
+    const direction = towardCenter ? -side : side;
+    return { x: start.x, y: start.y + direction * distance };
   }
 
   private offsetSegmentEndpoints(
@@ -5686,7 +6187,6 @@ spec:
     role: "source" | "target",
     side: "left" | "right" | "top" | "bottom"
   ): number {
-    if (STRICT_PORT_ANCHORING) return 0;
     if (!edge) return 0;
     const cacheKey = `${edge.id}:${node.id}:${role}:${side}`;
     const cached = this.edgeSideLaneOffsetCache.get(cacheKey);
@@ -5699,10 +6199,16 @@ spec:
       return 0;
     }
 
+    const laneGap = STRICT_PORT_ANCHORING
+      ? EDGE_SHARED_ANCHOR_MIN_GAP
+      : EDGE_SIDE_LANE_GAP;
+    const laneMaxOffset = STRICT_PORT_ANCHORING
+      ? Math.min(EDGE_SIDE_LANE_MAX_OFFSET, laneGap * 4)
+      : EDGE_SIDE_LANE_MAX_OFFSET;
     const centeredIndex = currentIndex - (ids.length - 1) / 2;
     const offset = Math.max(
-      -EDGE_SIDE_LANE_MAX_OFFSET,
-      Math.min(EDGE_SIDE_LANE_MAX_OFFSET, centeredIndex * EDGE_SIDE_LANE_GAP)
+      -laneMaxOffset,
+      Math.min(laneMaxOffset, centeredIndex * laneGap)
     );
     this.edgeSideLaneOffsetCache.set(cacheKey, offset);
     return offset;
@@ -5815,10 +6321,16 @@ spec:
     );
   }
 
-  private getLeafNodeIconSize(): number {
+  private getLeafNodeIconSizeForNode(node: CanvasNode): number {
     return Math.max(
       32,
-      Math.round((this.nodeIconSize / DEFAULT_NODE_ICON_SIZE) * LEAF_ANCHOR_ICON_SIZE)
+      Math.round(
+        Math.min(
+          Math.max(32, node.size.width - 20),
+          Math.max(32, node.size.height - LEAF_ANCHOR_TOP_OFFSET - 14),
+          Math.max(32, (this.nodeIconSize / DEFAULT_NODE_ICON_SIZE) * LEAF_ANCHOR_ICON_SIZE)
+        )
+      )
     );
   }
 
@@ -5852,19 +6364,81 @@ spec:
     const top = Math.min(...boxes.map((box) => box.top));
     const right = Math.max(...boxes.map((box) => box.right));
     const bottom = Math.max(...boxes.map((box) => box.bottom));
-    const visibleRight = visibleRect.left + visibleRect.width;
-    const visibleBottom = visibleRect.top + visibleRect.height;
-    const mergedLeft = Math.min(left, visibleRect.left);
-    const mergedTop = Math.min(top, visibleRect.top);
-    const mergedRight = Math.max(right, visibleRight);
-    const mergedBottom = Math.max(bottom, visibleBottom);
+    const miniMapPadding = 120;
 
     return {
-      x: mergedLeft,
-      y: mergedTop,
-      width: Math.max(1, mergedRight - mergedLeft),
-      height: Math.max(1, mergedBottom - mergedTop)
+      x: left - miniMapPadding,
+      y: top - miniMapPadding,
+      width: Math.max(1, right - left + miniMapPadding * 2),
+      height: Math.max(1, bottom - top + miniMapPadding * 2)
     };
+  }
+
+  private getMiniMapLayout(): Readonly<{
+    bounds: Readonly<{ x: number; y: number; width: number; height: number }>;
+    visibleRect: Readonly<{ left: number; top: number; width: number; height: number }>;
+    scale: number;
+    viewport: Readonly<{ left: number; top: number; width: number; height: number }>;
+  }> {
+    const bounds = this.getMiniMapBounds();
+    const visibleRect = this.getVisibleCanvasRect();
+    const availableWidth = MINI_MAP_SIZE.width - MINI_MAP_PADDING * 2;
+    const availableHeight = MINI_MAP_SIZE.height - MINI_MAP_PADDING * 2;
+    const safeBoundsWidth = Math.max(1, bounds.width);
+    const safeBoundsHeight = Math.max(1, bounds.height);
+    const scale = Math.min(availableWidth / safeBoundsWidth, availableHeight / safeBoundsHeight);
+
+    const rawLeft = MINI_MAP_PADDING + (visibleRect.left - bounds.x) * scale;
+    const rawTop = MINI_MAP_PADDING + (visibleRect.top - bounds.y) * scale;
+    const rawWidth = visibleRect.width * scale;
+    const rawHeight = visibleRect.height * scale;
+    const minSize = 8;
+
+    const clampedLeft = Math.max(MINI_MAP_PADDING, Math.min(rawLeft, MINI_MAP_PADDING + availableWidth));
+    const clampedTop = Math.max(MINI_MAP_PADDING, Math.min(rawTop, MINI_MAP_PADDING + availableHeight));
+    const maxWidth = MINI_MAP_PADDING + availableWidth - clampedLeft;
+    const maxHeight = MINI_MAP_PADDING + availableHeight - clampedTop;
+    const clampedWidth = Math.max(minSize, Math.min(rawWidth, Math.max(minSize, maxWidth)));
+    const clampedHeight = Math.max(minSize, Math.min(rawHeight, Math.max(minSize, maxHeight)));
+
+    return {
+      bounds,
+      visibleRect,
+      scale,
+      viewport: {
+        left: clampedLeft,
+        top: clampedTop,
+        width: clampedWidth,
+        height: clampedHeight
+      }
+    };
+  }
+
+  private panCanvasFromMiniMapPoint(
+    localPoint: Readonly<{ x: number; y: number }>,
+    offsetFromViewportCenter: Readonly<{ x: number; y: number }>
+  ): void {
+    const layout = this.getMiniMapLayout();
+    if (layout.scale <= 0.000001) return;
+
+    const availableWidth = MINI_MAP_SIZE.width - MINI_MAP_PADDING * 2;
+    const availableHeight = MINI_MAP_SIZE.height - MINI_MAP_PADDING * 2;
+    const minX = MINI_MAP_PADDING;
+    const maxX = MINI_MAP_PADDING + availableWidth;
+    const minY = MINI_MAP_PADDING;
+    const maxY = MINI_MAP_PADDING + availableHeight;
+    const targetCenterX = Math.max(minX, Math.min(localPoint.x - offsetFromViewportCenter.x, maxX));
+    const targetCenterY = Math.max(minY, Math.min(localPoint.y - offsetFromViewportCenter.y, maxY));
+    const targetVisibleLeft =
+      layout.bounds.x + (targetCenterX - MINI_MAP_PADDING) / layout.scale - layout.visibleRect.width / 2;
+    const targetVisibleTop =
+      layout.bounds.y + (targetCenterY - MINI_MAP_PADDING) / layout.scale - layout.visibleRect.height / 2;
+
+    this.canvasPan = {
+      x: -targetVisibleLeft * this.canvasZoom,
+      y: -targetVisibleTop * this.canvasZoom
+    };
+    this.markInteractionChanged();
   }
 
   private area(size: Readonly<{ width: number; height: number }>): number {
@@ -6450,7 +7024,10 @@ spec:
       this.lastPersistedSignature = this.buildPersistenceSignature();
       this.upsertCurrentSummary(saved.updatedAt);
 
-      if (mode === "auto") this.status = "Auto save";
+      if (mode === "auto") {
+        this.status = "Auto save";
+        this.maybeShowAutoSaveToast();
+      }
       return true;
     } catch (cause) {
       if (mode === "manual") throw cause;
@@ -6464,6 +7041,13 @@ spec:
         this.scheduleAutoSave();
       }
     }
+  }
+
+  private maybeShowAutoSaveToast(): void {
+    const now = Date.now();
+    if (now - this.lastAutoSaveToastAt < AUTO_SAVE_TOAST_THROTTLE_MS) return;
+    this.lastAutoSaveToastAt = now;
+    this.showSuccessToast("toast.autoSaved");
   }
 
   private upsertCurrentSummary(updatedAt: string): void {
@@ -6577,12 +7161,170 @@ spec:
     }
   }
 
+  private loadUiLanguagePreference(): void {
+    try {
+      const value = localStorage.getItem(UI_LANGUAGE_STORAGE_KEY);
+      this.uiLanguage = value === "en-US" ? "en-US" : "pt-BR";
+    } catch {
+      this.uiLanguage = "pt-BR";
+    }
+  }
+
   private persistUiThemePreference(): void {
     try {
       localStorage.setItem(UI_THEME_STORAGE_KEY, this.uiTheme);
     } catch {
       // Ignore storage failures (private mode / blocked storage).
     }
+  }
+
+  private persistUiLanguagePreference(): void {
+    try {
+      localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, this.uiLanguage);
+    } catch {
+      // Ignore storage failures (private mode / blocked storage).
+    }
+  }
+
+  private buildViewportCheckpointStorageKey(architectureId: string): string {
+    return `${VIEWPORT_CHECKPOINT_STORAGE_PREFIX}.${architectureId}`;
+  }
+
+  private buildViewportCheckpointSignature(
+    zoom: number,
+    pan: Readonly<{ x: number; y: number }>
+  ): string {
+    return `${zoom.toFixed(4)}:${pan.x.toFixed(2)}:${pan.y.toFixed(2)}`;
+  }
+
+  private scheduleViewportCheckpointPersist(): void {
+    if (!this.architecture) return;
+    if (this.viewportCheckpointTimer) clearTimeout(this.viewportCheckpointTimer);
+    this.viewportCheckpointTimer = setTimeout(() => {
+      this.viewportCheckpointTimer = null;
+      this.persistViewportCheckpointNow();
+    }, VIEWPORT_CHECKPOINT_DEBOUNCE_MS);
+  }
+
+  private cancelViewportCheckpointPersist(): void {
+    if (!this.viewportCheckpointTimer) return;
+    clearTimeout(this.viewportCheckpointTimer);
+    this.viewportCheckpointTimer = null;
+  }
+
+  private persistViewportCheckpointNow(): void {
+    const architectureId = this.architecture?.id;
+    if (!architectureId) return;
+
+    const zoom = this.clampZoom(this.canvasZoom);
+    const pan = this.canvasPan;
+    if (!Number.isFinite(pan.x) || !Number.isFinite(pan.y)) return;
+
+    const signature = this.buildViewportCheckpointSignature(zoom, pan);
+    if (signature === this.lastViewportCheckpointSignature) return;
+
+    try {
+      localStorage.setItem(
+        this.buildViewportCheckpointStorageKey(architectureId),
+        JSON.stringify({
+          zoom,
+          panX: pan.x,
+          panY: pan.y,
+          updatedAt: new Date().toISOString()
+        })
+      );
+      this.lastViewportCheckpointSignature = signature;
+    } catch {
+      // Ignore storage failures (private mode / blocked storage).
+    }
+  }
+
+  private tryRestoreViewportCheckpoint(architectureId: string): boolean {
+    try {
+      const rawValue = localStorage.getItem(this.buildViewportCheckpointStorageKey(architectureId));
+      if (!rawValue) {
+        this.lastViewportCheckpointSignature = "";
+        return false;
+      }
+      const parsed = JSON.parse(rawValue) as Partial<{
+        zoom: number;
+        panX: number;
+        panY: number;
+      }>;
+      if (
+        !parsed
+        || !Number.isFinite(parsed.zoom)
+        || !Number.isFinite(parsed.panX)
+        || !Number.isFinite(parsed.panY)
+      ) {
+        this.lastViewportCheckpointSignature = "";
+        return false;
+      }
+
+      const zoomValue = parsed.zoom;
+      const panXValue = parsed.panX;
+      const panYValue = parsed.panY;
+      if (
+        typeof zoomValue !== "number"
+        || typeof panXValue !== "number"
+        || typeof panYValue !== "number"
+      ) {
+        this.lastViewportCheckpointSignature = "";
+        return false;
+      }
+
+      const zoom = this.clampZoom(zoomValue);
+      const pan = { x: panXValue, y: panYValue };
+      this.canvasZoom = zoom;
+      this.canvasPan = pan;
+      this.lastViewportCheckpointSignature = this.buildViewportCheckpointSignature(zoom, pan);
+      return true;
+    } catch {
+      this.lastViewportCheckpointSignature = "";
+      return false;
+    }
+  }
+
+  private applyCenteredDefaultViewport(): void {
+    const zoom = DEFAULT_INITIAL_CANVAS_ZOOM;
+    this.canvasZoom = zoom;
+    const contentCenter = this.getCanvasContentCenter();
+    if (!contentCenter) {
+      this.canvasPan = DEFAULT_CANVAS_PAN;
+      this.lastViewportCheckpointSignature = this.buildViewportCheckpointSignature(this.canvasZoom, this.canvasPan);
+      return;
+    }
+
+    const shellRect = this.canvasShell?.nativeElement.getBoundingClientRect();
+    const viewportWidth = shellRect?.width ?? 960;
+    const viewportHeight = shellRect?.height ?? 640;
+    const pan = {
+      x: viewportWidth / 2 - contentCenter.x * zoom,
+      y: viewportHeight / 2 - contentCenter.y * zoom
+    };
+    this.canvasPan = pan;
+    this.lastViewportCheckpointSignature = this.buildViewportCheckpointSignature(this.canvasZoom, pan);
+  }
+
+  private getCanvasContentCenter(): Readonly<{ x: number; y: number }> | null {
+    if (this.nodes.length === 0) return null;
+    const boxes = this.nodes.map((node) => {
+      const position = this.getAbsolutePosition(node);
+      return {
+        left: position.x,
+        top: position.y,
+        right: position.x + node.size.width,
+        bottom: position.y + node.size.height
+      };
+    });
+    const left = Math.min(...boxes.map((box) => box.left));
+    const top = Math.min(...boxes.map((box) => box.top));
+    const right = Math.max(...boxes.map((box) => box.right));
+    const bottom = Math.max(...boxes.map((box) => box.bottom));
+    return {
+      x: (left + right) / 2,
+      y: (top + bottom) / 2
+    };
   }
 
   private getNormalizedSnippetKind(kind: ArchitectureNodeKind): ArchitectureNodeKind {
@@ -7351,6 +8093,60 @@ spec:
       .toLowerCase();
   }
 
+  private getLeafLabelCharacterLimit(node: CanvasNode): number {
+    const widthGain = Math.max(0, node.size.width - 108);
+    const iconGain = Math.max(0, this.nodeIconSize - DEFAULT_NODE_ICON_SIZE);
+    const dynamicLimit =
+      LEAF_NODE_LABEL_TRUNCATE_BASE_CHARS
+      + Math.round(widthGain / 6)
+      + Math.round(iconGain / 14);
+
+    return Math.max(
+      LEAF_NODE_LABEL_TRUNCATE_BASE_CHARS,
+      Math.min(LEAF_NODE_LABEL_TRUNCATE_MAX_CHARS, dynamicLimit)
+    );
+  }
+
+  private truncateLeafNodeLabel(label: string, characterLimit: number): string {
+    if (label.length <= characterLimit) return label;
+
+    const safeLimit = Math.max(10, characterLimit);
+    const cutoff = safeLimit - 3;
+    const words = label.split(" ").filter((token) => token.length > 0);
+    if (words.length === 0) {
+      return `${label.slice(0, cutoff)}...`;
+    }
+
+    if (words.length === 1) {
+      return `${words[0]?.slice(0, cutoff) ?? label.slice(0, cutoff)}...`;
+    }
+
+    let composed = "";
+    let nextWordIndex = 0;
+    while (nextWordIndex < words.length) {
+      const word = words[nextWordIndex];
+      if (!word) break;
+      const candidate = composed.length > 0 ? `${composed} ${word}` : word;
+      if (candidate.length > cutoff) break;
+      composed = candidate;
+      nextWordIndex += 1;
+    }
+
+    if (!composed) {
+      return `${words[0]?.slice(0, cutoff) ?? label.slice(0, cutoff)}...`;
+    }
+
+    if (nextWordIndex >= words.length) return composed;
+
+    const remaining = cutoff - composed.length - 1;
+    if (remaining > 0) {
+      const partial = (words[nextWordIndex] ?? "").slice(0, remaining);
+      if (partial.length > 0) return `${composed} ${partial}...`;
+    }
+
+    return `${composed}...`;
+  }
+
   private isSimpleContainerKind(kind: ArchitectureNodeKind): boolean {
     return kind === "group-container" || kind === "container";
   }
@@ -7517,6 +8313,7 @@ spec:
     this.syncMermaidFromCanvasIfNeeded();
     this.recordHistory();
     this.scheduleAutoSave();
+    this.scheduleViewportCheckpointPersist();
     this.requestViewRender();
   }
 
@@ -7525,12 +8322,40 @@ spec:
     this.edgeSideLaneOffsetCache.clear();
     this.edgeLabelDyCache.clear();
     this.edgeLabelStartOffsetCache.clear();
+    this.scheduleViewportCheckpointPersist();
     this.requestViewRender();
+  }
+
+  private syncTutorialStepRequirements(): void {
+    const step = this.getActiveTutorialStep();
+    this.tutorialStepClickSatisfied = step?.requiresClick ? false : true;
   }
 
   dismissError(): void {
     this.clearError();
     this.requestViewRender();
+  }
+
+  dismissSuccessToast(): void {
+    if (this.successToastTimer) {
+      clearTimeout(this.successToastTimer);
+      this.successToastTimer = null;
+    }
+    this.successToast = "";
+    this.requestViewRender();
+  }
+
+  private showSuccessToast(messageKey: string): void {
+    this.successToast = this.t(messageKey);
+    if (this.successToastTimer) {
+      clearTimeout(this.successToastTimer);
+    }
+    this.requestViewRender();
+    this.successToastTimer = setTimeout(() => {
+      this.successToastTimer = null;
+      this.successToast = "";
+      this.requestViewRender();
+    }, SUCCESS_TOAST_DISMISS_MS);
   }
 
   private setError(message: string): void {

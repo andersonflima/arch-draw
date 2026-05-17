@@ -26,6 +26,10 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Importação de diagramas em múltiplos formatos (`.archdraw`, JSON, `.drawio`/XML, `.excalidraw`, `.mmd`/`.mermaid`).
 - Painel de propriedades contextual no ponto do clique, com ajustes globais de fonte de labels, fonte de âncoras e tamanho de ícones.
 - Botão Tutorial com guias feature por feature (containers, conexões, área de contato, propriedades, zoom, atalhos e fluxo de import/export).
+- Abertura padrão do board com viewport centralizado no conteúdo em 27% de zoom quando não existe checkpoint salvo.
+- Checkpoint automático de viewport por arquivo (zoom + posição do canvas), retomando no mesmo ponto após recarregar ou reabrir o navegador.
+- Toasts visuais no padrão da plataforma para ações de produtividade (salvar checkpoint, exportar e limpar).
+- Suporte inicial de i18n com alternância rápida `PT/EN` na toolbar (PT-BR e EN-US para ações principais).
 - Lista de arquivos com quebra de linha controlada e truncamento com `...` para manter cards consistentes com títulos/metadados longos.
 - Otimização de entrega web com compressão HTTP (`gzip`), cache imutável para assets hashados e `index.html` sem cache.
 - Auto save com debounce adaptativo por complexidade (nós + conexões) para reduzir carga em arquiteturas grandes.
