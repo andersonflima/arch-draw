@@ -18,12 +18,12 @@
     />
 
     <div class="toolbar">
-      <button class="toolbar-action" type="button" title="Nova arquitetura" aria-label="Nova arquitetura" (click)="createArchitecture()">Nova</button>
-      <button class="toolbar-action" type="button" title="Criar exemplo completo" aria-label="Criar exemplo completo" (click)="createCompleteExampleArchitecture()">Exemplo</button>
-      <button class="toolbar-action" type="button" title="Salvar" aria-label="Salvar" (click)="saveCurrent()">Salvar</button>
+      <button class="toolbar-action" type="button" [title]="t('aria.newArchitecture')" [attr.aria-label]="t('aria.newArchitecture')" (click)="createArchitecture()">{{ t("toolbar.new") }}</button>
+      <button class="toolbar-action" type="button" [title]="t('aria.completeExample')" [attr.aria-label]="t('aria.completeExample')" (click)="createCompleteExampleArchitecture()">{{ t("toolbar.example") }}</button>
+      <button class="toolbar-action" type="button" [title]="t('aria.save')" [attr.aria-label]="t('aria.save')" (click)="saveCurrent()">{{ t("toolbar.save") }}</button>
       <details class="toolbar-dropdown">
-        <summary class="toolbar-action toolbar-dropdown__trigger" title="Exportar diagramas" aria-label="Exportar diagramas">
-          Exportar
+        <summary class="toolbar-action toolbar-dropdown__trigger" [title]="t('aria.export')" [attr.aria-label]="t('aria.export')">
+          {{ t("toolbar.export") }}
         </summary>
         <div class="toolbar-dropdown__menu">
           <button class="toolbar-dropdown__item" type="button" title="Exportar Arch-Draw" aria-label="Exportar Arch-Draw" (click)="exportCurrent()">Arch-Draw</button>
@@ -35,8 +35,8 @@
         </div>
       </details>
       <details class="toolbar-dropdown toolbar-dropdown--tutorial">
-        <summary class="toolbar-action toolbar-dropdown__trigger" title="Tutoriais guiados" aria-label="Tutoriais guiados">
-          Tutorial
+        <summary class="toolbar-action toolbar-dropdown__trigger" [title]="t('aria.tutorials')" [attr.aria-label]="t('aria.tutorials')">
+          {{ t("toolbar.tutorial") }}
         </summary>
         <div class="toolbar-dropdown__menu">
           <button
@@ -51,7 +51,7 @@
           </button>
         </div>
       </details>
-      <button class="toolbar-action" type="button" title="Importar" aria-label="Importar" (click)="openImport()">Importar</button>
+      <button class="toolbar-action" type="button" [title]="t('aria.import')" [attr.aria-label]="t('aria.import')" (click)="openImport()">{{ t("toolbar.import") }}</button>
       <button
         class="toolbar-action"
         type="button"
@@ -65,11 +65,20 @@
       <button
         class="toolbar-action"
         type="button"
-        title="Apagar item selecionado ou limpar board"
-        aria-label="Apagar item selecionado ou limpar board"
+        [title]="t('aria.clear')"
+        [attr.aria-label]="t('aria.clear')"
         (click)="onToolbarDeleteClick()"
       >
-        Limpar
+        {{ t("toolbar.clear") }}
+      </button>
+      <button
+        class="toolbar-action toolbar-action--lang"
+        type="button"
+        [title]="t('toolbar.languageSwitch')"
+        [attr.aria-label]="t('toolbar.languageSwitch')"
+        (click)="toggleUiLanguage()"
+      >
+        {{ getCurrentLanguageShortLabel() }}
       </button>
       <button
         *ngIf="authEnabled && authenticatedUser"
@@ -330,9 +339,9 @@
             <rect
               *ngIf="shouldRenderEdgeLabel(edge) && !isEditingEdge(edge.id)"
               class="canvas-edge-label-knockout"
-              [attr.x]="getEdgeLabelPosition(edge).x - 130"
+              [attr.x]="getEdgeLabelRenderX(edge)"
               [attr.y]="getEdgeLabelPosition(edge).y - getEdgeLabelBoxHeight() / 2"
-              width="260"
+              [attr.width]="getEdgeLabelRenderWidth(edge)"
               [attr.height]="getEdgeLabelBoxHeight()"
               rx="6"
               [attr.fill]="getEdgeLabelKnockoutColor(edge)"
@@ -340,9 +349,9 @@
             <foreignObject
               *ngIf="shouldRenderEdgeLabel(edge) && !isEditingEdge(edge.id)"
               class="canvas-edge-label"
-              [attr.x]="getEdgeLabelPosition(edge).x - 130"
+              [attr.x]="getEdgeLabelRenderX(edge)"
               [attr.y]="getEdgeLabelPosition(edge).y - getEdgeLabelBoxHeight() / 2"
-              width="260"
+              [attr.width]="getEdgeLabelRenderWidth(edge)"
               [attr.height]="getEdgeLabelBoxHeight()"
             >
               <div
@@ -380,6 +389,18 @@
             [attr.d]="previewPath"
             [attr.marker-end]="getConnectionPreviewMarkerEnd()"
           />
+          <ng-container *ngFor="let node of getLeafLabelKnockoutNodes()">
+            <rect
+              *ngIf="getLeafNodeLabelKnockoutRect(node) as labelRect"
+              class="canvas-node-label-knockout"
+              [attr.x]="labelRect.x"
+              [attr.y]="labelRect.y"
+              [attr.width]="labelRect.width"
+              [attr.height]="labelRect.height"
+              rx="6"
+              [attr.fill]="getLeafNodeLabelKnockoutColor(node, labelRect)"
+            />
+          </ng-container>
         </svg>
 
         <div
@@ -522,11 +543,11 @@
                     <app-flow-subroutine-node *ngSwitchCase="'flow-subroutine'" [label]="node.label"></app-flow-subroutine-node>
                     <app-flow-data-node *ngSwitchCase="'flow-data'" [label]="node.label"></app-flow-data-node>
                     <app-flow-document-node *ngSwitchCase="'flow-document'" [label]="node.label"></app-flow-document-node>
-                    <strong *ngSwitchDefault>{{ node.label }}</strong>
+                    <strong *ngSwitchDefault>{{ getNodeDisplayLabel(node) }}</strong>
                   </ng-container>
                 </ng-container>
                 <ng-template #defaultTextLabel>
-                  <strong>{{ node.label }}</strong>
+                  <strong>{{ getNodeDisplayLabel(node) }}</strong>
                 </ng-template>
               </ng-template>
             </ng-container>
@@ -567,7 +588,7 @@
       </div>
 
       <section class="canvas-map" aria-label="Mapa do canvas" (click)="$event.stopPropagation()">
-        <div class="mini-map">
+        <div #miniMap class="mini-map" (pointerdown)="onMiniMapPointerDown($event)">
           <ng-container *ngFor="let node of nodes">
             <span
               *ngIf="isVisibleNode(node)"
@@ -575,7 +596,11 @@
               [ngStyle]="getMiniMapNodeStyle(node)"
             ></span>
           </ng-container>
-          <span class="mini-map-viewport" [ngStyle]="getMiniMapViewportStyle()"></span>
+          <span
+            class="mini-map-viewport"
+            [class.is-dragging]="isMiniMapDragging()"
+            [ngStyle]="getMiniMapViewportStyle()"
+          ></span>
         </div>
         <p class="mini-map-legend">Visao atual</p>
         <div class="zoom-controls">
@@ -751,9 +776,16 @@
 
   </div>
 
-  <div class="toast error-text" *ngIf="error">
+  <div class="toast toast--success" *ngIf="successToast">
+    <span>{{ successToast }}</span>
+    <button class="toast-close" type="button" [attr.aria-label]="t('toast.close')" (click)="dismissSuccessToast()">
+      <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+    </button>
+  </div>
+
+  <div class="toast toast--error error-text" *ngIf="error">
     <span>{{ error }}</span>
-    <button class="toast-close" type="button" aria-label="Fechar erro" (click)="dismissError()">
+    <button class="toast-close" type="button" [attr.aria-label]="t('toast.closeError')" (click)="dismissError()">
       <i class="fa-solid fa-xmark" aria-hidden="true"></i>
     </button>
   </div>
