@@ -17,7 +17,7 @@ describe("node catalog", () => {
   it("contains AWS, software development, cluster, and algorithm blocks", () => {
     expect(nodeCatalog.some((template) => template.category === "AWS Compute")).toBe(true);
     expect(nodeCatalog.some((template) => template.category === "Code")).toBe(true);
-    expect(nodeCatalog.some((template) => template.category === "Software Development")).toBe(true);
+    expect(nodeCatalog.some((template) => template.category === "Development")).toBe(true);
     expect(nodeCatalog.some((template) => template.category === "Cluster")).toBe(true);
     expect(nodeCatalog.some((template) => template.category === "Flow Diagram")).toBe(true);
     expect(nodeCatalog.some((template) => template.category === "Algorithms")).toBe(true);

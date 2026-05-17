@@ -1423,9 +1423,6 @@ export class AppComponent implements OnDestroy {
   onNodeClick(nodeId: string, event: MouseEvent): void {
     event.stopPropagation();
     if (this.connectionSourceId && this.connectionSourceId !== nodeId) {
-      this.status = "Conexao deve iniciar e terminar nas bolinhas";
-      this.requestViewRender();
-      this.markViewChanged();
       return;
     }
     this.selectedNodeId = nodeId;
@@ -5685,8 +5682,6 @@ spec:
     }
     if (this.edges.some((edge) => edge.from === from && edge.to === to)) return;
     if (!ports?.sourcePort || !ports?.targetPort) {
-      this.status = "Conexao deve iniciar e terminar nas bolinhas";
-      this.requestViewRender();
       return;
     }
 
