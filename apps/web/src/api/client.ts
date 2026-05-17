@@ -38,6 +38,11 @@ export type ArchitectureShareLink = Readonly<{
 
 export type ShareAccessMode = "edit" | "read-only";
 
+export type SharedArchitecturePayload = Readonly<{
+  architecture: ArchitectureDocument;
+  accessMode: ShareAccessMode;
+}>;
+
 export type SharedRealtimeEvent =
   | Readonly<{
       type: "presence";
@@ -128,7 +133,7 @@ export const api = {
       body: JSON.stringify({ accessMode })
     }),
   readSharedArchitecture: (shareId: string) =>
-    request<ArchitectureDocument>(`/architectures/shared/${encodeURIComponent(shareId)}`),
+    request<SharedArchitecturePayload>(`/architectures/shared/${encodeURIComponent(shareId)}`),
   saveSharedArchitecture: (
     shareId: string,
     architecture: ArchitectureDocument,
