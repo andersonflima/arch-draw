@@ -169,7 +169,7 @@ export type ArchitectureNodeKind =
   | "algorithm-queue"
   | "algorithm-linked-list";
 
-export type ArchitectureEdgePath = "smoothstep" | "straight" | "step" | "bezier";
+export type ArchitectureEdgePath = "smoothstep" | "straight" | "step";
 
 export type ArchitectureEdgeLineStyle = "solid" | "dashed" | "dotted";
 export type ArchitectureEdgePortSide = "left" | "right" | "top" | "bottom";
@@ -376,12 +376,17 @@ const normalizeEdgePortSide = (
 const normalizeEdgeStyle = (
   style: ArchitectureEdgeStyle | undefined
 ): ArchitectureEdgeStyle => ({
-  path: style?.path ?? "smoothstep",
+  path: normalizeEdgePath(style?.path),
   line: style?.line ?? "solid",
   color: sanitizeSingleLineText(style?.color, 32) || "#111827",
   animated: style?.animated ?? false,
   bidirectional: style?.bidirectional ?? false
 });
+
+const normalizeEdgePath = (path: unknown): ArchitectureEdgePath => {
+  if (path === "step" || path === "straight" || path === "smoothstep") return path;
+  return "smoothstep";
+};
 
 const sanitizeOptionalSingleLineText = (
   value: string | undefined,

@@ -458,9 +458,7 @@ const inferDrawIoEdgeStyle = (styleText: string): ArchitectureEdgeStyle => {
   const style = parseStyle(styleText);
   const path: ArchitectureEdgePath = style.edgeStyle?.includes("orthogonal") || style.edgeStyle?.includes("elbow")
     ? "step"
-    : style.curved === "1"
-      ? "bezier"
-      : "smoothstep";
+    : "smoothstep";
   const line = style.dashed === "1"
     ? style.dashPattern?.includes("1") ? "dotted" : "dashed"
     : "solid";

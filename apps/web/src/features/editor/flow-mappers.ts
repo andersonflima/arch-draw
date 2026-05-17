@@ -44,9 +44,14 @@ const toArchitectureEdge = (edge: CanvasEdge): ArchitectureEdge => ({
 export const normalizeEdgeStyle = (
   style: Partial<ArchitectureEdgeStyle> | undefined
 ): ArchitectureEdgeStyle => ({
-  path: style?.path ?? "smoothstep",
+  path: normalizeEdgePath(style?.path),
   line: style?.line ?? "solid",
   color: style?.color ?? "#111827",
   animated: style?.animated ?? false,
   bidirectional: style?.bidirectional ?? false
 });
+
+const normalizeEdgePath = (path: unknown): ArchitectureEdgeStyle["path"] => {
+  if (path === "step" || path === "straight" || path === "smoothstep") return path;
+  return "smoothstep";
+};
