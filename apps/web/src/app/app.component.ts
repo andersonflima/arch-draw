@@ -3217,6 +3217,13 @@ LIMIT 50;`;
     return this.isPointInsideAnyVisibleContainer(labelPoint) ? "#111827" : "#f8fafc";
   }
 
+  getEdgeLabelKnockoutColor(edge: CanvasEdge): string {
+    const labelPoint = this.getEdgeLabelPosition(edge);
+    const container = this.getDeepestVisibleContainerAtPoint(labelPoint);
+    if (container) return container.color;
+    return this.isDarkMode ? "#020617" : "#f8fafc";
+  }
+
   getEdgeContextOverlayColor(): string {
     return "#111827";
   }
@@ -4780,6 +4787,20 @@ spec:
       currentParentId = parent.parentId;
     }
     return ids;
+  }
+
+  private getDeepestVisibleContainerAtPoint(
+    point: Readonly<{ x: number; y: number }>
+  ): CanvasNode | null {
+    const candidates = this.nodes
+      .filter((node) => this.rendersAsContainer(node) && this.isVisibleNode(node))
+      .filter((node) => this.containsPoint(node, point))
+      .sort((left, right) => {
+        const depthDiff = this.getNodeHierarchyDepth(right) - this.getNodeHierarchyDepth(left);
+        if (depthDiff !== 0) return depthDiff;
+        return left.id.localeCompare(right.id);
+      });
+    return candidates[0] ?? null;
   }
 
   private compactPolyline(points: readonly EdgePoint[]): readonly EdgePoint[] {
