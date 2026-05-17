@@ -95,6 +95,7 @@ Modo seguro para servidor compartilhado (recomendado):
 - Sessões OAuth e rate-limit usam Redis com expiração (TTL), reduzindo risco de bypass entre réplicas.
 - Requisições mutáveis exigem CSRF token (`double-submit cookie`) e validação de `Origin/Referer`.
 - API pode validar `Host` por allowlist (`ALLOWED_HOSTS`) para reduzir ataques de host header injection.
+  O healthcheck interno da API usa o primeiro host dessa lista para validar `/health` dentro do container.
 - Nginx aplica `client_max_body_size`, timeouts curtos e limitador de burst em `/api`.
 
 Hardening obrigatório no host:
@@ -172,6 +173,7 @@ Variáveis relevantes de autenticação e segurança:
 
 - `TRUST_PROXY` e `TRUST_PROXY_HOPS` para respeitar `x-forwarded-proto` atrás de proxy de forma restrita.
 - `ALLOWED_HOSTS` para allowlist de hostnames aceitos no header `Host` (ex.: `app.exemplo.com,localhost`).
+  A primeira entrada também é usada no healthcheck interno da API no Docker.
 - `FORCE_SECURE_COOKIES=true` em produção para forçar cookies `Secure` independentemente do protocolo percebido.
 - `SECURITY_METRICS_TOKEN` para proteger `GET /security/metrics`.
 - `CSRF_COOKIE_NAME` e `CSRF_HEADER_NAME` para política de CSRF (default: `archdraw_csrf` + `x-csrf-token`).
