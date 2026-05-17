@@ -798,6 +798,9 @@ const TUTORIAL_GUIDES: readonly TutorialGuide[] = [
         text: "Ctrl/Cmd + A seleciona todos os nós do board, independente da camada visual."
       },
       {
+        text: "Ctrl/Cmd + S salva as alterações atuais do board."
+      },
+      {
         text: "Delete/Backspace remove o item selecionado."
       },
       {
@@ -906,6 +909,7 @@ const TUTORIAL_GUIDES_EN_LOCALIZATION: Readonly<Record<string, Readonly<{
     steps: [
       "Ctrl/Cmd + Z undoes recent changes.",
       "Ctrl/Cmd + A selects all nodes on the board regardless of visual layer.",
+      "Ctrl/Cmd + S saves current board changes.",
       "Delete/Backspace removes the selected item.",
       "Use Clear to remove current selection or empty the board."
     ]
@@ -3640,6 +3644,19 @@ LIMIT 50;`;
       return;
     }
 
+    const isSaveShortcut = (
+      (event.metaKey || event.ctrlKey)
+      && !event.altKey
+      && (event.key.toLowerCase() === "s" || event.code === "KeyS")
+    );
+    if (isSaveShortcut) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!this.canEditArchitecture()) return;
+      void this.saveCurrent();
+      return;
+    }
+
     if (event.defaultPrevented) return;
 
     const isSelectAllShortcut = (event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "a";
@@ -5956,13 +5973,10 @@ spec:
     }
     const basePolyline = this.getBaseEdgePolyline(geometry);
     const obstacleRects = this.getEdgeObstacleRects(edge, geometry.sourceId, geometry.targetId);
-    const routeCoreFixedTerminals = this.compactPolyline(basePolyline.slice(1, -1));
-    const routeCoreStart = routeCoreFixedTerminals[0] ?? null;
-    const routeCoreEnd = routeCoreFixedTerminals[routeCoreFixedTerminals.length - 1] ?? null;
-    const routeCoreMiddle = this.compactPolyline(routeCoreFixedTerminals.slice(1, -1));
-    const routedCoreMiddle = routeCoreMiddle.length >= 2
+    const routeCore = this.compactPolyline(basePolyline.slice(1, -1));
+    const routedCore = routeCore.length >= 2
       ? routeEdgePolylineAroundObstacles(
-        routeCoreMiddle,
+        routeCore,
         obstacleRects,
         geometry.sourceId,
         geometry.targetId,
@@ -5971,12 +5985,7 @@ spec:
           obstacleClearance: EDGE_OBSTACLE_CLEARANCE
         }
       )
-      : routeCoreMiddle;
-    const routedCore = this.compactPolyline([
-      ...(routeCoreStart ? [routeCoreStart] : []),
-      ...routedCoreMiddle,
-      ...(routeCoreEnd ? [routeCoreEnd] : [])
-    ]);
+      : routeCore;
     const routed = this.compactPolyline([
       geometry.start,
       ...routedCore,
