@@ -14,7 +14,7 @@ export type NodeTemplateCategory =
   | "Messaging"
   | "Queries"
   | "Code"
-  | "Software Development"
+  | "Development"
   | "Devices"
   | "Cluster"
   | "Flow Diagram"
@@ -141,15 +141,15 @@ export const nodeCatalog: readonly NodeTemplate[] = [
   { category: "Code", kind: "code-schema", label: "Schema", color: "#e0f2fe" },
   { category: "Code", kind: "code-pipeline", label: "Pipeline", color: "#f3f4f6" },
 
-  { category: "Software Development", kind: "software-application", label: "Application", color: "#dbeafe" },
-  { category: "Software Development", kind: "software-frontend", label: "Frontend", color: "#fae8ff" },
-  { category: "Software Development", kind: "software-backend", label: "Backend", color: "#dcfce7" },
-  { category: "Software Development", kind: "software-mobile", label: "Mobile App", color: "#fef3c7" },
-  { category: "Software Development", kind: "software-api", label: "API Service", color: "#cffafe" },
-  { category: "Software Development", kind: "software-worker", label: "Worker", color: "#fee2e2" },
-  { category: "Software Development", kind: "software-bff", label: "BFF", color: "#ede9fe" },
-  { category: "Software Development", kind: "software-cli", label: "CLI", color: "#e0e7ff" },
-  { category: "Software Development", kind: "software-docker", label: "Docker", color: "#bfdbfe" },
+  { category: "Development", kind: "software-application", label: "Application", color: "#dbeafe" },
+  { category: "Development", kind: "software-frontend", label: "Frontend", color: "#fae8ff" },
+  { category: "Development", kind: "software-backend", label: "Backend", color: "#dcfce7" },
+  { category: "Development", kind: "software-mobile", label: "Mobile App", color: "#fef3c7" },
+  { category: "Development", kind: "software-api", label: "API Service", color: "#cffafe" },
+  { category: "Development", kind: "software-worker", label: "Worker", color: "#fee2e2" },
+  { category: "Development", kind: "software-bff", label: "BFF", color: "#ede9fe" },
+  { category: "Development", kind: "software-cli", label: "CLI", color: "#e0e7ff" },
+  { category: "Development", kind: "software-docker", label: "Docker", color: "#bfdbfe" },
 
   { category: "Devices", kind: "device-desktop", label: "Desktop", color: "#dbeafe" },
   { category: "Devices", kind: "device-laptop", label: "Laptop", color: "#bfdbfe" },
