@@ -271,7 +271,7 @@
         >
           <defs>
             <marker
-              id="edge-arrow-right"
+              id="edge-preview-arrow-right"
               markerWidth="9"
               markerHeight="9"
               viewBox="0 0 9 9"
@@ -280,10 +280,10 @@
               orient="0"
               markerUnits="userSpaceOnUse"
             >
-              <path d="M 0 0 L 9 4.5 L 0 9 z" fill="currentColor"></path>
+              <path d="M 0 0 L 9 4.5 L 0 9 z" fill="#2563eb"></path>
             </marker>
             <marker
-              id="edge-arrow-left"
+              id="edge-preview-arrow-left"
               markerWidth="9"
               markerHeight="9"
               viewBox="0 0 9 9"
@@ -292,8 +292,34 @@
               orient="0"
               markerUnits="userSpaceOnUse"
             >
-              <path d="M 9 0 L 0 4.5 L 9 9 z" fill="currentColor"></path>
+              <path d="M 9 0 L 0 4.5 L 9 9 z" fill="#2563eb"></path>
             </marker>
+            <ng-container *ngFor="let edge of edges">
+              <marker
+                [attr.id]="getEdgeMarkerId(edge, 'right')"
+                markerWidth="9"
+                markerHeight="9"
+                viewBox="0 0 9 9"
+                refX="0"
+                refY="4.5"
+                orient="0"
+                markerUnits="userSpaceOnUse"
+              >
+                <path d="M 0 0 L 9 4.5 L 0 9 z" [attr.fill]="getEdgeColor(edge)"></path>
+              </marker>
+              <marker
+                [attr.id]="getEdgeMarkerId(edge, 'left')"
+                markerWidth="9"
+                markerHeight="9"
+                viewBox="0 0 9 9"
+                refX="9"
+                refY="4.5"
+                orient="0"
+                markerUnits="userSpaceOnUse"
+              >
+                <path d="M 9 0 L 0 4.5 L 9 9 z" [attr.fill]="getEdgeColor(edge)"></path>
+              </marker>
+            </ng-container>
             <clipPath
               *ngFor="let containerNode of getEdgeClipContainers()"
               [attr.id]="getEdgeContainerClipPathId(containerNode.id)"
@@ -327,7 +353,6 @@
               [attr.id]="'edge-path-' + edge.id"
               [attr.d]="getEdgePath(edge)"
               [attr.stroke]="getEdgeColor(edge)"
-              [attr.color]="getEdgeColor(edge)"
               [attr.stroke-dasharray]="getEdgeDash(edge)"
               [attr.marker-start]="getEdgeStartMarker(edge)"
               [attr.marker-end]="getEdgeEndMarker(edge)"
@@ -427,7 +452,6 @@
             *ngIf="getConnectionPreviewPath() as previewPath"
             class="canvas-edge canvas-edge-preview"
             [attr.d]="previewPath"
-            color="#2563eb"
             [attr.marker-end]="getConnectionPreviewMarkerEnd()"
           />
           <ng-container *ngFor="let node of getLeafLabelKnockoutNodes()">

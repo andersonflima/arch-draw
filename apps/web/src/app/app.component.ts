@@ -4268,24 +4268,26 @@ LIMIT 50;`;
 
   getEdgeEndMarker(edge: CanvasEdge): string {
     return this.getEdgeHorizontalDirection(edge, "end") === "left"
-      ? "url(#edge-arrow-left)"
-      : "url(#edge-arrow-right)";
+      ? this.getEdgeMarkerUrl(edge, "left")
+      : this.getEdgeMarkerUrl(edge, "right");
   }
 
   getEdgeStartMarker(edge: CanvasEdge): string | null {
     if (!this.isBidirectional(edge)) return null;
     return this.getEdgeHorizontalDirection(edge, "start") === "left"
-      ? "url(#edge-arrow-right)"
-      : "url(#edge-arrow-left)";
+      ? this.getEdgeMarkerUrl(edge, "right")
+      : this.getEdgeMarkerUrl(edge, "left");
   }
 
   getConnectionPreviewMarkerEnd(): string {
     const dragState = this.connectionDragState;
-    if (!dragState) return "url(#edge-arrow-right)";
+    if (!dragState) return "url(#edge-preview-arrow-right)";
     const source = this.nodes.find((node) => node.id === dragState.sourceId);
-    if (!source) return "url(#edge-arrow-right)";
+    if (!source) return "url(#edge-preview-arrow-right)";
     const sourceAbsolute = this.getAbsolutePosition(source);
-    return dragState.current.x < sourceAbsolute.x ? "url(#edge-arrow-left)" : "url(#edge-arrow-right)";
+    return dragState.current.x < sourceAbsolute.x
+      ? "url(#edge-preview-arrow-left)"
+      : "url(#edge-preview-arrow-right)";
   }
 
   getEdgeLabelBoxHeight(): number {
@@ -4344,11 +4346,19 @@ LIMIT 50;`;
 
   getEdgeDash(edge: CanvasEdge): string | null {
     const style = normalizeEdgeStyle(edge.style);
-    if (style.line === "solid") return "34 4";
+    if (style.line === "solid") return "58 10";
     const line = style.line;
     if (line === "dashed") return "8 6";
     if (line === "dotted") return "2 6";
     return null;
+  }
+
+  getEdgeMarkerId(edge: CanvasEdge, direction: "left" | "right"): string {
+    return `edge-arrow-${direction}-${edge.id}`;
+  }
+
+  private getEdgeMarkerUrl(edge: CanvasEdge, direction: "left" | "right"): string {
+    return `url(#${this.getEdgeMarkerId(edge, direction)})`;
   }
 
   getEdgeColor(edge: CanvasEdge): string {
