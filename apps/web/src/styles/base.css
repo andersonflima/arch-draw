@@ -138,6 +138,12 @@ button {
   font-weight: 700;
 }
 
+.toolbar-action--lang {
+  min-width: 48px;
+  padding-inline: 8px;
+  justify-content: center;
+}
+
 .toolbar-dropdown {
   position: relative;
   z-index: 24;
@@ -1163,14 +1169,21 @@ app-flow-document-node {
 }
 
 .architecture-node--leaf strong {
+  display: block;
   margin: 0;
+  width: fit-content;
   max-width: 100%;
+  box-sizing: border-box;
+  padding: 3px 8px;
   font-size: var(--node-label-font-size, 28px);
   font-weight: 700;
   line-height: 1.15;
   text-align: center;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: normal;
+  overflow-wrap: normal;
 }
 
 .node-inline-label-input {
@@ -2588,6 +2601,10 @@ app-flow-document-node {
   pointer-events: none;
 }
 
+.canvas-node-label-knockout {
+  pointer-events: none;
+}
+
 .canvas-edge-label-box {
   box-sizing: border-box;
   width: 100%;
@@ -2922,6 +2939,7 @@ app-flow-document-node {
   overflow: hidden;
   border: 1px dashed #9ca3af;
   border-radius: 6px;
+  cursor: pointer;
   background:
     linear-gradient(rgba(17, 24, 39, 0.04) 1px, transparent 1px),
     linear-gradient(90deg, rgba(17, 24, 39, 0.04) 1px, transparent 1px),
@@ -2947,7 +2965,12 @@ app-flow-document-node {
   box-shadow:
     0 0 0 1px rgba(17, 24, 39, 0.35),
     inset 0 0 0 1px rgba(255, 255, 255, 0.62);
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.mini-map-viewport.is-dragging {
+  cursor: grabbing;
 }
 
 .mini-map-legend {
@@ -3105,7 +3128,8 @@ app-flow-document-node {
 .toast {
   position: fixed;
   right: 18px;
-  bottom: 18px;
+  top: 74px;
+  bottom: auto;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
@@ -3120,6 +3144,20 @@ app-flow-document-node {
   z-index: 340;
 }
 
+.toast--success {
+  border-color: #166534;
+  background: #dcfce7;
+  color: #14532d;
+}
+
+.toast--error {
+  top: 74px;
+}
+
+.toast--success + .toast--error {
+  top: 140px;
+}
+
 .toast-close {
   width: 24px;
   height: 24px;
@@ -3131,6 +3169,10 @@ app-flow-document-node {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+}
+
+.toast--success .toast-close {
+  color: #166534;
 }
 
 .hint-balloon {
@@ -3496,6 +3538,16 @@ app-flow-document-node {
   border-color: #fca5a5;
   background: #3f1d27;
   box-shadow: 3px 3px 0 #0b1220;
+}
+
+.app-shell.theme-dark .toast--success {
+  border-color: #4ade80;
+  background: #133a2a;
+  color: #bbf7d0;
+}
+
+.app-shell.theme-dark .toast--success .toast-close {
+  color: #86efac;
 }
 
 .app-shell.theme-dark .hint-balloon {
