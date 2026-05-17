@@ -2380,6 +2380,10 @@ app-flow-document-node {
   opacity: 1;
 }
 
+.architecture-node.is-selected .node-port::after {
+  opacity: 0.72;
+}
+
 .node-port--target {
   left: calc(-1 * var(--node-port-edge-offset, 15px));
 }
