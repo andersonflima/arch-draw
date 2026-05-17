@@ -10,6 +10,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Login opcional com Google SSO para proteger o workspace e isolar acesso.
 - Biblioteca de blocos para cloud, software, Kubernetes, algoritmos, bancos e integrações.
 - Conexões avançadas entre elementos com estilos, direções e roteamento com desvio de obstáculos.
+- Setas de conexão ancoradas pela borda externa da bolinha de contato (apenas lados esquerdo/direito), com ponta da seta na bolinha e linha terminando no centro traseiro da seta.
 - Estilo de conexão `smoothstep` com curvas suaves contínuas para leitura de fluxo.
 - Elementos expansíveis/minimizáveis para navegar entre níveis de detalhe.
 - Containers não expandem automaticamente durante drag and drop; ajuste dinâmico ocorre apenas em fluxos de expansão/maximização.
