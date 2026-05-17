@@ -65,6 +65,7 @@ Atalhos de edição:
 
 - `Ctrl/Cmd + Z`: desfaz alterações recentes.
 - `Ctrl/Cmd + A`: seleciona todos os nós no board (independente da camada visual/z-index).
+- `Ctrl/Cmd + S`: salva as alterações atuais.
 - `Delete/Backspace`: remove seleção atual (nó/linha).
 
 ## Stack

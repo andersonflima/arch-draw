@@ -2804,7 +2804,9 @@ app-flow-document-node {
 
 .canvas-edge-group--muted .canvas-edge-hit,
 .canvas-edge-group--muted .canvas-edge,
+.canvas-edge-group--muted .canvas-edge-label-knockout,
 .canvas-edge-group--muted .canvas-edge-label,
+.canvas-edge-group--muted .canvas-edge-label-box,
 .canvas-edge-group--muted .canvas-edge-label-editor {
   opacity: 0;
   pointer-events: none;
