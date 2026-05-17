@@ -304,6 +304,7 @@ const DRAG_START_THRESHOLD = 4;
 const STRICT_PORT_ANCHORING = true;
 const UI_THEME_STORAGE_KEY = "arch-draw.ui-theme";
 const UI_LANGUAGE_STORAGE_KEY = "arch-draw.ui-language";
+const LEFT_PANELS_VISIBILITY_STORAGE_KEY = "arch-draw.left-panels-hidden";
 const VIEWPORT_CHECKPOINT_STORAGE_PREFIX = "arch-draw.viewport";
 const VIEWPORT_CHECKPOINT_DEBOUNCE_MS = 260;
 const DEFAULT_INITIAL_CANVAS_ZOOM = 0.27;
@@ -330,6 +331,8 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "toolbar.shareReadOnly": "Link somente leitura",
     "toolbar.tutorial": "Tutorial",
     "toolbar.import": "Importar",
+    "toolbar.hideLeftMenu": "Ocultar menu",
+    "toolbar.showLeftMenu": "Mostrar menu",
     "toolbar.clear": "Limpar",
     "toolbar.languageSwitch": "Idioma",
     "title.newArchitecture": "Nova arquitetura",
@@ -466,7 +469,9 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "aria.share": "Compartilhar arquivo atual",
     "aria.tutorials": "Tutoriais guiados",
     "aria.import": "Importar",
-    "aria.clear": "Apagar item selecionado ou limpar board"
+    "aria.clear": "Apagar item selecionado ou limpar board",
+    "aria.hideLeftMenu": "Ocultar menu lateral esquerdo",
+    "aria.showLeftMenu": "Mostrar menu lateral esquerdo"
   },
   "en-US": {
     "toolbar.new": "New",
@@ -478,6 +483,8 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "toolbar.shareReadOnly": "Copy read-only link",
     "toolbar.tutorial": "Tutorial",
     "toolbar.import": "Import",
+    "toolbar.hideLeftMenu": "Hide menu",
+    "toolbar.showLeftMenu": "Show menu",
     "toolbar.clear": "Clear",
     "toolbar.languageSwitch": "Language",
     "title.newArchitecture": "New architecture",
@@ -614,7 +621,9 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "aria.share": "Share current file",
     "aria.tutorials": "Guided tutorials",
     "aria.import": "Import",
-    "aria.clear": "Delete selected item or clear board"
+    "aria.clear": "Delete selected item or clear board",
+    "aria.hideLeftMenu": "Hide left side menu",
+    "aria.showLeftMenu": "Show left side menu"
   }
 };
 const CLOUD_PROPERTY_FIELDS: readonly NodePropertyField[] = [
@@ -1494,6 +1503,7 @@ export class AppComponent implements OnDestroy {
   showDoubleClickHint = false;
   uiTheme: "light" | "dark" = "light";
   uiLanguage: UiLanguage = "pt-BR";
+  isLeftPanelsHidden = false;
   blockSearch = "";
   displayedPaletteGroups: readonly PaletteCategoryGroup[] = [];
   contextPropertiesPanel: ContextPropertiesPanelState | null = null;
@@ -1560,6 +1570,7 @@ export class AppComponent implements OnDestroy {
   ) {
     this.loadUiLanguagePreference();
     this.loadUiThemePreference();
+    this.loadLeftPanelsVisibilityPreference();
     this.status = this.t("status.initializing");
     this.rebuildPaletteGroups();
     this.startDoubleClickHintLoop();
@@ -1649,6 +1660,12 @@ export class AppComponent implements OnDestroy {
     this.status = this.isDarkMode ? this.t("status.darkEnabled") : this.t("status.darkDisabled");
     void this.renderMermaid();
     this.markViewChanged();
+  }
+
+  toggleLeftPanelsVisibility(): void {
+    this.isLeftPanelsHidden = !this.isLeftPanelsHidden;
+    this.persistLeftPanelsVisibilityPreference();
+    this.markInteractionChanged();
   }
 
   async startGoogleLogin(): Promise<void> {
@@ -8554,6 +8571,14 @@ spec:
     }
   }
 
+  private loadLeftPanelsVisibilityPreference(): void {
+    try {
+      this.isLeftPanelsHidden = localStorage.getItem(LEFT_PANELS_VISIBILITY_STORAGE_KEY) === "true";
+    } catch {
+      this.isLeftPanelsHidden = false;
+    }
+  }
+
   private persistUiThemePreference(): void {
     try {
       localStorage.setItem(UI_THEME_STORAGE_KEY, this.uiTheme);
@@ -8565,6 +8590,14 @@ spec:
   private persistUiLanguagePreference(): void {
     try {
       localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, this.uiLanguage);
+    } catch {
+      // Ignore storage failures (private mode / blocked storage).
+    }
+  }
+
+  private persistLeftPanelsVisibilityPreference(): void {
+    try {
+      localStorage.setItem(LEFT_PANELS_VISIBILITY_STORAGE_KEY, String(this.isLeftPanelsHidden));
     } catch {
       // Ignore storage failures (private mode / blocked storage).
     }
