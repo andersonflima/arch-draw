@@ -2384,6 +2384,14 @@ app-flow-document-node {
   opacity: 0.72;
 }
 
+.architecture-node--leaf .node-port::after,
+.architecture-node--leaf .node-port:hover::after,
+.architecture-node--leaf .node-port:focus-visible::after,
+.architecture-node--leaf.is-selected .node-port::after {
+  background: transparent;
+  opacity: 0;
+}
+
 .node-port--target {
   left: calc(-1 * var(--node-port-edge-offset, 15px));
 }
@@ -3302,6 +3310,14 @@ app-flow-document-node {
 
 .app-shell.theme-dark .node-port::after {
   background: rgba(148, 163, 184, 0.25);
+}
+
+.app-shell.theme-dark .architecture-node--leaf .node-port::after,
+.app-shell.theme-dark .architecture-node--leaf .node-port:hover::after,
+.app-shell.theme-dark .architecture-node--leaf .node-port:focus-visible::after,
+.app-shell.theme-dark .architecture-node--leaf.is-selected .node-port::after {
+  background: transparent;
+  opacity: 0;
 }
 
 .app-shell.theme-dark .node-collapse-toggle,
