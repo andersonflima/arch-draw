@@ -176,7 +176,13 @@ const WHEEL_ZOOM_SENSITIVITY = 0.0014;
 const MINI_MAP_SIZE = { width: 150, height: 96 };
 const MINI_MAP_PADDING = 8;
 const DEFAULT_CANVAS_PAN = { x: 0, y: 0 };
-const AUTOSAVE_DEBOUNCE_MS = 1200;
+const AUTOSAVE_DEBOUNCE_SMALL_MS = 1200;
+const AUTOSAVE_DEBOUNCE_MEDIUM_MS = 2200;
+const AUTOSAVE_DEBOUNCE_LARGE_MS = 3200;
+const AUTOSAVE_DEBOUNCE_XL_MS = 4500;
+const AUTOSAVE_MEDIUM_COMPLEXITY_THRESHOLD = 150;
+const AUTOSAVE_LARGE_COMPLEXITY_THRESHOLD = 500;
+const AUTOSAVE_XL_COMPLEXITY_THRESHOLD = 1200;
 const ERROR_TOAST_DISMISS_MS = 6000;
 const DOUBLE_CLICK_HINT_INTERVAL_MS = 24000;
 const DOUBLE_CLICK_HINT_VISIBLE_MS = 5000;
@@ -6030,11 +6036,20 @@ spec:
       return;
     }
 
+    const debounceMs = this.getAutoSaveDebounceMs();
     if (this.autoSaveTimer) clearTimeout(this.autoSaveTimer);
     this.autoSaveTimer = setTimeout(() => {
       this.autoSaveTimer = null;
       void this.persistCurrent("auto").finally(() => this.requestViewRender());
-    }, AUTOSAVE_DEBOUNCE_MS);
+    }, debounceMs);
+  }
+
+  private getAutoSaveDebounceMs(): number {
+    const complexity = this.nodes.length + this.edges.length;
+    if (complexity >= AUTOSAVE_XL_COMPLEXITY_THRESHOLD) return AUTOSAVE_DEBOUNCE_XL_MS;
+    if (complexity >= AUTOSAVE_LARGE_COMPLEXITY_THRESHOLD) return AUTOSAVE_DEBOUNCE_LARGE_MS;
+    if (complexity >= AUTOSAVE_MEDIUM_COMPLEXITY_THRESHOLD) return AUTOSAVE_DEBOUNCE_MEDIUM_MS;
+    return AUTOSAVE_DEBOUNCE_SMALL_MS;
   }
 
   private cancelAutoSave(): void {
