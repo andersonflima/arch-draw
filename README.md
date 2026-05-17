@@ -185,6 +185,8 @@ GOOGLE_OAUTH_REDIRECT_URI=https://archdraw.com.br/api/auth/google/callback
 FORCE_SECURE_COOKIES=true
 ```
 
+No ambiente Docker, o Nginx do frontend envia `Cache-Control: no-store` (mais `Pragma`/`Expires`) para evitar cache de cliente e proxy durante rollout de versão.
+
 ## Licença
 
 Este projeto está licenciado sob a MIT License. Consulte [LICENSE](./LICENSE).

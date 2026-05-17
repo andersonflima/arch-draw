@@ -192,6 +192,9 @@ const FOCUS_Z_INDEX_BASE = 200;
 const EXPANDED_NODE_Z_INDEX = 210;
 const DRAG_Z_INDEX_BASE = 120;
 const NESTED_NODE_Z_INDEX_BASE = 80;
+const CONTAINER_FOCUS_Z_INDEX_BASE = 220;
+const CONTAINER_EXPANDED_Z_INDEX_BASE = 230;
+const CONTAINER_DRAG_Z_INDEX_BASE = 240;
 const DEFAULT_EDGE_LABEL_FONT_SIZE = 28;
 const MIN_EDGE_LABEL_FONT_SIZE = 10;
 const MAX_EDGE_LABEL_FONT_SIZE = 28;
@@ -2629,9 +2632,9 @@ LIMIT 50;`;
     const isFocused = this.selectedNodeIds.includes(node.id);
     const isDescendantOfFocused = this.hasSelectedAncestor(node);
     const baseZIndex = rendersAsContainer ? 20 : 180;
-    const focusZIndexBase = rendersAsContainer ? 120 : FOCUS_Z_INDEX_BASE;
-    const expandedZIndexBase = rendersAsContainer ? 130 : EXPANDED_NODE_Z_INDEX;
-    const dragZIndexBase = rendersAsContainer ? 140 : DRAG_Z_INDEX_BASE;
+    const focusZIndexBase = rendersAsContainer ? CONTAINER_FOCUS_Z_INDEX_BASE : FOCUS_Z_INDEX_BASE;
+    const expandedZIndexBase = rendersAsContainer ? CONTAINER_EXPANDED_Z_INDEX_BASE : EXPANDED_NODE_Z_INDEX;
+    const dragZIndexBase = rendersAsContainer ? CONTAINER_DRAG_Z_INDEX_BASE : DRAG_Z_INDEX_BASE;
     const dragZIndex = isDescendantOfDragged
       ? dragZIndexBase + 1
       : isBeingDragged
@@ -4084,7 +4087,6 @@ spec:
   }
 
   private setContainerCollapsed(nodeId: string, collapsed: boolean): void {
-    const previousNodeScreenCenter = !collapsed ? this.getNodeScreenCenter(nodeId) : null;
     this.nodes = this.sortNodes(
       this.nodes.map((node) => {
         if (node.id !== nodeId || !isContainerNodeKind(node.kind)) return node;
@@ -4123,9 +4125,6 @@ spec:
     }
 
     this.fitContainerAndAncestorChain(nodeId);
-    if (!collapsed && previousNodeScreenCenter) {
-      this.preserveNodeScreenCenter(nodeId, previousNodeScreenCenter);
-    }
     if (collapsed) {
       this.ensureNodeVisibleInViewport(nodeId);
     }
@@ -4135,7 +4134,6 @@ spec:
   }
 
   private setCodeSnippetCollapsed(nodeId: string, collapsed: boolean): void {
-    const previousNodeScreenCenter = !collapsed ? this.getNodeScreenCenter(nodeId) : null;
     this.nodes = this.sortNodes(
       this.nodes.map((node) => {
         if (node.id !== nodeId || !isCodeSnippetNodeKind(node.kind)) return node;
@@ -4169,9 +4167,6 @@ spec:
     );
 
     this.fitContainerAndAncestorChain(nodeId);
-    if (!collapsed && previousNodeScreenCenter) {
-      this.preserveNodeScreenCenter(nodeId, previousNodeScreenCenter);
-    }
     if (collapsed) {
       this.ensureNodeVisibleInViewport(nodeId);
     }
@@ -4207,29 +4202,6 @@ spec:
     this.canvasPan = {
       x: shellRect.width / 2 - center.x * this.canvasZoom,
       y: shellRect.height / 2 - center.y * this.canvasZoom
-    };
-  }
-
-  private getNodeScreenCenter(nodeId: string): Readonly<{ x: number; y: number }> | null {
-    const node = this.nodes.find((candidate) => candidate.id === nodeId);
-    if (!node) return null;
-    const center = this.getNodeCenter(node);
-    return {
-      x: center.x * this.canvasZoom + this.canvasPan.x,
-      y: center.y * this.canvasZoom + this.canvasPan.y
-    };
-  }
-
-  private preserveNodeScreenCenter(
-    nodeId: string,
-    screenCenter: Readonly<{ x: number; y: number }>
-  ): void {
-    const node = this.nodes.find((candidate) => candidate.id === nodeId);
-    if (!node) return;
-    const center = this.getNodeCenter(node);
-    this.canvasPan = {
-      x: screenCenter.x - center.x * this.canvasZoom,
-      y: screenCenter.y - center.y * this.canvasZoom
     };
   }
 
