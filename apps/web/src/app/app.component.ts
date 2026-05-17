@@ -3086,6 +3086,10 @@ LIMIT 50;`;
     return dragState.current.x < sourceAbsolute.x ? "url(#edge-arrow-left)" : "url(#edge-arrow-right)";
   }
 
+  getEdgeLabelBoxHeight(): number {
+    return Math.max(34, Math.round(this.edgeLabelFontSize + 12));
+  }
+
   getEdgeLabelPosition(edge: CanvasEdge): Readonly<{ x: number; y: number }> {
     const data = this.getEdgePathData(edge);
     if (!data || data.points.length < 2) return { x: 0, y: 0 };
