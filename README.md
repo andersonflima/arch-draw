@@ -11,7 +11,8 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Biblioteca de blocos para cloud, software, Kubernetes, algoritmos, bancos e integrações.
 - Conexões avançadas entre elementos com estilos, direções e roteamento com desvio de obstáculos.
 - Setas de conexão ancoradas pela borda externa da bolinha de contato (apenas lados esquerdo/direito), com ponta da seta na bolinha e linha terminando no centro traseiro da seta.
-- Áreas de clique das portas de conexão calibradas para maior precisão, com distinção de gesto: saída na direção da porta inicia vínculo; gesto divergente inicia drag do elemento.
+- Áreas de clique das portas de conexão calibradas para maior precisão: gesto na direção da porta inicia vínculo, enquanto o drag de elementos minimizados inicia apenas sobre o ícone do elemento.
+- Quando há conexão em ambos os sentidos entre dois nós, o diagrama consolida em uma única âncora bidirecional com animação ping-pong (ida e volta), sem duplicar linhas.
 - Camadas visuais por hierarquia de container (filhos sempre acima do container pai), sem elevar z-index apenas por foco de clique.
 - Quando um bloco de código está expandido, ele recebe precedência de camada sobre irmãos no mesmo contexto para evitar sobreposição visual do conteúdo aberto.
 - Supressão automática de linhas de conexão que encostam na área de contato durante drag and drop, com área visível para elementos minimizados/maximizados (inclusive dentro de containers) e sem ativação por foco/clique/abertura.
@@ -28,6 +29,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Compartilhamento por arquivo com link dedicado (`?share=...`) e modo de acesso controlado no servidor (`edit` ou `read-only`), sem expor permissão no URL.
 - Presença em tempo real no canvas com cursor dos colaboradores, sincronização de edições e sincronização de visão (zoom/pan/foco em elemento maximizado) entre participantes, inclusive para convidados em `read-only`.
 - Botão Tutorial com guias feature por feature (containers, conexões, área de contato, propriedades, zoom, atalhos e fluxo de import/export), em modo guiado por passo com foco visual e avanço condicionado ao clique no alvo destacado quando aplicável.
+- Tooltips de ajuda/indicação com largura adaptativa (`fit-content`) e limite de viewport para evitar overflow visual do texto.
 - Abertura padrão do board com viewport centralizado no conteúdo em 27% de zoom quando não existe checkpoint salvo.
 - Checkpoint automático de viewport por arquivo (zoom + posição do canvas), retomando no mesmo ponto após recarregar ou reabrir o navegador.
 - Toasts visuais no padrão da plataforma para ações de produtividade (salvar checkpoint, exportar e limpar).
