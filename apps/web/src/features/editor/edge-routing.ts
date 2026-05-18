@@ -241,8 +241,8 @@ const orthogonalSegmentCrossesObstacleInterior = (
   end: EdgePoint,
   rect: EdgeObstacleRect
 ): boolean => {
-  if (isIconObstacle(rect)) {
-    // Icon obstacles are strict: any contact is treated as collision.
+  if (isStrictObstacle(rect)) {
+    // Contact-area obstacles are strict: any contact is treated as collision.
     return segmentIntersectsRect(start, end, rect);
   }
 
@@ -378,7 +378,7 @@ const reconstructStatePath = (cameFrom: ReadonlyMap<string, string>, current: st
 
 const isPointInsideObstacleInterior = (point: EdgePoint, obstacles: readonly EdgeObstacleRect[]): boolean =>
   obstacles.some((obstacle) =>
-    isIconObstacle(obstacle)
+    isStrictObstacle(obstacle)
       ? (
         point.x >= obstacle.left - EPSILON
         && point.x <= obstacle.right + EPSILON
@@ -533,7 +533,8 @@ export const segmentIntersectsRect = (start: EdgePoint, end: EdgePoint, rect: Ed
 const pointInsideRect = (point: EdgePoint, rect: EdgeObstacleRect): boolean =>
   point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
 
-const isIconObstacle = (rect: EdgeObstacleRect): boolean => rect.id.endsWith("__icon");
+const isStrictObstacle = (rect: EdgeObstacleRect): boolean =>
+  rect.id.endsWith("__icon") || rect.id.endsWith("__contact-shield");
 
 const segmentsIntersect = (a: EdgePoint, b: EdgePoint, c: EdgePoint, d: EdgePoint): boolean => {
   const orientation = (p: EdgePoint, q: EdgePoint, r: EdgePoint): number =>

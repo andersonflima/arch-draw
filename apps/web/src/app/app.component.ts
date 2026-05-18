@@ -285,6 +285,7 @@ const MAX_NODE_PORT_DOT_SIZE = 18;
 const MIN_NODE_PORT_OMNI_SIZE = 20;
 const MAX_NODE_PORT_OMNI_SIZE = 32;
 const EDGE_OBSTACLE_PADDING = 18;
+const EDGE_CONTACT_SHIELD_PADDING = 0;
 const LEAF_ICON_OBSTACLE_PADDING = 20;
 const EDGE_OBSTACLE_CLEARANCE = 30;
 const EDGE_PROXIMITY_SUPPRESSION_RADIUS = 190;
@@ -6231,14 +6232,23 @@ spec:
       })
       .flatMap((node) => {
         const paddedRect = this.createEdgeObstacleRect(node.id, node, EDGE_OBSTACLE_PADDING);
+        const contactShieldRect = this.createNodeContactShieldObstacleRect(
+          node.id,
+          node,
+          EDGE_CONTACT_SHIELD_PADDING
+        );
         const leafIconRect = this.createLeafIconObstacleRect(node.id, node, LEAF_ICON_OBSTACLE_PADDING);
         if (node.id !== sourceId && node.id !== targetId) {
-          return leafIconRect ? [paddedRect, leafIconRect] : [paddedRect];
+          return leafIconRect
+            ? [paddedRect, contactShieldRect, leafIconRect]
+            : [paddedRect, contactShieldRect];
         }
 
         // Keep a hard boundary for endpoints so routes never re-enter the source/target node body.
         const hardRect = this.createEdgeObstacleRect(`${node.id}__hard`, node, 0);
-        return leafIconRect ? [paddedRect, hardRect, leafIconRect] : [paddedRect, hardRect];
+        return leafIconRect
+          ? [paddedRect, hardRect, contactShieldRect, leafIconRect]
+          : [paddedRect, hardRect, contactShieldRect];
       });
   }
 
@@ -6250,6 +6260,21 @@ spec:
       top: absolute.y - padding,
       right: absolute.x + node.size.width + padding,
       bottom: absolute.y + node.size.height + padding
+    };
+  }
+
+  private createNodeContactShieldObstacleRect(
+    nodeId: string,
+    node: CanvasNode,
+    padding: number
+  ): EdgeObstacleRect {
+    const anchorBox = this.getNodeConnectionAnchorBox(node);
+    return {
+      id: `${nodeId}__contact-shield`,
+      left: anchorBox.center.x - anchorBox.halfWidth - padding,
+      top: anchorBox.center.y - anchorBox.halfHeight - padding,
+      right: anchorBox.center.x + anchorBox.halfWidth + padding,
+      bottom: anchorBox.center.y + anchorBox.halfHeight + padding
     };
   }
 

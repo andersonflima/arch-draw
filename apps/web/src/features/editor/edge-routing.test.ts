@@ -241,6 +241,32 @@ describe("edge routing", () => {
       expect(segmentIntersectsRect(from, to, targetHard)).toBe(false);
     }
   });
+
+  it("treats contact shields as strict invisible obstacles", () => {
+    const contactShield: EdgeObstacleRect = {
+      id: "middle__contact-shield",
+      left: 80,
+      top: 100,
+      right: 140,
+      bottom: 150
+    };
+
+    const routed = routePolylineAroundObstacles(
+      [{ x: 20, y: 100 }, { x: 220, y: 100 }],
+      [contactShield],
+      "source",
+      "target",
+      { maxPasses: 12, obstacleClearance: 24 }
+    );
+
+    expect(routed.length).toBeGreaterThan(2);
+    for (let index = 0; index < routed.length - 1; index += 1) {
+      const from = routed[index];
+      const to = routed[index + 1];
+      if (!from || !to) continue;
+      expect(segmentIntersectsRect(from, to, contactShield)).toBe(false);
+    }
+  });
 });
 
 const countPolylineBends = (points: readonly Readonly<{ x: number; y: number }>[]): number => {
