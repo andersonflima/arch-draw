@@ -2633,10 +2633,16 @@ app-flow-document-node {
   opacity: 0;
 }
 
-.architecture-node.is-selected .node-port::before {
+.architecture-node.is-selected .node-port::before,
+.node-port.is-connection-target::before {
   border-color: #f59e0b;
   background: #fffbeb;
   box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.22), 1px 1px 0 #111827;
+}
+
+.node-port.is-connection-target::after {
+  opacity: 1;
+  background: rgba(245, 158, 11, 0.45);
 }
 
 .node-port--target {
@@ -3703,7 +3709,8 @@ app-flow-document-node {
   opacity: 0;
 }
 
-.app-shell.theme-dark .architecture-node.is-selected .node-port::before {
+.app-shell.theme-dark .architecture-node.is-selected .node-port::before,
+.app-shell.theme-dark .node-port.is-connection-target::before {
   border-color: #f59e0b;
   background: #422006;
   box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.28), 1px 1px 0 #0b1220;

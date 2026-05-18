@@ -12,6 +12,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Conexões avançadas entre elementos com estilos, direções e roteamento progressivo com desvio de obstáculos.
 - Curvas de conexão respeitam os mesmos obstáculos do roteamento; quando uma curva invadir um elemento, o canto é mantido reto.
 - A área de contato das âncoras atua como escudo invisível de roteamento, mantendo conexões por fora do elemento mesmo quando os controles não estão visíveis.
+- Drag de conexão iniciado em âncora mantém preview e alvo travado na porta destacada, evitando conexão acidental em outro elemento no drop.
 - Setas de conexão ancoradas pela borda externa da bolinha de contato (apenas lados esquerdo/direito), com ponta da seta na bolinha e linha terminando no centro traseiro da seta.
 - Em conexões múltiplas no mesmo ponto, as âncoras se unificam na bolinha de contato e só abrem afastamento no percurso, com tronco comum simétrico na origem e no destino.
 - Áreas de clique das portas de conexão calibradas para maior precisão: gesto na direção da porta inicia vínculo, enquanto o drag de elementos minimizados inicia apenas sobre o ícone do elemento.

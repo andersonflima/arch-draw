@@ -1536,6 +1536,7 @@ export class AppComponent implements OnDestroy {
   private suppressCanvasClickClear = false;
   private resizeEnabledNodeId: string | null = null;
   private connectionDragState: ConnectionDragState | null = null;
+  private connectionDragTarget: ConnectionTarget | null = null;
   private pendingPortGestureState: PendingPortGestureState | null = null;
   private autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
   private viewportCheckpointTimer: ReturnType<typeof setTimeout> | null = null;
@@ -2391,6 +2392,7 @@ export class AppComponent implements OnDestroy {
     this.connectionSourceId = null;
     this.connectionSourcePort = null;
     this.connectionDragState = null;
+    this.connectionDragTarget = null;
     this.pendingPortGestureState = null;
     this.editingEdgeId = null;
     this.editingEdgeLabelDraft = "";
@@ -3389,6 +3391,7 @@ LIMIT 50;`;
       targetPort
     });
     this.connectionDragState = null;
+    this.connectionDragTarget = null;
     this.connectionSourceId = null;
     this.connectionSourcePort = null;
     this.markViewChanged();
@@ -3479,6 +3482,7 @@ LIMIT 50;`;
     this.selectedEdgeId = null;
     this.connectionSourceId = null;
     this.connectionSourcePort = null;
+    this.connectionDragTarget = null;
     this.pendingPortGestureState = null;
     this.resizeEnabledNodeId = null;
     this.markViewChanged();
@@ -3545,9 +3549,7 @@ LIMIT 50;`;
       const point = this.toCanvasPoint(event);
       if (!this.hasExceededDragStartThreshold(this.pendingPortGestureState.start, point)) return;
 
-      if (this.shouldStartConnectionDragFromPortGesture(this.pendingPortGestureState, point)) {
-        this.startConnectDragFromGesture(this.pendingPortGestureState.nodeId, this.pendingPortGestureState.sourcePort, point);
-      }
+      this.startConnectDragFromGesture(this.pendingPortGestureState.nodeId, this.pendingPortGestureState.sourcePort, point);
       this.pendingPortGestureState = null;
       return;
     }
@@ -3557,6 +3559,10 @@ LIMIT 50;`;
         ...this.connectionDragState,
         current: this.toCanvasPoint(event)
       };
+      this.connectionDragTarget = this.getTargetNodeIdFromPointerEvent(
+        event,
+        this.connectionDragState.sourceId
+      );
       this.markInteractionChanged();
       return;
     }
@@ -3601,10 +3607,13 @@ LIMIT 50;`;
     }
 
     if (this.connectionDragState) {
-      const target = this.getTargetNodeIdFromPointerEvent(
+      const currentTarget = this.getTargetNodeIdFromPointerEvent(
         event,
         this.connectionDragState.sourceId
       );
+      const target = this.isSameConnectionTarget(this.connectionDragTarget, currentTarget)
+        ? this.connectionDragTarget
+        : null;
       if (target && target.nodeId !== this.connectionDragState.sourceId) {
         this.createConnection(this.connectionDragState.sourceId, target.nodeId, {
           sourcePort: this.connectionDragState.sourcePort,
@@ -3612,6 +3621,7 @@ LIMIT 50;`;
         });
       }
       this.connectionDragState = null;
+      this.connectionDragTarget = null;
       this.connectionSourceId = null;
       this.connectionSourcePort = null;
       this.markViewChanged();
@@ -3649,6 +3659,7 @@ LIMIT 50;`;
     this.dragState = null;
     this.resizeState = null;
     this.connectionDragState = null;
+    this.connectionDragTarget = null;
     this.pendingPortGestureState = null;
     this.marqueeState = null;
     this.hoveredEdgeId = null;
@@ -3730,6 +3741,7 @@ LIMIT 50;`;
     this.connectionSourceId = null;
     this.connectionSourcePort = null;
     this.connectionDragState = null;
+    this.connectionDragTarget = null;
     this.pendingPortGestureState = null;
     this.editingEdgeId = null;
     this.editingEdgeLabelDraft = "";
@@ -7500,6 +7512,7 @@ spec:
       start: point,
       current: point
     };
+    this.connectionDragTarget = null;
     this.markViewChanged();
   }
 
@@ -7553,29 +7566,6 @@ spec:
       hasMoved: false
     };
     return this.dragState;
-  }
-
-  private shouldStartConnectionDragFromPortGesture(
-    gesture: PendingPortGestureState,
-    currentPoint: Readonly<{ x: number; y: number }>
-  ): boolean {
-    if (!gesture.sourcePort) return false;
-    const deltaX = currentPoint.x - gesture.start.x;
-    const deltaY = currentPoint.y - gesture.start.y;
-    const isHorizontalIntent = Math.abs(deltaX) >= Math.abs(deltaY);
-
-    switch (gesture.sourcePort) {
-      case "right":
-        return isHorizontalIntent && deltaX > 0;
-      case "left":
-        return isHorizontalIntent && deltaX < 0;
-      case "top":
-        return !isHorizontalIntent && deltaY < 0;
-      case "bottom":
-        return !isHorizontalIntent && deltaY > 0;
-      default:
-        return false;
-    }
   }
 
   private startCanvasPan(event: PointerEvent): void {
@@ -7656,35 +7646,48 @@ spec:
     event: PointerEvent,
     sourceNodeId: string
   ): ConnectionTarget | null {
-    const target = event.target as HTMLElement | null;
     const isImplicitlyInvalidTarget = (targetNodeId: string): boolean =>
       targetNodeId === sourceNodeId ||
       this.isAncestorOfNode(targetNodeId, sourceNodeId) ||
       this.isAncestorOfNode(sourceNodeId, targetNodeId);
-    const fromTargetPortElement = target?.closest<HTMLElement>("[data-target-port-node-id]") ?? null;
-    const fromTargetPortNodeId = fromTargetPortElement?.dataset["targetPortNodeId"] ?? null;
-    const fromTargetPort = this.parseEdgePortSide(fromTargetPortElement?.dataset["portSide"]);
-    if (fromTargetPortNodeId && fromTargetPort && !isImplicitlyInvalidTarget(fromTargetPortNodeId)) {
-      return {
-        nodeId: fromTargetPortNodeId,
-        targetPort: fromTargetPort
-      };
-    }
+    return document
+      .elementsFromPoint(event.clientX, event.clientY)
+      .map((hoveredElement) =>
+        (hoveredElement as HTMLElement).closest<HTMLElement>("[data-target-port-node-id]")
+      )
+      .filter((targetPortElement): targetPortElement is HTMLElement => Boolean(targetPortElement))
+      .map((targetPortElement) => this.toConnectionTargetCandidate(targetPortElement, event))
+      .filter((candidate): candidate is ConnectionTarget & Readonly<{ distance: number }> => Boolean(candidate))
+      .filter((candidate) => !isImplicitlyInvalidTarget(candidate.nodeId))
+      .sort((first, second) => first.distance - second.distance)
+      .map(({ nodeId, targetPort }) => ({ nodeId, targetPort }))
+      .at(0) ?? null;
+  }
 
-    const hoveredElements = document.elementsFromPoint(event.clientX, event.clientY);
-    for (const hoveredElement of hoveredElements) {
-      const hovered = hoveredElement as HTMLElement;
-      const targetPortElement = hovered.closest<HTMLElement>("[data-target-port-node-id]") ?? null;
-      const targetPortNodeId = targetPortElement?.dataset["targetPortNodeId"] ?? null;
-      const targetPort = this.parseEdgePortSide(targetPortElement?.dataset["portSide"]);
-      if (targetPortNodeId && targetPort && !isImplicitlyInvalidTarget(targetPortNodeId)) {
-        return {
-          nodeId: targetPortNodeId,
-          targetPort
-        };
-      }
-    }
-    return null;
+  private toConnectionTargetCandidate(
+    targetPortElement: HTMLElement,
+    event: PointerEvent
+  ): (ConnectionTarget & Readonly<{ distance: number }>) | null {
+    const nodeId = targetPortElement.dataset["targetPortNodeId"] ?? null;
+    const targetPort = this.parseEdgePortSide(targetPortElement.dataset["portSide"]);
+    if (!nodeId || !targetPort) return null;
+    const rect = targetPortElement.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    return {
+      nodeId,
+      targetPort,
+      distance: Math.hypot(event.clientX - centerX, event.clientY - centerY)
+    };
+  }
+
+  private isSameConnectionTarget(first: ConnectionTarget | null, second: ConnectionTarget | null): boolean {
+    return Boolean(first && second && first.nodeId === second.nodeId && first.targetPort === second.targetPort);
+  }
+
+  isConnectionTargetPort(nodeId: string, targetPort: ArchitectureEdgePortSide): boolean {
+    return this.connectionDragTarget?.nodeId === nodeId
+      && this.connectionDragTarget.targetPort === targetPort;
   }
 
   private parseEdgePortSide(value: string | undefined): ArchitectureEdgePortSide | null {
@@ -8323,6 +8326,7 @@ spec:
       this.connectionSourceId = null;
       this.connectionSourcePort = null;
       this.connectionDragState = null;
+      this.connectionDragTarget = null;
       this.pendingPortGestureState = null;
       this.nodeInlineCodeDrafts.clear();
       this.status = this.t("status.undone");
