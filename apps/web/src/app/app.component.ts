@@ -1712,6 +1712,13 @@ export class AppComponent implements OnDestroy {
   private readonly nodePropertyFieldsCache = new Map<ArchitectureNodeKind, readonly NodePropertyField[]>();
   private readonly iconColorCache = new Map<string, string>();
   private readonly codeLanguageBadgeCache = new Map<string, CodeLanguageBadgeCacheEntry>();
+  private nodeGraphCacheSource: readonly CanvasNode[] | null = null;
+  private readonly nodeByIdCache = new Map<string, CanvasNode>();
+  private readonly nodeAbsolutePositionCache = new Map<string, Readonly<{ x: number; y: number }>>();
+  private readonly nodeHierarchyDepthCache = new Map<string, number>();
+  private readonly collapsedContainerAncestorCache = new Map<string, boolean>();
+  private readonly nearestCollapsedContainerAncestorCache = new Map<string, CanvasNode | null>();
+  private readonly openAncestorContainerIdsCache = new Map<string, readonly string[]>();
   private readonly edgePathDataCache = new Map<string, EdgePathData | null>();
   private readonly edgePathStringCache = new Map<string, string>();
   private readonly edgeBidirectionalFlowPathCache = new Map<string, string>();
@@ -4100,14 +4107,19 @@ LIMIT 50;`;
   }
 
   private getNodeHierarchyDepth(node: CanvasNode): number {
+    this.ensureNodeGraphCaches();
+    const cached = this.nodeHierarchyDepthCache.get(node.id);
+    if (cached !== undefined) return cached;
+
     let depth = 0;
     let currentParentId = node.parentId;
     while (currentParentId) {
-      const parent = this.nodes.find((candidate) => candidate.id === currentParentId);
+      const parent = this.getNodeById(currentParentId);
       if (!parent) break;
       depth += 1;
       currentParentId = parent.parentId;
     }
+    this.nodeHierarchyDepthCache.set(node.id, depth);
     return depth;
   }
 
@@ -6240,24 +6252,47 @@ spec:
   }
 
   private hasCollapsedContainerAncestor(node: CanvasNode): boolean {
+    this.ensureNodeGraphCaches();
+    const cached = this.collapsedContainerAncestorCache.get(node.id);
+    if (cached !== undefined) return cached;
+
     let currentParentId = node.parentId;
     while (currentParentId) {
-      const parent = this.nodes.find((candidate) => candidate.id === currentParentId);
-      if (!parent) return false;
-      if (this.isContainerCollapsed(parent)) return true;
+      const parent = this.getNodeById(currentParentId);
+      if (!parent) {
+        this.collapsedContainerAncestorCache.set(node.id, false);
+        return false;
+      }
+      if (this.isContainerCollapsed(parent)) {
+        this.collapsedContainerAncestorCache.set(node.id, true);
+        return true;
+      }
       currentParentId = parent.parentId;
     }
+    this.collapsedContainerAncestorCache.set(node.id, false);
     return false;
   }
 
   private getNearestCollapsedContainerAncestor(node: CanvasNode): CanvasNode | null {
+    this.ensureNodeGraphCaches();
+    if (this.nearestCollapsedContainerAncestorCache.has(node.id)) {
+      return this.nearestCollapsedContainerAncestorCache.get(node.id) ?? null;
+    }
+
     let currentParentId = node.parentId;
     while (currentParentId) {
-      const parent = this.nodes.find((candidate) => candidate.id === currentParentId);
-      if (!parent) return null;
-      if (this.isContainerCollapsed(parent)) return parent;
+      const parent = this.getNodeById(currentParentId);
+      if (!parent) {
+        this.nearestCollapsedContainerAncestorCache.set(node.id, null);
+        return null;
+      }
+      if (this.isContainerCollapsed(parent)) {
+        this.nearestCollapsedContainerAncestorCache.set(node.id, parent);
+        return parent;
+      }
       currentParentId = parent.parentId;
     }
+    this.nearestCollapsedContainerAncestorCache.set(node.id, null);
     return null;
   }
 
@@ -6848,14 +6883,19 @@ spec:
   }
 
   private getOpenAncestorContainerIds(nodeId: string): readonly string[] {
+    this.ensureNodeGraphCaches();
+    const cached = this.openAncestorContainerIdsCache.get(nodeId);
+    if (cached) return cached;
+
     const ids: string[] = [];
-    let currentParentId = this.nodes.find((node) => node.id === nodeId)?.parentId;
+    let currentParentId = this.getNodeById(nodeId)?.parentId;
     while (currentParentId) {
-      const parent = this.nodes.find((node) => node.id === currentParentId);
+      const parent = this.getNodeById(currentParentId);
       if (!parent) break;
       if (this.rendersAsContainer(parent)) ids.push(parent.id);
       currentParentId = parent.parentId;
     }
+    this.openAncestorContainerIdsCache.set(nodeId, ids);
     return ids;
   }
 
@@ -7212,13 +7252,13 @@ spec:
   }
 
   private fitContainerAndAncestorChain(nodeId: string): void {
-    let current = this.nodes.find((node) => node.id === nodeId) ?? null;
+    let current = this.getNodeById(nodeId);
     while (current) {
       if (isContainerNodeKind(current.kind) && !this.isContainerCollapsed(current)) {
         this.fitSingleContainerToChildren(current.id);
       }
       current = current.parentId
-        ? this.nodes.find((node) => node.id === current?.parentId) ?? null
+        ? this.getNodeById(current.parentId)
         : null;
     }
   }
@@ -7491,14 +7531,27 @@ spec:
   }
 
   private getAbsolutePosition(node: CanvasNode): Readonly<{ x: number; y: number }> {
-    if (!node.parentId) return node.position;
-    const parent = this.nodes.find((candidate) => candidate.id === node.parentId);
-    if (!parent) return node.position;
+    this.ensureNodeGraphCaches();
+    const cached = this.nodeAbsolutePositionCache.get(node.id);
+    if (cached) return cached;
+
+    if (!node.parentId) {
+      this.nodeAbsolutePositionCache.set(node.id, node.position);
+      return node.position;
+    }
+
+    const parent = this.getNodeById(node.parentId);
+    if (!parent) {
+      this.nodeAbsolutePositionCache.set(node.id, node.position);
+      return node.position;
+    }
     const parentPosition = this.getAbsolutePosition(parent);
-    return {
+    const position = {
       x: parentPosition.x + node.position.x,
       y: parentPosition.y + node.position.y
     };
+    this.nodeAbsolutePositionCache.set(node.id, position);
+    return position;
   }
 
   private getNodeCenter(node: CanvasNode): Readonly<{ x: number; y: number }> {
@@ -10296,6 +10349,39 @@ spec:
     return node.collapsedIconKind ?? this.getDefaultCollapsedIconKind(node.kind);
   }
 
+  private getNodeById(nodeId: string): CanvasNode | null {
+    this.ensureNodeGraphCaches();
+    return this.nodeByIdCache.get(nodeId) ?? null;
+  }
+
+  private ensureNodeGraphCaches(): void {
+    if (this.nodeGraphCacheSource === this.nodes) return;
+    this.rebuildNodeGraphCaches();
+  }
+
+  private rebuildNodeGraphCaches(): void {
+    this.nodeGraphCacheSource = this.nodes;
+    this.nodeByIdCache.clear();
+    this.clearNodeGraphDerivedCaches();
+    for (const node of this.nodes) {
+      this.nodeByIdCache.set(node.id, node);
+    }
+  }
+
+  private clearNodeGraphCaches(): void {
+    this.nodeGraphCacheSource = null;
+    this.nodeByIdCache.clear();
+    this.clearNodeGraphDerivedCaches();
+  }
+
+  private clearNodeGraphDerivedCaches(): void {
+    this.nodeAbsolutePositionCache.clear();
+    this.nodeHierarchyDepthCache.clear();
+    this.collapsedContainerAncestorCache.clear();
+    this.nearestCollapsedContainerAncestorCache.clear();
+    this.openAncestorContainerIdsCache.clear();
+  }
+
   private isContainerPlusLikeKind(kind: ArchitectureNodeKind): boolean {
     return (
       kind === "group-container-plus"
@@ -10368,6 +10454,7 @@ spec:
   }
 
   private clearCanvasRenderCaches(): void {
+    this.clearNodeGraphCaches();
     this.edgePathDataCache.clear();
     this.edgePathStringCache.clear();
     this.edgeBidirectionalFlowPathCache.clear();
