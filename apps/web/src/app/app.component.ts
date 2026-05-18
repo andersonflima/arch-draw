@@ -1697,7 +1697,7 @@ export class AppComponent implements OnDestroy {
   toggleUiLanguage(): void {
     this.uiLanguage = this.uiLanguage === "pt-BR" ? "en-US" : "pt-BR";
     this.persistUiLanguagePreference();
-    this.markInteractionChanged();
+    this.markViewportChanged();
   }
 
   toggleDarkMode(): void {
@@ -1711,7 +1711,7 @@ export class AppComponent implements OnDestroy {
   toggleLeftPanelsVisibility(): void {
     this.isLeftPanelsHidden = !this.isLeftPanelsHidden;
     this.persistLeftPanelsVisibilityPreference();
-    this.markInteractionChanged();
+    this.markViewportChanged();
   }
 
   async logoutFromSession(): Promise<void> {
@@ -1857,7 +1857,7 @@ export class AppComponent implements OnDestroy {
     this.status = this.t("status.tutorialOpened");
     const trigger = event?.currentTarget as HTMLElement | null;
     trigger?.closest("details")?.removeAttribute("open");
-    this.markInteractionChanged();
+    this.markViewportChanged();
   }
 
   closeTutorialGuide(): void {
@@ -1866,7 +1866,7 @@ export class AppComponent implements OnDestroy {
     this.tutorialStepClickSatisfied = false;
     this.clearTutorialTargetHighlight();
     this.status = this.t("status.tutorialClosed");
-    this.markInteractionChanged();
+    this.markViewportChanged();
   }
 
   getActiveTutorialGuide(): TutorialGuide | null {
@@ -1908,7 +1908,7 @@ export class AppComponent implements OnDestroy {
     this.syncTutorialStepRequirements();
     this.refreshTutorialTargetHighlight();
     this.ensureTutorialTargetVisible();
-    this.markInteractionChanged();
+    this.markViewportChanged();
   }
 
   nextTutorialStep(): void {
@@ -1918,14 +1918,14 @@ export class AppComponent implements OnDestroy {
     if (this.activeTutorialStepIndex >= guide.steps.length - 1) {
       this.closeTutorialGuide();
       this.status = this.t("status.tutorialCompleted");
-      this.markInteractionChanged();
+      this.markViewportChanged();
       return;
     }
     this.activeTutorialStepIndex += 1;
     this.syncTutorialStepRequirements();
     this.refreshTutorialTargetHighlight();
     this.ensureTutorialTargetVisible();
-    this.markInteractionChanged();
+    this.markViewportChanged();
   }
 
   shouldShowTutorialPendingClick(): boolean {
@@ -2035,7 +2035,7 @@ export class AppComponent implements OnDestroy {
     if (!target.closest(step.targetSelector)) return;
     if (this.tutorialStepClickSatisfied) return;
     this.tutorialStepClickSatisfied = true;
-    this.markInteractionChanged();
+    this.markViewportChanged();
   }
 
   async exportCurrent(): Promise<void> {
@@ -2433,7 +2433,7 @@ export class AppComponent implements OnDestroy {
     const visibleNode = this.getVisibleNodeById(nodeId);
     if (!visibleNode) {
       this.contextPropertiesPanel = null;
-      this.markInteractionChanged();
+      this.markViewportChanged();
       return;
     }
     this.selectNode(nodeId);
@@ -2446,7 +2446,7 @@ export class AppComponent implements OnDestroy {
     const edge = this.edges.find((candidate) => candidate.id === edgeId);
     if (!edge || !this.isVisibleEdge(edge)) {
       this.contextPropertiesPanel = null;
-      this.markInteractionChanged();
+      this.markViewportChanged();
       return;
     }
     this.selectedEdgeId = edgeId;
@@ -2466,7 +2466,7 @@ export class AppComponent implements OnDestroy {
     const target = event.target as HTMLElement;
     if (target.closest(".architecture-node, .canvas-edge, .canvas-edge-hit")) return;
     this.contextPropertiesPanel = null;
-    this.markInteractionChanged();
+    this.markViewportChanged();
   }
 
   getContextPropertiesPanelStyle(): Record<string, string> {
@@ -3538,7 +3538,7 @@ LIMIT 50;`;
         pageHeight: WHEEL_PAN_PAGE_HEIGHT
       }
     );
-    this.markInteractionChanged();
+    this.markViewportChanged();
   }
 
   private shouldIgnoreCanvasWheelPan(event: WheelEvent): boolean {
@@ -3575,7 +3575,7 @@ LIMIT 50;`;
         x: this.panState.startPan.x + deltaX,
         y: this.panState.startPan.y + deltaY
       };
-      this.markInteractionChanged();
+      this.markViewportChanged();
       return;
     }
 
@@ -3617,7 +3617,7 @@ LIMIT 50;`;
         event,
         this.connectionDragState.sourceId
       );
-      this.markInteractionChanged();
+      this.markViewportChanged();
       return;
     }
 
@@ -3626,7 +3626,7 @@ LIMIT 50;`;
         ...this.marqueeState,
         current: this.toCanvasPoint(event)
       };
-      this.markInteractionChanged();
+      this.markViewportChanged();
     }
   }
 
@@ -3693,7 +3693,7 @@ LIMIT 50;`;
       this.hoveredEdgeId = null;
     }
 
-    if (hadMiniMapDragState || hadPanState) this.markInteractionChanged();
+    if (hadMiniMapDragState || hadPanState) this.markViewportChanged();
     if (hadMiniMapDragState || hadPanState) this.persistViewportCheckpointNow();
     if (hadDragState || hadResizeState) this.markViewChanged();
   }
@@ -3717,7 +3717,7 @@ LIMIT 50;`;
     this.pendingPortGestureState = null;
     this.marqueeState = null;
     this.hoveredEdgeId = null;
-    if (hadInteraction) this.markInteractionChanged();
+    if (hadInteraction) this.markViewportChanged();
   }
 
   @HostListener("window:keydown", ["$event"])
@@ -3766,7 +3766,7 @@ LIMIT 50;`;
 
     if (event.key === "Escape" && this.contextPropertiesPanel) {
       this.contextPropertiesPanel = null;
-      this.markInteractionChanged();
+      this.markViewportChanged();
       return;
     }
 
@@ -3817,7 +3817,7 @@ LIMIT 50;`;
     if (this.isTutorialActive()) {
       this.refreshTutorialTargetHighlight();
     }
-    this.markInteractionChanged();
+    this.markViewportChanged();
   }
 
   @HostListener("window:beforeunload")
@@ -7238,7 +7238,7 @@ spec:
     const rect = this.canvasShell?.nativeElement.getBoundingClientRect();
     if (!rect) {
       this.canvasZoom = nextZoom;
-      this.markViewChanged();
+      this.markViewportChanged();
       return;
     }
 
@@ -7248,7 +7248,7 @@ spec:
       x: viewportPoint.clientX - rect.left - canvasPoint.x * nextZoom,
       y: viewportPoint.clientY - rect.top - canvasPoint.y * nextZoom
     };
-    this.markViewChanged();
+    this.markViewportChanged();
   }
 
   private clampZoom(value: number): number {
@@ -7589,7 +7589,7 @@ spec:
       x: -targetVisibleLeft * this.canvasZoom,
       y: -targetVisibleTop * this.canvasZoom
     };
-    this.markInteractionChanged();
+    this.markViewportChanged();
   }
 
   private area(size: Readonly<{ width: number; height: number }>): number {
@@ -7757,7 +7757,7 @@ spec:
       startPan: this.canvasPan
     };
     (event.currentTarget as HTMLElement | null)?.setPointerCapture?.(event.pointerId);
-    this.markInteractionChanged();
+    this.markViewportChanged();
   }
 
   private createConnection(
@@ -9947,6 +9947,12 @@ spec:
     this.edgeSideLaneOffsetCache.clear();
     this.edgeLabelDyCache.clear();
     this.edgeLabelStartOffsetCache.clear();
+    this.scheduleCollaborationViewPublish();
+    this.scheduleViewportCheckpointPersist();
+    this.requestViewRender();
+  }
+
+  private markViewportChanged(): void {
     this.scheduleCollaborationViewPublish();
     this.scheduleViewportCheckpointPersist();
     this.requestViewRender();
