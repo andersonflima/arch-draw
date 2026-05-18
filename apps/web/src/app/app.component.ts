@@ -398,7 +398,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "node.expandContainer": "Expandir container",
     "node.maximizeContainer": "Maximizar container",
     "node.minimizeToIcon": "Minimizar para ícone",
-    "node.doubleClickHint": "Dê dois cliques para ampliar",
+    "node.doubleClickHint": "Dê 2 cliques para ampliar",
     "map.aria": "Mapa do canvas",
     "map.currentView": "Visão atual",
     "map.zoomOut": "Diminuir zoom",
