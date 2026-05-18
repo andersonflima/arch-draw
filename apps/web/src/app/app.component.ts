@@ -4113,6 +4113,8 @@ LIMIT 50;`;
   }
 
   getEdgeProximityIndicatorStyle(): Record<string, string> | null {
+    const connectionTargetStyle = this.getConnectionTargetContactAreaIndicatorStyle();
+    if (connectionTargetStyle) return connectionTargetStyle;
     const selectedContactStyle = this.isDragDropContactAreaActive()
       ? this.getSelectedContactAreaIndicatorStyle()
       : null;
@@ -4130,6 +4132,13 @@ LIMIT 50;`;
       height: `${radius * 2}px`,
       borderRadius: "999px"
     };
+  }
+
+  private getConnectionTargetContactAreaIndicatorStyle(): Record<string, string> | null {
+    if (!this.connectionDragState || !this.connectionDragTarget) return null;
+    const targetNode = this.nodes.find((node) => node.id === this.connectionDragTarget?.nodeId);
+    if (!targetNode || !this.isVisibleNode(targetNode)) return null;
+    return this.buildContactAreaIndicatorStyle([targetNode]);
   }
 
   onEdgePointerEnter(edgeId: string): void {

@@ -26,6 +26,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Camadas visuais por hierarquia de container (filhos sempre acima do container pai), sem elevar z-index apenas por foco de clique.
 - Quando um bloco de código está expandido, ele recebe precedência de camada sobre irmãos no mesmo contexto para evitar sobreposição visual do conteúdo aberto.
 - Supressão automática de linhas de conexão que encostam na área de contato durante drag and drop, com área visível para elementos minimizados/maximizados (inclusive dentro de containers) e sem ativação por foco/clique/abertura.
+- Ao criar conexões com containers abertos, o alvo visual usa o perímetro do container como barreira de contato em vez do indicador circular de proximidade.
 - Labels de âncoras exibidos em caixa horizontal fixa (sem seguir ângulo da linha e sem quebra de palavra), com fundo transparente e blur forte atrás do texto para preservar leitura sem caixa opaca.
 - Estilo de conexão `smoothstep` com curvas suaves contínuas para leitura de fluxo.
 - Elementos expansíveis/minimizáveis para navegar entre níveis de detalhe.
