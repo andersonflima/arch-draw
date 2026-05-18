@@ -244,8 +244,8 @@ const DEFAULT_MERMAID_SOURCE = `graph LR
   User["User"] --> Api["API"]
   Api --> Db["SQLite"]`;
 
-const MIN_ZOOM = 0.15;
-const MAX_ZOOM = 2.4;
+const MIN_ZOOM = 0.05;
+const MAX_ZOOM = 5;
 const ZOOM_IN_FACTOR = 1.15;
 const ZOOM_OUT_FACTOR = 1 / ZOOM_IN_FACTOR;
 const WHEEL_ZOOM_SENSITIVITY = 0.0014;
@@ -350,6 +350,7 @@ const LEFT_PANELS_VISIBILITY_STORAGE_KEY = "arch-draw.left-panels-hidden";
 const VIEWPORT_CHECKPOINT_STORAGE_PREFIX = "arch-draw.viewport";
 const VIEWPORT_CHECKPOINT_DEBOUNCE_MS = 260;
 const DEFAULT_INITIAL_CANVAS_ZOOM = 0.27;
+const CANVAS_RENDER_VIEWPORT_MARGIN_PX = 720;
 const CONTAINER_CHILD_PADDING_LEFT = 16;
 const CONTAINER_CHILD_PADDING_RIGHT = 16;
 const CONTAINER_CHILD_PADDING_TOP = 56;
@@ -1589,6 +1590,7 @@ export class AppComponent implements OnDestroy {
   private collaborationSyncQueued = false;
   private collaborationApplyingRemoteDocument = false;
   private collaborationApplyingRemoteView = false;
+  private renderAllCanvasForExport = false;
   private lastCollaborationSignature = "";
   private lastCollaborationViewSignature = "";
   private lastCursorPublishedAt = 0;
@@ -1619,6 +1621,9 @@ export class AppComponent implements OnDestroy {
   private readonly nodeStyleCache = new Map<string, Record<string, string | number>>();
   private readonly nodeClassCache = new Map<string, string>();
   private readonly miniMapNodeStyleCache = new Map<string, Record<string, string>>();
+  private readonly renderableNodeIdsCache = new Map<string, boolean>();
+  private readonly renderableEdgeIdsCache = new Map<string, boolean>();
+  private renderableCanvasRectCache: CanvasRect | null = null;
   private readonly leafNodeLabelKnockoutRectCache = new Map<string, CanvasRect | null>();
   private edgeClipContainersCache: readonly CanvasNode[] | null = null;
   private leafLabelKnockoutNodesCache: readonly CanvasNode[] | null = null;
@@ -4074,11 +4079,47 @@ LIMIT 50;`;
     return !this.hasCollapsedContainerAncestor(node);
   }
 
+  isRenderableNode(node: CanvasNode): boolean {
+    if (this.renderAllCanvasForExport) return this.isVisibleNode(node);
+    const cached = this.renderableNodeIdsCache.get(node.id);
+    if (cached !== undefined) return cached;
+
+    const renderable = this.isVisibleNode(node)
+      && this.rectIntersectsCanvasRect(this.getNodeAbsoluteRect(node), this.getRenderableCanvasRect());
+    this.renderableNodeIdsCache.set(node.id, renderable);
+    return renderable;
+  }
+
   isVisibleEdge(edge: CanvasEdge): boolean {
     const effective = this.getEffectiveEdgeEndpoints(edge);
     if (!effective) return false;
     const { fromNode, toNode } = effective;
     return fromNode.id !== toNode.id && this.isVisibleNode(fromNode) && this.isVisibleNode(toNode);
+  }
+
+  isRenderableEdge(edge: CanvasEdge): boolean {
+    if (this.renderAllCanvasForExport) return this.isVisibleEdge(edge);
+    const cached = this.renderableEdgeIdsCache.get(edge.id);
+    if (cached !== undefined) return cached;
+    if (!this.isVisibleEdge(edge)) {
+      this.renderableEdgeIdsCache.set(edge.id, false);
+      return false;
+    }
+
+    const effective = this.getEffectiveEdgeEndpoints(edge);
+    if (!effective) {
+      this.renderableEdgeIdsCache.set(edge.id, false);
+      return false;
+    }
+
+    const { fromNode, toNode } = effective;
+    const edgeBounds = this.getRectUnion([
+      this.getNodeAbsoluteRect(fromNode),
+      this.getNodeAbsoluteRect(toNode)
+    ]);
+    const renderable = this.rectIntersectsCanvasRect(edgeBounds, this.getRenderableCanvasRect());
+    this.renderableEdgeIdsCache.set(edge.id, renderable);
+    return renderable;
   }
 
   isEdgeLayerElevated(): boolean {
@@ -4706,7 +4747,7 @@ LIMIT 50;`;
     if (this.leafLabelKnockoutNodesCache) return this.leafLabelKnockoutNodesCache;
 
     const nodes = this.nodes.filter((node) =>
-      this.isVisibleNode(node)
+      this.isRenderableNode(node)
       && this.usesLeafConnectionAnchorBox(node)
       && !this.isEditingNode(node.id)
       && node.label.trim().length > 0
@@ -4783,7 +4824,7 @@ LIMIT 50;`;
 
   getEdgeClipContainers(): readonly CanvasNode[] {
     if (this.edgeClipContainersCache) return this.edgeClipContainersCache;
-    const containers = this.nodes.filter((node) => isContainerNodeKind(node.kind) && this.isVisibleNode(node));
+    const containers = this.nodes.filter((node) => isContainerNodeKind(node.kind) && this.isRenderableNode(node));
     this.edgeClipContainersCache = containers;
     return containers;
   }
@@ -7364,6 +7405,52 @@ spec:
     };
   }
 
+  private getRenderableCanvasRect(): CanvasRect {
+    if (this.renderableCanvasRectCache) return this.renderableCanvasRectCache;
+
+    const visible = this.getVisibleCanvasRect();
+    const margin = CANVAS_RENDER_VIEWPORT_MARGIN_PX / Math.max(this.canvasZoom, 0.001);
+    const rect = {
+      x: visible.left - margin,
+      y: visible.top - margin,
+      width: visible.width + margin * 2,
+      height: visible.height + margin * 2
+    };
+    this.renderableCanvasRectCache = rect;
+    return rect;
+  }
+
+  private rectIntersectsCanvasRect(rect: CanvasRect, viewport: CanvasRect): boolean {
+    return (
+      rect.x + rect.width >= viewport.x
+      && rect.x <= viewport.x + viewport.width
+      && rect.y + rect.height >= viewport.y
+      && rect.y <= viewport.y + viewport.height
+    );
+  }
+
+  private getRectUnion(rects: readonly CanvasRect[]): CanvasRect {
+    if (rects.length === 0) return { x: 0, y: 0, width: 0, height: 0 };
+    let left = Number.POSITIVE_INFINITY;
+    let top = Number.POSITIVE_INFINITY;
+    let right = Number.NEGATIVE_INFINITY;
+    let bottom = Number.NEGATIVE_INFINITY;
+
+    for (const rect of rects) {
+      left = Math.min(left, rect.x);
+      top = Math.min(top, rect.y);
+      right = Math.max(right, rect.x + rect.width);
+      bottom = Math.max(bottom, rect.y + rect.height);
+    }
+
+    return {
+      x: left,
+      y: top,
+      width: Math.max(0, right - left),
+      height: Math.max(0, bottom - top)
+    };
+  }
+
   private sortNodes(nodes: readonly CanvasNode[]): CanvasNode[] {
     const byId = new Map(nodes.map((node) => [node.id, node] as const));
     const depthCache = new Map<string, number>();
@@ -8774,14 +8861,21 @@ spec:
 
     const bounds = this.getExportContentBounds();
     const dimensions = this.getExportCanvasDimensionsFromBounds(bounds);
-    const { host, captureNode } = this.createExportSnapshotCanvas(canvas, bounds, dimensions);
-
-    document.body.appendChild(host);
+    this.renderAllCanvasForExport = true;
+    this.clearViewportRenderCaches();
+    this.requestViewRender();
     await this.waitForNextFrame();
+
+    const { host, captureNode } = this.createExportSnapshotCanvas(canvas, bounds, dimensions);
+    document.body.appendChild(host);
     try {
+      await this.waitForNextFrame();
       return await render(captureNode, dimensions);
     } finally {
       host.remove();
+      this.renderAllCanvasForExport = false;
+      this.clearViewportRenderCaches();
+      this.requestViewRender();
     }
   }
 
@@ -10120,12 +10214,16 @@ spec:
     this.nodeStyleCache.clear();
     this.nodeClassCache.clear();
     this.miniMapNodeStyleCache.clear();
+    this.renderableNodeIdsCache.clear();
+    this.renderableEdgeIdsCache.clear();
+    this.renderableCanvasRectCache = null;
     this.leafNodeLabelKnockoutRectCache.clear();
     this.edgeClipContainersCache = null;
     this.leafLabelKnockoutNodesCache = null;
   }
 
   private markViewportChanged(): void {
+    this.clearViewportRenderCaches();
     this.scheduleCollaborationViewPublish();
     this.scheduleViewportCheckpointPersist();
     this.requestViewRender();
@@ -10133,6 +10231,12 @@ spec:
 
   private markTransientUiChanged(): void {
     this.requestViewRender();
+  }
+
+  private clearViewportRenderCaches(): void {
+    this.renderableNodeIdsCache.clear();
+    this.renderableEdgeIdsCache.clear();
+    this.renderableCanvasRectCache = null;
   }
 
   private syncTutorialStepRequirements(): void {
