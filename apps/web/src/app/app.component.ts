@@ -182,7 +182,9 @@ type ExampleTemplateId =
   | "aws-cross-account"
   | "cluster-platform"
   | "software-platform"
-  | "stress";
+  | "aws-serverless-saas"
+  | "aws-data-platform"
+  | "software-microservices";
 
 type ExampleTemplateOption = Readonly<{
   id: ExampleTemplateId;
@@ -383,7 +385,9 @@ const EXAMPLE_TEMPLATE_OPTIONS: readonly ExampleTemplateOption[] = [
   { id: "aws-cross-account", labelKey: "example.awsCrossAccount" },
   { id: "cluster-platform", labelKey: "example.clusterPlatform" },
   { id: "software-platform", labelKey: "example.softwarePlatform" },
-  { id: "stress", labelKey: "example.stress" }
+  { id: "aws-serverless-saas", labelKey: "example.awsServerlessSaas" },
+  { id: "aws-data-platform", labelKey: "example.awsDataPlatform" },
+  { id: "software-microservices", labelKey: "example.softwareMicroservices" }
 ] as const;
 const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, string>>>> = {
   "pt-BR": {
@@ -404,7 +408,9 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "example.awsCrossAccount": "AWS Cross-Account",
     "example.clusterPlatform": "Cluster Kubernetes",
     "example.softwarePlatform": "Plataforma de Software",
-    "example.stress": "Stress Test",
+    "example.awsServerlessSaas": "AWS Serverless SaaS",
+    "example.awsDataPlatform": "AWS Data Platform",
+    "example.softwareMicroservices": "Microserviços de Software",
     "title.newArchitecture": "Nova arquitetura",
     "title.demoTemplate": "Exemplo Completo: Macro para Micro",
     "title.demoDescription": "Modelo em camadas com borda pública, app, dados e observabilidade.",
@@ -414,8 +420,12 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "title.clusterPlatformDescription": "Entrada via ingress, serviços por namespace, filas internas e observabilidade centralizada.",
     "title.softwarePlatformTemplate": "Software: Frontend, BFF e Serviços",
     "title.softwarePlatformDescription": "Arquitetura de software com frontend, BFF, APIs, worker assíncrono e pipeline de entrega.",
-    "title.stressTemplate": "Stress Test: Todos os Blocos e Junções",
-    "title.stressDescription": "Matriz de cobertura completa com todos os blocos e conexões cruzadas para testes de usabilidade.",
+    "title.awsServerlessSaasTemplate": "AWS Serverless SaaS: API e Eventos",
+    "title.awsServerlessSaasDescription": "SaaS serverless com borda global, API, filas, orquestração e persistência orientada a eventos.",
+    "title.awsDataPlatformTemplate": "AWS Data Platform: Ingestão e Analytics",
+    "title.awsDataPlatformDescription": "Plataforma de dados com ingestão contínua, processamento por etapas e camadas de consumo analítico.",
+    "title.softwareMicroservicesTemplate": "Software: Microserviços Orientados a Eventos",
+    "title.softwareMicroservicesDescription": "Arquitetura de domínio com serviços independentes, event streaming, cache e observabilidade central.",
     "export.archdraw": "Exportar Arch-Draw",
     "export.drawio": "Exportar draw.io",
     "export.excalidraw": "Exportar Excalidraw",
@@ -510,7 +520,6 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "status.newArchitectureCreated": "Nova arquitetura criada",
     "status.exampleCreated": "Exemplo completo criado",
     "status.exampleTemplateCreated": "Exemplo de arquitetura criado",
-    "status.stressCreated": "Arquitetura de stress criada",
     "status.diagramDeleted": "Diagrama excluído",
     "status.noDiagramFound": "Nenhum diagrama encontrado",
     "status.architectureImported": "Arquitetura importada",
@@ -569,7 +578,9 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "example.awsCrossAccount": "AWS Cross-Account",
     "example.clusterPlatform": "Kubernetes Cluster",
     "example.softwarePlatform": "Software Platform",
-    "example.stress": "Stress Test",
+    "example.awsServerlessSaas": "AWS Serverless SaaS",
+    "example.awsDataPlatform": "AWS Data Platform",
+    "example.softwareMicroservices": "Software Microservices",
     "title.newArchitecture": "New architecture",
     "title.demoTemplate": "Complete Example: Macro to Micro",
     "title.demoDescription": "Layered model with public edge, app, data, and observability.",
@@ -579,8 +590,12 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "title.clusterPlatformDescription": "Ingress entrypoint, namespace services, internal queues, and centralized observability.",
     "title.softwarePlatformTemplate": "Software: Frontend, BFF and Services",
     "title.softwarePlatformDescription": "Software architecture with frontend, BFF, APIs, async workers, and delivery pipeline.",
-    "title.stressTemplate": "Stress Test: All Blocks and Junctions",
-    "title.stressDescription": "Full coverage matrix with all blocks and cross-connections for usability testing.",
+    "title.awsServerlessSaasTemplate": "AWS Serverless SaaS: API and Events",
+    "title.awsServerlessSaasDescription": "Serverless SaaS reference with global edge, API, queues, orchestration, and event-driven persistence.",
+    "title.awsDataPlatformTemplate": "AWS Data Platform: Ingestion and Analytics",
+    "title.awsDataPlatformDescription": "Data platform with continuous ingestion, staged processing, and analytical consumption layers.",
+    "title.softwareMicroservicesTemplate": "Software: Event-Driven Microservices",
+    "title.softwareMicroservicesDescription": "Domain architecture with independent services, event streaming, cache, and centralized observability.",
     "export.archdraw": "Export Arch-Draw",
     "export.drawio": "Export draw.io",
     "export.excalidraw": "Export Excalidraw",
@@ -675,7 +690,6 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "status.newArchitectureCreated": "New architecture created",
     "status.exampleCreated": "Complete example created",
     "status.exampleTemplateCreated": "Architecture example created",
-    "status.stressCreated": "Stress architecture created",
     "status.diagramDeleted": "Diagram deleted",
     "status.noDiagramFound": "No diagram found",
     "status.architectureImported": "Architecture imported",
@@ -1875,10 +1889,6 @@ export class AppComponent implements OnDestroy {
 
   async createCompleteExampleArchitecture(): Promise<void> {
     await this.createExampleArchitecture("complete");
-  }
-
-  async createStressTestArchitecture(): Promise<void> {
-    await this.createExampleArchitecture("stress");
   }
 
   async createExampleArchitecture(templateId: ExampleTemplateId, event?: Event): Promise<void> {
@@ -5488,126 +5498,6 @@ spec:
     };
   }
 
-  private createStressTestArchitectureTemplate(base: ArchitectureDocument): ArchitectureDocument {
-    const now = new Date().toISOString();
-    const availableTemplates = this.nodeCatalog.filter((template) => !this.isSimpleContainerKind(template.kind));
-    const columns = 12;
-    const cellWidth = 220;
-    const cellHeight = 190;
-    const rootPaddingX = 90;
-    const rootPaddingTop = 130;
-    const rows = Math.max(1, Math.ceil(availableTemplates.length / columns));
-    const rootWidth = rootPaddingX * 2 + columns * cellWidth;
-    const rootHeight = rootPaddingTop + 120 + rows * cellHeight;
-
-    const root: CanvasNode = {
-      id: "stress-root",
-      kind: "group-container-plus",
-      label: "Stress Matrix",
-      color: getNodeKindColor("group-container-plus"),
-      position: { x: 40, y: 40 },
-      size: { width: rootWidth, height: rootHeight },
-      collapsed: false,
-      collapsedIconKind: this.getDefaultCollapsedIconKind("group-container-plus"),
-      expandedSize: { width: rootWidth, height: rootHeight }
-    };
-
-    const nodes: CanvasNode[] = [root];
-    const styleBase: ArchitectureEdgeStyle = {
-      path: "smoothstep",
-      line: "solid",
-      color: "#111827",
-      animated: true,
-      bidirectional: false
-    };
-
-    for (let index = 0; index < availableTemplates.length; index += 1) {
-      const template = availableTemplates[index];
-      if (!template) continue;
-      const column = index % columns;
-      const row = Math.floor(index / columns);
-      const id = `stress-${template.kind}-${index}`;
-      const defaultSize = getDefaultNodeSize(template.kind);
-      const isContainerKind = isContainerNodeKind(template.kind);
-      const isCodeKind = isCodeSnippetNodeKind(template.kind);
-      const startsCollapsed = isContainerKind || isCodeKind;
-
-      nodes.push({
-        id,
-        kind: template.kind,
-        label: template.label,
-        parentId: root.id,
-        color: template.color,
-        position: {
-          x: rootPaddingX + column * cellWidth,
-          y: rootPaddingTop + row * cellHeight
-        },
-        size: startsCollapsed ? { ...CODE_SNIPPET_COLLAPSED_SIZE } : defaultSize,
-        collapsed: startsCollapsed ? true : undefined,
-        collapsedIconKind: isContainerKind
-          ? this.getDefaultCollapsedIconKind(template.kind)
-          : isCodeKind
-            ? template.kind
-            : undefined,
-        expandedSize: startsCollapsed
-          ? (isCodeKind ? { ...CODE_SNIPPET_EXPANDED_SIZE } : { ...defaultSize })
-          : undefined
-      });
-    }
-
-    const stressNodeIds = nodes
-      .filter((node) => node.id !== root.id)
-      .map((node) => node.id);
-
-    const edges: CanvasEdge[] = [];
-    for (let index = 0; index < stressNodeIds.length - 1; index += 1) {
-      const from = stressNodeIds[index];
-      const to = stressNodeIds[index + 1];
-      if (!from || !to) continue;
-      edges.push({
-        id: `stress-chain-${index}`,
-        from,
-        to,
-        label: `L${index + 1}`,
-        style: {
-          ...styleBase,
-          line: index % 3 === 0 ? "solid" : index % 3 === 1 ? "dashed" : "dotted",
-          path: "smoothstep"
-        }
-      });
-    }
-
-    for (let index = 0; index < stressNodeIds.length - 12; index += 4) {
-      const from = stressNodeIds[index];
-      const to = stressNodeIds[index + 11];
-      if (!from || !to) continue;
-      edges.push({
-        id: `stress-cross-${index}`,
-        from,
-        to,
-        label: `X${index + 1}`,
-        style: {
-          ...styleBase,
-          line: "dashed",
-          path: "smoothstep",
-          bidirectional: index % 8 === 0
-        }
-      });
-    }
-
-    return {
-      ...base,
-      title: this.t("title.stressTemplate"),
-      description: this.t("title.stressDescription"),
-      mermaidSource: `graph LR
-  Start["Stress Start"] --> Matrix["Stress Matrix"]
-  Matrix --> End["Coverage"]`,
-      nodes,
-      edges,
-      updatedAt: now
-    };
-  }
-
   private resolveExampleTemplate(templateId: ExampleTemplateId): Readonly<{
     titleKey: string;
     build: (base: ArchitectureDocument) => ArchitectureDocument;
@@ -5628,10 +5518,20 @@ spec:
           titleKey: "title.softwarePlatformTemplate",
           build: (base) => this.createSoftwarePlatformArchitectureTemplate(base)
         };
-      case "stress":
+      case "aws-serverless-saas":
         return {
-          titleKey: "title.stressTemplate",
-          build: (base) => this.createStressTestArchitectureTemplate(base)
+          titleKey: "title.awsServerlessSaasTemplate",
+          build: (base) => this.createAwsServerlessSaasArchitectureTemplate(base)
+        };
+      case "aws-data-platform":
+        return {
+          titleKey: "title.awsDataPlatformTemplate",
+          build: (base) => this.createAwsDataPlatformArchitectureTemplate(base)
+        };
+      case "software-microservices":
+        return {
+          titleKey: "title.softwareMicroservicesTemplate",
+          build: (base) => this.createSoftwareMicroservicesArchitectureTemplate(base)
         };
       case "complete":
       default:
@@ -6008,6 +5908,297 @@ apiKeys:
   Orders --> Queue["RabbitMQ"]
   Queue --> Worker["Invoice Worker"]
   Worker --> Mongo["MongoDB"]`,
+      nodes,
+      edges,
+      updatedAt: now
+    };
+  }
+
+  private createAwsServerlessSaasArchitectureTemplate(base: ArchitectureDocument): ArchitectureDocument {
+    const now = new Date().toISOString();
+    const style: ArchitectureEdgeStyle = {
+      path: "smoothstep",
+      line: "solid",
+      color: "#111827",
+      animated: true,
+      bidirectional: false
+    };
+    const makeNode = (
+      id: string,
+      kind: ArchitectureNodeKind,
+      label: string,
+      position: Readonly<{ x: number; y: number }>,
+      size: Readonly<{ width: number; height: number }>,
+      options?: Readonly<{
+        parentId?: string;
+        properties?: Readonly<Record<string, string>>;
+        startsCollapsed?: boolean;
+      }>
+    ): CanvasNode => this.createExampleTemplateNode(id, kind, label, position, size, options);
+
+    const nodes: CanvasNode[] = [
+      makeNode("sls-users", "external", "Tenant Users", { x: 80, y: 200 }, { width: 172, height: 176 }),
+      makeNode("sls-root", "group-container-plus", "Serverless SaaS Platform", { x: 280, y: 60 }, { width: 3340, height: 1980 }, { startsCollapsed: false }),
+      makeNode("sls-region", "aws-region", "us-east-1", { x: 80, y: 70 }, { width: 3180, height: 1860 }, { parentId: "sls-root", startsCollapsed: false }),
+      makeNode("sls-subnet-edge", "aws-subnet", "Edge Zone", { x: 80, y: 90 }, { width: 3020, height: 420 }, { parentId: "sls-region", startsCollapsed: false }),
+      makeNode("sls-subnet-app", "aws-subnet", "App Zone", { x: 80, y: 560 }, { width: 1980, height: 1260 }, { parentId: "sls-region", startsCollapsed: false }),
+      makeNode("sls-subnet-data", "aws-subnet", "Data Zone", { x: 2120, y: 560 }, { width: 980, height: 1260 }, { parentId: "sls-region", startsCollapsed: false }),
+      makeNode("sls-route53", "aws-route53", "Route 53", { x: 120, y: 170 }, { width: 172, height: 176 }, { parentId: "sls-subnet-edge" }),
+      makeNode("sls-cloudfront", "aws-cloudfront", "CloudFront", { x: 360, y: 170 }, { width: 172, height: 176 }, { parentId: "sls-subnet-edge" }),
+      makeNode("sls-waf", "aws-waf", "WAF", { x: 600, y: 170 }, { width: 172, height: 176 }, { parentId: "sls-subnet-edge" }),
+      makeNode("sls-apigw", "aws-api-gateway", "API Gateway", { x: 840, y: 170 }, { width: 172, height: 176 }, { parentId: "sls-subnet-edge" }),
+      makeNode("sls-lambda-auth", "aws-lambda", "Auth Lambda", { x: 160, y: 180 }, { width: 172, height: 176 }, { parentId: "sls-subnet-app" }),
+      makeNode("sls-lambda-orders", "aws-lambda", "Orders Lambda", { x: 420, y: 180 }, { width: 172, height: 176 }, { parentId: "sls-subnet-app" }),
+      makeNode("sls-step-functions", "aws-step-functions", "Step Functions", { x: 680, y: 180 }, { width: 172, height: 176 }, { parentId: "sls-subnet-app" }),
+      makeNode("sls-eventbridge", "aws-eventbridge", "EventBridge", { x: 940, y: 180 }, { width: 172, height: 176 }, { parentId: "sls-subnet-app" }),
+      makeNode("sls-sqs", "aws-sqs", "Orders Queue", { x: 1200, y: 180 }, { width: 172, height: 176 }, { parentId: "sls-subnet-app" }),
+      makeNode("sls-lambda-worker", "aws-lambda", "Worker Lambda", { x: 1460, y: 180 }, { width: 172, height: 176 }, { parentId: "sls-subnet-app" }),
+      makeNode("sls-cloudwatch", "aws-cloudwatch", "CloudWatch", { x: 160, y: 520 }, { width: 172, height: 176 }, { parentId: "sls-subnet-app" }),
+      makeNode("sls-secrets", "aws-secrets-manager", "Secrets Manager", { x: 420, y: 520 }, { width: 172, height: 176 }, { parentId: "sls-subnet-app" }),
+      makeNode("sls-dynamodb", "aws-dynamodb", "DynamoDB", { x: 120, y: 180 }, { width: 172, height: 176 }, { parentId: "sls-subnet-data" }),
+      makeNode("sls-rds", "aws-rds", "Aurora Serverless", { x: 360, y: 180 }, { width: 172, height: 176 }, { parentId: "sls-subnet-data" }),
+      makeNode("sls-s3", "aws-s3", "S3 Documents", { x: 600, y: 180 }, { width: 172, height: 176 }, { parentId: "sls-subnet-data" }),
+      makeNode("sls-repo", "code-repository", "mono-repo", { x: 120, y: 520 }, { width: 172, height: 176 }, { parentId: "sls-subnet-data" }),
+      makeNode("sls-pipeline", "code-pipeline", "ci-cd-pipeline", { x: 360, y: 520 }, { width: 172, height: 176 }, { parentId: "sls-subnet-data" }),
+      makeNode("sls-ecr", "aws-ecr", "Container Registry", { x: 600, y: 440 }, { width: 340, height: 320 }, { parentId: "sls-subnet-data", startsCollapsed: false }),
+      makeNode("sls-ecr-image", "software-docker", "orders-worker:5.2.0", { x: 90, y: 90 }, { width: 172, height: 176 }, { parentId: "sls-ecr" })
+    ];
+
+    const makeEdge = (id: string, from: string, to: string, label?: string): CanvasEdge => ({
+      id,
+      from,
+      to,
+      label,
+      style
+    });
+
+    const edges: CanvasEdge[] = [
+      makeEdge("sls-e1", "sls-users", "sls-route53", "DNS"),
+      makeEdge("sls-e2", "sls-route53", "sls-cloudfront", "HTTPS"),
+      makeEdge("sls-e3", "sls-cloudfront", "sls-waf", "inspect"),
+      makeEdge("sls-e4", "sls-waf", "sls-apigw", "allow"),
+      makeEdge("sls-e5", "sls-apigw", "sls-lambda-auth", "authorize"),
+      makeEdge("sls-e6", "sls-lambda-auth", "sls-lambda-orders", "token ok"),
+      makeEdge("sls-e7", "sls-lambda-orders", "sls-step-functions", "orchestrate"),
+      makeEdge("sls-e8", "sls-step-functions", "sls-eventbridge", "emit domain event"),
+      makeEdge("sls-e9", "sls-eventbridge", "sls-sqs", "fan-out"),
+      makeEdge("sls-e10", "sls-sqs", "sls-lambda-worker", "consume"),
+      makeEdge("sls-e11", "sls-lambda-orders", "sls-dynamodb", "write"),
+      makeEdge("sls-e12", "sls-lambda-worker", "sls-rds", "billing"),
+      makeEdge("sls-e13", "sls-lambda-worker", "sls-s3", "store docs"),
+      makeEdge("sls-e14", "sls-cloudwatch", "sls-lambda-orders", "metrics"),
+      makeEdge("sls-e15", "sls-cloudwatch", "sls-lambda-worker", "logs"),
+      makeEdge("sls-e16", "sls-secrets", "sls-lambda-orders", "runtime secret"),
+      makeEdge("sls-e17", "sls-repo", "sls-pipeline", "CI"),
+      makeEdge("sls-e18", "sls-pipeline", "sls-ecr", "build"),
+      makeEdge("sls-e19", "sls-ecr-image", "sls-lambda-worker", "runtime image")
+    ];
+
+    return {
+      ...base,
+      title: this.t("title.awsServerlessSaasTemplate"),
+      description: this.t("title.awsServerlessSaasDescription"),
+      mermaidSource: `graph LR
+  User["Tenant User"] --> R53["Route53"]
+  R53 --> CF["CloudFront"]
+  CF --> WAF["WAF"]
+  WAF --> APIGW["API Gateway"]
+  APIGW --> Orders["Orders Lambda"]
+  Orders --> SFN["Step Functions"]
+  SFN --> Bus["EventBridge"]`,
+      nodes,
+      edges,
+      updatedAt: now
+    };
+  }
+
+  private createAwsDataPlatformArchitectureTemplate(base: ArchitectureDocument): ArchitectureDocument {
+    const now = new Date().toISOString();
+    const style: ArchitectureEdgeStyle = {
+      path: "smoothstep",
+      line: "solid",
+      color: "#111827",
+      animated: true,
+      bidirectional: false
+    };
+    const makeNode = (
+      id: string,
+      kind: ArchitectureNodeKind,
+      label: string,
+      position: Readonly<{ x: number; y: number }>,
+      size: Readonly<{ width: number; height: number }>,
+      options?: Readonly<{
+        parentId?: string;
+        properties?: Readonly<Record<string, string>>;
+        startsCollapsed?: boolean;
+      }>
+    ): CanvasNode => this.createExampleTemplateNode(id, kind, label, position, size, options);
+
+    const nodes: CanvasNode[] = [
+      makeNode("dp-producers", "external", "Operational Systems", { x: 60, y: 200 }, { width: 172, height: 176 }),
+      makeNode("dp-consumers", "external", "BI Consumers", { x: 60, y: 520 }, { width: 172, height: 176 }),
+      makeNode("dp-root", "group-container-plus", "AWS Data Platform", { x: 260, y: 60 }, { width: 3360, height: 2060 }, { startsCollapsed: false }),
+      makeNode("dp-region", "aws-region", "us-east-1", { x: 80, y: 70 }, { width: 3200, height: 1940 }, { parentId: "dp-root", startsCollapsed: false }),
+      makeNode("dp-vpc", "aws-vpc", "VPC 10.50.0.0/16", { x: 80, y: 90 }, { width: 3040, height: 1820 }, { parentId: "dp-region", startsCollapsed: false }),
+      makeNode("dp-subnet-ingest", "aws-subnet", "Ingestion Zone", { x: 80, y: 90 }, { width: 2880, height: 460 }, { parentId: "dp-vpc", startsCollapsed: false }),
+      makeNode("dp-subnet-processing", "aws-subnet", "Processing Zone", { x: 80, y: 610 }, { width: 1880, height: 1210 }, { parentId: "dp-vpc", startsCollapsed: false }),
+      makeNode("dp-subnet-serving", "aws-subnet", "Serving Zone", { x: 2020, y: 610 }, { width: 940, height: 1210 }, { parentId: "dp-vpc", startsCollapsed: false }),
+      makeNode("dp-apigw", "aws-api-gateway", "Ingestion API", { x: 140, y: 170 }, { width: 172, height: 176 }, { parentId: "dp-subnet-ingest" }),
+      makeNode("dp-lambda-ingest", "aws-lambda", "Ingestion Lambda", { x: 380, y: 170 }, { width: 172, height: 176 }, { parentId: "dp-subnet-ingest" }),
+      makeNode("dp-kafka", "queue-kafka", "Kafka Stream", { x: 620, y: 170 }, { width: 172, height: 176 }, { parentId: "dp-subnet-ingest" }),
+      makeNode("dp-s3-raw", "aws-s3", "S3 Raw Zone", { x: 860, y: 170 }, { width: 172, height: 176 }, { parentId: "dp-subnet-ingest" }),
+      makeNode("dp-step-functions", "aws-step-functions", "ETL Orchestrator", { x: 140, y: 180 }, { width: 172, height: 176 }, { parentId: "dp-subnet-processing" }),
+      makeNode("dp-lambda-transform", "aws-lambda", "Transform Lambda", { x: 380, y: 180 }, { width: 172, height: 176 }, { parentId: "dp-subnet-processing" }),
+      makeNode("dp-eventbridge", "aws-eventbridge", "Scheduler EventBridge", { x: 620, y: 180 }, { width: 172, height: 176 }, { parentId: "dp-subnet-processing" }),
+      makeNode("dp-sqs", "aws-sqs", "ETL Queue", { x: 860, y: 180 }, { width: 172, height: 176 }, { parentId: "dp-subnet-processing" }),
+      makeNode("dp-s3-curated", "aws-s3", "S3 Curated Zone", { x: 1100, y: 180 }, { width: 172, height: 176 }, { parentId: "dp-subnet-processing" }),
+      makeNode("dp-dynamo-catalog", "aws-dynamodb", "Data Catalog", { x: 1340, y: 180 }, { width: 172, height: 176 }, { parentId: "dp-subnet-processing" }),
+      makeNode("dp-cloudwatch", "aws-cloudwatch", "CloudWatch", { x: 160, y: 540 }, { width: 172, height: 176 }, { parentId: "dp-subnet-processing" }),
+      makeNode("dp-cloudtrail", "aws-cloudtrail", "CloudTrail", { x: 400, y: 540 }, { width: 172, height: 176 }, { parentId: "dp-subnet-processing" }),
+      makeNode("dp-rds", "aws-rds", "Analytics RDS", { x: 140, y: 200 }, { width: 172, height: 176 }, { parentId: "dp-subnet-serving" }),
+      makeNode("dp-opensearch", "aws-opensearch", "OpenSearch", { x: 380, y: 200 }, { width: 172, height: 176 }, { parentId: "dp-subnet-serving" }),
+      makeNode("dp-repo", "code-repository", "data-platform-repo", { x: 620, y: 200 }, { width: 172, height: 176 }, { parentId: "dp-subnet-serving" }),
+      makeNode("dp-pipeline", "code-pipeline", "etl-deploy-pipeline", { x: 620, y: 500 }, { width: 172, height: 176 }, { parentId: "dp-subnet-serving" })
+    ];
+
+    const makeEdge = (id: string, from: string, to: string, label?: string): CanvasEdge => ({
+      id,
+      from,
+      to,
+      label,
+      style
+    });
+
+    const edges: CanvasEdge[] = [
+      makeEdge("dp-e1", "dp-producers", "dp-apigw", "ingest"),
+      makeEdge("dp-e2", "dp-apigw", "dp-lambda-ingest", "invoke"),
+      makeEdge("dp-e3", "dp-lambda-ingest", "dp-kafka", "stream"),
+      makeEdge("dp-e4", "dp-kafka", "dp-s3-raw", "landing"),
+      makeEdge("dp-e5", "dp-eventbridge", "dp-step-functions", "schedule"),
+      makeEdge("dp-e6", "dp-step-functions", "dp-sqs", "fan-out"),
+      makeEdge("dp-e7", "dp-sqs", "dp-lambda-transform", "consume"),
+      makeEdge("dp-e8", "dp-lambda-transform", "dp-s3-curated", "write curated"),
+      makeEdge("dp-e9", "dp-lambda-transform", "dp-dynamo-catalog", "publish metadata"),
+      makeEdge("dp-e10", "dp-s3-curated", "dp-rds", "load marts"),
+      makeEdge("dp-e11", "dp-s3-curated", "dp-opensearch", "index"),
+      makeEdge("dp-e12", "dp-cloudwatch", "dp-lambda-transform", "metrics"),
+      makeEdge("dp-e13", "dp-cloudtrail", "dp-step-functions", "audit"),
+      makeEdge("dp-e14", "dp-repo", "dp-pipeline", "CI"),
+      makeEdge("dp-e15", "dp-pipeline", "dp-lambda-transform", "deploy"),
+      makeEdge("dp-e16", "dp-consumers", "dp-rds", "SQL"),
+      makeEdge("dp-e17", "dp-consumers", "dp-opensearch", "search")
+    ];
+
+    return {
+      ...base,
+      title: this.t("title.awsDataPlatformTemplate"),
+      description: this.t("title.awsDataPlatformDescription"),
+      mermaidSource: `graph LR
+  Source["Operational Systems"] --> Ingest["Ingestion API"]
+  Ingest --> Stream["Kafka"]
+  Stream --> Raw["S3 Raw"]
+  Raw --> Etl["ETL Orchestrator"]
+  Etl --> Curated["S3 Curated"]
+  Curated --> Mart["Analytics RDS"]`,
+      nodes,
+      edges,
+      updatedAt: now
+    };
+  }
+
+  private createSoftwareMicroservicesArchitectureTemplate(base: ArchitectureDocument): ArchitectureDocument {
+    const now = new Date().toISOString();
+    const style: ArchitectureEdgeStyle = {
+      path: "smoothstep",
+      line: "solid",
+      color: "#111827",
+      animated: true,
+      bidirectional: false
+    };
+    const makeNode = (
+      id: string,
+      kind: ArchitectureNodeKind,
+      label: string,
+      position: Readonly<{ x: number; y: number }>,
+      size: Readonly<{ width: number; height: number }>,
+      options?: Readonly<{
+        parentId?: string;
+        properties?: Readonly<Record<string, string>>;
+        startsCollapsed?: boolean;
+      }>
+    ): CanvasNode => this.createExampleTemplateNode(id, kind, label, position, size, options);
+
+    const nodes: CanvasNode[] = [
+      makeNode("ms-root", "group-container-plus", "Event-Driven Microservices Platform", { x: 60, y: 60 }, { width: 3380, height: 1980 }, { startsCollapsed: false }),
+      makeNode("ms-web", "software-frontend", "Web App", { x: 120, y: 220 }, { width: 172, height: 176 }, { parentId: "ms-root" }),
+      makeNode("ms-mobile", "software-mobile", "Mobile App", { x: 360, y: 220 }, { width: 172, height: 176 }, { parentId: "ms-root" }),
+      makeNode("ms-bff", "software-bff", "API Gateway BFF", { x: 600, y: 220 }, { width: 172, height: 176 }, { parentId: "ms-root" }),
+      makeNode("ms-orders-domain", "group-container-plus", "Orders Domain", { x: 980, y: 120 }, { width: 760, height: 780 }, { parentId: "ms-root", startsCollapsed: false }),
+      makeNode("ms-payments-domain", "group-container-plus", "Payments Domain", { x: 1780, y: 120 }, { width: 760, height: 780 }, { parentId: "ms-root", startsCollapsed: false }),
+      makeNode("ms-catalog-domain", "group-container-plus", "Catalog Domain", { x: 2580, y: 120 }, { width: 720, height: 780 }, { parentId: "ms-root", startsCollapsed: false }),
+      makeNode("ms-orders-api", "software-api", "Orders API", { x: 80, y: 130 }, { width: 172, height: 176 }, { parentId: "ms-orders-domain" }),
+      makeNode("ms-orders-worker", "software-worker", "Orders Worker", { x: 320, y: 130 }, { width: 172, height: 176 }, { parentId: "ms-orders-domain" }),
+      makeNode("ms-orders-db", "aws-rds", "Orders DB", { x: 200, y: 380 }, { width: 172, height: 176 }, { parentId: "ms-orders-domain" }),
+      makeNode("ms-payments-api", "software-api", "Payments API", { x: 80, y: 130 }, { width: 172, height: 176 }, { parentId: "ms-payments-domain" }),
+      makeNode("ms-payments-worker", "software-worker", "Payments Worker", { x: 320, y: 130 }, { width: 172, height: 176 }, { parentId: "ms-payments-domain" }),
+      makeNode("ms-payments-db", "database-mongodb", "Payments MongoDB", { x: 200, y: 380 }, { width: 172, height: 176 }, { parentId: "ms-payments-domain" }),
+      makeNode("ms-catalog-api", "software-api", "Catalog API", { x: 70, y: 130 }, { width: 172, height: 176 }, { parentId: "ms-catalog-domain" }),
+      makeNode("ms-catalog-cache", "cache-redis", "Catalog Redis", { x: 300, y: 130 }, { width: 172, height: 176 }, { parentId: "ms-catalog-domain" }),
+      makeNode("ms-kafka", "queue-kafka", "Domain Event Bus", { x: 980, y: 980 }, { width: 172, height: 176 }, { parentId: "ms-root" }),
+      makeNode("ms-rabbitmq", "queue-rabbitmq", "Command Queue", { x: 1240, y: 980 }, { width: 172, height: 176 }, { parentId: "ms-root" }),
+      makeNode("ms-eventbridge", "aws-eventbridge", "Integration Events", { x: 1500, y: 980 }, { width: 172, height: 176 }, { parentId: "ms-root" }),
+      makeNode("ms-cloudwatch", "aws-cloudwatch", "CloudWatch", { x: 1760, y: 980 }, { width: 172, height: 176 }, { parentId: "ms-root" }),
+      makeNode("ms-opensearch", "aws-opensearch", "OpenSearch", { x: 2020, y: 980 }, { width: 172, height: 176 }, { parentId: "ms-root" }),
+      makeNode("ms-repo", "code-repository", "microservices-repo", { x: 460, y: 1380 }, { width: 172, height: 176 }, { parentId: "ms-root" }),
+      makeNode("ms-pipeline", "code-pipeline", "microservices-pipeline", { x: 720, y: 1380 }, { width: 172, height: 176 }, { parentId: "ms-root" }),
+      makeNode("ms-ecr", "aws-ecr", "Service Images", { x: 980, y: 1300 }, { width: 520, height: 420 }, { parentId: "ms-root", startsCollapsed: false }),
+      makeNode("ms-image-orders", "software-docker", "orders-api:2.8.0", { x: 90, y: 90 }, { width: 172, height: 176 }, { parentId: "ms-ecr" }),
+      makeNode("ms-image-payments", "software-docker", "payments-api:2.8.0", { x: 260, y: 90 }, { width: 172, height: 176 }, { parentId: "ms-ecr" })
+    ];
+
+    const makeEdge = (id: string, from: string, to: string, label?: string): CanvasEdge => ({
+      id,
+      from,
+      to,
+      label,
+      style
+    });
+
+    const edges: CanvasEdge[] = [
+      makeEdge("ms-e1", "ms-web", "ms-bff", "HTTPS"),
+      makeEdge("ms-e2", "ms-mobile", "ms-bff", "HTTPS"),
+      makeEdge("ms-e3", "ms-bff", "ms-orders-api", "REST"),
+      makeEdge("ms-e4", "ms-bff", "ms-payments-api", "REST"),
+      makeEdge("ms-e5", "ms-bff", "ms-catalog-api", "REST"),
+      makeEdge("ms-e6", "ms-orders-api", "ms-orders-db", "write"),
+      makeEdge("ms-e7", "ms-payments-api", "ms-payments-db", "write"),
+      makeEdge("ms-e8", "ms-catalog-api", "ms-catalog-cache", "cache"),
+      makeEdge("ms-e9", "ms-orders-api", "ms-kafka", "order.created"),
+      makeEdge("ms-e10", "ms-kafka", "ms-payments-worker", "consume"),
+      makeEdge("ms-e11", "ms-payments-worker", "ms-rabbitmq", "command"),
+      makeEdge("ms-e12", "ms-rabbitmq", "ms-orders-worker", "retry"),
+      makeEdge("ms-e13", "ms-orders-worker", "ms-eventbridge", "integration"),
+      makeEdge("ms-e14", "ms-eventbridge", "ms-opensearch", "index"),
+      makeEdge("ms-e15", "ms-cloudwatch", "ms-orders-api", "metrics"),
+      makeEdge("ms-e16", "ms-cloudwatch", "ms-payments-api", "logs"),
+      makeEdge("ms-e17", "ms-repo", "ms-pipeline", "CI"),
+      makeEdge("ms-e18", "ms-pipeline", "ms-ecr", "build"),
+      makeEdge("ms-e19", "ms-image-orders", "ms-orders-api", "runtime"),
+      makeEdge("ms-e20", "ms-image-payments", "ms-payments-api", "runtime")
+    ];
+
+    return {
+      ...base,
+      title: this.t("title.softwareMicroservicesTemplate"),
+      description: this.t("title.softwareMicroservicesDescription"),
+      mermaidSource: `graph LR
+  Web["Web App"] --> BFF["API Gateway BFF"]
+  Mobile["Mobile App"] --> BFF
+  BFF --> Orders["Orders API"]
+  BFF --> Payments["Payments API"]
+  Orders --> Bus["Kafka"]
+  Bus --> Worker["Payments Worker"]
+  Worker --> Events["Integration Events"]`,
       nodes,
       edges,
       updatedAt: now
