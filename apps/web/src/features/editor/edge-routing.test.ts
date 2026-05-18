@@ -54,6 +54,32 @@ describe("edge routing", () => {
     }
   });
 
+  it("prefers a collision-free detour with the fewest bends", () => {
+    const obstacle: EdgeObstacleRect = {
+      id: "middle",
+      left: 100,
+      top: 80,
+      right: 200,
+      bottom: 120
+    };
+
+    const routed = routePolylineAroundObstacles(
+      [{ x: 20, y: 100 }, { x: 280, y: 100 }],
+      [obstacle],
+      "source",
+      "target",
+      { maxPasses: 10, obstacleClearance: 24 }
+    );
+
+    expect(countPolylineBends(routed)).toBe(2);
+    for (let index = 0; index < routed.length - 1; index += 1) {
+      const start = routed[index];
+      const end = routed[index + 1];
+      if (!start || !end) continue;
+      expect(segmentIntersectsRect(start, end, obstacle)).toBe(false);
+    }
+  });
+
   it("reroutes in every cardinal direction", () => {
     const obstacle: EdgeObstacleRect = {
       id: "middle",
@@ -216,3 +242,17 @@ describe("edge routing", () => {
     }
   });
 });
+
+const countPolylineBends = (points: readonly Readonly<{ x: number; y: number }>[]): number => {
+  let bends = 0;
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const previous = points[index - 1];
+    const current = points[index];
+    const next = points[index + 1];
+    if (!previous || !current || !next) continue;
+    const incomingHorizontal = Math.abs(current.y - previous.y) <= 0.001;
+    const outgoingHorizontal = Math.abs(next.y - current.y) <= 0.001;
+    if (incomingHorizontal !== outgoingHorizontal) bends += 1;
+  }
+  return bends;
+};

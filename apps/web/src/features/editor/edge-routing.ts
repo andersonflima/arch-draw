@@ -23,8 +23,11 @@ type GraphEdge = Readonly<{
   cost: number;
 }>;
 
+type GraphDirection = "horizontal" | "vertical" | "start";
+
 const EPSILON = 0.001;
 const MAX_AXIS_VALUES = 84;
+const BEND_COST = 10000;
 
 export const routePolylineAroundObstacles = (
   points: readonly EdgePoint[],
@@ -99,7 +102,7 @@ const routeSegmentWithAStar = (
   const graph = buildOrthogonalVisibilityGraph(start, end, obstacles, clearance);
   if (!graph) return null;
 
-  const pathKeys = aStarSearch(graph.nodesByKey, graph.edgesByKey, graph.startKey, graph.endKey);
+  const pathKeys = searchLowestBendPath(graph.nodesByKey, graph.edgesByKey, graph.startKey, graph.endKey);
   if (!pathKeys) return null;
 
   return compactPolyline(
@@ -266,39 +269,75 @@ const orthogonalSegmentCrossesObstacleInterior = (
   return segmentIntersectsRect(start, end, rect);
 };
 
-const aStarSearch = (
+const searchLowestBendPath = (
   nodesByKey: ReadonlyMap<string, GraphNode>,
   edgesByKey: ReadonlyMap<string, readonly GraphEdge[]>,
   startKey: string,
   endKey: string
 ): readonly string[] | null => {
-  const open = new Set<string>([startKey]);
+  const startState = toStateKey(startKey, "start");
+  const open = new Set<string>([startState]);
   const cameFrom = new Map<string, string>();
-  const gScore = new Map<string, number>([[startKey, 0]]);
-  const fScore = new Map<string, number>([[startKey, heuristic(nodesByKey, startKey, endKey)]]);
+  const gScore = new Map<string, number>([[startState, 0]]);
+  const fScore = new Map<string, number>([[startState, heuristic(nodesByKey, startKey, endKey)]]);
 
   while (open.size > 0) {
     const current = getLowestScoreKey(open, fScore);
     if (!current) break;
-    if (current === endKey) {
-      return reconstructPath(cameFrom, current);
+    const currentState = fromStateKey(current);
+    if (currentState.nodeKey === endKey) {
+      return compactPathKeys(reconstructStatePath(cameFrom, current).map((key) => fromStateKey(key).nodeKey));
     }
 
     open.delete(current);
 
-    const neighbors = edgesByKey.get(current) ?? [];
-    for (const neighbor of neighbors) {
-      const tentativeG = (gScore.get(current) ?? Number.POSITIVE_INFINITY) + neighbor.cost;
-      if (tentativeG >= (gScore.get(neighbor.to) ?? Number.POSITIVE_INFINITY)) continue;
+    const currentNode = nodesByKey.get(currentState.nodeKey);
+    if (!currentNode) continue;
 
-      cameFrom.set(neighbor.to, current);
-      gScore.set(neighbor.to, tentativeG);
-      fScore.set(neighbor.to, tentativeG + heuristic(nodesByKey, neighbor.to, endKey));
-      open.add(neighbor.to);
+    const neighbors = edgesByKey.get(currentState.nodeKey) ?? [];
+    for (const neighbor of neighbors) {
+      const neighborNode = nodesByKey.get(neighbor.to);
+      if (!neighborNode) continue;
+      const direction = getSegmentDirection(currentNode.point, neighborNode.point);
+      const turnCost = currentState.direction !== "start" && currentState.direction !== direction
+        ? BEND_COST
+        : 0;
+      const neighborState = toStateKey(neighbor.to, direction);
+      const tentativeG = (gScore.get(current) ?? Number.POSITIVE_INFINITY) + neighbor.cost + turnCost;
+      if (tentativeG >= (gScore.get(neighborState) ?? Number.POSITIVE_INFINITY)) continue;
+
+      cameFrom.set(neighborState, current);
+      gScore.set(neighborState, tentativeG);
+      fScore.set(neighborState, tentativeG + heuristic(nodesByKey, neighbor.to, endKey));
+      open.add(neighborState);
     }
   }
 
   return null;
+};
+
+const getSegmentDirection = (start: EdgePoint, end: EdgePoint): Exclude<GraphDirection, "start"> =>
+  Math.abs(start.x - end.x) >= Math.abs(start.y - end.y) ? "horizontal" : "vertical";
+
+const toStateKey = (nodeKey: string, direction: GraphDirection): string => `${nodeKey}|${direction}`;
+
+const fromStateKey = (stateKey: string): Readonly<{ nodeKey: string; direction: GraphDirection }> => {
+  const separatorIndex = stateKey.lastIndexOf("|");
+  const nodeKey = separatorIndex >= 0 ? stateKey.slice(0, separatorIndex) : stateKey;
+  const direction = separatorIndex >= 0 ? stateKey.slice(separatorIndex + 1) : "start";
+  return {
+    nodeKey,
+    direction: direction === "horizontal" || direction === "vertical" ? direction : "start"
+  };
+};
+
+const compactPathKeys = (keys: readonly string[]): readonly string[] => {
+  const compacted: string[] = [];
+  for (const key of keys) {
+    if (compacted[compacted.length - 1] === key) continue;
+    compacted.push(key);
+  }
+  return compacted;
 };
 
 const heuristic = (
@@ -327,7 +366,7 @@ const getLowestScoreKey = (open: ReadonlySet<string>, fScore: ReadonlyMap<string
   return bestKey;
 };
 
-const reconstructPath = (cameFrom: ReadonlyMap<string, string>, current: string): readonly string[] => {
+const reconstructStatePath = (cameFrom: ReadonlyMap<string, string>, current: string): readonly string[] => {
   const path = [current];
   let cursor = current;
   while (cameFrom.has(cursor)) {

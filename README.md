@@ -9,7 +9,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Canvas interativo para desenhar arquiteturas completas.
 - Login opcional com Google SSO para proteger o workspace e isolar acesso.
 - Biblioteca de blocos para cloud, software, Kubernetes, algoritmos, bancos e integrações.
-- Conexões avançadas entre elementos com estilos, direções e roteamento com desvio de obstáculos.
+- Conexões avançadas entre elementos com estilos, direções e roteamento progressivo com desvio de obstáculos.
 - Setas de conexão ancoradas pela borda externa da bolinha de contato (apenas lados esquerdo/direito), com ponta da seta na bolinha e linha terminando no centro traseiro da seta.
 - Em conexões múltiplas no mesmo ponto, as âncoras se unificam na bolinha de contato e só abrem afastamento no percurso, com tronco comum simétrico na origem e no destino.
 - Áreas de clique das portas de conexão calibradas para maior precisão: gesto na direção da porta inicia vínculo, enquanto o drag de elementos minimizados inicia apenas sobre o ícone do elemento.
