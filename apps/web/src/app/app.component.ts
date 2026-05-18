@@ -7659,7 +7659,7 @@ spec:
     if (pairEdges.length > 0) {
       const pairPrimaryEdge = getBidirectionalPairPrimaryEdge(pairEdges, from, to);
       if (pairPrimaryEdge) {
-        this.enableBidirectionalForNodePair(pairPrimaryEdge.id, from, to);
+        this.enableBidirectionalForNodePair(pairPrimaryEdge.id, pairPrimaryEdge.from, pairPrimaryEdge.to);
         return;
       }
     }

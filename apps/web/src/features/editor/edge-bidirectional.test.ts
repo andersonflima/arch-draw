@@ -8,11 +8,11 @@ describe("edge bidirectional rules", () => {
     expect(getBidirectionalPairPrimaryEdge([edge], "a", "b")).toBe(edge);
   });
 
-  it("prefers the reverse edge so opposite-direction connections collapse into one pair", () => {
+  it("keeps the first existing edge so opposite-direction connections reuse the drawn line", () => {
     const forward = { id: "edge-a-b", from: "a", to: "b" };
     const reverse = { id: "edge-b-a", from: "b", to: "a" };
 
-    expect(getBidirectionalPairPrimaryEdge([forward, reverse], "a", "b")).toBe(reverse);
+    expect(getBidirectionalPairPrimaryEdge([forward, reverse], "a", "b")).toBe(forward);
   });
 
   it("reuses the already drawn line when creating the opposite direction", () => {

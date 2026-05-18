@@ -9,7 +9,8 @@ export const getBidirectionalPairPrimaryEdge = <T extends BidirectionalPairEdge>
   from: string,
   to: string
 ): T | null => {
-  const reverseEdge = edges.find((edge) => edge.from === to && edge.to === from) ?? null;
-  if (reverseEdge) return reverseEdge;
-  return edges.find((edge) => edge.from === from && edge.to === to) ?? null;
+  return edges.find((edge) =>
+    (edge.from === from && edge.to === to)
+    || (edge.from === to && edge.to === from)
+  ) ?? null;
 };
