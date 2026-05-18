@@ -4387,8 +4387,7 @@ LIMIT 50;`;
   }
 
   getEdgeStartMarker(edge: CanvasEdge): string | null {
-    void edge;
-    return null;
+    return this.isBidirectional(edge) ? this.getEdgeMarkerUrl(edge) : null;
   }
 
   getConnectionPreviewMarkerEnd(): string {

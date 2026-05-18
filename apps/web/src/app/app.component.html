@@ -352,6 +352,7 @@
               [attr.d]="getEdgePath(edge)"
               [attr.stroke]="getEdgeColor(edge)"
               [attr.stroke-dasharray]="getEdgeDash(edge)"
+              [attr.marker-start]="getEdgeStartMarker(edge)"
               [attr.marker-end]="getEdgeEndMarker(edge)"
               (click)="onEdgeClick(edge.id, $event)"
               (dblclick)="onEdgeDoubleClick(edge.id, $event)"
