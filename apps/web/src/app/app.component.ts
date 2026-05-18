@@ -1902,6 +1902,8 @@ export class AppComponent implements OnDestroy {
       const created = await api.createArchitecture(this.t(exampleTemplate.titleKey));
       const seeded = exampleTemplate.build(created);
       const saved = await api.saveArchitecture(seeded);
+      this.activateEdgeRouteFastMode(2400);
+      this.suspendEdgeRenderingTemporarily(520);
       this.updateCurrent(saved);
       await this.refreshSummaries();
       this.status = this.t("status.exampleTemplateCreated");
@@ -5181,12 +5183,14 @@ LIMIT 50;`;
       if (supportsCode) {
         const currentContent = (nextProperties["codeContent"] ?? "").trim();
         if (currentContent.length === 0) {
-          const language = this.getPreferredCodeLanguageForKind(kind);
-          nextProperties["codeLanguage"] = nextProperties["codeLanguage"]?.trim() || language;
-          nextProperties["codeContent"] = this.getDefaultCodeSnippet(
-            kind,
-            nextProperties["codeLanguage"] as CodeLanguage
-          );
+          if (isCodeKind) {
+            const language = this.getPreferredCodeLanguageForKind(kind);
+            nextProperties["codeLanguage"] = nextProperties["codeLanguage"]?.trim() || language;
+            nextProperties["codeContent"] = this.getDefaultCodeSnippet(
+              kind,
+              nextProperties["codeLanguage"] as CodeLanguage
+            );
+          }
         } else if ((nextProperties["codeLanguage"] ?? "").trim().length === 0) {
           const detected = detectCodeLanguageFromContent(currentContent);
           nextProperties["codeLanguage"] = detected ?? this.getPreferredCodeLanguageForKind(kind);
@@ -5569,12 +5573,14 @@ spec:
     if (supportsCode) {
       const currentContent = (nextProperties["codeContent"] ?? "").trim();
       if (currentContent.length === 0) {
-        const language = this.getPreferredCodeLanguageForKind(kind);
-        nextProperties["codeLanguage"] = nextProperties["codeLanguage"]?.trim() || language;
-        nextProperties["codeContent"] = this.getDefaultCodeSnippet(
-          kind,
-          nextProperties["codeLanguage"] as CodeLanguage
-        );
+        if (isCodeKind) {
+          const language = this.getPreferredCodeLanguageForKind(kind);
+          nextProperties["codeLanguage"] = nextProperties["codeLanguage"]?.trim() || language;
+          nextProperties["codeContent"] = this.getDefaultCodeSnippet(
+            kind,
+            nextProperties["codeLanguage"] as CodeLanguage
+          );
+        }
       } else if ((nextProperties["codeLanguage"] ?? "").trim().length === 0) {
         const detected = detectCodeLanguageFromContent(currentContent);
         nextProperties["codeLanguage"] = detected ?? this.getPreferredCodeLanguageForKind(kind);
@@ -6267,6 +6273,7 @@ apiKeys:
     let changed = false;
     const normalizedCodeNodes: ArchitectureNode[] = architecture.nodes.map((node) => {
       const supportsCode = isCodeSnippetNodeKind(node.kind) || CONTAINER_CODE_PROPERTY_KINDS.has(node.kind);
+      const isCodeSnippetKind = isCodeSnippetNodeKind(node.kind);
       const nextProperties: Record<string, string> = { ...(node.properties ?? {}) };
       let nodeChanged = false;
 
@@ -6275,10 +6282,12 @@ apiKeys:
         const normalizedLanguage = normalizeCodeLanguageValue(nextProperties["codeLanguage"]);
 
         if (currentContent.length === 0) {
-          const fallbackLanguage = normalizedLanguage ?? this.getPreferredCodeLanguageForKind(node.kind);
-          nextProperties["codeLanguage"] = fallbackLanguage;
-          nextProperties["codeContent"] = this.getDefaultCodeSnippet(node.kind, fallbackLanguage);
-          nodeChanged = true;
+          if (isCodeSnippetKind) {
+            const fallbackLanguage = normalizedLanguage ?? this.getPreferredCodeLanguageForKind(node.kind);
+            nextProperties["codeLanguage"] = fallbackLanguage;
+            nextProperties["codeContent"] = this.getDefaultCodeSnippet(node.kind, fallbackLanguage);
+            nodeChanged = true;
+          }
         } else {
           const currentLanguage = detectCodeLanguageFromContent(currentContent) ?? this.getPreferredCodeLanguageForKind(node.kind);
           if (normalizedLanguage !== currentLanguage) {
@@ -6288,7 +6297,6 @@ apiKeys:
         }
       }
 
-      const isCodeSnippetKind = isCodeSnippetNodeKind(node.kind);
       const isCodeContainerKind = isContainerNodeKind(node.kind) && CONTAINER_CODE_PROPERTY_KINDS.has(node.kind);
 
       if (isCodeSnippetKind) {
