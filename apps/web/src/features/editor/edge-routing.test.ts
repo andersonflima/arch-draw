@@ -267,6 +267,33 @@ describe("edge routing", () => {
       expect(segmentIntersectsRect(from, to, contactShield)).toBe(false);
     }
   });
+
+  it("allows terminal segments to leave and enter their own contact shields", () => {
+    const sourceContactShield: EdgeObstacleRect = {
+      id: "source__contact-shield",
+      left: 80,
+      top: 80,
+      right: 120,
+      bottom: 120
+    };
+    const targetContactShield: EdgeObstacleRect = {
+      id: "target__contact-shield",
+      left: 220,
+      top: 80,
+      right: 260,
+      bottom: 120
+    };
+
+    const routed = routePolylineAroundObstacles(
+      [{ x: 100, y: 100 }, { x: 240, y: 100 }],
+      [sourceContactShield, targetContactShield],
+      "source",
+      "target",
+      { maxPasses: 12, obstacleClearance: 24 }
+    );
+
+    expect(routed).toEqual([{ x: 100, y: 100 }, { x: 240, y: 100 }]);
+  });
 });
 
 const countPolylineBends = (points: readonly Readonly<{ x: number; y: number }>[]): number => {

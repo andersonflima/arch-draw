@@ -90,8 +90,13 @@ const getSegmentObstacles = (
     // to prevent routes crossing through the element body at any point.
     if (isFirstSegment && rect.id === sourceId) return false;
     if (isLastSegment && rect.id === targetId) return false;
+    if (isFirstSegment && isEndpointContactShield(rect, sourceId)) return false;
+    if (isLastSegment && isEndpointContactShield(rect, targetId)) return false;
     return true;
   });
+
+const isEndpointContactShield = (rect: EdgeObstacleRect, nodeId: string): boolean =>
+  rect.id === `${nodeId}__contact-shield`;
 
 const routeSegmentWithAStar = (
   start: EdgePoint,
