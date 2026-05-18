@@ -56,13 +56,13 @@ describe("edge geometry", () => {
     expect(path).toContain("L 100 40");
   });
 
-  it("builds half paths that preserve endpoint stubs", () => {
+  it("builds smooth half paths that preserve endpoint stubs", () => {
     const forward = buildEdgeHalfPath(
       { x: 0, y: 0 },
       { x: 20, y: 0 },
       { x: 80, y: 40 },
       { x: 100, y: 40 },
-      "step",
+      "smoothstep",
       "forward"
     );
     const reverse = buildEdgeHalfPath(
@@ -70,10 +70,12 @@ describe("edge geometry", () => {
       { x: 20, y: 0 },
       { x: 80, y: 40 },
       { x: 100, y: 40 },
-      "step",
+      "smoothstep",
       "reverse"
     );
-    expect(forward).toContain("L 80 40 L 100 40");
-    expect(reverse).toContain("L 20 0 L 0 0");
+    expect(forward).toContain("C");
+    expect(forward).toContain("L 100 40");
+    expect(reverse).toContain("C");
+    expect(reverse).toContain("L 0 0");
   });
 });

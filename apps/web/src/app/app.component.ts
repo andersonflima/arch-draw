@@ -712,7 +712,7 @@ const TUTORIAL_GUIDES: readonly TutorialGuide[] = [
         targetSelector: "[data-tour='canvas-shell']"
       },
       {
-        text: "Ajuste estilo da linha em propriedades: smoothstep, step e straight.",
+        text: "O estilo de linha padrao e smoothstep para manter entrada e saída consistentes.",
         targetSelector: "[data-tour='properties-popup']"
       }
     ]
@@ -871,7 +871,7 @@ const TUTORIAL_GUIDES_EN_LOCALIZATION: Readonly<Record<string, Readonly<{
       "Connections leave from contact circles and connect only to target circles.",
       "A directional gesture on the circle starts a connection; element drag starts only from the icon.",
       "Arrows remain aligned to the anchor and label text does not visually cover the line.",
-      "Adjust line style in properties: smoothstep, step, and straight."
+      "Line style uses smoothstep by default to keep consistent entry and exit behavior."
     ]
   },
   "contact-area-behavior": {
@@ -1471,7 +1471,7 @@ export class AppComponent implements OnDestroy {
         .filter((kind) => !kind.startsWith("flow-"))
     )
   ];
-  readonly edgePaths: readonly ArchitectureEdgePath[] = ["smoothstep", "step", "straight"];
+  readonly edgePaths: readonly ArchitectureEdgePath[] = ["smoothstep"];
   readonly edgeLines: readonly ArchitectureEdgeLineStyle[] = ["solid", "dashed", "dotted"];
   readonly edgeDirections: readonly EdgeDirection[] = ["left-to-right", "right-to-left", "both"];
   readonly codeLanguageOptions: readonly CodeLanguageOption[] = CODE_LANGUAGE_OPTIONS;
@@ -5333,7 +5333,7 @@ spec:
         style: {
           ...styleBase,
           line: index % 3 === 0 ? "solid" : index % 3 === 1 ? "dashed" : "dotted",
-          path: index % 2 === 0 ? "smoothstep" : "step"
+          path: "smoothstep"
         }
       });
     }
@@ -5972,8 +5972,8 @@ spec:
   ): Readonly<{
     sourceId: string;
     targetId: string;
-    sourceSide: "left" | "right";
-    targetSide: "left" | "right";
+    sourceSide: ArchitectureEdgePortSide;
+    targetSide: ArchitectureEdgePortSide;
     start: Readonly<{ x: number; y: number }>;
     startTrunk: Readonly<{ x: number; y: number }>;
     startLead: Readonly<{ x: number; y: number }>;
@@ -6006,13 +6006,13 @@ spec:
     );
     const sourceCenter = this.getNodeCenter(source);
     const targetCenter = this.getNodeCenter(target);
-    const sourceSide = this.getHorizontalFlowConnectionSide(
+    const sourceSide = this.getConnectionSide(
       source,
       targetCenter,
       "source",
       edge.sourcePort
     );
-    const targetSide = this.getHorizontalFlowConnectionSide(
+    const targetSide = this.getConnectionSide(
       target,
       sourceCenter,
       "target",
@@ -6105,8 +6105,8 @@ spec:
     points: readonly EdgePoint[],
     sourceId: string,
     targetId: string,
-    sourceSide: "left" | "right",
-    targetSide: "left" | "right"
+    sourceSide: ArchitectureEdgePortSide,
+    targetSide: ArchitectureEdgePortSide
   ): readonly EdgePoint[] {
     if (points.length < 2) return points;
     const sourceNode = this.nodes.find((node) => node.id === sourceId);
@@ -6117,10 +6117,16 @@ spec:
     const targetAnchorBox = this.getNodeConnectionAnchorBox(targetNode);
     const sourceTop = sourceAnchorBox.center.y - sourceAnchorBox.halfHeight;
     const sourceBottom = sourceAnchorBox.center.y + sourceAnchorBox.halfHeight;
+    const sourceLeft = sourceAnchorBox.center.x - sourceAnchorBox.halfWidth;
+    const sourceRight = sourceAnchorBox.center.x + sourceAnchorBox.halfWidth;
     const targetTop = targetAnchorBox.center.y - targetAnchorBox.halfHeight;
     const targetBottom = targetAnchorBox.center.y + targetAnchorBox.halfHeight;
+    const targetLeft = targetAnchorBox.center.x - targetAnchorBox.halfWidth;
+    const targetRight = targetAnchorBox.center.x + targetAnchorBox.halfWidth;
     const sourceBoundaryX = points[0]?.x ?? sourceAnchorBox.center.x;
+    const sourceBoundaryY = points[0]?.y ?? sourceAnchorBox.center.y;
     const targetBoundaryX = points[points.length - 1]?.x ?? targetAnchorBox.center.x;
+    const targetBoundaryY = points[points.length - 1]?.y ?? targetAnchorBox.center.y;
 
     const constrained = points.map((point) => ({ x: point.x, y: point.y }));
     for (let index = 1; index < constrained.length - 1; index += 1) {
@@ -6135,6 +6141,14 @@ spec:
           point.x = sourceBoundaryX;
         }
       }
+      if (point.x >= sourceLeft && point.x <= sourceRight) {
+        if (sourceSide === "top" && point.y > sourceBoundaryY) {
+          point.y = sourceBoundaryY;
+        }
+        if (sourceSide === "bottom" && point.y < sourceBoundaryY) {
+          point.y = sourceBoundaryY;
+        }
+      }
 
       if (point.y >= targetTop && point.y <= targetBottom) {
         if (targetSide === "right" && point.x < targetBoundaryX) {
@@ -6142,6 +6156,14 @@ spec:
         }
         if (targetSide === "left" && point.x > targetBoundaryX) {
           point.x = targetBoundaryX;
+        }
+      }
+      if (point.x >= targetLeft && point.x <= targetRight) {
+        if (targetSide === "top" && point.y > targetBoundaryY) {
+          point.y = targetBoundaryY;
+        }
+        if (targetSide === "bottom" && point.y < targetBoundaryY) {
+          point.y = targetBoundaryY;
         }
       }
     }
@@ -6160,10 +6182,7 @@ spec:
       style: ArchitectureEdgeStyle;
     }>
   ): readonly EdgePoint[] {
-    const { start, startTrunk, startLead, endLead, endTrunk, end, style } = geometry;
-    if (style.path === "straight") {
-      return this.compactPolyline([start, startTrunk, startLead, endLead, endTrunk, end]);
-    }
+    const { start, startTrunk, startLead, endLead, endTrunk, end } = geometry;
     const midX = (startLead.x + endLead.x) / 2;
     return this.compactPolyline([
       start,
@@ -6177,20 +6196,11 @@ spec:
     ]);
   }
 
-  private buildPathFromPolyline(points: readonly EdgePoint[], path: ArchitectureEdgePath): string {
+  private buildPathFromPolyline(points: readonly EdgePoint[], _path: ArchitectureEdgePath): string {
     if (points.length < 2) return "";
-    const first = points[0];
-    if (!first) return "";
-    if (path === "straight" || path === "step") {
-      const rest = points.slice(1);
-      return `M ${first.x} ${first.y} ${rest.map((point) => `L ${point.x} ${point.y}`).join(" ")}`;
-    }
-    if (path === "smoothstep") {
-      // Keep smooth edges constrained to routed orthogonal lanes so they do not
-      // overshoot into intermediate elements.
-      return this.buildRoundedPolylinePath(points, 20);
-    }
-    return this.buildRoundedPolylinePath(points, 12);
+    // Keep smooth edges constrained to routed orthogonal lanes so they do not
+    // overshoot into intermediate elements.
+    return this.buildRoundedPolylinePath(points, 20);
   }
 
   private buildRoundedPolylinePath(points: readonly EdgePoint[], radius: number): string {
@@ -7046,7 +7056,7 @@ spec:
     edge?: CanvasEdge,
     applyLaneOffset = true
   ): Readonly<{ x: number; y: number }> {
-    const side = this.getHorizontalFlowConnectionSide(from, target, role, preferredSide);
+    const side = this.getConnectionSide(from, target, role, preferredSide);
     const laneOffset = applyLaneOffset
       ? this.getEdgeSideLaneOffset(edge ?? null, from, role, side)
       : 0;
@@ -7101,22 +7111,24 @@ spec:
     return dy >= 0 ? "bottom" : "top";
   }
 
-  private getHorizontalFlowConnectionSide(
+  private getConnectionSide(
     node: CanvasNode,
     target: Readonly<{ x: number; y: number }>,
     role: "source" | "target",
     preferredSide?: ArchitectureEdgePortSide
-  ): "left" | "right" {
-    if (preferredSide === "left" || preferredSide === "right") {
+  ): ArchitectureEdgePortSide {
+    if (preferredSide) {
+      if (!this.hasOmniConnectionPorts(node) && (preferredSide === "top" || preferredSide === "bottom")) {
+        return role === "source" ? "right" : "left";
+      }
       return preferredSide;
     }
 
     const inferred = this.getNodeConnectionSideTowardPoint(node, target, role);
-    if (inferred === "left" || inferred === "right") {
-      return inferred;
+    if (!this.hasOmniConnectionPorts(node) && (inferred === "top" || inferred === "bottom")) {
+      return role === "source" ? "right" : "left";
     }
-
-    return role === "source" ? "right" : "left";
+    return inferred;
   }
 
   private getEdgeSideLaneOffset(
@@ -7168,7 +7180,7 @@ spec:
 
         const otherNode = isSourceRole ? effective.toNode : effective.fromNode;
         const preferredSide = isSourceRole ? candidate.sourcePort : candidate.targetPort;
-        const resolvedSide = this.getHorizontalFlowConnectionSide(
+        const resolvedSide = this.getConnectionSide(
           node,
           this.getNodeCenter(otherNode),
           role,
@@ -7612,13 +7624,13 @@ spec:
 
     const inferredSourcePort = ports.sourcePort;
     const inferredTargetPort = ports.targetPort;
-    const resolvedSourcePort = this.getHorizontalFlowConnectionSide(
+    const resolvedSourcePort = this.getConnectionSide(
       fromNode,
       this.getNodeCenter(toNode),
       "source",
       inferredSourcePort
     );
-    const resolvedTargetPort = this.getHorizontalFlowConnectionSide(
+    const resolvedTargetPort = this.getConnectionSide(
       toNode,
       this.getNodeCenter(fromNode),
       "target",

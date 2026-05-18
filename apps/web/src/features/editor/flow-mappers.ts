@@ -52,6 +52,6 @@ export const normalizeEdgeStyle = (
 });
 
 const normalizeEdgePath = (path: unknown): ArchitectureEdgeStyle["path"] => {
-  if (path === "step" || path === "straight" || path === "smoothstep") return path;
+  if (path === "smoothstep" || path === "step" || path === "straight") return "smoothstep";
   return "smoothstep";
 };

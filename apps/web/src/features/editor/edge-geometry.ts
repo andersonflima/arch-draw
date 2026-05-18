@@ -38,15 +38,9 @@ export const buildFullEdgePath = (
   startLead: EdgePoint,
   endLead: EdgePoint,
   end: EdgePoint,
-  path: ArchitectureEdgePath
+  _path: ArchitectureEdgePath
 ): string => {
   const midX = (startLead.x + endLead.x) / 2;
-  if (path === "straight") {
-    return `M ${start.x} ${start.y} L ${startLead.x} ${startLead.y} L ${endLead.x} ${endLead.y} L ${end.x} ${end.y}`;
-  }
-  if (path === "step") {
-    return `M ${start.x} ${start.y} L ${startLead.x} ${startLead.y} L ${midX} ${startLead.y} L ${midX} ${endLead.y} L ${endLead.x} ${endLead.y} L ${end.x} ${end.y}`;
-  }
   return `M ${start.x} ${start.y} L ${startLead.x} ${startLead.y} C ${midX} ${startLead.y}, ${midX} ${endLead.y}, ${endLead.x} ${endLead.y} L ${end.x} ${end.y}`;
 };
 
@@ -55,25 +49,10 @@ export const buildEdgeHalfPath = (
   startLead: EdgePoint,
   endLead: EdgePoint,
   end: EdgePoint,
-  path: ArchitectureEdgePath,
+  _path: ArchitectureEdgePath,
   direction: EdgeFlowDirection
 ): string => {
   const midX = (startLead.x + endLead.x) / 2;
-  const center = { x: (startLead.x + endLead.x) / 2, y: (startLead.y + endLead.y) / 2 };
-  if (path === "straight") {
-    if (direction === "forward") {
-      return `M ${center.x} ${center.y} L ${endLead.x} ${endLead.y} L ${end.x} ${end.y}`;
-    }
-    return `M ${center.x} ${center.y} L ${startLead.x} ${startLead.y} L ${start.x} ${start.y}`;
-  }
-
-  if (path === "step") {
-    const centerStep = { x: midX, y: (startLead.y + endLead.y) / 2 };
-    if (direction === "forward") {
-      return `M ${centerStep.x} ${centerStep.y} L ${midX} ${endLead.y} L ${endLead.x} ${endLead.y} L ${end.x} ${end.y}`;
-    }
-    return `M ${centerStep.x} ${centerStep.y} L ${midX} ${startLead.y} L ${startLead.x} ${startLead.y} L ${start.x} ${start.y}`;
-  }
 
   const p0 = startLead;
   const p1 = { x: midX, y: startLead.y };

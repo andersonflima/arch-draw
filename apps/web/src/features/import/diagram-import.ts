@@ -268,7 +268,7 @@ const parseExcalidrawToArchitecture = (
     if (!from || !to || from === to) continue;
 
     const style: ArchitectureEdgeStyle = {
-      path: element.elbowed ? "step" : "smoothstep",
+      path: "smoothstep",
       line:
         element.strokeStyle === "dashed"
           ? "dashed"
@@ -456,9 +456,7 @@ const inferDrawIoColor = (kind: ArchitectureNodeKind, styleText: string): string
 
 const inferDrawIoEdgeStyle = (styleText: string): ArchitectureEdgeStyle => {
   const style = parseStyle(styleText);
-  const path: ArchitectureEdgePath = style.edgeStyle?.includes("orthogonal") || style.edgeStyle?.includes("elbow")
-    ? "step"
-    : "smoothstep";
+  const path: ArchitectureEdgePath = "smoothstep";
   const line = style.dashed === "1"
     ? style.dashPattern?.includes("1") ? "dotted" : "dashed"
     : "solid";
