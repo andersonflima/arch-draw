@@ -94,6 +94,11 @@ import {
   computeNodePortMetrics,
   truncateLeafNodeLabel
 } from "../features/editor/node-layout";
+import {
+  resolveFailedAuthViewState,
+  resolveSuccessfulAuthViewState,
+  type AuthViewState
+} from "../features/auth/auth-session-state";
 
 type DragState = Readonly<{
   pointerOffsets: ReadonlyMap<string, Readonly<{ x: number; y: number }>>;
@@ -4839,12 +4844,22 @@ LIMIT 50;`;
   }
 
   private async refreshAuthSession(): Promise<void> {
-    const session = await api.getAuthSession();
-    this.authChecked = true;
-    this.authEnabled = session.authEnabled;
-    this.isAuthenticated = session.authenticated;
-    this.authenticatedUser = session.user;
-    if (session.authenticated) this.loginError = "";
+    try {
+      const session = await api.getAuthSession();
+      this.applyAuthViewState(resolveSuccessfulAuthViewState(session));
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : this.t("auth.error.generic");
+      this.applyAuthViewState(resolveFailedAuthViewState(message));
+      throw cause;
+    }
+  }
+
+  private applyAuthViewState(state: AuthViewState): void {
+    this.authChecked = state.authChecked;
+    this.authEnabled = state.authEnabled;
+    this.isAuthenticated = state.isAuthenticated;
+    this.authenticatedUser = state.authenticatedUser;
+    this.loginError = state.loginError;
   }
 
   private resolveShareIdFromUrl(): string | null {

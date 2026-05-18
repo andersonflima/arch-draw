@@ -230,6 +230,8 @@ Variáveis relevantes de autenticação e segurança:
 
 Quando as três variáveis `GOOGLE_OAUTH_*` estiverem definidas, a API passa a exigir autenticação para rotas de arquitetura (`/architectures...`) e o frontend exibe a tela de login.
 
+Se a validação inicial de sessão (`GET /auth/session`) falhar por indisponibilidade da API, CORS, host não permitido ou configuração OAuth inválida, o frontend libera a tela de login e exibe a falha em vez de permanecer indefinidamente no estado de validação SSO.
+
 Para desenvolvimento com Docker Compose (`web` em `localhost:8080`), use callback OAuth no proxy web:
 
 ```env
