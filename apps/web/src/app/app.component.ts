@@ -314,6 +314,7 @@ const EDGE_OBSTACLE_QUERY_MAX_MARGIN = 2200;
 const EDGE_ROUTE_FAST_PATH_OBSTACLE_THRESHOLD = 36;
 const EDGE_ROUTE_FAST_MODE_WINDOW_MS = 900;
 const EDGE_ROUTE_FORCE_FAST_COMPLEXITY_THRESHOLD = 60;
+const EDGE_RENDER_SUSPEND_ON_EXPAND_MS = 220;
 const EDGE_PROXIMITY_SUPPRESSION_RADIUS = 190;
 const EDGE_ROUTE_MAX_PASSES = 10;
 const EDGE_SIDE_LANE_GAP = 14;
@@ -1580,6 +1581,8 @@ export class AppComponent implements OnDestroy {
   private collaborationApplyingRemoteView = false;
   private edgeRouteFastModeUntil = 0;
   private edgeRouteFastModeTimer: ReturnType<typeof setTimeout> | null = null;
+  private edgeRenderSuspendUntil = 0;
+  private edgeRenderSuspendTimer: ReturnType<typeof setTimeout> | null = null;
   private renderAllCanvasForExport = false;
   private lastCollaborationSignature = "";
   private lastCollaborationViewSignature = "";
@@ -1709,6 +1712,10 @@ export class AppComponent implements OnDestroy {
     if (this.edgeRouteFastModeTimer) {
       clearTimeout(this.edgeRouteFastModeTimer);
       this.edgeRouteFastModeTimer = null;
+    }
+    if (this.edgeRenderSuspendTimer) {
+      clearTimeout(this.edgeRenderSuspendTimer);
+      this.edgeRenderSuspendTimer = null;
     }
     this.disconnectCollaborationStream();
     this.cancelCollaborationSync();
@@ -2582,6 +2589,7 @@ export class AppComponent implements OnDestroy {
     event.stopPropagation();
     if (this.isCodeSnippetCollapsed(node)) {
       this.activateEdgeRouteFastMode();
+      this.suspendEdgeRenderingTemporarily();
       this.setCodeSnippetCollapsed(node.id, false);
       this.maximizedNodeId = node.id;
       this.selectedNodeId = node.id;
@@ -2604,6 +2612,7 @@ export class AppComponent implements OnDestroy {
 
     if (this.isContainerCollapsed(node)) {
       this.activateEdgeRouteFastMode();
+      this.suspendEdgeRenderingTemporarily();
       this.setContainerCollapsed(node.id, false);
       this.maximizedNodeId = node.id;
       this.selectedNodeId = node.id;
@@ -3991,6 +4000,7 @@ LIMIT 50;`;
   }
 
   isRenderableEdge(edge: CanvasEdge): boolean {
+    if (this.isEdgeRenderingSuspended()) return false;
     if (this.renderAllCanvasForExport) return this.isVisibleEdge(edge);
     const cached = this.renderableEdgeIdsCache.get(edge.id);
     if (cached !== undefined) return cached;
@@ -6400,6 +6410,24 @@ spec:
 
   private shouldPreferFastEdgeRouting(): boolean {
     return (this.nodes.length + this.edges.length) >= EDGE_ROUTE_FORCE_FAST_COMPLEXITY_THRESHOLD;
+  }
+
+  private suspendEdgeRenderingTemporarily(durationMs = EDGE_RENDER_SUSPEND_ON_EXPAND_MS): void {
+    const now = Date.now();
+    this.edgeRenderSuspendUntil = Math.max(this.edgeRenderSuspendUntil, now + durationMs);
+    if (this.edgeRenderSuspendTimer) {
+      clearTimeout(this.edgeRenderSuspendTimer);
+      this.edgeRenderSuspendTimer = null;
+    }
+    this.edgeRenderSuspendTimer = setTimeout(() => {
+      this.edgeRenderSuspendTimer = null;
+      this.edgeRenderSuspendUntil = 0;
+      this.requestViewRender();
+    }, durationMs + 16);
+  }
+
+  private isEdgeRenderingSuspended(): boolean {
+    return Date.now() < this.edgeRenderSuspendUntil;
   }
 
   private shouldRerouteConstrainedEdgePath(
