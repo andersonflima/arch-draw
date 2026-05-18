@@ -312,6 +312,7 @@ const EDGE_OBSTACLE_CLEARANCE = 30;
 const EDGE_OBSTACLE_QUERY_MIN_MARGIN = 420;
 const EDGE_OBSTACLE_QUERY_MAX_MARGIN = 2200;
 const EDGE_ROUTE_FAST_PATH_OBSTACLE_THRESHOLD = 36;
+const EDGE_ROUTE_FAST_MODE_WINDOW_MS = 900;
 const EDGE_PROXIMITY_SUPPRESSION_RADIUS = 190;
 const EDGE_ROUTE_MAX_PASSES = 10;
 const EDGE_SIDE_LANE_GAP = 14;
@@ -1576,6 +1577,8 @@ export class AppComponent implements OnDestroy {
   private collaborationSyncQueued = false;
   private collaborationApplyingRemoteDocument = false;
   private collaborationApplyingRemoteView = false;
+  private edgeRouteFastModeUntil = 0;
+  private edgeRouteFastModeTimer: ReturnType<typeof setTimeout> | null = null;
   private renderAllCanvasForExport = false;
   private lastCollaborationSignature = "";
   private lastCollaborationViewSignature = "";
@@ -1701,6 +1704,10 @@ export class AppComponent implements OnDestroy {
     if (this.successToastTimer) {
       clearTimeout(this.successToastTimer);
       this.successToastTimer = null;
+    }
+    if (this.edgeRouteFastModeTimer) {
+      clearTimeout(this.edgeRouteFastModeTimer);
+      this.edgeRouteFastModeTimer = null;
     }
     this.disconnectCollaborationStream();
     this.cancelCollaborationSync();
@@ -2573,6 +2580,7 @@ export class AppComponent implements OnDestroy {
   onNodeDoubleClick(node: CanvasNode, event: MouseEvent): void {
     event.stopPropagation();
     if (this.isCodeSnippetCollapsed(node)) {
+      this.activateEdgeRouteFastMode();
       this.setCodeSnippetCollapsed(node.id, false);
       this.maximizedNodeId = node.id;
       this.selectedNodeId = node.id;
@@ -2594,6 +2602,7 @@ export class AppComponent implements OnDestroy {
     }
 
     if (this.isContainerCollapsed(node)) {
+      this.activateEdgeRouteFastMode();
       this.setContainerCollapsed(node.id, false);
       this.maximizedNodeId = node.id;
       this.selectedNodeId = node.id;
@@ -6271,7 +6280,24 @@ spec:
       this.edgePathDataCache.set(edge.id, null);
       return null;
     }
+    const useFastRouteMode = this.isEdgeRouteFastModeActive();
     const basePolyline = this.getBaseEdgePolyline(geometry);
+    if (useFastRouteMode) {
+      const fastPoints = this.enforceEdgeEndpointSideConstraints(
+        this.compactPolyline(basePolyline),
+        geometry.sourceId,
+        geometry.targetId,
+        geometry.sourceSide,
+        geometry.targetSide
+      );
+      const fastData = {
+        points: fastPoints,
+        obstacles: [] as readonly EdgeObstacleRect[],
+        style: geometry.style
+      };
+      this.edgePathDataCache.set(edge.id, fastData);
+      return fastData;
+    }
     const obstacleRects = this.getEdgeObstacleRects(edge, geometry.sourceId, geometry.targetId);
     const useDenseRouteMode = obstacleRects.length >= EDGE_ROUTE_FAST_PATH_OBSTACLE_THRESHOLD;
     const primaryMaxPasses = useDenseRouteMode
@@ -6351,6 +6377,25 @@ spec:
     };
     this.edgePathDataCache.set(edge.id, data);
     return data;
+  }
+
+  private activateEdgeRouteFastMode(durationMs = EDGE_ROUTE_FAST_MODE_WINDOW_MS): void {
+    const now = Date.now();
+    this.edgeRouteFastModeUntil = Math.max(this.edgeRouteFastModeUntil, now + durationMs);
+    if (this.edgeRouteFastModeTimer) {
+      clearTimeout(this.edgeRouteFastModeTimer);
+      this.edgeRouteFastModeTimer = null;
+    }
+    this.edgeRouteFastModeTimer = setTimeout(() => {
+      this.edgeRouteFastModeTimer = null;
+      this.edgeRouteFastModeUntil = 0;
+      this.clearCanvasRenderCaches();
+      this.requestViewRender();
+    }, durationMs + 24);
+  }
+
+  private isEdgeRouteFastModeActive(): boolean {
+    return Date.now() < this.edgeRouteFastModeUntil;
   }
 
   private shouldRerouteConstrainedEdgePath(
