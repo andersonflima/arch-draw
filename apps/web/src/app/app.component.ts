@@ -309,6 +309,8 @@ const EDGE_OBSTACLE_PADDING = 18;
 const EDGE_CONTACT_SHIELD_PADDING = 0;
 const LEAF_ICON_OBSTACLE_PADDING = 20;
 const EDGE_OBSTACLE_CLEARANCE = 30;
+const EDGE_OBSTACLE_QUERY_MIN_MARGIN = 420;
+const EDGE_OBSTACLE_QUERY_MAX_MARGIN = 2200;
 const EDGE_PROXIMITY_SUPPRESSION_RADIUS = 190;
 const EDGE_ROUTE_MAX_PASSES = 10;
 const EDGE_SIDE_LANE_GAP = 14;
@@ -6393,15 +6395,26 @@ spec:
     targetId: string
   ): boolean {
     if (points.length < 2 || obstacles.length === 0) return false;
+    const defaultSegmentObstacles = obstacles.filter((rect) =>
+      this.shouldBlockEdgeSegment(rect, sourceId, targetId, false, false)
+    );
+    const firstSegmentObstacles = obstacles.filter((rect) =>
+      this.shouldBlockEdgeSegment(rect, sourceId, targetId, true, false)
+    );
+    const lastSegmentObstacles = obstacles.filter((rect) =>
+      this.shouldBlockEdgeSegment(rect, sourceId, targetId, false, true)
+    );
     for (let index = 0; index < points.length - 1; index += 1) {
       const start = points[index];
       const end = points[index + 1];
       if (!start || !end) continue;
       const isFirstSegment = index === 0;
       const isLastSegment = index === points.length - 2;
-      const segmentObstacles = obstacles.filter((rect) =>
-        this.shouldBlockEdgeSegment(rect, sourceId, targetId, isFirstSegment, isLastSegment)
-      );
+      const segmentObstacles = isFirstSegment
+        ? firstSegmentObstacles
+        : isLastSegment
+          ? lastSegmentObstacles
+          : defaultSegmentObstacles;
       if (segmentObstacles.some((rect) => segmentIntersectsRect(start, end, rect))) return true;
     }
     return false;
@@ -6543,9 +6556,15 @@ spec:
       ...this.getOpenAncestorContainerIds(edge.from),
       ...this.getOpenAncestorContainerIds(edge.to)
     ]);
+    const routeBounds = this.getEdgeObstacleQueryBounds(sourceId, targetId);
 
     return this.nodes
       .filter((node) => this.isVisibleNode(node))
+      .filter((node) => {
+        if (!routeBounds) return true;
+        if (node.id === sourceId || node.id === targetId) return true;
+        return this.isNodeOverlappingBounds(node, routeBounds);
+      })
       .filter((node) => {
         const isOpenContainer = this.rendersAsContainer(node);
         if (!isOpenContainer) return true;
@@ -6572,6 +6591,46 @@ spec:
           ? [paddedRect, hardRect, contactShieldRect, leafIconRect]
           : [paddedRect, hardRect, contactShieldRect];
       });
+  }
+
+  private getEdgeObstacleQueryBounds(
+    sourceId: string,
+    targetId: string
+  ): Readonly<{ left: number; top: number; right: number; bottom: number }> | null {
+    const sourceNode = this.nodes.find((node) => node.id === sourceId);
+    const targetNode = this.nodes.find((node) => node.id === targetId);
+    if (!sourceNode || !targetNode) return null;
+
+    const sourceCenter = this.getNodeCenter(sourceNode);
+    const targetCenter = this.getNodeCenter(targetNode);
+    const distance = Math.hypot(targetCenter.x - sourceCenter.x, targetCenter.y - sourceCenter.y);
+    const margin = Math.max(
+      EDGE_OBSTACLE_QUERY_MIN_MARGIN,
+      Math.min(EDGE_OBSTACLE_QUERY_MAX_MARGIN, Math.round(distance * 0.45))
+    );
+
+    return {
+      left: Math.min(sourceCenter.x, targetCenter.x) - margin,
+      top: Math.min(sourceCenter.y, targetCenter.y) - margin,
+      right: Math.max(sourceCenter.x, targetCenter.x) + margin,
+      bottom: Math.max(sourceCenter.y, targetCenter.y) + margin
+    };
+  }
+
+  private isNodeOverlappingBounds(
+    node: CanvasNode,
+    bounds: Readonly<{ left: number; top: number; right: number; bottom: number }>
+  ): boolean {
+    const absolute = this.getAbsolutePosition(node);
+    const left = absolute.x;
+    const top = absolute.y;
+    const right = absolute.x + node.size.width;
+    const bottom = absolute.y + node.size.height;
+
+    return right >= bounds.left
+      && left <= bounds.right
+      && bottom >= bounds.top
+      && top <= bounds.bottom;
   }
 
   private createEdgeObstacleRect(nodeId: string, node: CanvasNode, padding: number): EdgeObstacleRect {
