@@ -323,11 +323,12 @@ const EDGE_OBSTACLE_PADDING = 18;
 const EDGE_CONTACT_SHIELD_PADDING = 0;
 const LEAF_ICON_OBSTACLE_PADDING = 20;
 const EDGE_OBSTACLE_CLEARANCE = 30;
-const EDGE_OBSTACLE_QUERY_MIN_MARGIN = 420;
-const EDGE_OBSTACLE_QUERY_MAX_MARGIN = 2200;
+const EDGE_OBSTACLE_QUERY_MIN_MARGIN = 260;
+const EDGE_OBSTACLE_QUERY_MAX_MARGIN = 1400;
 const EDGE_ROUTE_FAST_PATH_OBSTACLE_THRESHOLD = 36;
 const EDGE_ROUTE_FAST_MODE_WINDOW_MS = 900;
-const EDGE_ROUTE_FORCE_FAST_COMPLEXITY_THRESHOLD = 60;
+const EDGE_ROUTE_FORCE_FAST_COMPLEXITY_THRESHOLD = 42;
+const EDGE_SIMPLIFIED_OBSTACLE_COMPLEXITY_THRESHOLD = 40;
 const EDGE_RENDER_SUSPEND_ON_EXPAND_MS = 220;
 const EDGE_PROXIMITY_SUPPRESSION_RADIUS = 190;
 const EDGE_ROUTE_MAX_PASSES = 10;
@@ -1902,8 +1903,8 @@ export class AppComponent implements OnDestroy {
       const created = await api.createArchitecture(this.t(exampleTemplate.titleKey));
       const seeded = exampleTemplate.build(created);
       const saved = await api.saveArchitecture(seeded);
-      this.activateEdgeRouteFastMode(2400);
-      this.suspendEdgeRenderingTemporarily(520);
+      this.activateEdgeRouteFastMode(5000);
+      this.suspendEdgeRenderingTemporarily(900);
       this.updateCurrent(saved);
       await this.refreshSummaries();
       this.status = this.t("status.exampleTemplateCreated");
@@ -2649,8 +2650,8 @@ export class AppComponent implements OnDestroy {
   onNodeDoubleClick(node: CanvasNode, event: MouseEvent): void {
     event.stopPropagation();
     if (this.isCodeSnippetCollapsed(node)) {
-      this.activateEdgeRouteFastMode();
-      this.suspendEdgeRenderingTemporarily();
+      this.activateEdgeRouteFastMode(2200);
+      this.suspendEdgeRenderingTemporarily(520);
       this.setCodeSnippetCollapsed(node.id, false);
       this.maximizedNodeId = node.id;
       this.selectedNodeId = node.id;
@@ -2672,8 +2673,8 @@ export class AppComponent implements OnDestroy {
     }
 
     if (this.isContainerCollapsed(node)) {
-      this.activateEdgeRouteFastMode();
-      this.suspendEdgeRenderingTemporarily();
+      this.activateEdgeRouteFastMode(2200);
+      this.suspendEdgeRenderingTemporarily(520);
       this.setContainerCollapsed(node.id, false);
       this.maximizedNodeId = node.id;
       this.selectedNodeId = node.id;
@@ -6962,10 +6963,14 @@ apiKeys:
       return fastData;
     }
     const obstacleRects = this.getEdgeObstacleRects(edge, geometry.sourceId, geometry.targetId);
+    const useSimplifiedObstacles = this.shouldUseSimplifiedEdgeObstacles();
     const useDenseRouteMode = obstacleRects.length >= EDGE_ROUTE_FAST_PATH_OBSTACLE_THRESHOLD;
     const primaryMaxPasses = useDenseRouteMode
       ? Math.max(2, Math.floor(EDGE_ROUTE_MAX_PASSES / 2))
       : EDGE_ROUTE_MAX_PASSES;
+    const routeMaxPasses = useSimplifiedObstacles
+      ? Math.min(4, primaryMaxPasses)
+      : primaryMaxPasses;
     const routeCore = this.compactPolyline(basePolyline.slice(1, -1));
     const routeSeed = routeCore.length >= 2
       ? routeCore
@@ -6977,7 +6982,7 @@ apiKeys:
         geometry.sourceId,
         geometry.targetId,
         {
-          maxPasses: primaryMaxPasses,
+          maxPasses: routeMaxPasses,
           obstacleClearance: EDGE_OBSTACLE_CLEARANCE
         }
       )
@@ -7064,6 +7069,10 @@ apiKeys:
 
   private shouldPreferFastEdgeRouting(): boolean {
     return (this.nodes.length + this.edges.length) >= EDGE_ROUTE_FORCE_FAST_COMPLEXITY_THRESHOLD;
+  }
+
+  private shouldUseSimplifiedEdgeObstacles(): boolean {
+    return (this.nodes.length + this.edges.length) >= EDGE_SIMPLIFIED_OBSTACLE_COMPLEXITY_THRESHOLD;
   }
 
   private suspendEdgeRenderingTemporarily(durationMs = EDGE_RENDER_SUSPEND_ON_EXPAND_MS): void {
@@ -7302,6 +7311,7 @@ apiKeys:
       ...this.getOpenAncestorContainerIds(edge.to)
     ]);
     const routeBounds = this.getEdgeObstacleQueryBounds(sourceId, targetId);
+    const useSimplifiedObstacles = this.shouldUseSimplifiedEdgeObstacles();
 
     return this.nodes
       .filter((node) => this.isVisibleNode(node))
@@ -7318,11 +7328,12 @@ apiKeys:
       })
       .flatMap((node) => {
         const paddedRect = this.createEdgeObstacleRect(node.id, node, EDGE_OBSTACLE_PADDING);
-        const contactShieldRect = this.createNodeContactShieldObstacleRect(
-          node.id,
-          node,
-          EDGE_CONTACT_SHIELD_PADDING
-        );
+        if (useSimplifiedObstacles) {
+          if (node.id !== sourceId && node.id !== targetId) return [paddedRect];
+          const hardRect = this.createEdgeObstacleRect(`${node.id}__hard`, node, 0);
+          return [paddedRect, hardRect];
+        }
+        const contactShieldRect = this.createNodeContactShieldObstacleRect(node.id, node, EDGE_CONTACT_SHIELD_PADDING);
         const leafIconRect = this.createLeafIconObstacleRect(node.id, node, LEAF_ICON_OBSTACLE_PADDING);
         if (node.id !== sourceId && node.id !== targetId) {
           return leafIconRect
