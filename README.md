@@ -31,7 +31,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Estilo de conexão `smoothstep` com curvas suaves contínuas para leitura de fluxo.
 - Elementos expansíveis/minimizáveis para navegar entre níveis de detalhe.
 - Ícones de elementos minimizados mantêm alinhamento central mesmo com labels longas.
-- Elementos de código minimizados exibem badge da linguagem detectada para facilitar identificação rápida do conteúdo.
+- Elementos de código minimizados exibem badge da linguagem detectada, atualizada sempre que o conteúdo interno muda, para facilitar identificação rápida do conteúdo.
 - Containers não expandem automaticamente durante drag and drop; ajuste dinâmico ocorre apenas em fluxos de expansão/maximização.
 - Colapso de elementos aninhados com manutenção do foco visual no canvas e redução de ruído em labels agregadas.
 - Normalização automática de vínculo em containers ao carregar/importar templates (nós internos sem `parentId` válido são reanexados ao container correto pelo contexto visual).
