@@ -1715,7 +1715,10 @@ export class AppComponent implements OnDestroy {
   async startGoogleLogin(): Promise<void> {
     this.authActionInFlight = true;
     this.markViewChanged();
-    window.location.assign(api.buildGoogleLoginUrl(window.location.href));
+  }
+
+  getGoogleLoginUrl(): string {
+    return api.buildGoogleLoginUrl(window.location.href);
   }
 
   async logoutFromSession(): Promise<void> {

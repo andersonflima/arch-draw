@@ -361,7 +361,8 @@ button {
   background: #facc15;
 }
 
-.primary-action:disabled {
+.primary-action:disabled,
+.primary-action.is-disabled {
   cursor: not-allowed;
   background: #e5e7eb;
   color: #6b7280;
@@ -459,6 +460,7 @@ button {
 .auth-login-button {
   justify-content: center;
   min-height: 44px;
+  text-decoration: none;
 }
 
 .auth-login-button i {

@@ -909,15 +909,16 @@
 
       <p class="error-text" *ngIf="loginError">{{ loginError }}</p>
 
-      <button
+      <a
         class="primary-action auth-login-button"
-        type="button"
-        [disabled]="authActionInFlight"
+        [class.is-disabled]="authActionInFlight"
+        [attr.aria-disabled]="authActionInFlight"
+        [href]="getGoogleLoginUrl()"
         (click)="startGoogleLogin()"
       >
         <i class="fa-brands fa-google" aria-hidden="true"></i>
         <span>{{ authActionInFlight ? t("auth.redirecting") : t("auth.loginWithGoogle") }}</span>
-      </button>
+      </a>
     </main>
   </div>
 </ng-template>
