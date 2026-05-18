@@ -6091,13 +6091,31 @@ spec:
       geometry.sourceSide,
       geometry.targetSide
     );
-    if (constrained.length < 2) {
+    const normalized = this.hasDiagonalSegments(constrained)
+      ? this.enforceEdgeEndpointSideConstraints(
+        routeEdgePolylineAroundObstacles(
+          this.orthogonalizePolyline(constrained),
+          obstacleRects,
+          geometry.sourceId,
+          geometry.targetId,
+          {
+            maxPasses: EDGE_ROUTE_MAX_PASSES,
+            obstacleClearance: EDGE_OBSTACLE_CLEARANCE
+          }
+        ),
+        geometry.sourceId,
+        geometry.targetId,
+        geometry.sourceSide,
+        geometry.targetSide
+      )
+      : constrained;
+    if (normalized.length < 2) {
       this.edgePathDataCache.set(edge.id, null);
       return null;
     }
 
     const data = {
-      points: constrained,
+      points: normalized,
       style: geometry.style
     };
     this.edgePathDataCache.set(edge.id, data);
@@ -6368,6 +6386,51 @@ spec:
       }
     }
     return compacted;
+  }
+
+  private hasDiagonalSegments(points: readonly EdgePoint[]): boolean {
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const start = points[index];
+      const end = points[index + 1];
+      if (!start || !end) continue;
+      const dx = Math.abs(end.x - start.x);
+      const dy = Math.abs(end.y - start.y);
+      if (dx > 0.001 && dy > 0.001) return true;
+    }
+    return false;
+  }
+
+  private orthogonalizePolyline(points: readonly EdgePoint[]): readonly EdgePoint[] {
+    if (points.length < 2) return points;
+    const orthogonal: EdgePoint[] = [points[0] ?? { x: 0, y: 0 }];
+
+    for (let index = 1; index < points.length; index += 1) {
+      const current = points[index];
+      const previous = orthogonal[orthogonal.length - 1];
+      if (!current || !previous) continue;
+
+      const dx = current.x - previous.x;
+      const dy = current.y - previous.y;
+      if (Math.abs(dx) <= 0.001 || Math.abs(dy) <= 0.001) {
+        orthogonal.push(current);
+        continue;
+      }
+
+      const next = points[index + 1];
+      const continuesVertical = Boolean(next && Math.abs((next.x ?? 0) - current.x) <= 0.001);
+      const continuesHorizontal = Boolean(next && Math.abs((next.y ?? 0) - current.y) <= 0.001);
+      const elbow = continuesVertical
+        ? { x: current.x, y: previous.y }
+        : continuesHorizontal
+          ? { x: previous.x, y: current.y }
+          : Math.abs(dx) >= Math.abs(dy)
+            ? { x: current.x, y: previous.y }
+            : { x: previous.x, y: current.y };
+      orthogonal.push(elbow);
+      orthogonal.push(current);
+    }
+
+    return this.compactPolyline(orthogonal);
   }
 
   private getPolylineLength(points: readonly EdgePoint[]): number {
