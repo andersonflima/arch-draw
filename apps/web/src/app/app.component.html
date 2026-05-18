@@ -264,6 +264,16 @@
       (wheel)="onCanvasWheel($event)"
       (contextmenu)="onCanvasContextMenu($event)"
     >
+      <button
+        class="workspace-menu-toggle"
+        type="button"
+        [title]="isLeftPanelsHidden ? t('aria.showLeftMenu') : t('aria.hideLeftMenu')"
+        [attr.aria-label]="isLeftPanelsHidden ? t('aria.showLeftMenu') : t('aria.hideLeftMenu')"
+        (pointerdown)="$event.stopPropagation()"
+        (click)="toggleLeftPanelsVisibility(); $event.stopPropagation()"
+      >
+        <i [class]="isLeftPanelsHidden ? 'fa-solid fa-bars' : 'fa-solid fa-chevron-left'" aria-hidden="true"></i>
+      </button>
       <div class="canvas-viewport" [ngStyle]="getViewportStyle()">
         <ng-container *ngFor="let node of nodes">
           <ng-container *ngIf="isContainerLayerNode(node)">
