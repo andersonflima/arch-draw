@@ -6064,9 +6064,12 @@ spec:
     const basePolyline = this.getBaseEdgePolyline(geometry);
     const obstacleRects = this.getEdgeObstacleRects(edge, geometry.sourceId, geometry.targetId);
     const routeCore = this.compactPolyline(basePolyline.slice(1, -1));
-    const routedCore = routeCore.length >= 2
+    const routeSeed = routeCore.length >= 2
+      ? routeCore
+      : this.compactPolyline([geometry.startTrunk, geometry.endTrunk]);
+    const routedCore = routeSeed.length >= 2
       ? routeEdgePolylineAroundObstacles(
-        routeCore,
+        routeSeed,
         obstacleRects,
         geometry.sourceId,
         geometry.targetId,
@@ -6075,7 +6078,7 @@ spec:
           obstacleClearance: EDGE_OBSTACLE_CLEARANCE
         }
       )
-      : routeCore;
+      : routeSeed;
     const routed = this.compactPolyline([
       geometry.start,
       ...routedCore,
