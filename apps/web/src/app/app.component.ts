@@ -6024,9 +6024,9 @@ spec:
     const endAxis = this.getEdgeTerminalAxis(target, rawEnd, targetCenter);
     const style = normalizeEdgeStyle(edge.style);
     const start = style.bidirectional
-      ? this.offsetTerminalPoint(rawStart, sourceCenter, startAxis, EDGE_MARKER_CLEARANCE, true)
+      ? this.offsetTerminalPoint(rawStart, sourceCenter, startAxis, EDGE_MARKER_CLEARANCE, false)
       : rawStart;
-    const end = this.offsetTerminalPoint(rawEnd, targetCenter, endAxis, EDGE_MARKER_CLEARANCE, true);
+    const end = this.offsetTerminalPoint(rawEnd, targetCenter, endAxis, EDGE_MARKER_CLEARANCE, false);
     // Keep a shared terminal trunk near the contact bubble so all connections
     // unify at the same point, then fan out farther from the node.
     const startTrunk = this.offsetTerminalPoint(start, sourceCenter, startAxis, EDGE_ENDPOINT_STUB, false);
