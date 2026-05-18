@@ -83,7 +83,17 @@ import {
   insertMermaidLineBreak,
   removeMermaidIndent
 } from "../features/editor/mermaid-editor";
+import {
+  panCanvasFromWheel,
+  type WheelDeltaMode
+} from "../features/editor/canvas-navigation";
 import { getBidirectionalPairPrimaryEdge } from "../features/editor/edge-bidirectional";
+import {
+  computeLeafLabelCharacterLimit,
+  computeLeafNodeIconSize,
+  computeNodePortMetrics,
+  truncateLeafNodeLabel
+} from "../features/editor/node-layout";
 
 type DragState = Readonly<{
   pointerOffsets: ReadonlyMap<string, Readonly<{ x: number; y: number }>>;
@@ -227,6 +237,8 @@ const MAX_ZOOM = 2.4;
 const ZOOM_IN_FACTOR = 1.15;
 const ZOOM_OUT_FACTOR = 1 / ZOOM_IN_FACTOR;
 const WHEEL_ZOOM_SENSITIVITY = 0.0014;
+const WHEEL_PAN_LINE_HEIGHT = 16;
+const WHEEL_PAN_PAGE_HEIGHT = 800;
 const MINI_MAP_SIZE = { width: 150, height: 96 };
 const MINI_MAP_PADDING = 8;
 const DEFAULT_CANVAS_PAN = { x: 0, y: 0 };
@@ -306,6 +318,17 @@ const LEAF_LABEL_RENDER_HORIZONTAL_PADDING = 16;
 const LEAF_LABEL_RENDER_VERTICAL_PADDING = 6;
 const LEAF_NODE_LABEL_TRUNCATE_BASE_CHARS = 24;
 const LEAF_NODE_LABEL_TRUNCATE_MAX_CHARS = 44;
+const LEGACY_EXAMPLE_LEAF_NODE_SIZE = { width: 172, height: 176 } as const;
+const NODE_PORT_METRICS_LIMITS = {
+  minHitWidth: MIN_NODE_PORT_HIT_WIDTH,
+  maxHitWidth: MAX_NODE_PORT_HIT_WIDTH,
+  minInset: MIN_NODE_PORT_INSET,
+  maxInset: MAX_NODE_PORT_INSET,
+  minDotSize: MIN_NODE_PORT_DOT_SIZE,
+  maxDotSize: MAX_NODE_PORT_DOT_SIZE,
+  minOmniSize: MIN_NODE_PORT_OMNI_SIZE,
+  maxOmniSize: MAX_NODE_PORT_OMNI_SIZE
+} as const;
 const MAX_UNDO_HISTORY = 1000;
 const DRAG_START_THRESHOLD = 4;
 const STRICT_PORT_ANCHORING = true;
@@ -3490,12 +3513,41 @@ LIMIT 50;`;
   }
 
   onCanvasWheel(event: WheelEvent): void {
-    if (!event.ctrlKey && !event.metaKey) return;
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault();
+      const zoomFactor = Math.exp(-event.deltaY * WHEEL_ZOOM_SENSITIVITY);
+      this.zoomTo(
+        this.clampZoom(this.canvasZoom * zoomFactor),
+        { clientX: event.clientX, clientY: event.clientY }
+      );
+      return;
+    }
+
+    if (this.shouldIgnoreCanvasWheelPan(event)) return;
     event.preventDefault();
-    const zoomFactor = Math.exp(-event.deltaY * WHEEL_ZOOM_SENSITIVITY);
-    this.zoomTo(
-      this.clampZoom(this.canvasZoom * zoomFactor),
-      { clientX: event.clientX, clientY: event.clientY }
+    this.canvasPan = panCanvasFromWheel(
+      this.canvasPan,
+      {
+        deltaX: event.deltaX,
+        deltaY: event.deltaY,
+        deltaMode: event.deltaMode as WheelDeltaMode
+      },
+      {
+        lineHeight: WHEEL_PAN_LINE_HEIGHT,
+        pageHeight: WHEEL_PAN_PAGE_HEIGHT
+      }
+    );
+    this.markInteractionChanged();
+  }
+
+  private shouldIgnoreCanvasWheelPan(event: WheelEvent): boolean {
+    const target = event.target instanceof HTMLElement ? event.target : null;
+    if (!target) return false;
+
+    return Boolean(
+      target.closest(
+        "input, select, textarea, app-code-editor, .code-snippet-inline-editor, .canvas-map, .context-properties-popup"
+      )
     );
   }
 
@@ -3803,25 +3855,7 @@ LIMIT 50;`;
     const nodeTextColor = this.isDarkMode
       ? (prefersDarkTextInDarkMode ? "#111827" : "#f8fafc")
       : "#111827";
-    const nodePortScaleBasis = Math.max(48, Math.min(node.size.width, node.size.height));
-    const nodePortHitWidth = Math.round(
-      Math.min(MAX_NODE_PORT_HIT_WIDTH, Math.max(MIN_NODE_PORT_HIT_WIDTH, nodePortScaleBasis * 0.18))
-    );
-    const nodePortInset = Math.round(
-      Math.min(MAX_NODE_PORT_INSET, Math.max(MIN_NODE_PORT_INSET, nodePortScaleBasis * 0.11))
-    );
-    const nodePortDotSize = Math.round(
-      Math.min(MAX_NODE_PORT_DOT_SIZE, Math.max(MIN_NODE_PORT_DOT_SIZE, nodePortHitWidth * 0.48))
-    );
-    const nodePortEdgeOffset = nodePortDotSize + 1;
-    const nodePortLaneInset = Math.round(Math.max(0, Math.min(6, nodePortInset * 0.6)));
-    const nodePortLaneWidth = Math.round(Math.max(3, Math.min(6, nodePortHitWidth * 0.22)));
-    const nodePortMinHeight = Math.round(Math.max(28, nodePortHitWidth + 10));
-    const nodePortOmniSize = Math.round(
-      Math.min(MAX_NODE_PORT_OMNI_SIZE, Math.max(MIN_NODE_PORT_OMNI_SIZE, nodePortHitWidth))
-    );
-    const nodePortOmniOffset = Math.round(nodePortOmniSize / 2 + 1);
-    const nodePortOmniHaloSize = Math.round(Math.max(14, Math.min(22, nodePortDotSize + 4)));
+    const nodePortMetrics = computeNodePortMetrics(node.size, NODE_PORT_METRICS_LIMITS);
     const leafNodeIconSize = this.getLeafNodeIconSizeForNode(node);
     return {
       left: `${position.x}px`,
@@ -3836,16 +3870,16 @@ LIMIT 50;`;
       "--leaf-node-icon-size": `${leafNodeIconSize}px`,
       "--leaf-node-icon-font-size": `${Math.max(16, Math.round((leafNodeIconSize / DEFAULT_LEAF_ICON_SIZE) * DEFAULT_LEAF_ICON_FONT_SIZE))}px`,
       "--leaf-anchor-top-offset": `${LEAF_ANCHOR_TOP_OFFSET}px`,
-      "--node-port-hit-width": `${nodePortHitWidth}px`,
-      "--node-port-hit-inset": `${nodePortInset}px`,
-      "--node-port-hit-min-height": `${nodePortMinHeight}px`,
-      "--node-port-dot-size": `${nodePortDotSize}px`,
-      "--node-port-edge-offset": `${nodePortEdgeOffset}px`,
-      "--node-port-lane-inset": `${nodePortLaneInset}px`,
-      "--node-port-lane-width": `${nodePortLaneWidth}px`,
-      "--node-port-omni-size": `${nodePortOmniSize}px`,
-      "--node-port-omni-offset": `${nodePortOmniOffset}px`,
-      "--node-port-omni-halo-size": `${nodePortOmniHaloSize}px`,
+      "--node-port-hit-width": `${nodePortMetrics.hitWidth}px`,
+      "--node-port-hit-inset": `${nodePortMetrics.hitInset}px`,
+      "--node-port-hit-min-height": `${nodePortMetrics.hitMinHeight}px`,
+      "--node-port-dot-size": `${nodePortMetrics.dotSize}px`,
+      "--node-port-edge-offset": `${nodePortMetrics.edgeOffset}px`,
+      "--node-port-lane-inset": `${nodePortMetrics.laneInset}px`,
+      "--node-port-lane-width": `${nodePortMetrics.laneWidth}px`,
+      "--node-port-omni-size": `${nodePortMetrics.omniSize}px`,
+      "--node-port-omni-offset": `${nodePortMetrics.omniOffset}px`,
+      "--node-port-omni-halo-size": `${nodePortMetrics.omniHaloSize}px`,
       zIndex: resolvedZIndex
     };
   }
@@ -4350,7 +4384,7 @@ LIMIT 50;`;
     const normalizedLabel = node.label.replace(/\s+/g, " ").trim();
     if (!this.usesLeafConnectionAnchorBox(node)) return normalizedLabel;
     const characterLimit = this.getLeafLabelCharacterLimit(node);
-    return this.truncateLeafNodeLabel(normalizedLabel, characterLimit);
+    return truncateLeafNodeLabel(normalizedLabel, characterLimit);
   }
 
   getNodeIcon(kind: ArchitectureNodeKind): string {
@@ -4395,7 +4429,8 @@ LIMIT 50;`;
     return this.buildPathFromPolyline(data.points, data.style.path, data.obstacles);
   }
 
-  getEdgeEndMarker(edge: CanvasEdge): string {
+  getEdgeEndMarker(edge: CanvasEdge): string | null {
+    if (!this.shouldRenderEdgeEndMarker(edge)) return null;
     return this.getEdgeMarkerUrl(edge);
   }
 
@@ -4503,6 +4538,21 @@ LIMIT 50;`;
 
   private getEdgeMarkerUrl(edge: CanvasEdge): string {
     return `url(#${this.getEdgeMarkerId(edge)})`;
+  }
+
+  private shouldRenderEdgeEndMarker(edge: CanvasEdge): boolean {
+    const effective = this.getEffectiveEdgeEndpoints(edge);
+    if (!effective) return true;
+    const { fromNode, toNode } = effective;
+    const side = this.getConnectionSide(
+      toNode,
+      this.getNodeCenter(fromNode),
+      "target",
+      edge.targetPort ?? undefined
+    );
+    const bundleEdgeIds = this.getEdgeIdsForNodeSide(toNode, "target", side);
+    if (bundleEdgeIds.length <= 1) return true;
+    return (bundleEdgeIds[0] ?? edge.id) === edge.id;
   }
 
   getEdgeColor(edge: CanvasEdge): string {
@@ -4917,6 +4967,12 @@ LIMIT 50;`;
       const isCodeKind = isCodeSnippetNodeKind(kind);
       const supportsCode = isCodeKind || CONTAINER_CODE_PROPERTY_KINDS.has(kind);
       const startsCollapsed = isContainerKind || isCodeKind;
+      const isLegacyLeafSize =
+        !isContainerKind
+        && !isCodeKind
+        && size.width === LEGACY_EXAMPLE_LEAF_NODE_SIZE.width
+        && size.height === LEGACY_EXAMPLE_LEAF_NODE_SIZE.height;
+      const resolvedSize = isLegacyLeafSize ? getDefaultNodeSize(kind) : size;
       const nextProperties: Record<string, string> = { ...(properties ?? {}) };
 
       if (supportsCode) {
@@ -4940,7 +4996,7 @@ LIMIT 50;`;
         label,
         parentId,
         position,
-        size: startsCollapsed ? { ...CODE_SNIPPET_COLLAPSED_SIZE } : size,
+        size: startsCollapsed ? { ...CODE_SNIPPET_COLLAPSED_SIZE } : resolvedSize,
         color: getNodeKindColor(kind),
         collapsed: startsCollapsed ? true : undefined,
         collapsedIconKind: isContainerKind
@@ -4949,7 +5005,7 @@ LIMIT 50;`;
             ? kind
             : undefined,
         expandedSize: startsCollapsed
-          ? (isCodeKind ? { ...CODE_SNIPPET_EXPANDED_SIZE } : { ...size })
+          ? (isCodeKind ? { ...CODE_SNIPPET_EXPANDED_SIZE } : { ...resolvedSize })
           : undefined,
         properties: Object.keys(nextProperties).length > 0 ? nextProperties : undefined
       };
@@ -5487,7 +5543,25 @@ spec:
       };
     });
 
-    const bindingNormalization = this.normalizeNodeContainerBindings(normalizedCodeNodes);
+    const hasLegacyExampleSignature =
+      normalizedCodeNodes.some((node) => node.id === "n-platform")
+      && normalizedCodeNodes.some((node) => node.id === "n-vpc");
+    const normalizedExampleNodes: ArchitectureNode[] = hasLegacyExampleSignature
+      ? normalizedCodeNodes.map((node) => {
+        const isLeafLike = !isContainerNodeKind(node.kind) && !isCodeSnippetNodeKind(node.kind);
+        const isLegacyLeafSize =
+          node.size.width === LEGACY_EXAMPLE_LEAF_NODE_SIZE.width
+          && node.size.height === LEGACY_EXAMPLE_LEAF_NODE_SIZE.height;
+        if (!isLeafLike || !isLegacyLeafSize) return node;
+        changed = true;
+        return {
+          ...node,
+          size: { ...getDefaultNodeSize(node.kind) }
+        };
+      })
+      : normalizedCodeNodes;
+
+    const bindingNormalization = this.normalizeNodeContainerBindings(normalizedExampleNodes);
     if (bindingNormalization.changed) {
       changed = true;
     }
@@ -7367,25 +7441,13 @@ spec:
     omniSize: number;
     omniOffset: number;
   }> {
-    const nodePortScaleBasis = Math.max(48, Math.min(node.size.width, node.size.height));
-    const nodePortHitWidth = Math.round(
-      Math.min(MAX_NODE_PORT_HIT_WIDTH, Math.max(MIN_NODE_PORT_HIT_WIDTH, nodePortScaleBasis * 0.18))
-    );
-    const nodePortDotSize = Math.round(
-      Math.min(MAX_NODE_PORT_DOT_SIZE, Math.max(MIN_NODE_PORT_DOT_SIZE, nodePortHitWidth * 0.48))
-    );
-    const nodePortEdgeOffset = nodePortDotSize + 1;
-    const nodePortLaneWidth = Math.round(Math.max(3, Math.min(6, nodePortHitWidth * 0.22)));
-    const nodePortOmniSize = Math.round(
-      Math.min(MAX_NODE_PORT_OMNI_SIZE, Math.max(MIN_NODE_PORT_OMNI_SIZE, nodePortHitWidth))
-    );
-    const nodePortOmniOffset = Math.round(nodePortOmniSize / 2 + 1);
+    const metrics = computeNodePortMetrics(node.size, NODE_PORT_METRICS_LIMITS);
     return {
-      dotSize: nodePortDotSize,
-      edgeOffset: nodePortEdgeOffset,
-      laneWidth: nodePortLaneWidth,
-      omniSize: nodePortOmniSize,
-      omniOffset: nodePortOmniOffset
+      dotSize: metrics.dotSize,
+      edgeOffset: metrics.edgeOffset,
+      laneWidth: metrics.laneWidth,
+      omniSize: metrics.omniSize,
+      omniOffset: metrics.omniOffset
     };
   }
 
@@ -7398,16 +7460,13 @@ spec:
   }
 
   private getLeafNodeIconSizeForNode(node: CanvasNode): number {
-    return Math.max(
-      32,
-      Math.round(
-        Math.min(
-          Math.max(32, node.size.width - 20),
-          Math.max(32, node.size.height - LEAF_ANCHOR_TOP_OFFSET - 14),
-          Math.max(32, (this.nodeIconSize / DEFAULT_NODE_ICON_SIZE) * LEAF_ANCHOR_ICON_SIZE)
-        )
-      )
-    );
+    return computeLeafNodeIconSize({
+      nodeSize: node.size,
+      nodeIconSize: this.nodeIconSize,
+      defaultNodeIconSize: DEFAULT_NODE_ICON_SIZE,
+      leafAnchorIconSize: LEAF_ANCHOR_ICON_SIZE,
+      leafAnchorTopOffset: LEAF_ANCHOR_TOP_OFFSET
+    });
   }
 
   private getExpandedCodeSnippetMinimumSize(): Readonly<{ width: number; height: number }> {
@@ -9683,57 +9742,13 @@ spec:
   }
 
   private getLeafLabelCharacterLimit(node: CanvasNode): number {
-    const widthGain = Math.max(0, node.size.width - 108);
-    const iconGain = Math.max(0, this.nodeIconSize - DEFAULT_NODE_ICON_SIZE);
-    const dynamicLimit =
-      LEAF_NODE_LABEL_TRUNCATE_BASE_CHARS
-      + Math.round(widthGain / 6)
-      + Math.round(iconGain / 14);
-
-    return Math.max(
-      LEAF_NODE_LABEL_TRUNCATE_BASE_CHARS,
-      Math.min(LEAF_NODE_LABEL_TRUNCATE_MAX_CHARS, dynamicLimit)
-    );
-  }
-
-  private truncateLeafNodeLabel(label: string, characterLimit: number): string {
-    if (label.length <= characterLimit) return label;
-
-    const safeLimit = Math.max(10, characterLimit);
-    const cutoff = safeLimit - 3;
-    const words = label.split(" ").filter((token) => token.length > 0);
-    if (words.length === 0) {
-      return `${label.slice(0, cutoff)}...`;
-    }
-
-    if (words.length === 1) {
-      return `${words[0]?.slice(0, cutoff) ?? label.slice(0, cutoff)}...`;
-    }
-
-    let composed = "";
-    let nextWordIndex = 0;
-    while (nextWordIndex < words.length) {
-      const word = words[nextWordIndex];
-      if (!word) break;
-      const candidate = composed.length > 0 ? `${composed} ${word}` : word;
-      if (candidate.length > cutoff) break;
-      composed = candidate;
-      nextWordIndex += 1;
-    }
-
-    if (!composed) {
-      return `${words[0]?.slice(0, cutoff) ?? label.slice(0, cutoff)}...`;
-    }
-
-    if (nextWordIndex >= words.length) return composed;
-
-    const remaining = cutoff - composed.length - 1;
-    if (remaining > 0) {
-      const partial = (words[nextWordIndex] ?? "").slice(0, remaining);
-      if (partial.length > 0) return `${composed} ${partial}...`;
-    }
-
-    return `${composed}...`;
+    return computeLeafLabelCharacterLimit({
+      nodeWidth: node.size.width,
+      nodeIconSize: this.nodeIconSize,
+      defaultNodeIconSize: DEFAULT_NODE_ICON_SIZE,
+      baseChars: LEAF_NODE_LABEL_TRUNCATE_BASE_CHARS,
+      maxChars: LEAF_NODE_LABEL_TRUNCATE_MAX_CHARS
+    });
   }
 
   private isSimpleContainerKind(kind: ArchitectureNodeKind): boolean {

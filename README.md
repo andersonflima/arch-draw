@@ -29,6 +29,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Labels de âncoras exibidos em caixa horizontal fixa (sem seguir ângulo da linha e sem quebra de palavra), com fundo transparente e blur forte atrás do texto para preservar leitura sem caixa opaca.
 - Estilo de conexão `smoothstep` com curvas suaves contínuas para leitura de fluxo.
 - Elementos expansíveis/minimizáveis para navegar entre níveis de detalhe.
+- Ícones de elementos minimizados mantêm alinhamento central mesmo com labels longas.
 - Containers não expandem automaticamente durante drag and drop; ajuste dinâmico ocorre apenas em fluxos de expansão/maximização.
 - Colapso de elementos aninhados com manutenção do foco visual no canvas e redução de ruído em labels agregadas.
 - Normalização automática de vínculo em containers ao carregar/importar templates (nós internos sem `parentId` válido são reanexados ao container correto pelo contexto visual).
@@ -44,6 +45,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Tooltips e labels de conexão com espaçamento interno reforçado para evitar texto encostado nas bordas.
 - Abertura padrão do board com viewport centralizado no conteúdo em 27% de zoom quando não existe checkpoint salvo.
 - Checkpoint automático de viewport por arquivo (zoom + posição do canvas), retomando no mesmo ponto após recarregar ou reabrir o navegador.
+- Navegação do canvas por gesto de dois dedos no touchpad, mantendo `Ctrl/Command + scroll` para zoom.
 - Toasts visuais no padrão da plataforma para ações de produtividade (salvar checkpoint, exportar e limpar).
 - Interface com i18n completo `PT/EN` (PT-BR e EN-US), incluindo toolbar, telas de autenticação, painel de propriedades, status, toasts e conteúdo dos tutoriais guiados.
 - Menu lateral esquerdo (arquivos + blocos) com toggle de ocultar/exibir para ampliar a área útil do canvas, com preferência persistida por usuário no navegador.
@@ -94,6 +96,28 @@ Atalhos de edição:
 npm install
 npm run dev
 ```
+
+## Estrutura de estilos (CSS)
+
+O frontend mantém um ponto de entrada único em `apps/web/src/styles/base.css`, agora organizado por módulos para reduzir complexidade e facilitar manutenção:
+
+- `apps/web/src/styles/base/00-foundation.css`: reset, shell, topbar, sidebar e palette.
+- `apps/web/src/styles/base/01-canvas-shell.css`: canvas, viewport, marquee e cursores remotos.
+- `apps/web/src/styles/base/02-nodes-icons.css`: nós, variações visuais e ícones.
+- `apps/web/src/styles/base/03-connections-panels.css`: portas/conexões, minimap e painéis.
+- `apps/web/src/styles/base/04-theme-dark.css`: overrides do tema escuro.
+- `apps/web/src/styles/base/05-responsive.css`: regras responsivas.
+
+A ordem dos módulos preserva o cascade anterior.
+
+## Estrutura de código (editor)
+
+Para reduzir complexidade do frontend, a lógica do editor vem sendo extraída para módulos puros em `apps/web/src/features/editor/`.
+
+Exemplo recente:
+
+- `node-layout.ts`: concentra cálculos puros de layout (métricas de portas, tamanho dinâmico de ícone minimizado e truncamento de labels minimizadas).
+- `node-layout.test.ts`: cobre os comportamentos principais dessa lógica para proteger contra regressão.
 
 URLs padrão:
 
