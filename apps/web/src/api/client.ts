@@ -5,7 +5,7 @@ import type {
 
 export const API_BASE_URL =
   window.location.port === "5173"
-    ? `${window.location.protocol}//127.0.0.1:3333`
+    ? `${window.location.protocol}//localhost:8080`
     : `${window.location.origin}/api`;
 
 export type ArchitectureSummary = Readonly<{

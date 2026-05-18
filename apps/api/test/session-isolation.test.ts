@@ -311,7 +311,7 @@ const createTestServer = async (
     googleOAuthClientId: options.enableGoogleAuth ? "test-client-id" : undefined,
     googleOAuthClientSecret: options.enableGoogleAuth ? "test-client-secret" : undefined,
     googleOAuthRedirectUri: options.enableGoogleAuth
-      ? "http://127.0.0.1:3333/auth/google/callback"
+      ? "http://localhost:8080/auth/google/callback"
       : undefined
   });
 

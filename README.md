@@ -122,7 +122,7 @@ Exemplo recente:
 URLs padrão:
 
 - Web: `http://127.0.0.1:5173`
-- API: `http://127.0.0.1:3333`
+- API: `http://localhost:8080`
 
 ## Rodando com Docker
 
@@ -232,14 +232,14 @@ Quando as três variáveis `GOOGLE_OAUTH_*` estiverem definidas, a API passa a e
 
 Se a validação inicial de sessão (`GET /auth/session`) falhar por indisponibilidade da API, CORS, host não permitido ou configuração OAuth inválida, o frontend libera a tela de login e exibe a falha em vez de permanecer indefinidamente no estado de validação SSO.
 
-Para desenvolvimento local com `npm run dev` (`web` em `127.0.0.1:5173` e API em `127.0.0.1:3333`), use callback OAuth direto na API:
+Para desenvolvimento local com `npm run dev` (`web` em `127.0.0.1:5173` e API em `localhost:8080`), use callback OAuth direto na API:
 
 ```env
 WEB_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
-GOOGLE_OAUTH_REDIRECT_URI=http://127.0.0.1:3333/auth/google/callback
+GOOGLE_OAUTH_REDIRECT_URI=http://localhost:8080/auth/google/callback
 ```
 
-A mesma URL definida em `GOOGLE_OAUTH_REDIRECT_URI` precisa estar cadastrada em **Authorized redirect URIs** no OAuth Client do Google Cloud. Se o Google retornar `redirect_uri_mismatch`, cadastre exatamente `http://127.0.0.1:3333/auth/google/callback` ou ajuste a variável para uma URL já autorizada.
+A mesma URL definida em `GOOGLE_OAUTH_REDIRECT_URI` precisa estar cadastrada em **Authorized redirect URIs** no OAuth Client do Google Cloud. Se o Google retornar `redirect_uri_mismatch`, cadastre exatamente `http://localhost:8080/auth/google/callback` ou ajuste a variável para uma URL já autorizada.
 
 A API carrega automaticamente o arquivo `.env` local ao iniciar por `npm run dev`, sem sobrescrever variáveis já exportadas no ambiente.
 
