@@ -76,6 +76,7 @@ import {
   routePolylineAroundObstacles as routeEdgePolylineAroundObstacles,
   type EdgeObstacleRect
 } from "../features/editor/edge-routing";
+import { buildRoundedPolylinePath } from "../features/editor/edge-rounded-path";
 import {
   insertMermaidIndent,
   insertMermaidLineBreak,
@@ -171,6 +172,7 @@ type RemoteCollaboratorCursor = Readonly<{
 
 type EdgePathData = Readonly<{
   points: readonly EdgePoint[];
+  obstacles: readonly EdgeObstacleRect[];
   style: ArchitectureEdgeStyle;
 }>;
 
@@ -4376,7 +4378,7 @@ LIMIT 50;`;
   getEdgePath(edge: CanvasEdge): string {
     const data = this.getEdgePathData(edge);
     if (!data || data.points.length < 2) return "";
-    return this.buildPathFromPolyline(data.points, data.style.path);
+    return this.buildPathFromPolyline(data.points, data.style.path, data.obstacles);
   }
 
   getEdgeEndMarker(edge: CanvasEdge): string {
@@ -4470,7 +4472,7 @@ LIMIT 50;`;
     if (!data || data.points.length < 2) return "";
     const half = this.getHalfPolyline(data.points, direction);
     if (half.length < 2) return "";
-    return this.buildPathFromPolyline(half, data.style.path);
+    return this.buildPathFromPolyline(half, data.style.path, data.obstacles);
   }
 
   getEdgeDash(edge: CanvasEdge): string | null {
@@ -6096,6 +6098,7 @@ spec:
 
     const data = {
       points: normalized,
+      obstacles: obstacleRects,
       style: geometry.style
     };
     this.edgePathDataCache.set(edge.id, data);
@@ -6197,62 +6200,15 @@ spec:
     ]);
   }
 
-  private buildPathFromPolyline(points: readonly EdgePoint[], _path: ArchitectureEdgePath): string {
+  private buildPathFromPolyline(
+    points: readonly EdgePoint[],
+    path: ArchitectureEdgePath,
+    obstacles: readonly EdgeObstacleRect[] = []
+  ): string {
     if (points.length < 2) return "";
     // Keep smooth edges constrained to routed orthogonal lanes so they do not
     // overshoot into intermediate elements.
-    return this.buildRoundedPolylinePath(points, 20);
-  }
-
-  private buildRoundedPolylinePath(points: readonly EdgePoint[], radius: number): string {
-    if (points.length < 2) return "";
-    let path = `M ${points[0]?.x ?? 0} ${points[0]?.y ?? 0}`;
-    for (let index = 1; index < points.length; index += 1) {
-      const current = points[index];
-      if (!current) continue;
-      const previous = points[index - 1];
-      if (!previous) continue;
-      const next = points[index + 1];
-      if (!next) {
-        path += ` L ${current.x} ${current.y}`;
-        continue;
-      }
-      const inDx = current.x - previous.x;
-      const inDy = current.y - previous.y;
-      const outDx = next.x - current.x;
-      const outDy = next.y - current.y;
-      const inLength = Math.hypot(inDx, inDy);
-      const outLength = Math.hypot(outDx, outDy);
-      if (inLength < 0.001 || outLength < 0.001) {
-        path += ` L ${current.x} ${current.y}`;
-        continue;
-      }
-
-      const inUnitX = inDx / inLength;
-      const inUnitY = inDy / inLength;
-      const outUnitX = outDx / outLength;
-      const outUnitY = outDy / outLength;
-      const dot = inUnitX * outUnitX + inUnitY * outUnitY;
-      if (Math.abs(Math.abs(dot) - 1) <= 0.02) {
-        path += ` L ${current.x} ${current.y}`;
-        continue;
-      }
-
-      const isEndpointCorner = index === 1 || index === points.length - 2;
-      const endpointCornerRadius = Math.max(4, Math.round(radius * 0.55));
-      const allowedRadius = isEndpointCorner ? endpointCornerRadius : radius;
-      const cornerRadius = Math.min(allowedRadius, inLength * 0.5, outLength * 0.5);
-      const cornerStart = {
-        x: current.x - inUnitX * cornerRadius,
-        y: current.y - inUnitY * cornerRadius
-      };
-      const cornerEnd = {
-        x: current.x + outUnitX * cornerRadius,
-        y: current.y + outUnitY * cornerRadius
-      };
-      path += ` L ${cornerStart.x} ${cornerStart.y} Q ${current.x} ${current.y} ${cornerEnd.x} ${cornerEnd.y}`;
-    }
-    return path;
+    return buildRoundedPolylinePath(points, 20, path, obstacles);
   }
 
   private getEdgeObstacleRects(
