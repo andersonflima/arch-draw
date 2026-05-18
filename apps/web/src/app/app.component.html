@@ -306,28 +306,16 @@
             </marker>
             <ng-container *ngFor="let edge of edges">
               <marker
-                [attr.id]="getEdgeMarkerId(edge, 'right')"
+                [attr.id]="getEdgeMarkerId(edge)"
                 markerWidth="9"
                 markerHeight="9"
                 viewBox="0 0 9 9"
-                refX="0"
+                refX="1"
                 refY="4.5"
-                orient="0"
+                orient="auto-start-reverse"
                 markerUnits="userSpaceOnUse"
               >
                 <path d="M 0 0 L 9 4.5 L 0 9 z" [attr.fill]="getEdgeColor(edge)"></path>
-              </marker>
-              <marker
-                [attr.id]="getEdgeMarkerId(edge, 'left')"
-                markerWidth="9"
-                markerHeight="9"
-                viewBox="0 0 9 9"
-                refX="9"
-                refY="4.5"
-                orient="0"
-                markerUnits="userSpaceOnUse"
-              >
-                <path d="M 9 0 L 0 4.5 L 9 9 z" [attr.fill]="getEdgeColor(edge)"></path>
               </marker>
             </ng-container>
             <clipPath
@@ -364,7 +352,6 @@
               [attr.d]="getEdgePath(edge)"
               [attr.stroke]="getEdgeColor(edge)"
               [attr.stroke-dasharray]="getEdgeDash(edge)"
-              [attr.marker-start]="getEdgeStartMarker(edge)"
               [attr.marker-end]="getEdgeEndMarker(edge)"
               (click)="onEdgeClick(edge.id, $event)"
               (dblclick)="onEdgeDoubleClick(edge.id, $event)"

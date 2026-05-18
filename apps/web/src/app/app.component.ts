@@ -4378,16 +4378,12 @@ LIMIT 50;`;
   }
 
   getEdgeEndMarker(edge: CanvasEdge): string {
-    return this.getEdgeHorizontalDirection(edge, "end") === "left"
-      ? this.getEdgeMarkerUrl(edge, "left")
-      : this.getEdgeMarkerUrl(edge, "right");
+    return this.getEdgeMarkerUrl(edge);
   }
 
   getEdgeStartMarker(edge: CanvasEdge): string | null {
-    if (!this.isBidirectional(edge)) return null;
-    return this.getEdgeHorizontalDirection(edge, "start") === "left"
-      ? this.getEdgeMarkerUrl(edge, "right")
-      : this.getEdgeMarkerUrl(edge, "left");
+    void edge;
+    return null;
   }
 
   getConnectionPreviewMarkerEnd(): string {
@@ -4484,12 +4480,12 @@ LIMIT 50;`;
     return null;
   }
 
-  getEdgeMarkerId(edge: CanvasEdge, direction: "left" | "right"): string {
-    return `edge-arrow-${direction}-${edge.id}`;
+  getEdgeMarkerId(edge: CanvasEdge): string {
+    return `edge-arrow-${edge.id}`;
   }
 
-  private getEdgeMarkerUrl(edge: CanvasEdge, direction: "left" | "right"): string {
-    return `url(#${this.getEdgeMarkerId(edge, direction)})`;
+  private getEdgeMarkerUrl(edge: CanvasEdge): string {
+    return `url(#${this.getEdgeMarkerId(edge)})`;
   }
 
   getEdgeColor(edge: CanvasEdge): string {
@@ -4644,29 +4640,6 @@ LIMIT 50;`;
     if (!edge.label) return false;
     if (!this.isVisibleEdge(edge)) return false;
     return !this.isEdgeRepresentedByCollapsedEndpoint(edge);
-  }
-
-  private getEdgeHorizontalDirection(
-    edge: CanvasEdge,
-    terminal: "start" | "end"
-  ): "left" | "right" {
-    const data = this.getEdgePathData(edge);
-    if (!data || data.points.length < 2) return "right";
-    const pointA = terminal === "end" ? data.points.at(-2) : data.points.at(0);
-    const pointB = terminal === "end" ? data.points.at(-1) : data.points.at(1);
-    if (!pointA || !pointB) return "right";
-
-    const deltaX = pointB.x - pointA.x;
-    if (Math.abs(deltaX) > 0.5) {
-      return deltaX < 0 ? "left" : "right";
-    }
-
-    const effective = this.getEffectiveEdgeEndpoints(edge);
-    if (!effective) return "right";
-    const referenceNode = terminal === "end" ? effective.toNode : effective.fromNode;
-    const referencePort = terminal === "end" ? edge.targetPort : edge.sourcePort;
-    if (referencePort === "left" || referencePort === "right") return referencePort;
-    return "right";
   }
 
   private isEdgeRepresentedByCollapsedEndpoint(edge: CanvasEdge): boolean {
