@@ -2597,7 +2597,7 @@ export class AppComponent implements OnDestroy {
         clearTimeout(this.doubleClickHintTimer);
         this.doubleClickHintTimer = null;
       }
-      this.markViewChanged();
+      this.markCollapseToggleChanged();
       return;
     }
 
@@ -2619,7 +2619,7 @@ export class AppComponent implements OnDestroy {
         clearTimeout(this.doubleClickHintTimer);
         this.doubleClickHintTimer = null;
       }
-      this.markViewChanged();
+      this.markCollapseToggleChanged();
       return;
     }
 
@@ -5908,7 +5908,6 @@ spec:
       this.resizeEnabledNodeId = null;
     }
 
-    this.fitContainerAndAncestorChain(nodeId);
     if (collapsed) {
       this.ensureNodeVisibleInViewport(nodeId);
     }
@@ -5950,7 +5949,6 @@ spec:
       })
     );
 
-    this.fitContainerAndAncestorChain(nodeId);
     if (collapsed) {
       this.ensureNodeVisibleInViewport(nodeId);
     }
@@ -10309,6 +10307,31 @@ spec:
       }
     } else {
       this.scheduleCollaborationViewPublish();
+    }
+    this.scheduleViewportCheckpointPersist();
+    this.requestViewRender();
+  }
+
+  private markCollapseToggleChanged(): void {
+    this.clearCanvasRenderCaches();
+    if (!this.hasCollapsedNodeForDoubleClickHint()) {
+      if (this.showDoubleClickHint) {
+        this.showDoubleClickHint = false;
+      }
+      if (this.doubleClickHintTimer) {
+        clearTimeout(this.doubleClickHintTimer);
+        this.doubleClickHintTimer = null;
+      }
+      if (this.doubleClickHintBootTimer) {
+        clearTimeout(this.doubleClickHintBootTimer);
+        this.doubleClickHintBootTimer = null;
+      }
+    }
+    if (this.collaborationSession) {
+      this.scheduleCollaborationSync();
+      this.scheduleCollaborationViewPublish();
+    } else {
+      this.scheduleAutoSave();
     }
     this.scheduleViewportCheckpointPersist();
     this.requestViewRender();
