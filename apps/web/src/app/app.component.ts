@@ -192,6 +192,13 @@ type EdgePathData = Readonly<{
   style: ArchitectureEdgeStyle;
 }>;
 
+type CanvasRect = Readonly<{
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}>;
+
 type ContextPropertiesPanelState = Readonly<{
   x: number;
   y: number;
@@ -1600,9 +1607,18 @@ export class AppComponent implements OnDestroy {
   private readonly nodePropertyFieldsCache = new Map<ArchitectureNodeKind, readonly NodePropertyField[]>();
   private readonly iconColorCache = new Map<string, string>();
   private readonly edgePathDataCache = new Map<string, EdgePathData | null>();
+  private readonly edgePathStringCache = new Map<string, string>();
+  private readonly edgeBidirectionalFlowPathCache = new Map<string, string>();
   private readonly edgeSideLaneOffsetCache = new Map<string, number>();
   private readonly edgeLabelDyCache = new Map<string, number>();
   private readonly edgeLabelStartOffsetCache = new Map<string, string>();
+  private readonly edgeLabelPositionCache = new Map<string, Readonly<{ x: number; y: number }>>();
+  private readonly edgeLabelRenderWidthCache = new Map<string, number>();
+  private readonly edgeDarkTransitionClipIdsCache = new Map<string, readonly string[]>();
+  private readonly nodeAbsoluteRectCache = new Map<string, CanvasRect>();
+  private readonly leafNodeLabelKnockoutRectCache = new Map<string, CanvasRect | null>();
+  private edgeClipContainersCache: readonly CanvasNode[] | null = null;
+  private leafLabelKnockoutNodesCache: readonly CanvasNode[] | null = null;
   private edgeLabelMeasureContext: CanvasRenderingContext2D | null | undefined;
   private tutorialActiveTargetSelector: string | null = null;
   private tutorialActiveTargetElement: HTMLElement | null = null;
@@ -4119,13 +4135,13 @@ LIMIT 50;`;
   onEdgePointerEnter(edgeId: string): void {
     if (this.hoveredEdgeId === edgeId) return;
     this.hoveredEdgeId = edgeId;
-    this.markViewChanged();
+    this.markTransientUiChanged();
   }
 
   onEdgePointerLeave(edgeId: string): void {
     if (this.hoveredEdgeId !== edgeId) return;
     this.hoveredEdgeId = null;
-    this.markViewChanged();
+    this.markTransientUiChanged();
   }
 
   private isProximitySuppressionActive(): boolean {
@@ -4425,9 +4441,15 @@ LIMIT 50;`;
   }
 
   getEdgePath(edge: CanvasEdge): string {
+    const cached = this.edgePathStringCache.get(edge.id);
+    if (cached !== undefined) return cached;
+
     const data = this.getEdgePathData(edge);
-    if (!data || data.points.length < 2) return "";
-    return this.buildPathFromPolyline(data.points, data.style.path, data.obstacles);
+    const path = !data || data.points.length < 2
+      ? ""
+      : this.buildPathFromPolyline(data.points, data.style.path, data.obstacles);
+    this.edgePathStringCache.set(edge.id, path);
+    return path;
   }
 
   getEdgeEndMarker(edge: CanvasEdge): string | null {
@@ -4455,23 +4477,40 @@ LIMIT 50;`;
   }
 
   getEdgeLabelPosition(edge: CanvasEdge): Readonly<{ x: number; y: number }> {
+    const cached = this.edgeLabelPositionCache.get(edge.id);
+    if (cached) return cached;
+
     const data = this.getEdgePathData(edge);
-    if (!data || data.points.length < 2) return { x: 0, y: 0 };
+    if (!data || data.points.length < 2) {
+      const fallback = { x: 0, y: 0 };
+      this.edgeLabelPositionCache.set(edge.id, fallback);
+      return fallback;
+    }
     const totalLength = this.getPolylineLength(data.points);
-    return this.getPointAtPolylineDistance(data.points, totalLength / 2);
+    const position = this.getPointAtPolylineDistance(data.points, totalLength / 2);
+    this.edgeLabelPositionCache.set(edge.id, position);
+    return position;
   }
 
   getEdgeLabelRenderWidth(edge: CanvasEdge): number {
+    const cached = this.edgeLabelRenderWidthCache.get(edge.id);
+    if (cached !== undefined) return cached;
+
     const label = edge.label?.trim() ?? "";
-    if (label.length === 0) return EDGE_LABEL_RENDER_MIN_WIDTH;
+    if (label.length === 0) {
+      this.edgeLabelRenderWidthCache.set(edge.id, EDGE_LABEL_RENDER_MIN_WIDTH);
+      return EDGE_LABEL_RENDER_MIN_WIDTH;
+    }
     const measuredTextWidth = this.measureEdgeLabelTextWidth(label) ?? (label.length * this.edgeLabelFontSize * 0.6);
-    return Math.max(
+    const width = Math.max(
       EDGE_LABEL_RENDER_MIN_WIDTH,
       Math.min(
         EDGE_LABEL_RENDER_MAX_WIDTH,
         Math.round(measuredTextWidth + EDGE_LABEL_RENDER_HORIZONTAL_PADDING * 2)
       )
     );
+    this.edgeLabelRenderWidthCache.set(edge.id, width);
+    return width;
   }
 
   private measureEdgeLabelTextWidth(label: string): number | null {
@@ -4517,11 +4556,21 @@ LIMIT 50;`;
   }
 
   getBidirectionalFlowPath(edge: CanvasEdge, direction: EdgeFlowDirection): string {
+    const cacheKey = `${edge.id}:${direction}`;
+    const cached = this.edgeBidirectionalFlowPathCache.get(cacheKey);
+    if (cached !== undefined) return cached;
+
     const data = this.getEdgePathData(edge);
-    if (!data || data.points.length < 2) return "";
+    if (!data || data.points.length < 2) {
+      this.edgeBidirectionalFlowPathCache.set(cacheKey, "");
+      return "";
+    }
     const half = this.getHalfPolyline(data.points, direction);
-    if (half.length < 2) return "";
-    return this.buildPathFromPolyline(half, data.style.path, data.obstacles);
+    const path = half.length < 2
+      ? ""
+      : this.buildPathFromPolyline(half, data.style.path, data.obstacles);
+    this.edgeBidirectionalFlowPathCache.set(cacheKey, path);
+    return path;
   }
 
   getEdgeDash(edge: CanvasEdge): string | null {
@@ -4587,21 +4636,37 @@ LIMIT 50;`;
   }
 
   getLeafLabelKnockoutNodes(): readonly CanvasNode[] {
-    return this.nodes.filter((node) =>
+    if (this.leafLabelKnockoutNodesCache) return this.leafLabelKnockoutNodesCache;
+
+    const nodes = this.nodes.filter((node) =>
       this.isVisibleNode(node)
       && this.usesLeafConnectionAnchorBox(node)
       && !this.isEditingNode(node.id)
       && node.label.trim().length > 0
     );
+    this.leafLabelKnockoutNodesCache = nodes;
+    return nodes;
   }
 
   getLeafNodeLabelKnockoutRect(
     node: CanvasNode
-  ): Readonly<{ x: number; y: number; width: number; height: number }> | null {
-    if (!this.isVisibleNode(node)) return null;
-    if (!this.usesLeafConnectionAnchorBox(node)) return null;
+  ): CanvasRect | null {
+    if (this.leafNodeLabelKnockoutRectCache.has(node.id)) {
+      return this.leafNodeLabelKnockoutRectCache.get(node.id) ?? null;
+    }
+    if (!this.isVisibleNode(node)) {
+      this.leafNodeLabelKnockoutRectCache.set(node.id, null);
+      return null;
+    }
+    if (!this.usesLeafConnectionAnchorBox(node)) {
+      this.leafNodeLabelKnockoutRectCache.set(node.id, null);
+      return null;
+    }
     const displayLabel = this.getNodeDisplayLabel(node);
-    if (displayLabel.length === 0) return null;
+    if (displayLabel.length === 0) {
+      this.leafNodeLabelKnockoutRectCache.set(node.id, null);
+      return null;
+    }
 
     const position = this.getAbsolutePosition(node);
     const leafIconSize = this.getLeafNodeIconSizeForNode(node);
@@ -4612,7 +4677,10 @@ LIMIT 50;`;
       Math.round(this.nodeLabelFontSize * 1.15 + LEAF_LABEL_RENDER_VERTICAL_PADDING * 2)
     );
     const clampedHeight = Math.min(labelHeight, Math.max(0, labelBottom - labelTop));
-    if (clampedHeight <= 0) return null;
+    if (clampedHeight <= 0) {
+      this.leafNodeLabelKnockoutRectCache.set(node.id, null);
+      return null;
+    }
 
     const maxLabelWidth = Math.max(40, node.size.width - 8);
     const estimatedLabelWidth =
@@ -4621,12 +4689,14 @@ LIMIT 50;`;
     const labelWidth = Math.max(28, Math.min(maxLabelWidth, Math.round(estimatedLabelWidth)));
     const labelX = position.x + (node.size.width - labelWidth) / 2;
 
-    return {
+    const rect = {
       x: labelX,
       y: labelTop,
       width: labelWidth,
       height: clampedHeight
     };
+    this.leafNodeLabelKnockoutRectCache.set(node.id, rect);
+    return rect;
   }
 
   getLeafNodeLabelKnockoutColor(
@@ -4645,19 +4715,36 @@ LIMIT 50;`;
   }
 
   getEdgeClipContainers(): readonly CanvasNode[] {
-    return this.nodes.filter((node) => isContainerNodeKind(node.kind) && this.isVisibleNode(node));
+    if (this.edgeClipContainersCache) return this.edgeClipContainersCache;
+    const containers = this.nodes.filter((node) => isContainerNodeKind(node.kind) && this.isVisibleNode(node));
+    this.edgeClipContainersCache = containers;
+    return containers;
   }
 
   getEdgeDarkTransitionClipIds(edge: CanvasEdge): readonly string[] {
-    if (!this.isDarkMode) return [];
+    const cached = this.edgeDarkTransitionClipIdsCache.get(edge.id);
+    if (cached) return cached;
+    if (!this.isDarkMode) {
+      this.edgeDarkTransitionClipIdsCache.set(edge.id, []);
+      return [];
+    }
     const effective = this.getEffectiveEdgeEndpoints(edge);
-    if (!effective) return [];
+    if (!effective) {
+      this.edgeDarkTransitionClipIdsCache.set(edge.id, []);
+      return [];
+    }
     const { fromNode, toNode } = effective;
-    if (this.isEdgeInsideContainerContext(fromNode, toNode)) return [];
+    if (this.isEdgeInsideContainerContext(fromNode, toNode)) {
+      this.edgeDarkTransitionClipIdsCache.set(edge.id, []);
+      return [];
+    }
 
     const fromLineage = this.getActiveContainerContextLineage(fromNode);
     const toLineage = this.getActiveContainerContextLineage(toNode);
-    if (fromLineage.length === 0 && toLineage.length === 0) return [];
+    if (fromLineage.length === 0 && toLineage.length === 0) {
+      this.edgeDarkTransitionClipIdsCache.set(edge.id, []);
+      return [];
+    }
 
     const unique = new Set<string>();
     for (const containerId of [...fromLineage, ...toLineage]) {
@@ -4665,17 +4752,23 @@ LIMIT 50;`;
         unique.add(containerId);
       }
     }
-    return [...unique];
+    const ids = [...unique];
+    this.edgeDarkTransitionClipIdsCache.set(edge.id, ids);
+    return ids;
   }
 
-  getNodeAbsoluteRect(node: CanvasNode): Readonly<{ x: number; y: number; width: number; height: number }> {
+  getNodeAbsoluteRect(node: CanvasNode): CanvasRect {
+    const cached = this.nodeAbsoluteRectCache.get(node.id);
+    if (cached) return cached;
     const position = this.getAbsolutePosition(node);
-    return {
+    const rect = {
       x: position.x,
       y: position.y,
       width: node.size.width,
       height: node.size.height
     };
+    this.nodeAbsoluteRectCache.set(node.id, rect);
+    return rect;
   }
 
   getConnectionPreviewPath(): string {
@@ -9913,10 +10006,7 @@ spec:
   }
 
   private markViewChanged(): void {
-    this.edgePathDataCache.clear();
-    this.edgeSideLaneOffsetCache.clear();
-    this.edgeLabelDyCache.clear();
-    this.edgeLabelStartOffsetCache.clear();
+    this.clearCanvasRenderCaches();
     if (!this.hasCollapsedNodeForDoubleClickHint()) {
       if (this.showDoubleClickHint) {
         this.showDoubleClickHint = false;
@@ -9943,18 +10033,35 @@ spec:
   }
 
   private markInteractionChanged(): void {
-    this.edgePathDataCache.clear();
-    this.edgeSideLaneOffsetCache.clear();
-    this.edgeLabelDyCache.clear();
-    this.edgeLabelStartOffsetCache.clear();
+    this.clearCanvasRenderCaches();
     this.scheduleCollaborationViewPublish();
     this.scheduleViewportCheckpointPersist();
     this.requestViewRender();
   }
 
+  private clearCanvasRenderCaches(): void {
+    this.edgePathDataCache.clear();
+    this.edgePathStringCache.clear();
+    this.edgeBidirectionalFlowPathCache.clear();
+    this.edgeSideLaneOffsetCache.clear();
+    this.edgeLabelDyCache.clear();
+    this.edgeLabelStartOffsetCache.clear();
+    this.edgeLabelPositionCache.clear();
+    this.edgeLabelRenderWidthCache.clear();
+    this.edgeDarkTransitionClipIdsCache.clear();
+    this.nodeAbsoluteRectCache.clear();
+    this.leafNodeLabelKnockoutRectCache.clear();
+    this.edgeClipContainersCache = null;
+    this.leafLabelKnockoutNodesCache = null;
+  }
+
   private markViewportChanged(): void {
     this.scheduleCollaborationViewPublish();
     this.scheduleViewportCheckpointPersist();
+    this.requestViewRender();
+  }
+
+  private markTransientUiChanged(): void {
     this.requestViewRender();
   }
 
