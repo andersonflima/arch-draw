@@ -7698,6 +7698,22 @@ apiKeys:
     };
   }
 
+  private enforceContainerChildHeaderBounds(nodes: readonly CanvasNode[]): CanvasNode[] {
+    if (nodes.length === 0) return [];
+    const byId = new Map(nodes.map((node) => [node.id, node] as const));
+    return nodes.map((node) => {
+      if (!node.parentId) return node;
+      const parent = byId.get(node.parentId);
+      if (!parent || !this.rendersAsContainer(parent)) return node;
+      const clampedPosition = this.clampChildPositionWithinContainerHeader(parent, node.position);
+      if (clampedPosition.x === node.position.x && clampedPosition.y === node.position.y) return node;
+      return {
+        ...node,
+        position: clampedPosition
+      };
+    });
+  }
+
   private isDescendantOfContainer(nodeId: string, containerId: string): boolean {
     let currentParentId = this.nodes.find((node) => node.id === nodeId)?.parentId;
     while (currentParentId) {
@@ -7989,7 +8005,8 @@ apiKeys:
   }
 
   private sortNodes(nodes: readonly CanvasNode[]): CanvasNode[] {
-    const byId = new Map(nodes.map((node) => [node.id, node] as const));
+    const boundedNodes = this.enforceContainerChildHeaderBounds(nodes);
+    const byId = new Map(boundedNodes.map((node) => [node.id, node] as const));
     const depthCache = new Map<string, number>();
     const getDepth = (nodeId: string): number => {
       const cached = depthCache.get(nodeId);
@@ -8006,7 +8023,7 @@ apiKeys:
       return depth;
     };
 
-    return [...nodes].sort((a, b) => {
+    return [...boundedNodes].sort((a, b) => {
       const containerDiff = Number(this.rendersAsContainer(b)) - Number(this.rendersAsContainer(a));
       if (containerDiff !== 0) return containerDiff;
 
