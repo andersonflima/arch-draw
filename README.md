@@ -47,7 +47,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Abertura padrão do board com viewport centralizado no conteúdo em 27% de zoom quando não existe checkpoint salvo.
 - Checkpoint automático de viewport por arquivo (zoom + posição do canvas), retomando no mesmo ponto após recarregar ou reabrir o navegador.
 - Navegação do canvas por gesto de dois dedos no touchpad, mantendo `Ctrl/Command + scroll` para zoom.
-- Pan, zoom e preview de conexão preservam caches de rotas, paths SVG, labels, retângulos, estilos e identidade das listas do canvas, com renderização limitada à área visível para reduzir travamentos em diagramas densos.
+- Pan, zoom e preview de conexão preservam caches de rotas, paths SVG, labels, retângulos, estilos e identidade das listas do canvas, com renderização limitada à área visível e persistência agrupada durante navegação para reduzir travamentos em diagramas densos.
 - Zoom ampliado de 5% a 500% para navegar arquiteturas maiores sem perder detalhamento.
 - Toasts visuais no padrão da plataforma para ações de produtividade (salvar checkpoint, exportar e limpar).
 - Interface com i18n completo `PT/EN` (PT-BR e EN-US), incluindo toolbar, telas de autenticação, painel de propriedades, status, toasts e conteúdo dos tutoriais guiados.

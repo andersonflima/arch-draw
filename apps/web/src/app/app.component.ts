@@ -349,6 +349,7 @@ const UI_LANGUAGE_STORAGE_KEY = "arch-draw.ui-language";
 const LEFT_PANELS_VISIBILITY_STORAGE_KEY = "arch-draw.left-panels-hidden";
 const VIEWPORT_CHECKPOINT_STORAGE_PREFIX = "arch-draw.viewport";
 const VIEWPORT_CHECKPOINT_DEBOUNCE_MS = 260;
+const VIEWPORT_NAVIGATION_PERSIST_DEBOUNCE_MS = 180;
 const DEFAULT_INITIAL_CANVAS_ZOOM = 0.27;
 const CANVAS_RENDER_VIEWPORT_MARGIN_PX = 720;
 const CONTAINER_CHILD_PADDING_LEFT = 16;
@@ -1578,6 +1579,7 @@ export class AppComponent implements OnDestroy {
   private pendingPortGestureState: PendingPortGestureState | null = null;
   private autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
   private viewportCheckpointTimer: ReturnType<typeof setTimeout> | null = null;
+  private viewportNavigationPersistTimer: ReturnType<typeof setTimeout> | null = null;
   private errorToastTimer: ReturnType<typeof setTimeout> | null = null;
   private successToastTimer: ReturnType<typeof setTimeout> | null = null;
   private doubleClickHintBootTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1703,6 +1705,7 @@ export class AppComponent implements OnDestroy {
     }
     this.disconnectCollaborationStream();
     this.cancelCollaborationSync();
+    this.cancelViewportNavigationPersist();
     this.cancelViewportCheckpointPersist();
     this.persistViewportCheckpointNow();
     this.clearTutorialTargetHighlight();
@@ -2379,7 +2382,7 @@ export class AppComponent implements OnDestroy {
   resetZoom(): void {
     this.canvasZoom = 1;
     this.canvasPan = DEFAULT_CANVAS_PAN;
-    this.markViewChanged();
+    this.markViewportChanged();
   }
 
   getZoomPercent(): number {
@@ -2530,7 +2533,7 @@ export class AppComponent implements OnDestroy {
     const target = event.target as HTMLElement;
     if (target.closest(".architecture-node, .canvas-edge, .canvas-edge-hit")) return;
     this.contextPropertiesPanel = null;
-    this.markViewportChanged();
+    this.markTransientUiChanged();
   }
 
   getContextPropertiesPanelStyle(): Record<string, string> {
@@ -3602,7 +3605,7 @@ LIMIT 50;`;
         pageHeight: WHEEL_PAN_PAGE_HEIGHT
       }
     );
-    this.markViewportChanged();
+    this.markViewportNavigated();
   }
 
   private shouldIgnoreCanvasWheelPan(event: WheelEvent): boolean {
@@ -3639,7 +3642,7 @@ LIMIT 50;`;
         x: this.panState.startPan.x + deltaX,
         y: this.panState.startPan.y + deltaY
       };
-      this.markViewportChanged();
+      this.markViewportNavigated();
       return;
     }
 
@@ -3757,8 +3760,11 @@ LIMIT 50;`;
       this.hoveredEdgeId = null;
     }
 
-    if (hadMiniMapDragState || hadPanState) this.markViewportChanged();
-    if (hadMiniMapDragState || hadPanState) this.persistViewportCheckpointNow();
+    if (hadMiniMapDragState || hadPanState) {
+      this.markViewportNavigated();
+      this.flushViewportNavigationPersist();
+      this.persistViewportCheckpointNow();
+    }
     if (hadDragState || hadResizeState) this.markViewChanged();
   }
 
@@ -7485,7 +7491,7 @@ spec:
     const rect = this.canvasShell?.nativeElement.getBoundingClientRect();
     if (!rect) {
       this.canvasZoom = nextZoom;
-      this.markViewportChanged();
+      this.markViewportNavigated();
       return;
     }
 
@@ -7495,7 +7501,7 @@ spec:
       x: viewportPoint.clientX - rect.left - canvasPoint.x * nextZoom,
       y: viewportPoint.clientY - rect.top - canvasPoint.y * nextZoom
     };
-    this.markViewportChanged();
+    this.markViewportNavigated();
   }
 
   private clampZoom(value: number): number {
@@ -7836,7 +7842,7 @@ spec:
       x: -targetVisibleLeft * this.canvasZoom,
       y: -targetVisibleTop * this.canvasZoom
     };
-    this.markViewportChanged();
+    this.markViewportNavigated();
   }
 
   private area(size: Readonly<{ width: number; height: number }>): number {
@@ -8004,7 +8010,7 @@ spec:
       startPan: this.canvasPan
     };
     (event.currentTarget as HTMLElement | null)?.setPointerCapture?.(event.pointerId);
-    this.markViewportChanged();
+    this.markTransientUiChanged();
   }
 
   private createConnection(
@@ -9130,6 +9136,28 @@ spec:
     this.viewportCheckpointTimer = null;
   }
 
+  private scheduleViewportNavigationPersist(): void {
+    if (this.viewportNavigationPersistTimer) {
+      clearTimeout(this.viewportNavigationPersistTimer);
+    }
+    this.viewportNavigationPersistTimer = setTimeout(() => {
+      this.viewportNavigationPersistTimer = null;
+      this.scheduleCollaborationViewPublish();
+      this.scheduleViewportCheckpointPersist();
+    }, VIEWPORT_NAVIGATION_PERSIST_DEBOUNCE_MS);
+  }
+
+  private cancelViewportNavigationPersist(): void {
+    if (!this.viewportNavigationPersistTimer) return;
+    clearTimeout(this.viewportNavigationPersistTimer);
+    this.viewportNavigationPersistTimer = null;
+  }
+
+  private flushViewportNavigationPersist(): void {
+    this.cancelViewportNavigationPersist();
+    this.scheduleCollaborationViewPublish();
+  }
+
   private persistViewportCheckpointNow(): void {
     const architectureId = this.architecture?.id;
     if (!architectureId) return;
@@ -10226,6 +10254,12 @@ spec:
     this.clearViewportRenderCaches();
     this.scheduleCollaborationViewPublish();
     this.scheduleViewportCheckpointPersist();
+    this.requestViewRender();
+  }
+
+  private markViewportNavigated(): void {
+    this.clearViewportRenderCaches();
+    this.scheduleViewportNavigationPersist();
     this.requestViewRender();
   }
 
