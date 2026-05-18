@@ -248,6 +248,7 @@ const EDGE_ARROW_LENGTH = 9;
 const EDGE_NODE_GAP = 0;
 const EDGE_MARKER_CLEARANCE = EDGE_ARROW_LENGTH;
 const EDGE_ENDPOINT_STUB = 8;
+const EDGE_BUNDLE_TRUNK_LENGTH = 12;
 const LEAF_ANCHOR_ICON_SIZE = 84;
 const LEAF_ANCHOR_TOP_OFFSET = 4;
 const NODE_LAYER_CONTAINER_BASE_Z_INDEX = 120;
@@ -723,19 +724,19 @@ const TUTORIAL_GUIDES: readonly TutorialGuide[] = [
     steps: [
       {
         text: "A área de contato aparece durante drag and drop para reduzir ruído visual.",
-        targetSelector: "[data-tour='canvas-shell']"
+        targetSelector: ".canvas-edge-proximity-indicator"
       },
       {
         text: "Linhas que encostam nessa área podem ser ocultadas temporariamente.",
-        targetSelector: "[data-tour='canvas-shell']"
+        targetSelector: ".canvas-edge-proximity-indicator"
       },
       {
         text: "A área se ajusta ao tamanho do elemento (aberto ou minimizado).",
-        targetSelector: "[data-tour='canvas-shell']"
+        targetSelector: ".canvas-edge-proximity-indicator"
       },
       {
         text: "Em elementos dentro de container, a regra continua valendo durante o arraste.",
-        targetSelector: "[data-tour='canvas-shell']"
+        targetSelector: ".canvas-edge-proximity-indicator"
       }
     ]
   },
@@ -4021,6 +4022,8 @@ LIMIT 50;`;
       ? this.getSelectedContactAreaIndicatorStyle()
       : null;
     if (selectedContactStyle) return selectedContactStyle;
+    const tutorialContactStyle = this.getTutorialContactAreaIndicatorStyle();
+    if (tutorialContactStyle) return tutorialContactStyle;
     if (!this.isProximitySuppressionActive()) return null;
     const focusPoint = this.getInteractionFocusPoint();
     if (!focusPoint) return null;
@@ -4089,14 +4092,38 @@ LIMIT 50;`;
     const selectedNodes = this.selectedNodeIds
       .map((nodeId) => this.nodes.find((candidate) => candidate.id === nodeId))
       .filter((node): node is CanvasNode => Boolean(node));
-    if (selectedNodes.length === 0) return null;
+    return this.buildContactAreaIndicatorStyle(selectedNodes);
+  }
+
+  private getTutorialContactAreaIndicatorStyle(): Record<string, string> | null {
+    if (this.activeTutorialId !== "contact-area-behavior") return null;
+    const focusNode = this.getTutorialContactAreaFocusNode();
+    if (!focusNode) return null;
+    return this.buildContactAreaIndicatorStyle([focusNode]);
+  }
+
+  private getTutorialContactAreaFocusNode(): CanvasNode | null {
+    const selectedNode = this.selectedNodeIds
+      .map((nodeId) => this.nodes.find((candidate) => candidate.id === nodeId))
+      .find((candidate): candidate is CanvasNode => Boolean(candidate));
+    if (selectedNode && this.isVisibleNode(selectedNode)) return selectedNode;
+
+    const visibleNodes = this.nodes.filter((node) => this.isVisibleNode(node));
+    if (visibleNodes.length === 0) return null;
+
+    const visibleLeafNode = visibleNodes.find((node) => this.isLeafLayerNode(node));
+    return visibleLeafNode ?? visibleNodes[0] ?? null;
+  }
+
+  private buildContactAreaIndicatorStyle(nodes: readonly CanvasNode[]): Record<string, string> | null {
+    if (nodes.length === 0) return null;
 
     let left = Number.POSITIVE_INFINITY;
     let top = Number.POSITIVE_INFINITY;
     let right = Number.NEGATIVE_INFINITY;
     let bottom = Number.NEGATIVE_INFINITY;
 
-    for (const node of selectedNodes) {
+    for (const node of nodes) {
       const anchorBox = this.getNodeConnectionAnchorBox(node);
       const metrics = this.getNodePortMetricsForGeometry(node);
       const laneHalfThickness = Math.max(3, Math.round(metrics.laneWidth / 2) + 2);
@@ -5902,8 +5929,10 @@ spec:
     sourceSide: "left" | "right";
     targetSide: "left" | "right";
     start: Readonly<{ x: number; y: number }>;
+    startTrunk: Readonly<{ x: number; y: number }>;
     startLead: Readonly<{ x: number; y: number }>;
     end: Readonly<{ x: number; y: number }>;
+    endTrunk: Readonly<{ x: number; y: number }>;
     endLead: Readonly<{ x: number; y: number }>;
     style: ArchitectureEdgeStyle;
   }> | null {
@@ -5952,13 +5981,28 @@ spec:
       ? this.offsetTerminalPoint(rawStart, sourceCenter, startAxis, EDGE_MARKER_CLEARANCE, true)
       : rawStart;
     const end = this.offsetTerminalPoint(rawEnd, targetCenter, endAxis, EDGE_MARKER_CLEARANCE, true);
-    // Keep an external stub at source and an internal approach at target to prevent line reversal near the marker.
-    const startLeadDistance = EDGE_ENDPOINT_STUB;
-    const startLeadBase = this.offsetTerminalPoint(start, sourceCenter, startAxis, startLeadDistance, false);
-    const endLeadBase = this.offsetTerminalPoint(end, targetCenter, endAxis, EDGE_ENDPOINT_STUB, true);
+    // Keep a shared terminal trunk near the contact bubble so all connections
+    // unify at the same point, then fan out farther from the node.
+    const startTrunk = this.offsetTerminalPoint(start, sourceCenter, startAxis, EDGE_ENDPOINT_STUB, false);
+    const endTrunk = this.offsetTerminalPoint(end, targetCenter, endAxis, EDGE_ENDPOINT_STUB, true);
+    const spreadDistance = EDGE_ENDPOINT_STUB + EDGE_BUNDLE_TRUNK_LENGTH;
+    const startLeadBase = this.offsetTerminalPoint(start, sourceCenter, startAxis, spreadDistance, false);
+    const endLeadBase = this.offsetTerminalPoint(end, targetCenter, endAxis, spreadDistance, true);
     const startLead = this.offsetPointByConnectionSide(startLeadBase, sourceSide, sourceLaneOffset);
     const endLead = this.offsetPointByConnectionSide(endLeadBase, targetSide, targetLaneOffset);
-    return { sourceId: source.id, targetId: target.id, sourceSide, targetSide, start, startLead, end, endLead, style };
+    return {
+      sourceId: source.id,
+      targetId: target.id,
+      sourceSide,
+      targetSide,
+      start,
+      startTrunk,
+      startLead,
+      end,
+      endTrunk,
+      endLead,
+      style
+    };
   }
 
   private getEdgePathData(edge: CanvasEdge): EdgePathData | null {
@@ -6062,23 +6106,27 @@ spec:
   private getBaseEdgePolyline(
     geometry: Readonly<{
       start: Readonly<{ x: number; y: number }>;
+      startTrunk: Readonly<{ x: number; y: number }>;
       startLead: Readonly<{ x: number; y: number }>;
       end: Readonly<{ x: number; y: number }>;
+      endTrunk: Readonly<{ x: number; y: number }>;
       endLead: Readonly<{ x: number; y: number }>;
       style: ArchitectureEdgeStyle;
     }>
   ): readonly EdgePoint[] {
-    const { start, startLead, endLead, end, style } = geometry;
+    const { start, startTrunk, startLead, endLead, endTrunk, end, style } = geometry;
     if (style.path === "straight") {
-      return this.compactPolyline([start, startLead, endLead, end]);
+      return this.compactPolyline([start, startTrunk, startLead, endLead, endTrunk, end]);
     }
     const midX = (startLead.x + endLead.x) / 2;
     return this.compactPolyline([
       start,
+      startTrunk,
       startLead,
       { x: midX, y: startLead.y },
       { x: midX, y: endLead.y },
       endLead,
+      endTrunk,
       end
     ]);
   }
@@ -6092,71 +6140,11 @@ spec:
       return `M ${first.x} ${first.y} ${rest.map((point) => `L ${point.x} ${point.y}`).join(" ")}`;
     }
     if (path === "smoothstep") {
-      return this.buildSmoothCurvePath(points);
+      // Keep smooth edges constrained to routed orthogonal lanes so they do not
+      // overshoot into intermediate elements.
+      return this.buildRoundedPolylinePath(points, 20);
     }
     return this.buildRoundedPolylinePath(points, 12);
-  }
-
-  private buildSmoothCurvePath(points: readonly EdgePoint[]): string {
-    if (points.length < 2) return "";
-    if (points.length === 2) {
-      const first = points[0];
-      const last = points[1];
-      if (!first || !last) return "";
-      return `M ${first.x} ${first.y} L ${last.x} ${last.y}`;
-    }
-
-    // Keep terminal segments straight near connection ports so the curve never
-    // overshoots the source/target anchor circles.
-    if (points.length >= 4) {
-      const start = points[0];
-      const startLead = points[1];
-      const endLead = points[points.length - 2];
-      const end = points[points.length - 1];
-      if (!start || !startLead || !endLead || !end) return "";
-      const corePoints = points.slice(1, -1);
-      let path = `M ${start.x} ${start.y} L ${startLead.x} ${startLead.y}`;
-      path += this.buildSmoothCurveCoreCommands(corePoints);
-      path += ` L ${end.x} ${end.y}`;
-      return path;
-    }
-
-    let path = `M ${points[0]?.x ?? 0} ${points[0]?.y ?? 0}`;
-    path += this.buildSmoothCurveCoreCommands(points);
-    return path;
-  }
-
-  private buildSmoothCurveCoreCommands(points: readonly EdgePoint[]): string {
-    if (points.length < 2) return "";
-    const clampedTension = 0.42;
-    let commands = "";
-    for (let index = 0; index < points.length - 1; index += 1) {
-      const previous = points[Math.max(index - 1, 0)];
-      const current = points[index];
-      const next = points[index + 1];
-      const nextNext = points[Math.min(index + 2, points.length - 1)];
-      if (!previous || !current || !next || !nextNext) continue;
-
-      const control1 = {
-        x: current.x + ((next.x - previous.x) * clampedTension) / 6,
-        y: current.y + ((next.y - previous.y) * clampedTension) / 6
-      };
-      const control2 = {
-        x: next.x - ((nextNext.x - current.x) * clampedTension) / 6,
-        y: next.y - ((nextNext.y - current.y) * clampedTension) / 6
-      };
-      if (index === 0) {
-        // Keep entry tangent flat so the line exits centered from the anchor/arrow axis.
-        control1.y = current.y;
-      }
-      if (index === points.length - 2) {
-        // Keep terminal tangent flat so the line arrives centered into the arrow marker.
-        control2.y = next.y;
-      }
-
-      commands += ` C ${control1.x} ${control1.y} ${control2.x} ${control2.y} ${next.x} ${next.y}`;
-    }
-    return commands;
   }
 
   private buildRoundedPolylinePath(points: readonly EdgePoint[], radius: number): string {
@@ -7463,10 +7451,6 @@ spec:
     if (event.button !== 0) return;
     if (!this.canEditArchitecture()) return;
     event.stopPropagation();
-
-    // If a source is already armed from the previous click, preserve it so
-    // the next click can finish the connection instead of resetting the source.
-    if (this.connectionSourceId && this.connectionSourceId !== nodeId) return;
     this.pendingPortGestureState = {
       nodeId,
       sourcePort: side,
@@ -7559,9 +7543,27 @@ spec:
       this.requestViewRender();
       return;
     }
-    if (this.edges.some((edge) => edge.from === from && edge.to === to)) return;
     if (!ports?.sourcePort || !ports?.targetPort) {
       return;
+    }
+
+    const pairEdges = this.edges.filter((edge) =>
+      (edge.from === from && edge.to === to)
+      || (edge.from === to && edge.to === from)
+    );
+    if (pairEdges.length > 0) {
+      const forwardEdge = pairEdges.find((edge) => edge.from === from && edge.to === to) ?? null;
+      const reverseEdge = pairEdges.find((edge) => edge.from === to && edge.to === from) ?? null;
+
+      // Same direction already exists: avoid duplicate edge creation.
+      if (forwardEdge && !reverseEdge) return;
+
+      // Reverse direction exists: collapse the pair into a single bidirectional edge.
+      const pairPrimaryEdge = reverseEdge ?? forwardEdge;
+      if (pairPrimaryEdge) {
+        this.enableBidirectionalForNodePair(pairPrimaryEdge.id, from, to);
+        return;
+      }
     }
 
     const inferredSourcePort = ports.sourcePort;
@@ -7578,12 +7580,6 @@ spec:
       "target",
       inferredTargetPort
     );
-
-    const reverseEdge = this.edges.find((edge) => edge.from === to && edge.to === from);
-    if (reverseEdge) {
-      this.enableBidirectionalForNodePair(reverseEdge.id, from, to);
-      return;
-    }
 
     const style = normalizeEdgeStyle(undefined);
     this.edges = [
