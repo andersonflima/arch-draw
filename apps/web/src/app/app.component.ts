@@ -313,6 +313,7 @@ const EDGE_OBSTACLE_QUERY_MIN_MARGIN = 420;
 const EDGE_OBSTACLE_QUERY_MAX_MARGIN = 2200;
 const EDGE_ROUTE_FAST_PATH_OBSTACLE_THRESHOLD = 36;
 const EDGE_ROUTE_FAST_MODE_WINDOW_MS = 900;
+const EDGE_ROUTE_FORCE_FAST_COMPLEXITY_THRESHOLD = 60;
 const EDGE_PROXIMITY_SUPPRESSION_RADIUS = 190;
 const EDGE_ROUTE_MAX_PASSES = 10;
 const EDGE_SIDE_LANE_GAP = 14;
@@ -6387,13 +6388,18 @@ spec:
     this.edgeRouteFastModeTimer = setTimeout(() => {
       this.edgeRouteFastModeTimer = null;
       this.edgeRouteFastModeUntil = 0;
+      if (this.shouldPreferFastEdgeRouting()) return;
       this.clearCanvasRenderCaches();
       this.requestViewRender();
     }, durationMs + 24);
   }
 
   private isEdgeRouteFastModeActive(): boolean {
-    return Date.now() < this.edgeRouteFastModeUntil;
+    return Date.now() < this.edgeRouteFastModeUntil || this.shouldPreferFastEdgeRouting();
+  }
+
+  private shouldPreferFastEdgeRouting(): boolean {
+    return (this.nodes.length + this.edges.length) >= EDGE_ROUTE_FORCE_FAST_COMPLEXITY_THRESHOLD;
   }
 
   private shouldRerouteConstrainedEdgePath(
@@ -8640,8 +8646,6 @@ spec:
   private scheduleAutoSave(): void {
     if (this.collaborationSession) return;
     if (!this.architecture) return;
-    const signature = this.buildPersistenceSignature();
-    if (signature === this.lastPersistedSignature) return;
 
     if (this.autoSaveInFlight) {
       this.autoSaveQueued = true;
