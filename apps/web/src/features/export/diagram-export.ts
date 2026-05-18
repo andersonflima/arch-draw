@@ -132,11 +132,7 @@ const buildDrawIoNodeStyle = (node: ArchitectureNode): string => {
 
 const buildDrawIoEdgeStyle = (edge: ArchitectureEdge): string => {
   const style = edge.style;
-  const edgeStyle = style?.path === "step"
-    ? "edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;"
-    : style?.path === "straight"
-      ? "edgeStyle=none;rounded=0;"
-      : "edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;";
+  const edgeStyle = "edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;";
 
   const line = style?.line === "dashed"
     ? "dashed=1;dashPattern=14 8;"
@@ -315,7 +311,7 @@ const toExcalidrawEdgeElement = (
     points,
     startBinding: { elementId: `node-${fromNode.id}` },
     endBinding: { elementId: `node-${toNode.id}` },
-    elbowed: style?.path === "step",
+    elbowed: false,
     startArrowhead: style?.bidirectional ? "arrow" : null,
     endArrowhead: "arrow",
     text: edge.label ?? "",

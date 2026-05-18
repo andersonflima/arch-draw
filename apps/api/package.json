@@ -15,11 +15,9 @@
     "@arch-draw/domain": "0.1.0",
     "@fastify/cors": "^11.0.1",
     "fastify": "^5.3.2",
-    "redis": "^4.7.1",
-    "sql.js": "^1.13.0"
+    "redis": "^4.7.1"
   },
   "devDependencies": {
-    "@types/sql.js": "^1.4.9",
     "tsx": "4.21.0",
     "tsup": "^8.4.0",
     "typescript": "^5.8.3",

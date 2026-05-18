@@ -29,7 +29,7 @@ describe("canvas mappers", () => {
           targetPort: "left" as const,
           label: "loop",
           style: {
-            path: "step" as const,
+            path: "smoothstep" as const,
             line: "dashed" as const,
             color: "#2563eb",
             animated: true,

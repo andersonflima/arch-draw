@@ -23,8 +23,12 @@ type GraphEdge = Readonly<{
   cost: number;
 }>;
 
+type GraphDirection = "horizontal" | "vertical" | "start";
+
 const EPSILON = 0.001;
 const MAX_AXIS_VALUES = 84;
+const BEND_COST = 10000;
+const MAX_OPERATIONS_PER_PASS_MULTIPLIER = 8;
 
 export const routePolylineAroundObstacles = (
   points: readonly EdgePoint[],
@@ -40,24 +44,39 @@ export const routePolylineAroundObstacles = (
   while (pass < config.maxPasses) {
     pass += 1;
     let changed = false;
+    let operations = 0;
+    const maxOperations = Math.max(
+      config.maxPasses,
+      obstacles.length * MAX_OPERATIONS_PER_PASS_MULTIPLIER
+    );
 
-    for (let index = 0; index < routed.length - 1; index += 1) {
+    let index = 0;
+    while (index < routed.length - 1 && operations < maxOperations) {
       const start = routed[index];
       const end = routed[index + 1];
-      if (!start || !end) continue;
+      if (!start || !end) {
+        index += 1;
+        continue;
+      }
 
       const isFirstSegment = index === 0;
       const isLastSegment = index === routed.length - 2;
       const segmentObstacles = getSegmentObstacles(obstacles, sourceId, targetId, isFirstSegment, isLastSegment);
       const blocking = segmentObstacles.find((rect) => segmentIntersectsRect(start, end, rect));
-      if (!blocking) continue;
+      if (!blocking) {
+        index += 1;
+        continue;
+      }
 
       const astarPath = routeSegmentWithAStar(start, end, segmentObstacles, config.obstacleClearance);
       const detour = astarPath
         ? astarPath.slice(1, Math.max(1, astarPath.length - 1))
         : buildSegmentDetour(start, end, blocking, segmentObstacles, config.obstacleClearance);
 
-      if (detour.length === 0) continue;
+      if (detour.length === 0) {
+        index += 1;
+        continue;
+      }
 
       routed = compactPolyline([
         ...routed.slice(0, index + 1),
@@ -65,7 +84,9 @@ export const routePolylineAroundObstacles = (
         ...routed.slice(index + 1)
       ]);
       changed = true;
-      break;
+      operations += 1;
+      index = Math.max(0, index - 1);
+      continue;
     }
 
     if (!changed) break;
@@ -82,12 +103,24 @@ const getSegmentObstacles = (
   isLastSegment: boolean
 ): readonly EdgeObstacleRect[] =>
   obstacles.filter((rect) => {
-    const isSourceRect = rect.id === sourceId || rect.id.startsWith(`${sourceId}__`);
-    const isTargetRect = rect.id === targetId || rect.id.startsWith(`${targetId}__`);
-    if (isFirstSegment && isSourceRect) return false;
-    if (isLastSegment && isTargetRect) return false;
+    // Terminal segments can ignore only the padded endpoint rect (`sourceId` / `targetId`)
+    // so the line can leave/enter naturally, but hard/icon endpoint rects must still block
+    // to prevent routes crossing through the element body at any point.
+    if (isFirstSegment && rect.id === sourceId) return false;
+    if (isLastSegment && rect.id === targetId) return false;
+    if (isFirstSegment && isEndpointOwnedObstacle(rect, sourceId)) return false;
+    if (isLastSegment && isEndpointOwnedObstacle(rect, targetId)) return false;
+    if (isFirstSegment && isEndpointContactShield(rect, sourceId)) return false;
+    if (isLastSegment && isEndpointContactShield(rect, targetId)) return false;
     return true;
   });
+
+const isEndpointContactShield = (rect: EdgeObstacleRect, nodeId: string): boolean =>
+  rect.id === `${nodeId}__contact-shield`;
+
+const isEndpointOwnedObstacle = (rect: EdgeObstacleRect, nodeId: string): boolean =>
+  rect.id === `${nodeId}__hard`
+  || rect.id === `${nodeId}__icon`;
 
 const routeSegmentWithAStar = (
   start: EdgePoint,
@@ -98,7 +131,7 @@ const routeSegmentWithAStar = (
   const graph = buildOrthogonalVisibilityGraph(start, end, obstacles, clearance);
   if (!graph) return null;
 
-  const pathKeys = aStarSearch(graph.nodesByKey, graph.edgesByKey, graph.startKey, graph.endKey);
+  const pathKeys = searchLowestBendPath(graph.nodesByKey, graph.edgesByKey, graph.startKey, graph.endKey);
   if (!pathKeys) return null;
 
   return compactPolyline(
@@ -237,8 +270,8 @@ const orthogonalSegmentCrossesObstacleInterior = (
   end: EdgePoint,
   rect: EdgeObstacleRect
 ): boolean => {
-  if (isIconObstacle(rect)) {
-    // Icon obstacles are strict: any contact is treated as collision.
+  if (isStrictObstacle(rect)) {
+    // Contact-area obstacles are strict: any contact is treated as collision.
     return segmentIntersectsRect(start, end, rect);
   }
 
@@ -265,39 +298,75 @@ const orthogonalSegmentCrossesObstacleInterior = (
   return segmentIntersectsRect(start, end, rect);
 };
 
-const aStarSearch = (
+const searchLowestBendPath = (
   nodesByKey: ReadonlyMap<string, GraphNode>,
   edgesByKey: ReadonlyMap<string, readonly GraphEdge[]>,
   startKey: string,
   endKey: string
 ): readonly string[] | null => {
-  const open = new Set<string>([startKey]);
+  const startState = toStateKey(startKey, "start");
+  const open = new Set<string>([startState]);
   const cameFrom = new Map<string, string>();
-  const gScore = new Map<string, number>([[startKey, 0]]);
-  const fScore = new Map<string, number>([[startKey, heuristic(nodesByKey, startKey, endKey)]]);
+  const gScore = new Map<string, number>([[startState, 0]]);
+  const fScore = new Map<string, number>([[startState, heuristic(nodesByKey, startKey, endKey)]]);
 
   while (open.size > 0) {
     const current = getLowestScoreKey(open, fScore);
     if (!current) break;
-    if (current === endKey) {
-      return reconstructPath(cameFrom, current);
+    const currentState = fromStateKey(current);
+    if (currentState.nodeKey === endKey) {
+      return compactPathKeys(reconstructStatePath(cameFrom, current).map((key) => fromStateKey(key).nodeKey));
     }
 
     open.delete(current);
 
-    const neighbors = edgesByKey.get(current) ?? [];
-    for (const neighbor of neighbors) {
-      const tentativeG = (gScore.get(current) ?? Number.POSITIVE_INFINITY) + neighbor.cost;
-      if (tentativeG >= (gScore.get(neighbor.to) ?? Number.POSITIVE_INFINITY)) continue;
+    const currentNode = nodesByKey.get(currentState.nodeKey);
+    if (!currentNode) continue;
 
-      cameFrom.set(neighbor.to, current);
-      gScore.set(neighbor.to, tentativeG);
-      fScore.set(neighbor.to, tentativeG + heuristic(nodesByKey, neighbor.to, endKey));
-      open.add(neighbor.to);
+    const neighbors = edgesByKey.get(currentState.nodeKey) ?? [];
+    for (const neighbor of neighbors) {
+      const neighborNode = nodesByKey.get(neighbor.to);
+      if (!neighborNode) continue;
+      const direction = getSegmentDirection(currentNode.point, neighborNode.point);
+      const turnCost = currentState.direction !== "start" && currentState.direction !== direction
+        ? BEND_COST
+        : 0;
+      const neighborState = toStateKey(neighbor.to, direction);
+      const tentativeG = (gScore.get(current) ?? Number.POSITIVE_INFINITY) + neighbor.cost + turnCost;
+      if (tentativeG >= (gScore.get(neighborState) ?? Number.POSITIVE_INFINITY)) continue;
+
+      cameFrom.set(neighborState, current);
+      gScore.set(neighborState, tentativeG);
+      fScore.set(neighborState, tentativeG + heuristic(nodesByKey, neighbor.to, endKey));
+      open.add(neighborState);
     }
   }
 
   return null;
+};
+
+const getSegmentDirection = (start: EdgePoint, end: EdgePoint): Exclude<GraphDirection, "start"> =>
+  Math.abs(start.x - end.x) >= Math.abs(start.y - end.y) ? "horizontal" : "vertical";
+
+const toStateKey = (nodeKey: string, direction: GraphDirection): string => `${nodeKey}|${direction}`;
+
+const fromStateKey = (stateKey: string): Readonly<{ nodeKey: string; direction: GraphDirection }> => {
+  const separatorIndex = stateKey.lastIndexOf("|");
+  const nodeKey = separatorIndex >= 0 ? stateKey.slice(0, separatorIndex) : stateKey;
+  const direction = separatorIndex >= 0 ? stateKey.slice(separatorIndex + 1) : "start";
+  return {
+    nodeKey,
+    direction: direction === "horizontal" || direction === "vertical" ? direction : "start"
+  };
+};
+
+const compactPathKeys = (keys: readonly string[]): readonly string[] => {
+  const compacted: string[] = [];
+  for (const key of keys) {
+    if (compacted[compacted.length - 1] === key) continue;
+    compacted.push(key);
+  }
+  return compacted;
 };
 
 const heuristic = (
@@ -326,7 +395,7 @@ const getLowestScoreKey = (open: ReadonlySet<string>, fScore: ReadonlyMap<string
   return bestKey;
 };
 
-const reconstructPath = (cameFrom: ReadonlyMap<string, string>, current: string): readonly string[] => {
+const reconstructStatePath = (cameFrom: ReadonlyMap<string, string>, current: string): readonly string[] => {
   const path = [current];
   let cursor = current;
   while (cameFrom.has(cursor)) {
@@ -338,7 +407,7 @@ const reconstructPath = (cameFrom: ReadonlyMap<string, string>, current: string)
 
 const isPointInsideObstacleInterior = (point: EdgePoint, obstacles: readonly EdgeObstacleRect[]): boolean =>
   obstacles.some((obstacle) =>
-    isIconObstacle(obstacle)
+    isStrictObstacle(obstacle)
       ? (
         point.x >= obstacle.left - EPSILON
         && point.x <= obstacle.right + EPSILON
@@ -493,7 +562,8 @@ export const segmentIntersectsRect = (start: EdgePoint, end: EdgePoint, rect: Ed
 const pointInsideRect = (point: EdgePoint, rect: EdgeObstacleRect): boolean =>
   point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
 
-const isIconObstacle = (rect: EdgeObstacleRect): boolean => rect.id.endsWith("__icon");
+const isStrictObstacle = (rect: EdgeObstacleRect): boolean =>
+  rect.id.endsWith("__icon") || rect.id.endsWith("__contact-shield");
 
 const segmentsIntersect = (a: EdgePoint, b: EdgePoint, c: EdgePoint, d: EdgePoint): boolean => {
   const orientation = (p: EdgePoint, q: EdgePoint, r: EdgePoint): number =>

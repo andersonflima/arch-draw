@@ -291,11 +291,11 @@ const createTestServer = async (
   tempDir: string;
 }> => {
   const tempDir = mkdtempSync(join(tmpdir(), "arch-draw-api-test-"));
-  const databasePath = join(tempDir, "session-isolation.sqlite");
+  const storagePath = join(tempDir, "session-isolation.store");
   const app = await createServer({
     apiHost: "127.0.0.1",
     apiPort: 0,
-    databasePath,
+    storagePath,
     webOrigins: [TEST_WEB_ORIGIN],
     trustProxy: true,
     trustProxyHops: 1,
@@ -311,7 +311,7 @@ const createTestServer = async (
     googleOAuthClientId: options.enableGoogleAuth ? "test-client-id" : undefined,
     googleOAuthClientSecret: options.enableGoogleAuth ? "test-client-secret" : undefined,
     googleOAuthRedirectUri: options.enableGoogleAuth
-      ? "http://127.0.0.1:3333/auth/google/callback"
+      ? "http://localhost:8080/auth/google/callback"
       : undefined
   });
 

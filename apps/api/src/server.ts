@@ -3,9 +3,7 @@ import Fastify from "fastify";
 import type { AppConfig } from "./config/env";
 import { cryptoIdGenerator } from "./application/contracts/id-generator";
 import { systemClock } from "./application/contracts/clock";
-import { createSqliteConnection } from "./infra/sqlite/connection";
-import { runMigrations } from "./infra/sqlite/migrations";
-import { makeSqliteArchitectureRepository } from "./infra/sqlite/sqlite-architecture-repository";
+import { makeCompressedArchitectureRepository } from "./infra/compressed/compressed-architecture-repository";
 import { registerRoutes } from "./http/routes";
 import { createGoogleAuth } from "./http/google-auth";
 import { recordSecurityEvent } from "./http/security-observability";
@@ -38,10 +36,8 @@ export const createServer = async (config: AppConfig) => {
     redisClient
   );
   const googleAuth = await createGoogleAuth(config, redisClient);
-  const connection = await createSqliteConnection(config.databasePath);
+  const architectureRepository = makeCompressedArchitectureRepository(config.storagePath);
   const collaborationHub = createCollaborationHub();
-
-  runMigrations(connection);
 
   await app.register(cors, {
     origin: [...config.webOrigins],
@@ -56,7 +52,7 @@ export const createServer = async (config: AppConfig) => {
   });
 
   await registerRoutes(app, {
-    repository: makeSqliteArchitectureRepository(connection),
+    repository: architectureRepository,
     clock: systemClock,
     idGenerator: cryptoIdGenerator,
     forceSecureCookies: config.forceSecureCookies,
@@ -216,7 +212,6 @@ export const createServer = async (config: AppConfig) => {
   });
 
   app.addHook("onClose", async () => {
-    connection.close();
     if (redisClient) await redisClient.quit();
   });
 

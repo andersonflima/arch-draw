@@ -1,7 +1,7 @@
 export type AppConfig = Readonly<{
   apiHost: string;
   apiPort: number;
-  databasePath: string;
+  storagePath: string;
   webOrigins: readonly string[];
   trustProxy: boolean | number | string | string[];
   trustProxyHops?: number;
@@ -24,8 +24,10 @@ export const loadConfig = (env: NodeJS.ProcessEnv = process.env): AppConfig => {
   const trustProxyRaw = parseTrustProxy(env.TRUST_PROXY);
   return {
     apiHost: env.API_HOST ?? "127.0.0.1",
-    apiPort: Number.parseInt(env.API_PORT ?? "3333", 10),
-    databasePath: env.DATABASE_PATH ?? "./data/arch-draw.sqlite",
+    apiPort: Number.parseInt(env.API_PORT ?? "8080", 10),
+    storagePath: parseOptionalNonEmptyValue(env.ARCH_DRAW_STORAGE_PATH)
+      ?? parseLegacyDatabaseStoragePath(env.DATABASE_PATH)
+      ?? "./data/arch-draw.store",
     webOrigins: parseWebOrigins(env.WEB_ORIGINS ?? env.WEB_ORIGIN),
     trustProxy: trustProxyRaw,
     trustProxyHops: parseOptionalPositiveInteger(env.TRUST_PROXY_HOPS),
@@ -45,11 +47,29 @@ export const loadConfig = (env: NodeJS.ProcessEnv = process.env): AppConfig => {
   };
 };
 
+const parseLegacyDatabaseStoragePath = (value: string | undefined): string | undefined => {
+  const legacyPath = parseOptionalNonEmptyValue(value);
+  if (!legacyPath) return undefined;
+  return legacyPath.endsWith(".sqlite")
+    ? `${legacyPath.slice(0, -".sqlite".length)}.store`
+    : legacyPath;
+};
+
 const parseWebOrigins = (value: string | undefined): readonly string[] =>
   (value ?? "http://localhost:5173,http://127.0.0.1:5173")
     .split(",")
-    .map((origin) => origin.trim())
+    .map(normalizeOrigin)
     .filter((origin) => origin.length > 0);
+
+const normalizeOrigin = (value: string): string => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  try {
+    return new URL(trimmed).origin;
+  } catch {
+    return trimmed.replace(/\/+$/g, "");
+  }
+};
 
 const parseBoolean = (value: string | undefined, fallback: boolean): boolean => {
   if (value === undefined) return fallback;

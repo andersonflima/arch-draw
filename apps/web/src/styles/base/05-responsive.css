@@ -1,0 +1,25 @@
+@media (max-width: 1180px) {
+  .app-shell {
+    grid-template-rows: auto 1fr;
+  }
+
+  .topbar {
+    grid-template-columns: 1fr;
+    padding: 12px;
+  }
+
+  .workspace {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+
+  .workspace--left-panels-hidden {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .sidebar,
+  .palette {
+    border-right: 0;
+    border-bottom: 2px solid #111827;
+  }
+}
