@@ -40,6 +40,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Blocos que suportam conteúdo técnico (código, YAML, SQL, Mermaid e configurações).
 - Para manter criação/importação fluida em boards grandes, snippets padrão de nós de infraestrutura são materializados sob demanda (na edição), em vez de persistidos em massa na criação do exemplo.
 - Em arquiteturas mais densas, o roteamento de linhas usa modo adaptativo (consulta de obstáculos reduzida + janela maior de fast-route ao expandir/criar exemplos) para manter navegação e abertura de containers mais fluida.
+- Em zoom baixo com alta densidade, labels/knockouts de conexões e overlays de contexto em dark mode são reduzidos temporariamente para priorizar FPS durante navegação.
 - Exportação de diagramas em múltiplos formatos (`.archdraw.json`, `.drawio`, `.excalidraw`, `.mmd`, SVG e PNG).
 - Importação de diagramas em múltiplos formatos (`.archdraw`, JSON, `.drawio`/XML, `.excalidraw`, `.mmd`/`.mermaid`).
 - Import mantém hierarquia visual e fluxo entre plataformas (draw.io, Excalidraw e Mermaid), convertendo para tipos internos sem desmontar a estrutura original.

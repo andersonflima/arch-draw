@@ -329,6 +329,8 @@ const EDGE_ROUTE_FAST_PATH_OBSTACLE_THRESHOLD = 36;
 const EDGE_ROUTE_FAST_MODE_WINDOW_MS = 900;
 const EDGE_ROUTE_FORCE_FAST_COMPLEXITY_THRESHOLD = 42;
 const EDGE_SIMPLIFIED_OBSTACLE_COMPLEXITY_THRESHOLD = 40;
+const EDGE_LABEL_HIDE_COMPLEXITY_THRESHOLD = 40;
+const EDGE_LABEL_HIDE_ZOOM_THRESHOLD = 0.5;
 const EDGE_RENDER_SUSPEND_ON_EXPAND_MS = 220;
 const EDGE_PROXIMITY_SUPPRESSION_RADIUS = 190;
 const EDGE_ROUTE_MAX_PASSES = 10;
@@ -4734,6 +4736,10 @@ LIMIT 50;`;
 
   getLeafLabelKnockoutNodes(): readonly CanvasNode[] {
     if (this.leafLabelKnockoutNodesCache) return this.leafLabelKnockoutNodesCache;
+    if (this.shouldReduceCanvasDetailForPerformance()) {
+      this.leafLabelKnockoutNodesCache = [];
+      return this.leafLabelKnockoutNodesCache;
+    }
 
     const nodes = this.nodes.filter((node) =>
       this.isRenderableNode(node)
@@ -4813,6 +4819,10 @@ LIMIT 50;`;
 
   getEdgeClipContainers(): readonly CanvasNode[] {
     if (this.edgeClipContainersCache) return this.edgeClipContainersCache;
+    if (!this.isDarkMode || this.shouldReduceCanvasDetailForPerformance()) {
+      this.edgeClipContainersCache = [];
+      return this.edgeClipContainersCache;
+    }
     const containers = this.nodes.filter((node) => isContainerNodeKind(node.kind) && this.isRenderableNode(node));
     this.edgeClipContainersCache = containers;
     return containers;
@@ -4821,7 +4831,7 @@ LIMIT 50;`;
   getEdgeDarkTransitionClipIds(edge: CanvasEdge): readonly string[] {
     const cached = this.edgeDarkTransitionClipIdsCache.get(edge.id);
     if (cached) return cached;
-    if (!this.isDarkMode) {
+    if (!this.isDarkMode || this.shouldReduceCanvasDetailForPerformance()) {
       this.edgeDarkTransitionClipIdsCache.set(edge.id, []);
       return [];
     }
@@ -4895,6 +4905,7 @@ LIMIT 50;`;
   }
 
   shouldRenderEdgeLabel(edge: CanvasEdge): boolean {
+    if (this.shouldReduceCanvasDetailForPerformance()) return false;
     if (!edge.label) return false;
     if (!this.isVisibleEdge(edge)) return false;
     return !this.isEdgeRepresentedByCollapsedEndpoint(edge);
@@ -7073,6 +7084,13 @@ apiKeys:
 
   private shouldUseSimplifiedEdgeObstacles(): boolean {
     return (this.nodes.length + this.edges.length) >= EDGE_SIMPLIFIED_OBSTACLE_COMPLEXITY_THRESHOLD;
+  }
+
+  private shouldReduceCanvasDetailForPerformance(): boolean {
+    if (this.renderAllCanvasForExport) return false;
+    const complexity = this.nodes.length + this.edges.length;
+    return complexity >= EDGE_LABEL_HIDE_COMPLEXITY_THRESHOLD
+      && this.canvasZoom <= EDGE_LABEL_HIDE_ZOOM_THRESHOLD;
   }
 
   private suspendEdgeRenderingTemporarily(durationMs = EDGE_RENDER_SUSPEND_ON_EXPAND_MS): void {
