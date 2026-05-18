@@ -2577,7 +2577,7 @@ app-flow-document-node {
 
 .node-port {
   position: absolute;
-  z-index: 4;
+  z-index: 6;
   top: var(--node-port-hit-inset, 20px);
   bottom: var(--node-port-hit-inset, 20px);
   width: var(--node-port-hit-width, 22px);

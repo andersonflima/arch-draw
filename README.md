@@ -13,6 +13,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Setas de conexão ancoradas pela borda externa da bolinha de contato (apenas lados esquerdo/direito), com ponta da seta na bolinha e linha terminando no centro traseiro da seta.
 - Em conexões múltiplas no mesmo ponto, as âncoras se unificam na bolinha de contato e só abrem afastamento no percurso, com tronco comum simétrico na origem e no destino.
 - Áreas de clique das portas de conexão calibradas para maior precisão: gesto na direção da porta inicia vínculo, enquanto o drag de elementos minimizados inicia apenas sobre o ícone do elemento.
+- Âncoras de conexão mantêm prioridade de clique sobre controles de resize quando o elemento está selecionado.
 - Quando há conexão em ambos os sentidos entre dois nós, o diagrama consolida em uma única âncora bidirecional com animação ping-pong (ida e volta), sem duplicar linhas.
 - Camadas visuais por hierarquia de container (filhos sempre acima do container pai), sem elevar z-index apenas por foco de clique.
 - Quando um bloco de código está expandido, ele recebe precedência de camada sobre irmãos no mesmo contexto para evitar sobreposição visual do conteúdo aberto.
