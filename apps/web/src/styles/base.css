@@ -2821,19 +2821,11 @@ app-flow-document-node {
   animation: edge-flow-dash 0.22s linear infinite;
 }
 
-.canvas-edge-flow {
-  pointer-events: none;
-}
-
 .canvas-edge-context-overlay {
   pointer-events: none;
 }
 
-.canvas-edge-flow--forward {
-  animation: edge-flow-ping-pong 2.6s ease-in-out infinite;
-}
-
-.canvas-edge-flow--reverse {
+.canvas-edge.is-bidirectional {
   animation: edge-flow-ping-pong 2.6s ease-in-out infinite reverse;
 }
 
