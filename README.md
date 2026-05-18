@@ -232,6 +232,15 @@ Quando as três variáveis `GOOGLE_OAUTH_*` estiverem definidas, a API passa a e
 
 Se a validação inicial de sessão (`GET /auth/session`) falhar por indisponibilidade da API, CORS, host não permitido ou configuração OAuth inválida, o frontend libera a tela de login e exibe a falha em vez de permanecer indefinidamente no estado de validação SSO.
 
+Para desenvolvimento local com `npm run dev` (`web` em `127.0.0.1:5173` e API em `127.0.0.1:3333`), use callback OAuth direto na API:
+
+```env
+WEB_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+GOOGLE_OAUTH_REDIRECT_URI=http://127.0.0.1:3333/auth/google/callback
+```
+
+A API carrega automaticamente o arquivo `.env` local ao iniciar por `npm run dev`, sem sobrescrever variáveis já exportadas no ambiente.
+
 Para desenvolvimento com Docker Compose (`web` em `localhost:8080`), use callback OAuth no proxy web:
 
 ```env

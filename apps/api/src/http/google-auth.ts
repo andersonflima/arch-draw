@@ -42,6 +42,7 @@ type GoogleAuthConfig = Readonly<{
   clientSecret: string;
   redirectUri: string;
   postLoginRedirect: string;
+  allowedReturnOrigins: readonly string[];
 }>;
 
 type RequestLike = Readonly<{
@@ -119,6 +120,7 @@ export const createGoogleAuth = async (
     clearExpiredEntries();
     const queryReturnTo = (request.query as { returnTo?: unknown } | undefined)?.returnTo;
     const returnTo = sanitizeReturnPath(
+      googleConfig,
       typeof queryReturnTo === "string" && queryReturnTo.trim().length > 0
         ? queryReturnTo
         : googleConfig.postLoginRedirect
@@ -153,14 +155,14 @@ export const createGoogleAuth = async (
     const code = typeof query.code === "string" ? query.code : undefined;
     const state = typeof query.state === "string" ? query.state : undefined;
     if (!code || !state) {
-      await reply.redirect(`${googleConfig.postLoginRedirect}?auth_error=missing_code_or_state`);
+      await reply.redirect(appendAuthError(googleConfig.postLoginRedirect, "missing_code_or_state"));
       return;
     }
 
     const stateEntry = oauthStates.get(state);
     oauthStates.delete(state);
     if (!stateEntry || stateEntry.expiresAt <= Date.now()) {
-      await reply.redirect(`${googleConfig.postLoginRedirect}?auth_error=invalid_state`);
+      await reply.redirect(appendAuthError(googleConfig.postLoginRedirect, "invalid_state"));
       return;
     }
 
@@ -188,7 +190,7 @@ export const createGoogleAuth = async (
       );
       await reply.redirect(stateEntry.returnTo);
     } catch {
-      await reply.redirect(`${googleConfig.postLoginRedirect}?auth_error=oauth_failure`);
+      await reply.redirect(appendAuthError(stateEntry.returnTo, "oauth_failure"));
     }
   };
 
@@ -227,7 +229,8 @@ const resolveGoogleAuthConfig = (config: AppConfig): GoogleAuthConfig | null => 
     clientId: config.googleOAuthClientId,
     clientSecret: config.googleOAuthClientSecret,
     redirectUri: config.googleOAuthRedirectUri,
-    postLoginRedirect: config.authPostLoginRedirect
+    postLoginRedirect: config.authPostLoginRedirect,
+    allowedReturnOrigins: config.webOrigins
   };
 };
 
@@ -283,11 +286,31 @@ const fetchGoogleUserInfo = async (accessToken: string): Promise<AuthenticatedUs
   };
 };
 
-const sanitizeReturnPath = (value: string): string => {
+export const sanitizeReturnPath = (config: Pick<GoogleAuthConfig, "allowedReturnOrigins">, value: string): string => {
   const trimmed = value.trim();
+  try {
+    const parsed = new URL(trimmed);
+    if (!["http:", "https:"].includes(parsed.protocol)) return "/";
+    return config.allowedReturnOrigins.includes(parsed.origin) ? parsed.toString() : "/";
+  } catch {
+    // Relative paths are accepted below for same-origin proxy deployments.
+  }
   if (!trimmed.startsWith("/")) return "/";
   if (trimmed.startsWith("//")) return "/";
   return trimmed;
+};
+
+export const appendAuthError = (redirectTarget: string, code: string): string => {
+  try {
+    const parsed = new URL(redirectTarget);
+    parsed.searchParams.set("auth_error", code);
+    return parsed.toString();
+  } catch {
+    const [path = "/", fragment = ""] = redirectTarget.split("#", 2);
+    const separator = path.includes("?") ? "&" : "?";
+    const nextPath = `${path}${separator}auth_error=${encodeURIComponent(code)}`;
+    return fragment ? `${nextPath}#${fragment}` : nextPath;
+  }
 };
 
 const readSingleHeader = (value: string | string[] | undefined): string | undefined => {

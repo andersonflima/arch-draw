@@ -48,8 +48,18 @@ export const loadConfig = (env: NodeJS.ProcessEnv = process.env): AppConfig => {
 const parseWebOrigins = (value: string | undefined): readonly string[] =>
   (value ?? "http://localhost:5173,http://127.0.0.1:5173")
     .split(",")
-    .map((origin) => origin.trim())
+    .map(normalizeOrigin)
     .filter((origin) => origin.length > 0);
+
+const normalizeOrigin = (value: string): string => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  try {
+    return new URL(trimmed).origin;
+  } catch {
+    return trimmed.replace(/\/+$/g, "");
+  }
+};
 
 const parseBoolean = (value: string | undefined, fallback: boolean): boolean => {
   if (value === undefined) return fallback;
