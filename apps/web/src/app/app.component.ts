@@ -293,8 +293,8 @@ const EDGE_LABEL_COLLISION_Y_THRESHOLD = 44;
 const EDGE_LABEL_COLLISION_GAP = 26;
 const EDGE_LABEL_OFFSET_STEP_PERCENT = 7;
 const EDGE_LABEL_OFFSET_MAX_PERCENT = 24;
-const EDGE_LABEL_RENDER_MIN_WIDTH = 92;
-const EDGE_LABEL_RENDER_MAX_WIDTH = 260;
+const EDGE_LABEL_RENDER_MIN_WIDTH = 108;
+const EDGE_LABEL_RENDER_MAX_WIDTH = 2000;
 const EDGE_LABEL_RENDER_HORIZONTAL_PADDING = 16;
 const LEAF_LABEL_RENDER_HORIZONTAL_PADDING = 16;
 const LEAF_LABEL_RENDER_VERTICAL_PADDING = 6;
@@ -1567,6 +1567,7 @@ export class AppComponent implements OnDestroy {
   private readonly edgeSideLaneOffsetCache = new Map<string, number>();
   private readonly edgeLabelDyCache = new Map<string, number>();
   private readonly edgeLabelStartOffsetCache = new Map<string, string>();
+  private edgeLabelMeasureContext: CanvasRenderingContext2D | null | undefined;
   private tutorialActiveTargetSelector: string | null = null;
   private tutorialActiveTargetElement: HTMLElement | null = null;
 
@@ -1607,7 +1608,10 @@ export class AppComponent implements OnDestroy {
   }
 
   get selectedNode(): CanvasNode | null {
-    return this.nodes.find((node) => node.id === this.selectedNodeId) ?? null;
+    if (!this.selectedNodeId) return null;
+    const node = this.nodes.find((candidate) => candidate.id === this.selectedNodeId) ?? null;
+    if (!node) return null;
+    return this.isVisibleNode(node) ? node : null;
   }
 
   get selectedEdge(): CanvasEdge | null {
@@ -2319,6 +2323,8 @@ export class AppComponent implements OnDestroy {
 
   selectNode(nodeId: string, event?: Event): void {
     event?.stopPropagation();
+    const visibleNode = this.getVisibleNodeById(nodeId);
+    if (!visibleNode) return;
     this.selectedNodeId = nodeId;
     this.selectedNodeIds = [nodeId];
     this.selectedEdgeId = null;
@@ -2392,6 +2398,12 @@ export class AppComponent implements OnDestroy {
 
   onNodeContextMenu(nodeId: string, event: MouseEvent): void {
     event.preventDefault();
+    const visibleNode = this.getVisibleNodeById(nodeId);
+    if (!visibleNode) {
+      this.contextPropertiesPanel = null;
+      this.markInteractionChanged();
+      return;
+    }
     this.selectNode(nodeId);
     this.openContextPropertiesPanel(event);
   }
@@ -2399,6 +2411,12 @@ export class AppComponent implements OnDestroy {
   onEdgeContextMenu(edgeId: string, event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
+    const edge = this.edges.find((candidate) => candidate.id === edgeId);
+    if (!edge || !this.isVisibleEdge(edge)) {
+      this.contextPropertiesPanel = null;
+      this.markInteractionChanged();
+      return;
+    }
     this.selectedEdgeId = edgeId;
     this.selectedNodeId = null;
     this.selectedNodeIds = [];
@@ -2431,6 +2449,8 @@ export class AppComponent implements OnDestroy {
 
   onNodeClick(nodeId: string, event: MouseEvent): void {
     event.stopPropagation();
+    const visibleNode = this.getVisibleNodeById(nodeId);
+    if (!visibleNode) return;
     if (this.connectionSourceId && this.connectionSourceId !== nodeId) {
       return;
     }
@@ -2444,6 +2464,12 @@ export class AppComponent implements OnDestroy {
     this.resizeEnabledNodeId = nodeId;
     this.contextPropertiesPanel = null;
     this.markViewChanged();
+  }
+
+  private getVisibleNodeById(nodeId: string): CanvasNode | null {
+    const node = this.nodes.find((candidate) => candidate.id === nodeId) ?? null;
+    if (!node) return null;
+    return this.isVisibleNode(node) ? node : null;
   }
 
   onNodeDoubleClick(node: CanvasNode, event: MouseEvent): void {
@@ -3154,18 +3180,18 @@ LIMIT 50;`;
         ? [this.selectedNode.id]
         : [];
     if (selectedIds.length === 0) return;
-    const selectedIdSet = new Set(selectedIds);
-    this.nodes = this.nodes
-      .map((node) =>
-        node.parentId && selectedIdSet.has(node.parentId) && !selectedIdSet.has(node.id)
-          ? this.detachNodeFromParent(node)
-          : node
-      )
-      .filter((node) => !selectedIdSet.has(node.id));
+    const cascadeDeleteIds = new Set<string>(selectedIds);
+    for (const selectedId of selectedIds) {
+      for (const descendantId of this.getDescendantIds(selectedId)) {
+        cascadeDeleteIds.add(descendantId);
+      }
+    }
+
+    this.nodes = this.nodes.filter((node) => !cascadeDeleteIds.has(node.id));
     this.edges = this.edges.filter(
-      (edge) => !selectedIdSet.has(edge.from) && !selectedIdSet.has(edge.to)
+      (edge) => !cascadeDeleteIds.has(edge.from) && !cascadeDeleteIds.has(edge.to)
     );
-    if (this.maximizedNodeId && selectedIdSet.has(this.maximizedNodeId)) {
+    if (this.maximizedNodeId && cascadeDeleteIds.has(this.maximizedNodeId)) {
       this.maximizedNodeId = null;
     }
     this.selectedNodeId = null;
@@ -4376,7 +4402,7 @@ LIMIT 50;`;
   }
 
   getEdgeLabelBoxHeight(): number {
-    return Math.max(34, Math.round(this.edgeLabelFontSize + 12));
+    return Math.max(38, Math.round(this.edgeLabelFontSize + 16));
   }
 
   getEdgeLabelPosition(edge: CanvasEdge): Readonly<{ x: number; y: number }> {
@@ -4389,14 +4415,34 @@ LIMIT 50;`;
   getEdgeLabelRenderWidth(edge: CanvasEdge): number {
     const label = edge.label?.trim() ?? "";
     if (label.length === 0) return EDGE_LABEL_RENDER_MIN_WIDTH;
-    const estimatedTextWidth = label.length * this.edgeLabelFontSize * 0.52;
+    const measuredTextWidth = this.measureEdgeLabelTextWidth(label) ?? (label.length * this.edgeLabelFontSize * 0.6);
     return Math.max(
       EDGE_LABEL_RENDER_MIN_WIDTH,
       Math.min(
         EDGE_LABEL_RENDER_MAX_WIDTH,
-        Math.round(estimatedTextWidth + EDGE_LABEL_RENDER_HORIZONTAL_PADDING * 2)
+        Math.round(measuredTextWidth + EDGE_LABEL_RENDER_HORIZONTAL_PADDING * 2)
       )
     );
+  }
+
+  private measureEdgeLabelTextWidth(label: string): number | null {
+    const context = this.getEdgeLabelMeasureContext();
+    if (!context) return null;
+    context.font = `700 ${this.edgeLabelFontSize}px "Exo 2", "Sora", "Segoe UI", sans-serif`;
+    return context.measureText(label).width;
+  }
+
+  private getEdgeLabelMeasureContext(): CanvasRenderingContext2D | null {
+    if (this.edgeLabelMeasureContext !== undefined) {
+      return this.edgeLabelMeasureContext;
+    }
+    if (typeof document === "undefined") {
+      this.edgeLabelMeasureContext = null;
+      return null;
+    }
+    const canvas = document.createElement("canvas");
+    this.edgeLabelMeasureContext = canvas.getContext("2d");
+    return this.edgeLabelMeasureContext;
   }
 
   getEdgeLabelRenderX(edge: CanvasEdge): number {
@@ -6160,11 +6206,6 @@ spec:
         path += ` L ${current.x} ${current.y}`;
         continue;
       }
-      if (index === 1 || index === points.length - 2) {
-        path += ` L ${current.x} ${current.y}`;
-        continue;
-      }
-
       const inDx = current.x - previous.x;
       const inDy = current.y - previous.y;
       const outDx = next.x - current.x;
@@ -6186,7 +6227,10 @@ spec:
         continue;
       }
 
-      const cornerRadius = Math.min(radius, inLength * 0.5, outLength * 0.5);
+      const isEndpointCorner = index === 1 || index === points.length - 2;
+      const endpointCornerRadius = Math.max(4, Math.round(radius * 0.55));
+      const allowedRadius = isEndpointCorner ? endpointCornerRadius : radius;
+      const cornerRadius = Math.min(allowedRadius, inLength * 0.5, outLength * 0.5);
       const cornerStart = {
         x: current.x - inUnitX * cornerRadius,
         y: current.y - inUnitY * cornerRadius

@@ -23,6 +23,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Containers não expandem automaticamente durante drag and drop; ajuste dinâmico ocorre apenas em fluxos de expansão/maximização.
 - Colapso de elementos aninhados com manutenção do foco visual no canvas e redução de ruído em labels agregadas.
 - Normalização automática de vínculo em containers ao carregar/importar templates (nós internos sem `parentId` válido são reanexados ao container correto pelo contexto visual).
+- Exclusão em cascata para hierarquias: ao remover um container/pai, todos os itens internos (filhos e descendentes) também são removidos, independentemente de estado minimizado/maximizado.
 - Blocos que suportam conteúdo técnico (código, YAML, SQL, Mermaid e configurações).
 - Exportação de diagramas em múltiplos formatos (`.archdraw.json`, `.drawio`, `.excalidraw`, `.mmd`, SVG e PNG).
 - Importação de diagramas em múltiplos formatos (`.archdraw`, JSON, `.drawio`/XML, `.excalidraw`, `.mmd`/`.mermaid`).
