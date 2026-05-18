@@ -291,11 +291,11 @@ const createTestServer = async (
   tempDir: string;
 }> => {
   const tempDir = mkdtempSync(join(tmpdir(), "arch-draw-api-test-"));
-  const databasePath = join(tempDir, "session-isolation.sqlite");
+  const storagePath = join(tempDir, "session-isolation.store");
   const app = await createServer({
     apiHost: "127.0.0.1",
     apiPort: 0,
-    databasePath,
+    storagePath,
     webOrigins: [TEST_WEB_ORIGIN],
     trustProxy: true,
     trustProxyHops: 1,

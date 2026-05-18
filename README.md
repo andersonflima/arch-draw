@@ -41,6 +41,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Importação de diagramas em múltiplos formatos (`.archdraw`, JSON, `.drawio`/XML, `.excalidraw`, `.mmd`/`.mermaid`).
 - Painel de propriedades contextual no ponto do clique, com ajustes globais de fonte de labels, fonte de âncoras e tamanho de ícones.
 - Compartilhamento por arquivo com link dedicado (`?share=...`) e modo de acesso controlado no servidor (`edit` ou `read-only`), sem expor permissão no URL.
+- Persistência backend em pacotes locais comprimidos (`.adpk`) com manifest de busca por sessão, arquivo e share, sem dependência de banco relacional para salvar arquiteturas.
 - Presença em tempo real no canvas com cursor dos colaboradores, sincronização de edições e sincronização de visão (zoom/pan/foco em elemento maximizado) entre participantes, inclusive para convidados em `read-only`.
 - Botão Tutorial com guias feature por feature (containers, conexões, área de contato, propriedades, zoom, atalhos e fluxo de import/export), em modo guiado por passo com foco visual e avanço condicionado ao clique no alvo destacado quando aplicável.
 - Tooltips de ajuda/indicação com largura adaptativa (`fit-content`) e limite de viewport para evitar overflow visual do texto.
@@ -229,6 +230,7 @@ Variáveis relevantes de autenticação e segurança:
 - `CSRF_COOKIE_NAME` e `CSRF_HEADER_NAME` para política de CSRF (default: `archdraw_csrf` + `x-csrf-token`).
 - `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX_REQUESTS` e `RATE_LIMIT_MAX_ENTRIES` para hardening de rate-limit.
 - `REDIS_URL` para sessão OAuth e rate-limit distribuído com expiração.
+- `ARCH_DRAW_STORAGE_PATH` para diretório local dos pacotes comprimidos de arquiteturas (default: `./data/arch-draw.store`).
 - `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI` para habilitar SSO Google.
 - `AUTH_POST_LOGIN_REDIRECT` para definir rota padrão após login.
 - `REDIS_PASSWORD` para proteger o Redis interno no ambiente Docker (quando `REDIS_URL` usa senha).
