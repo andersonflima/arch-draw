@@ -1616,6 +1616,9 @@ export class AppComponent implements OnDestroy {
   private readonly edgeLabelRenderWidthCache = new Map<string, number>();
   private readonly edgeDarkTransitionClipIdsCache = new Map<string, readonly string[]>();
   private readonly nodeAbsoluteRectCache = new Map<string, CanvasRect>();
+  private readonly nodeStyleCache = new Map<string, Record<string, string | number>>();
+  private readonly nodeClassCache = new Map<string, string>();
+  private readonly miniMapNodeStyleCache = new Map<string, Record<string, string>>();
   private readonly leafNodeLabelKnockoutRectCache = new Map<string, CanvasRect | null>();
   private edgeClipContainersCache: readonly CanvasNode[] | null = null;
   private leafLabelKnockoutNodesCache: readonly CanvasNode[] | null = null;
@@ -1634,6 +1637,46 @@ export class AppComponent implements OnDestroy {
     this.rebuildPaletteGroups();
     this.startDoubleClickHintLoop();
     void this.boot();
+  }
+
+  trackByArchitectureSummaryId(_index: number, summary: ArchitectureSummary): string {
+    return summary.id;
+  }
+
+  trackByTutorialGuideId(_index: number, guide: TutorialGuide): string {
+    return guide.id;
+  }
+
+  trackByPaletteCategory(_index: number, group: PaletteCategoryGroup): NodeTemplateCategory {
+    return group.category;
+  }
+
+  trackByNodeTemplateKind(_index: number, template: NodeTemplate): ArchitectureNodeKind {
+    return template.kind;
+  }
+
+  trackByNodeId(_index: number, node: CanvasNode): string {
+    return node.id;
+  }
+
+  trackByEdgeId(_index: number, edge: CanvasEdge): string {
+    return edge.id;
+  }
+
+  trackByRemoteCursorClientId(_index: number, cursor: RemoteCollaboratorCursor): string {
+    return cursor.clientId;
+  }
+
+  trackByNodePropertyFieldKey(_index: number, field: NodePropertyField): string {
+    return field.key;
+  }
+
+  trackByCodeLanguageOption(_index: number, option: CodeLanguageOption): CodeLanguage {
+    return option.value;
+  }
+
+  trackByString(_index: number, value: string): string {
+    return value;
   }
 
   ngOnDestroy(): void {
@@ -3842,6 +3885,9 @@ LIMIT 50;`;
   }
 
   getNodeStyle(node: CanvasNode): Record<string, string | number> {
+    const cached = this.nodeStyleCache.get(node.id);
+    if (cached) return cached;
+
     const position = this.getAbsolutePosition(node);
     const rendersAsContainer = this.rendersAsContainer(node);
     const isBeingDragged = this.dragState?.pointerOffsets.has(node.id) ?? false;
@@ -3874,7 +3920,7 @@ LIMIT 50;`;
       : "#111827";
     const nodePortMetrics = computeNodePortMetrics(node.size, NODE_PORT_METRICS_LIMITS);
     const leafNodeIconSize = this.getLeafNodeIconSizeForNode(node);
-    return {
+    const style = {
       left: `${position.x}px`,
       top: `${position.y}px`,
       width: `${node.size.width}px`,
@@ -3899,6 +3945,8 @@ LIMIT 50;`;
       "--node-port-omni-halo-size": `${nodePortMetrics.omniHaloSize}px`,
       zIndex: resolvedZIndex
     };
+    this.nodeStyleCache.set(node.id, style);
+    return style;
   }
 
   private getNodeHierarchyDepth(node: CanvasNode): number {
@@ -3920,6 +3968,9 @@ LIMIT 50;`;
   }
 
   getMiniMapNodeStyle(node: CanvasNode): Record<string, string> {
+    const cached = this.miniMapNodeStyleCache.get(node.id);
+    if (cached) return cached;
+
     const bounds = this.getMiniMapBounds();
     const position = this.getAbsolutePosition(node);
     const availableWidth = MINI_MAP_SIZE.width - MINI_MAP_PADDING * 2;
@@ -3927,13 +3978,15 @@ LIMIT 50;`;
     const scale = Math.min(availableWidth / bounds.width, availableHeight / bounds.height);
 
     const rendersAsContainer = this.rendersAsContainer(node);
-    return {
+    const style = {
       left: `${MINI_MAP_PADDING + (position.x - bounds.x) * scale}px`,
       top: `${MINI_MAP_PADDING + (position.y - bounds.y) * scale}px`,
       width: `${Math.max(3, node.size.width * scale)}px`,
       height: `${Math.max(3, node.size.height * scale)}px`,
       background: rendersAsContainer ? "rgba(17, 24, 39, 0.14)" : node.color
     };
+    this.miniMapNodeStyleCache.set(node.id, style);
+    return style;
   }
 
   getMiniMapViewportStyle(): Record<string, string> {
@@ -3984,6 +4037,9 @@ LIMIT 50;`;
   }
 
   getNodeClass(node: CanvasNode): string {
+    const cached = this.nodeClassCache.get(node.id);
+    if (cached) return cached;
+
     const visualGroup = getNodeVisualGroup(node.kind);
     const isContainer = this.rendersAsContainer(node);
     const isExpandedCodeSnippet = this.isCodeSnippetExpanded(node);
@@ -3991,7 +4047,7 @@ LIMIT 50;`;
     const isCollapsedContainer = this.isContainerCollapsed(node);
     const isCollapsedCodeSnippet = this.isCodeSnippetCollapsed(node);
     const usesLeafCollapsedCodeStyle = isCollapsedCodeSnippet;
-    return [
+    const className = [
       "architecture-node",
       `architecture-node--${visualGroup}`,
       `architecture-node--${node.kind}`,
@@ -4001,6 +4057,8 @@ LIMIT 50;`;
       isContainer ? "architecture-node--container" : (isIconOnly || isCollapsedContainer || usesLeafCollapsedCodeStyle) ? "architecture-node--leaf" : "",
       this.selectedNodeIds.includes(node.id) ? "is-selected" : ""
     ].filter(Boolean).join(" ");
+    this.nodeClassCache.set(node.id, className);
+    return className;
   }
 
   canResizeNode(nodeId: string): boolean {
@@ -10059,6 +10117,9 @@ spec:
     this.edgeLabelRenderWidthCache.clear();
     this.edgeDarkTransitionClipIdsCache.clear();
     this.nodeAbsoluteRectCache.clear();
+    this.nodeStyleCache.clear();
+    this.nodeClassCache.clear();
+    this.miniMapNodeStyleCache.clear();
     this.leafNodeLabelKnockoutRectCache.clear();
     this.edgeClipContainersCache = null;
     this.leafLabelKnockoutNodesCache = null;

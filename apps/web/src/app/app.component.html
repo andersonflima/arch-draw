@@ -49,7 +49,7 @@
         </summary>
         <div class="toolbar-dropdown__menu">
           <button
-            *ngFor="let guide of tutorialGuides"
+            *ngFor="let guide of tutorialGuides; trackBy: trackByTutorialGuideId"
             class="toolbar-dropdown__item"
             type="button"
             [title]="t('tutorial.openPrefix') + ': ' + guide.title"
@@ -169,7 +169,7 @@
       </div>
       <div class="file-list">
         <div
-          *ngFor="let summary of summaries"
+          *ngFor="let summary of summaries; trackBy: trackByArchitectureSummaryId"
           [class]="summary.id === architecture?.id ? 'file-item-row is-active' : 'file-item-row'"
         >
           <button
@@ -213,14 +213,14 @@
         />
       </label>
       <div class="palette-list">
-        <ng-container *ngFor="let group of displayedPaletteGroups">
+        <ng-container *ngFor="let group of displayedPaletteGroups; trackBy: trackByPaletteCategory">
           <section class="palette-group">
           <h3>{{ group.category }}</h3>
           <button
             class="palette-item"
             draggable="true"
             type="button"
-            *ngFor="let template of group.templates"
+            *ngFor="let template of group.templates; trackBy: trackByNodeTemplateKind"
             (click)="addNode(template)"
             (dragstart)="onPaletteDragStart($event, template)"
           >
@@ -266,7 +266,7 @@
         <i [class]="isLeftPanelsHidden ? 'fa-solid fa-bars' : 'fa-solid fa-chevron-left'" aria-hidden="true"></i>
       </button>
       <div class="canvas-viewport" [ngStyle]="getViewportStyle()">
-        <ng-container *ngFor="let node of nodes">
+        <ng-container *ngFor="let node of nodes; trackBy: trackByNodeId">
           <ng-container *ngIf="isContainerLayerNode(node)">
             <ng-container
               *ngTemplateOutlet="canvasNodeTemplate; context: { $implicit: node }"
@@ -304,7 +304,7 @@
             >
               <path d="M 9 0 L 0 4.5 L 9 9 z" fill="#2563eb"></path>
             </marker>
-            <ng-container *ngFor="let edge of edges">
+            <ng-container *ngFor="let edge of edges; trackBy: trackByEdgeId">
               <marker
                 [attr.id]="getEdgeMarkerId(edge)"
                 markerWidth="9"
@@ -319,7 +319,7 @@
               </marker>
             </ng-container>
             <clipPath
-              *ngFor="let containerNode of getEdgeClipContainers()"
+              *ngFor="let containerNode of getEdgeClipContainers(); trackBy: trackByNodeId"
               [attr.id]="getEdgeContainerClipPathId(containerNode.id)"
             >
               <rect
@@ -331,7 +331,7 @@
             </clipPath>
           </defs>
           <g
-            *ngFor="let edge of edges"
+            *ngFor="let edge of edges; trackBy: trackByEdgeId"
             [attr.display]="isVisibleEdge(edge) ? null : 'none'"
             [class.canvas-edge-group--muted]="isEdgeTemporarilyMuted(edge)"
           >
@@ -360,7 +360,7 @@
               (contextmenu)="onEdgeContextMenu(edge.id, $event)"
             />
             <path
-              *ngFor="let clipContainerId of getEdgeDarkTransitionClipIds(edge)"
+              *ngFor="let clipContainerId of getEdgeDarkTransitionClipIds(edge); trackBy: trackByString"
               class="canvas-edge canvas-edge-context-overlay"
               [class.is-live]="isLiveEdge(edge) && !isBidirectional(edge)"
               [class.is-bidirectional]="isBidirectional(edge)"
@@ -421,7 +421,7 @@
             [attr.d]="previewPath"
             [attr.marker-end]="getConnectionPreviewMarkerEnd()"
           />
-          <ng-container *ngFor="let node of getLeafLabelKnockoutNodes()">
+          <ng-container *ngFor="let node of getLeafLabelKnockoutNodes(); trackBy: trackByNodeId">
             <rect
               *ngIf="getLeafNodeLabelKnockoutRect(node) as labelRect"
               class="canvas-node-label-knockout"
@@ -435,7 +435,7 @@
           </ng-container>
         </svg>
 
-        <ng-container *ngFor="let cursor of getVisibleRemoteCollaboratorCursors()">
+        <ng-container *ngFor="let cursor of getVisibleRemoteCollaboratorCursors(); trackBy: trackByRemoteCursorClientId">
           <div class="remote-cursor" [ngStyle]="getRemoteCursorStyle(cursor)">
             <span class="remote-cursor__pointer"></span>
             <span class="remote-cursor__label">{{ cursor.displayName }}</span>
@@ -449,7 +449,7 @@
           aria-hidden="true"
         ></div>
 
-        <ng-container *ngFor="let node of nodes">
+        <ng-container *ngFor="let node of nodes; trackBy: trackByNodeId">
           <ng-container *ngIf="isLeafLayerNode(node)">
             <ng-container
               *ngTemplateOutlet="canvasNodeTemplate; context: { $implicit: node }"
@@ -633,7 +633,7 @@
 
       <section class="canvas-map" [attr.aria-label]="t('map.aria')" (click)="$event.stopPropagation()">
         <div #miniMap class="mini-map" data-tour="mini-map" (pointerdown)="onMiniMapPointerDown($event)">
-          <ng-container *ngFor="let node of nodes">
+          <ng-container *ngFor="let node of nodes; trackBy: trackByNodeId">
             <span
               *ngIf="isVisibleNode(node)"
               [class]="isContainerLayerNode(node) ? 'mini-map-node mini-map-node--container' : 'mini-map-node'"
@@ -686,7 +686,7 @@
           <label class="property-field">
             {{ t("properties.type") }}
             <select [ngModel]="node.kind" (ngModelChange)="updateNodeKind($event)">
-              <option *ngFor="let kind of getNodeKindOptions(node.kind)" [ngValue]="kind">
+              <option *ngFor="let kind of getNodeKindOptions(node.kind); trackBy: trackByString" [ngValue]="kind">
                 {{ getNodeLabel(kind) }}
               </option>
             </select>
@@ -717,7 +717,7 @@
               (ngModelChange)="updateGlobalNodeIconSize($event)"
             />
           </label>
-          <ng-container *ngFor="let field of getNodePropertyFields(node)">
+          <ng-container *ngFor="let field of getNodePropertyFields(node); trackBy: trackByNodePropertyFieldKey">
             <label class="property-field">
               {{ field.label }}
               <input
@@ -742,7 +742,7 @@
                 [ngModel]="node.collapsedIconKind || (isContainerPlusNode(node) ? 'system' : node.kind)"
                 (ngModelChange)="updateSelectedCollapsedIcon($event)"
               >
-                <option *ngFor="let kind of collapsibleIconKinds" [ngValue]="kind">
+                <option *ngFor="let kind of collapsibleIconKinds; trackBy: trackByString" [ngValue]="kind">
                   {{ getNodeLabel(kind) }}
                 </option>
               </select>
@@ -759,7 +759,7 @@
             <label class="property-field">
               {{ t("properties.language") }}
               <select [ngModel]="getNodeCodeLanguage(node)" (ngModelChange)="updateSelectedCodeLanguage($event)">
-                <option *ngFor="let option of codeLanguageOptions" [ngValue]="option.value">
+                <option *ngFor="let option of codeLanguageOptions; trackBy: trackByCodeLanguageOption">
                   {{ option.label }}
                 </option>
               </select>
@@ -793,19 +793,19 @@
           <label class="property-field">
             {{ t("properties.path") }}
             <select [ngModel]="edge.style.path" (ngModelChange)="updateSelectedEdgeStyle({ path: $event })">
-              <option *ngFor="let path of edgePaths" [ngValue]="path">{{ path }}</option>
+              <option *ngFor="let path of edgePaths; trackBy: trackByString" [ngValue]="path">{{ path }}</option>
             </select>
           </label>
           <label class="property-field">
             {{ t("properties.stroke") }}
             <select [ngModel]="edge.style.line" (ngModelChange)="updateSelectedEdgeStyle({ line: $event })">
-              <option *ngFor="let line of edgeLines" [ngValue]="line">{{ line }}</option>
+              <option *ngFor="let line of edgeLines; trackBy: trackByString" [ngValue]="line">{{ line }}</option>
             </select>
           </label>
           <label class="property-field">
             {{ t("properties.direction") }}
             <select [ngModel]="getSelectedEdgeDirection(edge)" (ngModelChange)="updateSelectedEdgeDirection($event)">
-              <option *ngFor="let direction of edgeDirections" [ngValue]="direction">{{ getEdgeDirectionLabel(direction) }}</option>
+              <option *ngFor="let direction of edgeDirections; trackBy: trackByString" [ngValue]="direction">{{ getEdgeDirectionLabel(direction) }}</option>
             </select>
           </label>
           <label class="property-field">
