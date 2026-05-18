@@ -311,6 +311,7 @@ const LEAF_ICON_OBSTACLE_PADDING = 20;
 const EDGE_OBSTACLE_CLEARANCE = 30;
 const EDGE_OBSTACLE_QUERY_MIN_MARGIN = 420;
 const EDGE_OBSTACLE_QUERY_MAX_MARGIN = 2200;
+const EDGE_ROUTE_FAST_PATH_OBSTACLE_THRESHOLD = 36;
 const EDGE_PROXIMITY_SUPPRESSION_RADIUS = 190;
 const EDGE_ROUTE_MAX_PASSES = 10;
 const EDGE_SIDE_LANE_GAP = 14;
@@ -6272,6 +6273,10 @@ spec:
     }
     const basePolyline = this.getBaseEdgePolyline(geometry);
     const obstacleRects = this.getEdgeObstacleRects(edge, geometry.sourceId, geometry.targetId);
+    const useDenseRouteMode = obstacleRects.length >= EDGE_ROUTE_FAST_PATH_OBSTACLE_THRESHOLD;
+    const primaryMaxPasses = useDenseRouteMode
+      ? Math.max(2, Math.floor(EDGE_ROUTE_MAX_PASSES / 2))
+      : EDGE_ROUTE_MAX_PASSES;
     const routeCore = this.compactPolyline(basePolyline.slice(1, -1));
     const routeSeed = routeCore.length >= 2
       ? routeCore
@@ -6283,7 +6288,7 @@ spec:
         geometry.sourceId,
         geometry.targetId,
         {
-          maxPasses: EDGE_ROUTE_MAX_PASSES,
+          maxPasses: primaryMaxPasses,
           obstacleClearance: EDGE_OBSTACLE_CLEARANCE
         }
       )
@@ -6300,7 +6305,7 @@ spec:
       geometry.sourceSide,
       geometry.targetSide
     );
-    const constrainedNeedsReroute = this.shouldRerouteConstrainedEdgePath(
+    const constrainedNeedsReroute = !useDenseRouteMode && this.shouldRerouteConstrainedEdgePath(
       constrained,
       obstacleRects,
       geometry.sourceId,
@@ -6324,14 +6329,16 @@ spec:
         geometry.targetSide
       )
       : constrained;
-    const finalPoints = this.repairEdgePathObstacleCollisions(
-      normalized,
-      obstacleRects,
-      geometry.sourceId,
-      geometry.targetId,
-      geometry.sourceSide,
-      geometry.targetSide
-    );
+    const finalPoints = useDenseRouteMode
+      ? normalized
+      : this.repairEdgePathObstacleCollisions(
+        normalized,
+        obstacleRects,
+        geometry.sourceId,
+        geometry.targetId,
+        geometry.sourceSide,
+        geometry.targetSide
+      );
     if (finalPoints.length < 2) {
       this.edgePathDataCache.set(edge.id, null);
       return null;

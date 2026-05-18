@@ -27,6 +27,9 @@ type GraphDirection = "horizontal" | "vertical" | "start";
 
 const EPSILON = 0.001;
 const MAX_AXIS_VALUES = 84;
+const DENSE_OBSTACLE_AXIS_VALUES = 40;
+const MID_OBSTACLE_AXIS_VALUES = 56;
+const MAX_OBSTACLES_FOR_ASTAR = 28;
 const BEND_COST = 10000;
 const MAX_OPERATIONS_PER_PASS_MULTIPLIER = 8;
 
@@ -128,6 +131,7 @@ const routeSegmentWithAStar = (
   obstacles: readonly EdgeObstacleRect[],
   clearance: number
 ): readonly EdgePoint[] | null => {
+  if (obstacles.length > MAX_OBSTACLES_FOR_ASTAR) return null;
   const graph = buildOrthogonalVisibilityGraph(start, end, obstacles, clearance);
   if (!graph) return null;
 
@@ -166,8 +170,13 @@ const buildOrthogonalVisibilityGraph = (
     yCandidates.add(obstacle.bottom + clearance);
   }
 
-  const xs = reduceAxisValues([...xCandidates].sort((left, right) => left - right), requiredX, MAX_AXIS_VALUES);
-  const ys = reduceAxisValues([...yCandidates].sort((left, right) => left - right), requiredY, MAX_AXIS_VALUES);
+  const axisBudget = obstacles.length > MAX_OBSTACLES_FOR_ASTAR
+    ? DENSE_OBSTACLE_AXIS_VALUES
+    : obstacles.length > Math.floor(MAX_OBSTACLES_FOR_ASTAR / 2)
+      ? MID_OBSTACLE_AXIS_VALUES
+      : MAX_AXIS_VALUES;
+  const xs = reduceAxisValues([...xCandidates].sort((left, right) => left - right), requiredX, axisBudget);
+  const ys = reduceAxisValues([...yCandidates].sort((left, right) => left - right), requiredY, axisBudget);
 
   const nodesByKey = new Map<string, GraphNode>();
 
