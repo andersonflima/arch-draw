@@ -1588,8 +1588,15 @@ export class AppComponent implements OnDestroy {
   private lastPersistedSignature = "";
   private lastCanvasTopologySignature = "";
   private history: EditorSnapshot[] = [];
+  private historySignatures: string[] = [];
   private historyIndex = -1;
   private applyingHistory = false;
+  private lastTrackedNodesRef: readonly CanvasNode[] = this.nodes;
+  private lastTrackedEdgesRef: readonly CanvasEdge[] = this.edges;
+  private lastTrackedArchitectureTitle = "";
+  private lastTrackedArchitectureDescription = "";
+  private lastTrackedMermaidDraft = this.mermaidDraft;
+  private lastTrackedNodeIconSize = this.nodeIconSize;
   private viewRenderFrame: number | null = null;
   private readonly nodePropertyFieldsCache = new Map<ArchitectureNodeKind, readonly NodePropertyField[]>();
   private readonly iconColorCache = new Map<string, string>();
@@ -8675,7 +8682,9 @@ spec:
 
   private resetHistory(): void {
     const snapshot = this.captureSnapshot();
+    const signature = this.snapshotSignature(snapshot);
     this.history = [snapshot];
+    this.historySignatures = [signature];
     this.historyIndex = 0;
   }
 
@@ -8699,16 +8708,21 @@ spec:
   private recordHistory(): void {
     if (!this.architecture || this.applyingHistory) return;
     const snapshot = this.captureSnapshot();
-    const current = this.history[this.historyIndex];
-    if (current && this.snapshotSignature(current) === this.snapshotSignature(snapshot)) return;
+    const signature = this.snapshotSignature(snapshot);
+    const currentSignature = this.historySignatures[this.historyIndex];
+    if (currentSignature === signature) return;
 
     if (this.historyIndex < this.history.length - 1) {
       this.history = this.history.slice(0, this.historyIndex + 1);
+      this.historySignatures = this.historySignatures.slice(0, this.historyIndex + 1);
     }
 
     this.history = [...this.history, snapshot];
+    this.historySignatures = [...this.historySignatures, signature];
     if (this.history.length > MAX_UNDO_HISTORY) {
-      this.history = this.history.slice(this.history.length - MAX_UNDO_HISTORY);
+      const trimStart = this.history.length - MAX_UNDO_HISTORY;
+      this.history = this.history.slice(trimStart);
+      this.historySignatures = this.historySignatures.slice(trimStart);
     }
     this.historyIndex = this.history.length - 1;
   }
@@ -10213,7 +10227,12 @@ spec:
   }
 
   private markViewChanged(): void {
-    this.clearCanvasRenderCaches();
+    const changeState = this.consumeViewChangeState();
+    if (changeState.requiresRouteCacheReset) {
+      this.clearCanvasRenderCaches();
+    } else {
+      this.clearVisualRenderCaches();
+    }
     if (!this.hasCollapsedNodeForDoubleClickHint()) {
       if (this.showDoubleClickHint) {
         this.showDoubleClickHint = false;
@@ -10227,13 +10246,17 @@ spec:
         this.doubleClickHintBootTimer = null;
       }
     }
-    this.syncMermaidFromCanvasIfNeeded();
-    this.recordHistory();
-    if (this.collaborationSession) {
-      this.scheduleCollaborationSync();
-      this.scheduleCollaborationViewPublish();
+    if (changeState.documentChanged) {
+      this.syncMermaidFromCanvasIfNeeded();
+      this.recordHistory();
+      if (this.collaborationSession) {
+        this.scheduleCollaborationSync();
+        this.scheduleCollaborationViewPublish();
+      } else {
+        this.scheduleAutoSave();
+      }
     } else {
-      this.scheduleAutoSave();
+      this.scheduleCollaborationViewPublish();
     }
     this.scheduleViewportCheckpointPersist();
     this.requestViewRender();
@@ -10268,6 +10291,47 @@ spec:
     this.edgeClipContainersCache = null;
     this.leafLabelKnockoutNodesCache = null;
     this.codeLanguageBadgeCache.clear();
+  }
+
+  private clearVisualRenderCaches(): void {
+    this.nodeStyleCache.clear();
+    this.nodeClassCache.clear();
+    this.miniMapNodeStyleCache.clear();
+    this.renderableNodeIdsCache.clear();
+    this.renderableEdgeIdsCache.clear();
+    this.renderableCanvasRectCache = null;
+    this.edgeLabelDyCache.clear();
+    this.edgeLabelStartOffsetCache.clear();
+    this.edgeLabelPositionCache.clear();
+    this.edgeLabelRenderWidthCache.clear();
+    this.edgeDarkTransitionClipIdsCache.clear();
+    this.leafNodeLabelKnockoutRectCache.clear();
+    this.edgeClipContainersCache = null;
+    this.leafLabelKnockoutNodesCache = null;
+  }
+
+  private consumeViewChangeState(): Readonly<{ documentChanged: boolean; requiresRouteCacheReset: boolean }> {
+    const currentTitle = this.architecture?.title ?? "";
+    const currentDescription = this.architecture?.description ?? "";
+    const documentChanged =
+      this.nodes !== this.lastTrackedNodesRef
+      || this.edges !== this.lastTrackedEdgesRef
+      || currentTitle !== this.lastTrackedArchitectureTitle
+      || currentDescription !== this.lastTrackedArchitectureDescription
+      || this.mermaidDraft !== this.lastTrackedMermaidDraft;
+    const routeGeometryChanged = this.nodeIconSize !== this.lastTrackedNodeIconSize;
+
+    this.lastTrackedNodesRef = this.nodes;
+    this.lastTrackedEdgesRef = this.edges;
+    this.lastTrackedArchitectureTitle = currentTitle;
+    this.lastTrackedArchitectureDescription = currentDescription;
+    this.lastTrackedMermaidDraft = this.mermaidDraft;
+    this.lastTrackedNodeIconSize = this.nodeIconSize;
+
+    return {
+      documentChanged,
+      requiresRouteCacheReset: documentChanged || routeGeometryChanged
+    };
   }
 
   private markViewportChanged(): void {
