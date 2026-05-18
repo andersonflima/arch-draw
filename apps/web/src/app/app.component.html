@@ -407,7 +407,6 @@
               [attr.width]="getEdgeLabelRenderWidth(edge)"
               [attr.height]="getEdgeLabelBoxHeight()"
               rx="6"
-              [attr.fill]="getEdgeLabelKnockoutColor(edge)"
             />
             <foreignObject
               *ngIf="shouldRenderEdgeLabel(edge) && !isEditingEdge(edge.id)"
