@@ -5,7 +5,7 @@ import type {
 
 export const API_BASE_URL =
   window.location.port === "5173"
-    ? `${window.location.protocol}//${window.location.hostname || "127.0.0.1"}:3333`
+    ? `${window.location.protocol}//localhost:8080`
     : `${window.location.origin}/api`;
 
 export type ArchitectureSummary = Readonly<{
@@ -93,7 +93,7 @@ export const api = {
       user: response.user
     } satisfies AuthSession;
   },
-  buildGoogleLoginUrl: (returnTo = window.location.pathname) =>
+  buildGoogleLoginUrl: (returnTo = window.location.href) =>
     `${API_BASE_URL}/auth/google/start?returnTo=${encodeURIComponent(returnTo)}`,
   logout: () =>
     request<void>("/auth/logout", {

@@ -1,0 +1,1841 @@
+.architecture-node {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  min-width: 190px;
+  min-height: 92px;
+  padding: 12px;
+  border: 0;
+  background: transparent;
+  color: var(--node-text-color, #111827);
+  transform: rotate(-0.35deg);
+  user-select: none;
+  touch-action: none;
+  isolation: isolate;
+}
+
+.architecture-node::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border: 2px solid #111827;
+  border-radius: 8px 7px 9px 6px;
+  background: var(--node-bg, #ffffff);
+  box-shadow: 3px 3px 0 #111827;
+}
+
+.architecture-node > :not(.resize-control):not(.node-port):not(.node-maximize-hint) {
+  position: relative;
+  z-index: 1;
+}
+
+.architecture-node--container {
+  min-width: 260px;
+  min-height: 180px;
+  transform: rotate(-0.12deg);
+}
+
+.architecture-node--container::before {
+  border-style: dashed;
+  border-width: 2.4px;
+  background-color: var(--node-bg, #ffffff);
+  background-image:
+    linear-gradient(rgba(17, 24, 39, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(17, 24, 39, 0.035) 1px, transparent 1px);
+  background-size: 22px 22px;
+  box-shadow: 4px 4px 0 rgba(17, 24, 39, 0.72);
+}
+
+.architecture-node--container::after {
+  content: "";
+  position: absolute;
+  inset: 36px 12px 12px;
+  border: 1px dashed rgba(17, 24, 39, 0.18);
+  border-radius: 7px;
+  pointer-events: none;
+}
+
+.architecture-node--aws::before {
+  border-color: #7c2d12;
+  box-shadow: 3px 3px 0 #7c2d12;
+}
+
+.architecture-node--code::before {
+  border-style: dashed;
+}
+
+.architecture-node--algorithm::before {
+  border-radius: 999px;
+}
+
+.architecture-node--flow::before {
+  border-style: solid;
+  box-shadow: 3px 3px 0 #065f46;
+}
+
+.architecture-node--flow-start::before,
+.architecture-node--flow-end::before,
+.architecture-node--queue::before,
+.architecture-node--aws-sqs::before,
+.architecture-node--algorithm-start::before {
+  border-radius: 999px;
+}
+
+.architecture-node--flow-decision::before,
+.architecture-node--algorithm-condition::before {
+  inset: 9px 36px;
+  border-radius: 5px;
+  transform: rotate(45deg);
+}
+
+.architecture-node--flow-decision,
+.architecture-node--algorithm-condition {
+  padding-inline: 36px;
+  text-align: center;
+}
+
+.architecture-node--flow-input::before,
+.architecture-node--flow-output::before,
+.architecture-node--flow-data::before {
+  inset-inline: 10px;
+  transform: skew(-10deg);
+}
+
+.architecture-node--flow-document::before {
+  border-radius: 8px 8px 28px 8px;
+}
+
+.architecture-node--flow-start,
+.architecture-node--flow-end {
+  min-width: 170px;
+}
+
+.architecture-node--system::before {
+  box-shadow:
+    inset 0 0 0 3px rgba(17, 24, 39, 0.08),
+    3px 3px 0 #111827;
+}
+
+.architecture-node--service::before,
+.architecture-node--compute::before,
+.architecture-node--aws-ec2::before,
+.architecture-node--aws-ecs::before,
+.architecture-node--aws-eks::before,
+.architecture-node--aws-fargate::before,
+.architecture-node--code-component::before {
+  border-radius: 16px 6px 16px 6px;
+}
+
+.architecture-node--api-gateway::before,
+.architecture-node--aws-api-gateway::before,
+.architecture-node--aws-internet-gateway::before,
+.architecture-node--aws-nat-gateway::before,
+.architecture-node--code-pipeline::before {
+  inset-inline: 12px;
+  transform: skew(-12deg);
+}
+
+.architecture-node--load-balancer::before,
+.architecture-node--aws-alb::before,
+.architecture-node--aws-nlb::before {
+  clip-path: polygon(18% 0, 82% 0, 100% 50%, 82% 100%, 18% 100%, 0 50%);
+}
+
+.architecture-node--database::before,
+.architecture-node--object-storage::before,
+.architecture-node--block-storage::before,
+.architecture-node--aws-s3::before,
+.architecture-node--aws-ebs::before,
+.architecture-node--aws-efs::before,
+.architecture-node--aws-rds::before,
+.architecture-node--aws-aurora::before,
+.architecture-node--aws-dynamodb::before,
+.architecture-node--aws-elasticache::before,
+.architecture-node--aws-redshift::before,
+.architecture-node--aws-opensearch::before {
+  border-radius: 26px 26px 10px 10px / 18px 18px 10px 10px;
+  box-shadow:
+    inset 0 13px 0 rgba(255, 255, 255, 0.58),
+    inset 0 16px 0 rgba(17, 24, 39, 0.16),
+    3px 3px 0 #111827;
+}
+
+.architecture-node--aws-s3::before,
+.architecture-node--object-storage::before {
+  background-image:
+    linear-gradient(90deg, rgba(22, 101, 52, 0.1) 0 33%, transparent 33% 66%, rgba(22, 101, 52, 0.1) 66%),
+    linear-gradient(var(--node-bg, #ffffff), var(--node-bg, #ffffff));
+}
+
+.architecture-node--queue::before,
+.architecture-node--aws-sqs::before,
+.architecture-node--aws-sns::before,
+.architecture-node--aws-eventbridge::before,
+.architecture-node--aws-kinesis::before {
+  border-radius: 999px;
+  box-shadow:
+    inset 18px 0 0 rgba(17, 24, 39, 0.06),
+    inset -18px 0 0 rgba(17, 24, 39, 0.06),
+    3px 3px 0 #111827;
+}
+
+.architecture-node--external::before,
+.architecture-node--aws-security-group::before,
+.architecture-node--aws-waf::before,
+.architecture-node--aws-shield::before,
+.architecture-node--firewall::before {
+  clip-path: polygon(12% 0, 88% 0, 100% 50%, 88% 100%, 12% 100%, 0 50%);
+}
+
+.architecture-node--serverless::before,
+.architecture-node--aws-lambda::before,
+.architecture-node--aws-step-functions::before,
+.architecture-node--algorithm-graph::before {
+  clip-path: polygon(24% 0, 76% 0, 100% 50%, 76% 100%, 24% 100%, 0 50%);
+}
+
+.architecture-node--aws-lambda::before,
+.architecture-node--serverless::before {
+  background-image:
+    linear-gradient(115deg, transparent 0 38%, rgba(146, 64, 14, 0.2) 38% 46%, transparent 46%),
+    linear-gradient(var(--node-bg, #ffffff), var(--node-bg, #ffffff));
+}
+
+.architecture-node--cache::before,
+.architecture-node--aws-elasticache::before,
+.architecture-node--algorithm-stack::before,
+.architecture-node--algorithm-queue::before {
+  border-radius: 16px 16px 6px 6px;
+  box-shadow:
+    inset 0 -12px 0 rgba(17, 24, 39, 0.06),
+    3px 3px 0 #111827;
+}
+
+.architecture-node--code-file::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 24px;
+  height: 24px;
+  border-left: 2px solid #111827;
+  border-bottom: 2px solid #111827;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 0 6px 0 4px;
+}
+
+.architecture-node--logging::before,
+.architecture-node--monitoring::before,
+.architecture-node--aws-cloudwatch::before,
+.architecture-node--aws-cloudtrail::before,
+.architecture-node--flow-document::before {
+  border-radius: 8px 8px 26px 8px;
+}
+
+.architecture-node--code-folder::before,
+.architecture-node--code-package::before,
+.architecture-node--code-module::before,
+.architecture-node--code-workspace::before {
+  border-radius: 4px 8px 8px;
+}
+
+.architecture-node--cloud:not(.architecture-node--container)::before,
+.architecture-node--cloud-provider::before {
+  border-radius: 10px 8px 12px 8px;
+}
+
+.architecture-node--cloud-provider::before,
+.architecture-node--cdn::before,
+.architecture-node--aws-cloudfront::before,
+.architecture-node--aws-route53::before {
+  border-radius: 36px 32px 18px 22px;
+  box-shadow:
+    inset 22px 0 0 rgba(14, 116, 144, 0.08),
+    inset -18px 0 0 rgba(14, 116, 144, 0.08),
+    3px 3px 0 #111827;
+}
+
+.architecture-node--identity::before,
+.architecture-node--secrets::before,
+.architecture-node--aws-iam::before,
+.architecture-node--aws-cognito::before,
+.architecture-node--aws-secrets-manager::before,
+.architecture-node--aws-kms::before {
+  border-radius: 24px 10px 24px 10px;
+}
+
+.architecture-node--code-class::before,
+.architecture-node--code-interface::before,
+.architecture-node--code-type::before,
+.architecture-node--code-enum::before,
+.architecture-node--code-schema::before,
+.architecture-node--code-entity::before,
+.architecture-node--code-value-object::before {
+  border-style: double;
+  border-width: 4px;
+}
+
+.architecture-node--code-function::before,
+.architecture-node--code-method::before,
+.architecture-node--code-hook::before,
+.architecture-node--algorithm-search::before,
+.architecture-node--algorithm-sort::before {
+  border-radius: 999px;
+}
+
+.architecture-node--code-port::before,
+.architecture-node--code-adapter::before,
+.architecture-node--algorithm-tree::before,
+.architecture-node--algorithm-hash-table::before,
+.architecture-node--algorithm-linked-list::before {
+  clip-path: polygon(0 0, 86% 0, 100% 50%, 86% 100%, 0 100%);
+}
+
+.architecture-node:not(.architecture-node--container)::before {
+  inset: 0;
+  clip-path: none;
+  border: 2px solid #111827;
+  border-radius: 8px 7px 9px 6px;
+  background-color: var(--node-bg, #ffffff);
+  background-image: none;
+  box-shadow: 3px 3px 0 #111827;
+  transform: none;
+}
+
+.architecture-node--aws:not(.architecture-node--container)::before {
+  border-color: #7c2d12;
+  box-shadow: 3px 3px 0 #7c2d12;
+}
+
+.architecture-node--code:not(.architecture-node--container)::before {
+  border-style: dashed;
+}
+
+.architecture-node--flow:not(.architecture-node--container)::before {
+  box-shadow: 3px 3px 0 #065f46;
+}
+
+/* Flow Diagram nodes rendered by dedicated shape components */
+.architecture-node[class*="architecture-node--flow-"]:not(.architecture-node--code-snippet) {
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 4px;
+  text-align: center;
+  transform: none;
+}
+
+.architecture-node[class*="architecture-node--flow-"]:not(.architecture-node--code-snippet) .architecture-node__header {
+  display: none;
+}
+
+.architecture-node[class*="architecture-node--flow-"]:not(.architecture-node--code-snippet)::before,
+.architecture-node[class*="architecture-node--flow-"]:not(.architecture-node--code-snippet)::after {
+  content: none;
+}
+
+app-flow-start-node,
+app-flow-end-node,
+app-flow-process-node,
+app-flow-decision-node,
+app-flow-input-node,
+app-flow-output-node,
+app-flow-loop-node,
+app-flow-subroutine-node,
+app-flow-data-node,
+app-flow-document-node {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.flow-shape {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 18px;
+  color: var(--node-text-color, #065f46);
+  border: 2px solid #065f46;
+  background-color: var(--node-bg, #ffffff);
+  box-shadow: 3px 3px 0 #065f46;
+  overflow: hidden;
+}
+
+.flow-shape span {
+  margin: 0;
+  max-width: 100%;
+  font-size: var(--node-label-font-size, 28px);
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.flow-shape--process {
+  border-radius: 6px;
+}
+
+.flow-shape--start,
+.flow-shape--end {
+  border-radius: 999px;
+}
+
+.flow-shape--end::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 8px;
+  border: 2px solid #065f46;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.flow-shape--decision {
+  margin-inline: auto;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+.flow-shape--input {
+  clip-path: polygon(0 18%, 100% 0, 100% 100%, 0 100%);
+}
+
+.flow-shape--output {
+  clip-path: polygon(8% 0, 100% 0, 92% 100%, 0 100%);
+}
+
+.flow-shape--data {
+  border-radius: 999px / 18%;
+  box-shadow:
+    inset 0 11px 0 rgba(255, 255, 255, 0.55),
+    inset 0 13px 0 rgba(6, 95, 70, 0.18),
+    3px 3px 0 #065f46;
+}
+
+.flow-shape--loop {
+  clip-path: polygon(20% 0, 80% 0, 100% 50%, 80% 100%, 20% 100%, 0 50%);
+}
+
+.flow-shape--subroutine {
+  border-radius: 6px;
+}
+
+.flow-shape--subroutine::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  top: 10px;
+  bottom: 10px;
+  left: 14px;
+  right: 14px;
+  border-left: 2px solid #065f46;
+  border-right: 2px solid #065f46;
+  pointer-events: none;
+}
+
+.flow-shape--document {
+  clip-path: polygon(0 0, 100% 0, 100% 82%, 88% 92%, 72% 82%, 56% 92%, 40% 82%, 24% 92%, 8% 82%, 0 90%);
+}
+
+/* draw.io-like resource nodes: icon + label, no full rectangular card */
+.architecture-node--leaf {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-items: start;
+  justify-items: center;
+  gap: 6px;
+  min-width: max(
+    108px,
+    calc(var(--leaf-node-icon-size, 70px) + (var(--node-port-edge-offset, 22px) * 2) + 12px)
+  );
+  min-height: 114px;
+  padding: 4px 10px;
+  --node-port-edge-offset: 22px;
+  transform: none;
+}
+
+.architecture-node--leaf::before,
+.architecture-node--leaf::after {
+  content: none;
+}
+
+.architecture-node--leaf .architecture-node__header {
+  position: relative;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+}
+
+.architecture-node--leaf .architecture-node__kind-label {
+  display: none;
+}
+
+.architecture-node--code-snippet {
+  min-width: 560px;
+  min-height: 420px;
+  transform: none;
+  padding-inline: 14px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+}
+
+.architecture-node--code-snippet::before {
+  inset: 0;
+  clip-path: none;
+  border: 2px solid #111827;
+  border-radius: 8px 7px 9px 6px;
+  background-color: var(--node-bg, #ffffff);
+  background-image: none;
+  box-shadow: 3px 3px 0 #111827;
+  transform: none;
+}
+
+.architecture-node--code-snippet-collapsed .architecture-node__header {
+  justify-content: center;
+}
+
+.architecture-node--leaf .node-collapse-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin-left: 0;
+}
+
+.architecture-node--leaf .node-icon {
+  --icon-base: var(--icon-color, #111827);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--leaf-node-icon-size, 70px);
+  min-width: var(--leaf-node-icon-size, 70px);
+  height: var(--leaf-node-icon-size, 70px);
+  margin-inline: auto;
+  color: var(--icon-base);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--icon-base) 14%, #ffffff 86%);
+  border: 2px solid color-mix(in srgb, var(--icon-base) 38%, #ffffff 62%);
+  box-shadow: 2px 2px 0 rgba(17, 24, 39, 0.45);
+}
+
+.architecture-node--leaf .node-icon i {
+  font-size: var(--leaf-node-icon-font-size, 34px);
+}
+
+.architecture-node--leaf .node-code-language-badge {
+  position: absolute;
+  right: -8px;
+  bottom: -8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  box-sizing: border-box;
+  color: var(--code-language-badge-color, #111827);
+  background: color-mix(in srgb, var(--code-language-badge-bg, #f8fafc) 88%, #ffffff 12%);
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  box-shadow: 1px 1px 0 rgba(17, 24, 39, 0.45);
+  pointer-events: none;
+}
+
+.architecture-node--leaf .node-code-language-badge i {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.architecture-node--leaf .node-code-language-badge__text {
+  position: absolute;
+  right: -4px;
+  bottom: -2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 10px;
+  padding: 0 2px;
+  box-sizing: border-box;
+  color: #ffffff;
+  background: var(--code-language-badge-color, #111827);
+  border-radius: 999px;
+  font-size: 6px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.architecture-node--leaf strong {
+  display: block;
+  margin: 0;
+  width: fit-content;
+  max-width: none;
+  box-sizing: border-box;
+  padding: 3px 8px;
+  font-size: var(--node-label-font-size, 28px);
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  white-space: nowrap;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.node-inline-label-input {
+  width: 100%;
+  min-width: 92px;
+  min-height: 56px;
+  border: 2px solid #111827;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #111827;
+  font-size: var(--node-label-font-size, 28px);
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  padding: 2px 6px;
+  outline: none;
+  resize: none;
+}
+
+.node-inline-label-input:focus {
+  box-shadow: 0 0 0 2px #facc15;
+}
+
+.architecture-node.is-selected {
+  outline: none;
+}
+
+.node-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--node-icon-size, 34px);
+  min-width: var(--node-icon-size, 34px);
+  height: var(--node-icon-size, 34px);
+  color: var(--icon-color, #111827);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.node-icon::after {
+  content: none;
+}
+
+.palette-item__icon {
+  width: 54px;
+  min-width: 54px;
+  height: 54px;
+}
+
+.palette-item__icon::after {
+  content: none;
+}
+
+.node-icon i {
+  font-size: var(--node-icon-font-size, 14px);
+  line-height: 1;
+  pointer-events: none;
+}
+
+.node-icon--aws-lambda i::before {
+  content: "λ";
+  font-family: "Times New Roman", Times, serif;
+  font-style: italic;
+  font-weight: 700;
+}
+
+.node-icon__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.node-icon__glyph,
+.node-icon__glyph::before,
+.node-icon__glyph::after {
+  box-sizing: border-box;
+}
+
+.node-icon__glyph {
+  position: relative;
+  display: block;
+  width: 23px;
+  height: 23px;
+}
+
+.node-icon__glyph::before,
+.node-icon__glyph::after {
+  content: "";
+  position: absolute;
+  border: 2px solid currentColor;
+}
+
+.node-icon__glyph::before {
+  inset: 4px;
+  border-radius: 5px 4px 6px 4px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.node-icon__glyph::after {
+  right: 4px;
+  bottom: 4px;
+  width: 6px;
+  height: 6px;
+  border-top: 0;
+  border-left: 0;
+}
+
+.node-icon--aws-s3,
+.node-icon--object-storage {
+  color: #166534;
+}
+
+.node-icon--aws-s3 .node-icon__glyph::before,
+.node-icon--object-storage .node-icon__glyph::before,
+.node-icon--database .node-icon__glyph::before,
+.node-icon--aws-rds .node-icon__glyph::before,
+.node-icon--aws-aurora .node-icon__glyph::before {
+  left: 4px;
+  top: 4px;
+  width: 15px;
+  height: 17px;
+  border-radius: 50% / 18%;
+  background:
+    linear-gradient(90deg, rgba(22, 101, 52, 0.18) 0 28%, transparent 28% 40%, rgba(22, 101, 52, 0.12) 40% 68%, transparent 68%),
+    rgba(255, 255, 255, 0.74);
+}
+
+.node-icon--aws-s3 .node-icon__glyph::after,
+.node-icon--object-storage .node-icon__glyph::after,
+.node-icon--database .node-icon__glyph::after,
+.node-icon--aws-rds .node-icon__glyph::after,
+.node-icon--aws-aurora .node-icon__glyph::after {
+  left: 4px;
+  top: 4px;
+  width: 15px;
+  height: 6px;
+  border-radius: 50%;
+  border-bottom: 2px solid currentColor;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.node-icon--aws-lambda,
+.node-icon--serverless,
+.node-icon--aws-step-functions {
+  color: #92400e;
+}
+
+.node-icon--aws-lambda .node-icon__glyph::before,
+.node-icon--serverless .node-icon__glyph::before {
+  left: 8px;
+  top: 3px;
+  width: 7px;
+  height: 18px;
+  border-right: 0;
+  border-top-left-radius: 5px;
+  transform: skew(-15deg);
+  background: rgba(254, 243, 199, 0.72);
+}
+
+.node-icon--aws-lambda .node-icon__glyph::after,
+.node-icon--serverless .node-icon__glyph::after {
+  left: 12px;
+  top: 10px;
+  width: 8px;
+  height: 10px;
+  border-left: 0;
+  border-bottom: 0;
+  transform: skew(-18deg);
+}
+
+.node-icon--aws-step-functions .node-icon__glyph::before,
+.node-icon--code-pipeline .node-icon__glyph::before {
+  left: 2px;
+  top: 9px;
+  width: 19px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.node-icon--aws-step-functions .node-icon__glyph::after,
+.node-icon--code-pipeline .node-icon__glyph::after {
+  right: 1px;
+  top: 6px;
+  width: 8px;
+  height: 8px;
+  border-left: 0;
+  border-bottom: 0;
+  transform: rotate(45deg);
+}
+
+.node-icon--aws-ec2,
+.node-icon--compute,
+.node-icon--aws-ecs,
+.node-icon--aws-eks,
+.node-icon--aws-fargate,
+.node-icon--aws-ecr,
+.node-icon--kubernetes,
+.node-icon--container {
+  color: #9a3412;
+}
+
+.node-icon--aws-ec2 .node-icon__glyph::before,
+.node-icon--compute .node-icon__glyph::before,
+.node-icon--aws-ecs .node-icon__glyph::before,
+.node-icon--aws-eks .node-icon__glyph::before,
+.node-icon--aws-fargate .node-icon__glyph::before,
+.node-icon--aws-ecr .node-icon__glyph::before,
+.node-icon--kubernetes .node-icon__glyph::before,
+.node-icon--container .node-icon__glyph::before {
+  inset: 4px;
+  border-radius: 3px;
+  background:
+    linear-gradient(90deg, transparent 0 34%, currentColor 34% 44%, transparent 44% 64%, currentColor 64% 74%, transparent 74%),
+    rgba(255, 237, 213, 0.78);
+}
+
+.node-icon--aws-ec2 .node-icon__glyph::after,
+.node-icon--compute .node-icon__glyph::after,
+.node-icon--aws-ecs .node-icon__glyph::after,
+.node-icon--aws-eks .node-icon__glyph::after,
+.node-icon--aws-fargate .node-icon__glyph::after,
+.node-icon--aws-ecr .node-icon__glyph::after,
+.node-icon--kubernetes .node-icon__glyph::after,
+.node-icon--container .node-icon__glyph::after {
+  left: 7px;
+  top: 1px;
+  width: 12px;
+  height: 7px;
+  border-bottom: 0;
+  border-radius: 5px 5px 0 0;
+}
+
+.node-icon--aws-dynamodb,
+.node-icon--aws-redshift,
+.node-icon--aws-opensearch,
+.node-icon--aws-elasticache,
+.node-icon--cache {
+  color: #1d4ed8;
+}
+
+.node-icon--aws-dynamodb .node-icon__glyph::before,
+.node-icon--aws-redshift .node-icon__glyph::before {
+  inset: 4px;
+  border-radius: 4px;
+  background:
+    linear-gradient(currentColor 0 0) 50% 0 / 2px 100% no-repeat,
+    linear-gradient(currentColor 0 0) 0 50% / 100% 2px no-repeat,
+    rgba(219, 234, 254, 0.78);
+}
+
+.node-icon--aws-dynamodb .node-icon__glyph::after,
+.node-icon--aws-redshift .node-icon__glyph::after,
+.node-icon--aws-elasticache .node-icon__glyph::after,
+.node-icon--cache .node-icon__glyph::after {
+  left: 6px;
+  bottom: 3px;
+  width: 13px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.node-icon--aws-opensearch .node-icon__glyph::before,
+.node-icon--algorithm-search .node-icon__glyph::before {
+  left: 4px;
+  top: 4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+}
+
+.node-icon--aws-opensearch .node-icon__glyph::after,
+.node-icon--algorithm-search .node-icon__glyph::after {
+  right: 2px;
+  bottom: 3px;
+  width: 9px;
+  height: 2px;
+  border-width: 2px 0 0;
+  transform: rotate(45deg);
+}
+
+.node-icon--aws-sqs,
+.node-icon--aws-sns,
+.node-icon--aws-eventbridge,
+.node-icon--aws-kinesis,
+.node-icon--queue,
+.node-icon--algorithm-queue {
+  color: #047857;
+}
+
+.node-icon--aws-sqs .node-icon__glyph::before,
+.node-icon--aws-sns .node-icon__glyph::before,
+.node-icon--aws-eventbridge .node-icon__glyph::before,
+.node-icon--aws-kinesis .node-icon__glyph::before,
+.node-icon--queue .node-icon__glyph::before,
+.node-icon--algorithm-queue .node-icon__glyph::before {
+  left: 3px;
+  top: 5px;
+  width: 17px;
+  height: 4px;
+  border-radius: 999px;
+  box-shadow:
+    0 6px 0 rgba(4, 120, 87, 0.28),
+    0 12px 0 rgba(4, 120, 87, 0.22);
+}
+
+.node-icon--aws-sqs .node-icon__glyph::after,
+.node-icon--aws-sns .node-icon__glyph::after,
+.node-icon--aws-eventbridge .node-icon__glyph::after,
+.node-icon--aws-kinesis .node-icon__glyph::after,
+.node-icon--queue .node-icon__glyph::after,
+.node-icon--algorithm-queue .node-icon__glyph::after {
+  right: 2px;
+  top: 7px;
+  width: 7px;
+  height: 7px;
+  border-left: 0;
+  border-bottom: 0;
+  transform: rotate(45deg);
+}
+
+.node-icon--api-gateway,
+.node-icon--aws-api-gateway,
+.node-icon--aws-internet-gateway,
+.node-icon--aws-nat-gateway,
+.node-icon--load-balancer,
+.node-icon--aws-alb,
+.node-icon--aws-nlb {
+  color: #0e7490;
+}
+
+.node-icon--api-gateway .node-icon__glyph::before,
+.node-icon--aws-api-gateway .node-icon__glyph::before,
+.node-icon--aws-internet-gateway .node-icon__glyph::before,
+.node-icon--aws-nat-gateway .node-icon__glyph::before,
+.node-icon--load-balancer .node-icon__glyph::before,
+.node-icon--aws-alb .node-icon__glyph::before,
+.node-icon--aws-nlb .node-icon__glyph::before {
+  left: 3px;
+  top: 8px;
+  width: 17px;
+  height: 8px;
+  border-radius: 3px;
+  transform: skew(-12deg);
+}
+
+.node-icon--api-gateway .node-icon__glyph::after,
+.node-icon--aws-api-gateway .node-icon__glyph::after,
+.node-icon--aws-internet-gateway .node-icon__glyph::after,
+.node-icon--aws-nat-gateway .node-icon__glyph::after,
+.node-icon--load-balancer .node-icon__glyph::after,
+.node-icon--aws-alb .node-icon__glyph::after,
+.node-icon--aws-nlb .node-icon__glyph::after {
+  left: 6px;
+  top: 2px;
+  width: 11px;
+  height: 19px;
+  border-top: 0;
+  border-bottom: 0;
+}
+
+.node-icon--cloud-provider,
+.node-icon--cdn,
+.node-icon--aws-cloudfront,
+.node-icon--aws-route53 {
+  color: #0369a1;
+}
+
+.node-icon--cloud-provider .node-icon__glyph::before,
+.node-icon--cdn .node-icon__glyph::before,
+.node-icon--aws-cloudfront .node-icon__glyph::before,
+.node-icon--aws-route53 .node-icon__glyph::before {
+  left: 3px;
+  top: 9px;
+  width: 18px;
+  height: 9px;
+  border-radius: 999px;
+}
+
+.node-icon--cloud-provider .node-icon__glyph::after,
+.node-icon--cdn .node-icon__glyph::after,
+.node-icon--aws-cloudfront .node-icon__glyph::after,
+.node-icon--aws-route53 .node-icon__glyph::after {
+  left: 7px;
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.node-icon--group-container,
+.node-icon--group-container-plus,
+.node-icon--cloud-region,
+.node-icon--cloud-vpc,
+.node-icon--subnet,
+.node-icon--aws-account,
+.node-icon--aws-region,
+.node-icon--aws-availability-zone,
+.node-icon--aws-vpc,
+.node-icon--aws-subnet,
+.node-icon--code-workspace,
+.node-icon--code-package,
+.node-icon--code-module {
+  color: #4d7c0f;
+}
+
+.node-icon--group-container .node-icon__glyph::before,
+.node-icon--group-container-plus .node-icon__glyph::before,
+.node-icon--cloud-region .node-icon__glyph::before,
+.node-icon--cloud-vpc .node-icon__glyph::before,
+.node-icon--subnet .node-icon__glyph::before,
+.node-icon--aws-account .node-icon__glyph::before,
+.node-icon--aws-region .node-icon__glyph::before,
+.node-icon--aws-availability-zone .node-icon__glyph::before,
+.node-icon--aws-vpc .node-icon__glyph::before,
+.node-icon--aws-subnet .node-icon__glyph::before,
+.node-icon--code-workspace .node-icon__glyph::before,
+.node-icon--code-package .node-icon__glyph::before,
+.node-icon--code-module .node-icon__glyph::before {
+  inset: 3px;
+  border-style: dashed;
+  border-radius: 5px;
+}
+
+.node-icon--group-container .node-icon__glyph::after,
+.node-icon--group-container-plus .node-icon__glyph::after,
+.node-icon--cloud-region .node-icon__glyph::after,
+.node-icon--cloud-vpc .node-icon__glyph::after,
+.node-icon--subnet .node-icon__glyph::after,
+.node-icon--aws-account .node-icon__glyph::after,
+.node-icon--aws-region .node-icon__glyph::after,
+.node-icon--aws-availability-zone .node-icon__glyph::after,
+.node-icon--aws-vpc .node-icon__glyph::after,
+.node-icon--aws-subnet .node-icon__glyph::after,
+.node-icon--code-workspace .node-icon__glyph::after,
+.node-icon--code-package .node-icon__glyph::after,
+.node-icon--code-module .node-icon__glyph::after {
+  inset: 8px;
+  border-radius: 3px;
+  background: rgba(236, 252, 203, 0.68);
+}
+
+.node-icon--identity,
+.node-icon--secrets,
+.node-icon--firewall,
+.node-icon--aws-iam,
+.node-icon--aws-cognito,
+.node-icon--aws-secrets-manager,
+.node-icon--aws-kms,
+.node-icon--aws-waf,
+.node-icon--aws-shield,
+.node-icon--aws-security-group {
+  color: #991b1b;
+}
+
+.node-icon--aws-kms .node-icon__glyph::before,
+.node-icon--secrets .node-icon__glyph::before,
+.node-icon--aws-secrets-manager .node-icon__glyph::before {
+  left: 4px;
+  top: 9px;
+  width: 16px;
+  height: 9px;
+  border-radius: 3px;
+  background: rgba(254, 249, 195, 0.7);
+}
+
+.node-icon--aws-kms .node-icon__glyph::after,
+.node-icon--secrets .node-icon__glyph::after,
+.node-icon--aws-secrets-manager .node-icon__glyph::after {
+  left: 8px;
+  top: 4px;
+  width: 8px;
+  height: 8px;
+  border-bottom: 0;
+  border-radius: 999px 999px 0 0;
+}
+
+.node-icon--firewall .node-icon__glyph::before,
+.node-icon--aws-waf .node-icon__glyph::before,
+.node-icon--aws-shield .node-icon__glyph::before,
+.node-icon--aws-security-group .node-icon__glyph::before {
+  left: 5px;
+  top: 3px;
+  width: 14px;
+  height: 18px;
+  border-radius: 8px 8px 10px 10px;
+  clip-path: polygon(50% 0, 100% 18%, 88% 76%, 50% 100%, 12% 76%, 0 18%);
+  background: rgba(254, 202, 202, 0.62);
+}
+
+.node-icon--identity .node-icon__glyph::before,
+.node-icon--aws-iam .node-icon__glyph::before,
+.node-icon--aws-cognito .node-icon__glyph::before {
+  left: 8px;
+  top: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.node-icon--identity .node-icon__glyph::after,
+.node-icon--aws-iam .node-icon__glyph::after,
+.node-icon--aws-cognito .node-icon__glyph::after {
+  left: 5px;
+  top: 13px;
+  width: 14px;
+  height: 8px;
+  border-radius: 999px 999px 4px 4px;
+  background: rgba(250, 232, 255, 0.7);
+}
+
+.node-icon--monitoring,
+.node-icon--logging,
+.node-icon--aws-cloudwatch,
+.node-icon--aws-cloudtrail {
+  color: #047857;
+}
+
+.node-icon--monitoring .node-icon__glyph::before,
+.node-icon--aws-cloudwatch .node-icon__glyph::before {
+  left: 4px;
+  top: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: conic-gradient(from 20deg, rgba(4, 120, 87, 0.2) 0 35%, transparent 35% 100%);
+}
+
+.node-icon--logging .node-icon__glyph::before,
+.node-icon--aws-cloudtrail .node-icon__glyph::before,
+.node-icon--flow-document .node-icon__glyph::before,
+.node-icon--code-file .node-icon__glyph::before {
+  left: 5px;
+  top: 3px;
+  width: 14px;
+  height: 18px;
+  border-radius: 3px 8px 3px 3px;
+  background:
+    linear-gradient(currentColor 0 0) 4px 6px / 8px 2px no-repeat,
+    linear-gradient(currentColor 0 0) 4px 11px / 7px 2px no-repeat,
+    rgba(255, 255, 255, 0.72);
+}
+
+.node-icon--code-file,
+.node-icon--code-class,
+.node-icon--code-interface,
+.node-icon--code-function,
+.node-icon--code-method,
+.node-icon--code-use-case,
+.node-icon--code-entity,
+.node-icon--code-value-object,
+.node-icon--code-port,
+.node-icon--code-adapter,
+.node-icon--code-schema,
+.node-icon--code-component,
+.node-icon--code-controller,
+.node-icon--code-middleware,
+.node-icon--code-hook,
+.node-icon--code-repository,
+.node-icon--code-folder,
+.node-icon--code-variable,
+.node-icon--code-enum,
+.node-icon--code-type {
+  color: #4338ca;
+}
+
+.node-icon--code-function .node-icon__glyph::before,
+.node-icon--code-method .node-icon__glyph::before,
+.node-icon--code-hook .node-icon__glyph::before {
+  left: 5px;
+  top: 6px;
+  width: 14px;
+  height: 12px;
+  border-radius: 999px;
+}
+
+.node-icon--code-function .node-icon__glyph::after,
+.node-icon--code-method .node-icon__glyph::after,
+.node-icon--code-hook .node-icon__glyph::after {
+  content: "fn";
+  left: 5px;
+  top: 6px;
+  width: 14px;
+  height: 12px;
+  border: 0;
+  color: currentColor;
+  font-size: 8px;
+  font-weight: 900;
+  line-height: 12px;
+  text-align: center;
+}
+
+.node-icon--code-class .node-icon__glyph::before,
+.node-icon--code-interface .node-icon__glyph::before,
+.node-icon--code-type .node-icon__glyph::before,
+.node-icon--code-enum .node-icon__glyph::before,
+.node-icon--code-schema .node-icon__glyph::before,
+.node-icon--code-entity .node-icon__glyph::before,
+.node-icon--code-value-object .node-icon__glyph::before {
+  left: 4px;
+  top: 5px;
+  width: 16px;
+  height: 13px;
+  border-style: double;
+  border-width: 4px;
+}
+
+.node-icon--code-repository .node-icon__glyph::before,
+.node-icon--code-folder .node-icon__glyph::before {
+  left: 3px;
+  top: 8px;
+  width: 18px;
+  height: 11px;
+  border-radius: 3px;
+  background: rgba(254, 249, 195, 0.72);
+}
+
+.node-icon--code-repository .node-icon__glyph::after,
+.node-icon--code-folder .node-icon__glyph::after {
+  left: 5px;
+  top: 5px;
+  width: 8px;
+  height: 5px;
+  border-bottom: 0;
+  border-radius: 3px 3px 0 0;
+}
+
+.node-icon--flow-start,
+.node-icon--flow-end,
+.node-icon--flow-process,
+.node-icon--flow-decision,
+.node-icon--flow-input,
+.node-icon--flow-output,
+.node-icon--flow-loop,
+.node-icon--flow-subroutine,
+.node-icon--flow-data {
+  color: #065f46;
+}
+
+.node-icon--flow-start .node-icon__glyph::before,
+.node-icon--flow-end .node-icon__glyph::before {
+  left: 3px;
+  top: 7px;
+  width: 18px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(220, 252, 231, 0.7);
+}
+
+.node-icon--flow-decision .node-icon__glyph::before,
+.node-icon--algorithm-condition .node-icon__glyph::before {
+  left: 6px;
+  top: 5px;
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  transform: rotate(45deg);
+  background: rgba(253, 230, 138, 0.62);
+}
+
+.node-icon--flow-input .node-icon__glyph::before,
+.node-icon--flow-output .node-icon__glyph::before,
+.node-icon--flow-data .node-icon__glyph::before {
+  left: 4px;
+  top: 7px;
+  width: 16px;
+  height: 10px;
+  border-radius: 3px;
+  transform: skew(-12deg);
+}
+
+.node-icon--algorithm,
+.node-icon--algorithm-condition,
+.node-icon--algorithm-loop,
+.node-icon--algorithm-recursion,
+.node-icon--algorithm-sort,
+.node-icon--algorithm-search,
+.node-icon--algorithm-graph,
+.node-icon--algorithm-tree,
+.node-icon--algorithm-hash-table,
+.node-icon--algorithm-stack,
+.node-icon--algorithm-linked-list {
+  color: #6d28d9;
+}
+
+.node-icon--algorithm-graph .node-icon__glyph::before {
+  left: 4px;
+  top: 4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  box-shadow:
+    11px 2px 0 -1px #ffffff,
+    11px 2px 0 1px currentColor,
+    5px 12px 0 -1px #ffffff,
+    5px 12px 0 1px currentColor;
+}
+
+.node-icon--algorithm-graph .node-icon__glyph::after,
+.node-icon--algorithm-tree .node-icon__glyph::after,
+.node-icon--algorithm-linked-list .node-icon__glyph::after {
+  left: 6px;
+  top: 8px;
+  width: 12px;
+  height: 8px;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  transform: rotate(24deg);
+}
+
+.node-icon--algorithm-stack .node-icon__glyph::before,
+.node-icon--algorithm-hash-table .node-icon__glyph::before {
+  left: 4px;
+  top: 5px;
+  width: 16px;
+  height: 4px;
+  border-radius: 2px;
+  box-shadow:
+    0 6px 0 rgba(109, 40, 217, 0.22),
+    0 12px 0 rgba(109, 40, 217, 0.16);
+}
+
+/* Draw.io-inspired cloud icon silhouettes with hand-drawn stroke treatment */
+.node-icon {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.node-icon__glyph {
+  width: 24px;
+  height: 24px;
+}
+
+.node-icon[class*="node-icon--aws-"] .node-icon__glyph::before,
+.node-icon[class*="node-icon--aws-"] .node-icon__glyph::after {
+  border-width: 2px;
+  border-color: currentColor;
+}
+
+.node-icon--aws-s3 .node-icon__glyph::before,
+.node-icon--aws-ebs .node-icon__glyph::before,
+.node-icon--aws-rds .node-icon__glyph::before,
+.node-icon--aws-aurora .node-icon__glyph::before {
+  left: 4px;
+  top: 4px;
+  width: 16px;
+  height: 17px;
+  border-radius: 50% / 18%;
+  background:
+    linear-gradient(90deg, rgba(122, 161, 22, 0.26) 0 28%, transparent 28% 40%, rgba(122, 161, 22, 0.16) 40% 68%, transparent 68%),
+    rgba(255, 255, 255, 0.75);
+}
+
+.node-icon--aws-s3 .node-icon__glyph::after,
+.node-icon--aws-ebs .node-icon__glyph::after,
+.node-icon--aws-rds .node-icon__glyph::after,
+.node-icon--aws-aurora .node-icon__glyph::after {
+  left: 4px;
+  top: 4px;
+  width: 16px;
+  height: 6px;
+  border-radius: 50%;
+  border-bottom: 2px solid currentColor;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.node-icon--aws-efs .node-icon__glyph::before {
+  left: 3px;
+  top: 8px;
+  width: 18px;
+  height: 12px;
+  border-radius: 3px;
+  background: rgba(224, 242, 254, 0.76);
+}
+
+.node-icon--aws-efs .node-icon__glyph::after {
+  left: 5px;
+  top: 4px;
+  width: 9px;
+  height: 6px;
+  border-bottom: 0;
+  border-radius: 3px 3px 0 0;
+}
+
+.node-icon--aws-ec2 .node-icon__glyph::before,
+.node-icon--aws-ecs .node-icon__glyph::before,
+.node-icon--aws-eks .node-icon__glyph::before,
+.node-icon--aws-fargate .node-icon__glyph::before,
+.node-icon--aws-ecr .node-icon__glyph::before {
+  left: 4px;
+  top: 7px;
+  width: 16px;
+  height: 12px;
+  border-radius: 3px;
+  background:
+    linear-gradient(90deg, transparent 0 30%, currentColor 30% 38%, transparent 38% 58%, currentColor 58% 66%, transparent 66%),
+    rgba(255, 237, 213, 0.75);
+}
+
+.node-icon--aws-ec2 .node-icon__glyph::after,
+.node-icon--aws-ecs .node-icon__glyph::after,
+.node-icon--aws-eks .node-icon__glyph::after,
+.node-icon--aws-fargate .node-icon__glyph::after,
+.node-icon--aws-ecr .node-icon__glyph::after {
+  left: 8px;
+  top: 3px;
+  width: 8px;
+  height: 5px;
+  border-bottom: 0;
+  border-radius: 3px 3px 0 0;
+}
+
+.node-icon--aws-ecs .node-icon__glyph::before {
+  left: 4px;
+  top: 6px;
+  width: 16px;
+  height: 4px;
+  border-radius: 3px;
+  box-shadow:
+    0 6px 0 rgba(154, 52, 18, 0.24),
+    0 12px 0 rgba(154, 52, 18, 0.16);
+  background: rgba(255, 237, 213, 0.84);
+}
+
+.node-icon--aws-ecs .node-icon__glyph::after {
+  left: 7px;
+  top: 2px;
+  width: 10px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.node-icon--aws-eks .node-icon__glyph::before {
+  left: 5px;
+  top: 4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  transform: rotate(45deg);
+  background: rgba(219, 234, 254, 0.52);
+}
+
+.node-icon--aws-eks .node-icon__glyph::after {
+  left: 10px;
+  top: 1px;
+  width: 2px;
+  height: 20px;
+  border: 0;
+  background:
+    radial-gradient(circle at 50% 2px, currentColor 2px, transparent 2.2px),
+    radial-gradient(circle at 50% 10px, currentColor 2px, transparent 2.2px),
+    radial-gradient(circle at 50% 18px, currentColor 2px, transparent 2.2px);
+}
+
+.node-icon--aws-fargate .node-icon__glyph::before {
+  left: 4px;
+  top: 8px;
+  width: 16px;
+  height: 10px;
+  border-radius: 3px;
+  clip-path: polygon(0 0, 100% 0, 84% 100%, 16% 100%);
+  background: rgba(254, 243, 199, 0.72);
+}
+
+.node-icon--aws-fargate .node-icon__glyph::after {
+  left: 8px;
+  top: 3px;
+  width: 8px;
+  height: 5px;
+  border-bottom: 0;
+  border-radius: 2px 2px 0 0;
+}
+
+.node-icon--aws-ecr .node-icon__glyph::before {
+  left: 4px;
+  top: 8px;
+  width: 16px;
+  height: 10px;
+  border-radius: 3px;
+  background: rgba(224, 231, 255, 0.76);
+}
+
+.node-icon--aws-ecr .node-icon__glyph::after {
+  left: 7px;
+  top: 3px;
+  width: 10px;
+  height: 4px;
+  border-bottom: 0;
+  border-radius: 2px 2px 0 0;
+  box-shadow: 0 9px 0 -3px currentColor;
+}
+
+.node-icon--aws-lambda .node-icon__glyph::before {
+  left: 7px;
+  top: 3px;
+  width: 8px;
+  height: 18px;
+  border-right: 0;
+  border-top-left-radius: 5px;
+  transform: skew(-16deg);
+  background: rgba(237, 113, 0, 0.15);
+}
+
+.node-icon--aws-lambda .node-icon__glyph::after {
+  left: 12px;
+  top: 10px;
+  width: 8px;
+  height: 10px;
+  border-left: 0;
+  border-bottom: 0;
+  transform: skew(-18deg);
+}
+
+.node-icon--aws-api-gateway .node-icon__glyph::before,
+.node-icon--aws-internet-gateway .node-icon__glyph::before,
+.node-icon--aws-nat-gateway .node-icon__glyph::before {
+  left: 4px;
+  top: 8px;
+  width: 16px;
+  height: 10px;
+  border-radius: 3px;
+  transform: skew(-12deg);
+  background: rgba(14, 116, 144, 0.16);
+}
+
+.node-icon--aws-api-gateway .node-icon__glyph::after,
+.node-icon--aws-internet-gateway .node-icon__glyph::after,
+.node-icon--aws-nat-gateway .node-icon__glyph::after {
+  left: 8px;
+  top: 2px;
+  width: 8px;
+  height: 20px;
+  border-top: 0;
+  border-bottom: 0;
+}
+
+.node-icon--aws-alb .node-icon__glyph::before,
+.node-icon--aws-nlb .node-icon__glyph::before {
+  left: 4px;
+  top: 10px;
+  width: 16px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.node-icon--aws-alb .node-icon__glyph::after,
+.node-icon--aws-nlb .node-icon__glyph::after {
+  right: 3px;
+  top: 7px;
+  width: 8px;
+  height: 8px;
+  border-left: 0;
+  border-bottom: 0;
+  transform: rotate(45deg);
+}
+
+.node-icon--aws-route53 .node-icon__glyph::before {
+  left: 4px;
+  top: 3px;
+  width: 16px;
+  height: 18px;
+  border-radius: 8px 8px 10px 10px;
+  clip-path: polygon(50% 0, 100% 18%, 88% 76%, 50% 100%, 12% 76%, 0 18%);
+  background: rgba(126, 34, 206, 0.14);
+}
+
+.node-icon--aws-route53 .node-icon__glyph::after {
+  content: "53";
+  left: 0;
+  top: 7px;
+  width: 24px;
+  border: 0;
+  color: currentColor;
+  font-size: 8px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.node-icon--aws-cloudfront .node-icon__glyph::before {
+  left: 3px;
+  top: 10px;
+  width: 18px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.node-icon--aws-cloudfront .node-icon__glyph::after {
+  left: 7px;
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(219, 234, 254, 0.8);
+}
+
+.node-icon--aws-dynamodb .node-icon__glyph::before,
+.node-icon--aws-redshift .node-icon__glyph::before {
+  left: 4px;
+  top: 5px;
+  width: 16px;
+  height: 13px;
+  border-radius: 3px;
+  background:
+    linear-gradient(currentColor 0 0) 50% 0 / 2px 100% no-repeat,
+    linear-gradient(currentColor 0 0) 0 50% / 100% 2px no-repeat,
+    rgba(250, 232, 255, 0.7);
+}
+
+.node-icon--aws-dynamodb .node-icon__glyph::after,
+.node-icon--aws-redshift .node-icon__glyph::after {
+  left: 7px;
+  bottom: 3px;
+  width: 10px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.node-icon--aws-opensearch .node-icon__glyph::before {
+  left: 4px;
+  top: 4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+}
+
+.node-icon--aws-opensearch .node-icon__glyph::after {
+  right: 2px;
+  bottom: 3px;
+  width: 9px;
+  height: 2px;
+  border-width: 2px 0 0;
+  transform: rotate(45deg);
+}
+
+.node-icon--aws-sqs .node-icon__glyph::before,
+.node-icon--aws-kinesis .node-icon__glyph::before {
+  left: 3px;
+  top: 5px;
+  width: 18px;
+  height: 4px;
+  border-radius: 999px;
+  box-shadow:
+    0 6px 0 rgba(4, 120, 87, 0.28),
+    0 12px 0 rgba(4, 120, 87, 0.22);
+}
+
+.node-icon--aws-sqs .node-icon__glyph::after,
+.node-icon--aws-kinesis .node-icon__glyph::after {
+  right: 3px;
+  top: 7px;
+  width: 7px;
+  height: 7px;
+  border-left: 0;
+  border-bottom: 0;
+  transform: rotate(45deg);
+}
+
+.node-icon--aws-kinesis .node-icon__glyph::before {
+  left: 3px;
+  top: 8px;
+  width: 18px;
+  height: 9px;
+  border-left: 0;
+  border-right: 0;
+  border-radius: 999px;
+  box-shadow: none;
+  transform: skew(-14deg);
+}
+
+.node-icon--aws-kinesis .node-icon__glyph::after {
+  left: 9px;
+  top: 3px;
+  width: 6px;
+  height: 18px;
+  border-top: 0;
+  border-bottom: 0;
+  border-left: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  transform: none;
+}
+
+.node-icon--aws-sns .node-icon__glyph::before {
+  left: 4px;
+  top: 8px;
+  width: 9px;
+  height: 7px;
+  border-radius: 2px 0 0 2px;
+  border-right: 0;
+}
+
+.node-icon--aws-sns .node-icon__glyph::after {
+  left: 12px;
+  top: 7px;
+  width: 8px;
+  height: 9px;
+  border-left: 0;
+  clip-path: polygon(0 12%, 100% 0, 100% 100%, 0 88%);
+}
+
+.node-icon--aws-eventbridge .node-icon__glyph::before {
+  left: 3px;
+  top: 6px;
+  width: 18px;
+  height: 12px;
+  border-radius: 999px;
+}
+
+.node-icon--aws-eventbridge .node-icon__glyph::after {
+  left: 9px;
+  top: 4px;
+  width: 6px;
+  height: 16px;
+  border-right: 0;
+  border-left: 0;
+}
+
+.node-icon--aws-step-functions .node-icon__glyph::before {
+  left: 4px;
+  top: 10px;
+  width: 16px;
+  height: 4px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.node-icon--aws-step-functions .node-icon__glyph::after {
+  right: 3px;
+  top: 7px;
+  width: 8px;
+  height: 8px;
+  border-left: 0;
+  border-bottom: 0;
+  transform: rotate(45deg);
+}
+
+.node-icon--aws-iam .node-icon__glyph::before,
+.node-icon--aws-cognito .node-icon__glyph::before {
+  left: 8px;
+  top: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.node-icon--aws-iam .node-icon__glyph::after,
+.node-icon--aws-cognito .node-icon__glyph::after {
+  left: 5px;
+  top: 13px;
+  width: 14px;
+  height: 8px;
+  border-radius: 999px 999px 4px 4px;
+  background: rgba(250, 232, 255, 0.7);
+}
+
+.node-icon--aws-secrets-manager .node-icon__glyph::before,
+.node-icon--aws-kms .node-icon__glyph::before {
+  left: 4px;
+  top: 9px;
+  width: 16px;
+  height: 9px;
+  border-radius: 3px;
+  background: rgba(254, 249, 195, 0.7);
+}
+
+.node-icon--aws-secrets-manager .node-icon__glyph::after,
+.node-icon--aws-kms .node-icon__glyph::after {
+  left: 8px;
+  top: 4px;
+  width: 8px;
+  height: 8px;
+  border-bottom: 0;
+  border-radius: 999px 999px 0 0;
+}
+
+.node-icon--aws-waf .node-icon__glyph::before,
+.node-icon--aws-shield .node-icon__glyph::before,
+.node-icon--aws-security-group .node-icon__glyph::before {
+  left: 5px;
+  top: 3px;
+  width: 14px;
+  height: 18px;
+  border-radius: 8px 8px 10px 10px;
+  clip-path: polygon(50% 0, 100% 18%, 88% 76%, 50% 100%, 12% 76%, 0 18%);
+  background: rgba(254, 202, 202, 0.62);
+}
+
+.node-icon--aws-waf .node-icon__glyph::after,
+.node-icon--aws-shield .node-icon__glyph::after,
+.node-icon--aws-security-group .node-icon__glyph::after {
+  content: "";
+  left: 9px;
+  top: 7px;
+  width: 6px;
+  height: 8px;
+  border-left: 0;
+  border-top: 0;
+  transform: skew(-10deg);
+}
+
+.node-icon--aws-cloudwatch .node-icon__glyph::before {
+  left: 4px;
+  top: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+}
+
+.node-icon--aws-cloudwatch .node-icon__glyph::after {
+  left: 11px;
+  top: 7px;
+  width: 2px;
+  height: 6px;
+  border-right: 0;
+  border-bottom: 0;
+  transform: rotate(35deg);
+}
+
+.node-icon--aws-cloudtrail .node-icon__glyph::before {
+  left: 3px;
+  top: 10px;
+  width: 18px;
+  height: 4px;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  transform: rotate(-8deg);
+}
+
+.node-icon--aws-cloudtrail .node-icon__glyph::after {
+  left: 14px;
+  top: 8px;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: currentColor;
+}

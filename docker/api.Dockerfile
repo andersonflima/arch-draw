@@ -11,7 +11,7 @@ RUN npm ci \
 ENV NODE_ENV=production
 ENV API_HOST=0.0.0.0
 ENV API_PORT=3333
-ENV DATABASE_PATH=/app/data/arch-draw.sqlite
+ENV ARCH_DRAW_STORAGE_PATH=/app/data/arch-draw.store
 ENV WEB_ORIGINS=http://localhost:8080,http://127.0.0.1:8080
 
 EXPOSE 3333

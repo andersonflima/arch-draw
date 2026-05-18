@@ -4,6 +4,7 @@ import {
   buildEdgeHalfPath,
   buildFullEdgePath,
   getEdgeLeadPoint,
+  getEdgeTerminalBundle,
   getEdgeTerminalAxis,
   offsetSegmentEndpoints
 } from "./edge-geometry";
@@ -20,6 +21,21 @@ describe("edge geometry", () => {
     const center = { x: 100, y: 100 };
     expect(getEdgeLeadPoint({ x: 200, y: 100 }, center, "horizontal", 20)).toEqual({ x: 220, y: 100 });
     expect(getEdgeLeadPoint({ x: 100, y: 40 }, center, "vertical", 20)).toEqual({ x: 100, y: 20 });
+  });
+
+  it("builds terminal bundle points outward from the same anchor", () => {
+    expect(getEdgeTerminalBundle(
+      { x: 200, y: 100 },
+      { x: 100, y: 100 },
+      "horizontal",
+      9,
+      8,
+      12
+    )).toEqual({
+      terminal: { x: 209, y: 100 },
+      trunk: { x: 217, y: 100 },
+      lead: { x: 229, y: 100 }
+    });
   });
 
   it("keeps endpoint offsets inside segment length", () => {
@@ -56,13 +72,13 @@ describe("edge geometry", () => {
     expect(path).toContain("L 100 40");
   });
 
-  it("builds half paths that preserve endpoint stubs", () => {
+  it("builds smooth half paths that preserve endpoint stubs", () => {
     const forward = buildEdgeHalfPath(
       { x: 0, y: 0 },
       { x: 20, y: 0 },
       { x: 80, y: 40 },
       { x: 100, y: 40 },
-      "step",
+      "smoothstep",
       "forward"
     );
     const reverse = buildEdgeHalfPath(
@@ -70,10 +86,12 @@ describe("edge geometry", () => {
       { x: 20, y: 0 },
       { x: 80, y: 40 },
       { x: 100, y: 40 },
-      "step",
+      "smoothstep",
       "reverse"
     );
-    expect(forward).toContain("L 80 40 L 100 40");
-    expect(reverse).toContain("L 20 0 L 0 0");
+    expect(forward).toContain("C");
+    expect(forward).toContain("L 100 40");
+    expect(reverse).toContain("C");
+    expect(reverse).toContain("L 0 0");
   });
 });
