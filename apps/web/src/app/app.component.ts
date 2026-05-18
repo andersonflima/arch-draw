@@ -74,6 +74,7 @@ import {
 } from "../features/editor/edge-geometry";
 import {
   routePolylineAroundObstacles as routeEdgePolylineAroundObstacles,
+  segmentIntersectsRect,
   type EdgeObstacleRect
 } from "../features/editor/edge-routing";
 import { buildRoundedPolylinePath } from "../features/editor/edge-rounded-path";
@@ -6085,7 +6086,12 @@ spec:
       geometry.sourceSide,
       geometry.targetSide
     );
-    const normalized = this.hasDiagonalSegments(constrained)
+    const normalized = this.shouldRerouteConstrainedEdgePath(
+      constrained,
+      obstacleRects,
+      geometry.sourceId,
+      geometry.targetId
+    )
       ? this.enforceEdgeEndpointSideConstraints(
         routeEdgePolylineAroundObstacles(
           this.orthogonalizePolyline(constrained),
@@ -6093,7 +6099,7 @@ spec:
           geometry.sourceId,
           geometry.targetId,
           {
-            maxPasses: EDGE_ROUTE_MAX_PASSES,
+            maxPasses: EDGE_ROUTE_MAX_PASSES * 2,
             obstacleClearance: EDGE_OBSTACLE_CLEARANCE
           }
         ),
@@ -6115,6 +6121,51 @@ spec:
     };
     this.edgePathDataCache.set(edge.id, data);
     return data;
+  }
+
+  private shouldRerouteConstrainedEdgePath(
+    points: readonly EdgePoint[],
+    obstacles: readonly EdgeObstacleRect[],
+    sourceId: string,
+    targetId: string
+  ): boolean {
+    return this.hasDiagonalSegments(points)
+      || this.hasEdgePathObstacleCollision(points, obstacles, sourceId, targetId);
+  }
+
+  private hasEdgePathObstacleCollision(
+    points: readonly EdgePoint[],
+    obstacles: readonly EdgeObstacleRect[],
+    sourceId: string,
+    targetId: string
+  ): boolean {
+    if (points.length < 2 || obstacles.length === 0) return false;
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const start = points[index];
+      const end = points[index + 1];
+      if (!start || !end) continue;
+      const isFirstSegment = index === 0;
+      const isLastSegment = index === points.length - 2;
+      const segmentObstacles = obstacles.filter((rect) =>
+        this.shouldBlockEdgeSegment(rect, sourceId, targetId, isFirstSegment, isLastSegment)
+      );
+      if (segmentObstacles.some((rect) => segmentIntersectsRect(start, end, rect))) return true;
+    }
+    return false;
+  }
+
+  private shouldBlockEdgeSegment(
+    rect: EdgeObstacleRect,
+    sourceId: string,
+    targetId: string,
+    isFirstSegment: boolean,
+    isLastSegment: boolean
+  ): boolean {
+    if (isFirstSegment && rect.id === sourceId) return false;
+    if (isLastSegment && rect.id === targetId) return false;
+    if (isFirstSegment && rect.id === `${sourceId}__contact-shield`) return false;
+    if (isLastSegment && rect.id === `${targetId}__contact-shield`) return false;
+    return true;
   }
 
   private enforceEdgeEndpointSideConstraints(

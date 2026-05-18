@@ -195,6 +195,47 @@ describe("edge routing", () => {
     }
   });
 
+  it("reroutes an existing connection when a new obstacle appears on its path", () => {
+    const firstObstacle: EdgeObstacleRect = {
+      id: "first-obstacle",
+      left: 90,
+      top: 80,
+      right: 150,
+      bottom: 140
+    };
+    const newObstacle: EdgeObstacleRect = {
+      id: "new-obstacle",
+      left: 150,
+      top: 40,
+      right: 210,
+      bottom: 72
+    };
+
+    const initialPath = routePolylineAroundObstacles(
+      [{ x: 20, y: 110 }, { x: 280, y: 110 }],
+      [firstObstacle],
+      "source",
+      "target",
+      { maxPasses: 12, obstacleClearance: 24 }
+    );
+    const updatedPath = routePolylineAroundObstacles(
+      initialPath,
+      [firstObstacle, newObstacle],
+      "source",
+      "target",
+      { maxPasses: 24, obstacleClearance: 24 }
+    );
+
+    expect(updatedPath.length).toBeGreaterThanOrEqual(2);
+    for (let index = 0; index < updatedPath.length - 1; index += 1) {
+      const from = updatedPath[index];
+      const to = updatedPath[index + 1];
+      if (!from || !to) continue;
+      expect(segmentIntersectsRect(from, to, firstObstacle)).toBe(false);
+      expect(segmentIntersectsRect(from, to, newObstacle)).toBe(false);
+    }
+  });
+
   it("keeps endpoint hard boundaries blocking along the whole route", () => {
     const sourcePadded: EdgeObstacleRect = {
       id: "source",
