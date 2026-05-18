@@ -59,7 +59,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Otimização de entrega web com compressão HTTP (`gzip`), cache imutável para assets hashados e `index.html` sem cache.
 - Auto save com debounce adaptativo por complexidade (nós + conexões) para reduzir carga em arquiteturas grandes.
 - Isolamento por sessão para cada usuário ver apenas seus próprios arquivos e template.
-- Criação rápida de “Exemplo completo” para acelerar demonstrações e validações.
+- Menu `Exemplos` na toolbar com templates prontos de arquitetura (completo macro→micro, AWS cross-account, cluster Kubernetes, software platform e stress test).
 
 ## Casos de uso
 

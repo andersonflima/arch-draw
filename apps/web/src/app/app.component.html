@@ -19,7 +19,23 @@
 
     <div class="toolbar">
       <button class="toolbar-action" data-tour="toolbar-new" type="button" [title]="t('aria.newArchitecture')" [attr.aria-label]="t('aria.newArchitecture')" (click)="createArchitecture()">{{ t("toolbar.new") }}</button>
-      <button class="toolbar-action" data-tour="toolbar-example" type="button" [title]="t('aria.completeExample')" [attr.aria-label]="t('aria.completeExample')" (click)="createCompleteExampleArchitecture()">{{ t("toolbar.example") }}</button>
+      <details class="toolbar-dropdown" data-tour="toolbar-example">
+        <summary class="toolbar-action toolbar-dropdown__trigger" [title]="t('aria.examples')" [attr.aria-label]="t('aria.examples')">
+          {{ t("toolbar.example") }}
+        </summary>
+        <div class="toolbar-dropdown__menu">
+          <button
+            *ngFor="let option of exampleTemplateOptions; trackBy: trackByExampleTemplateId"
+            class="toolbar-dropdown__item"
+            type="button"
+            [title]="t(option.labelKey)"
+            [attr.aria-label]="t(option.labelKey)"
+            (click)="createExampleArchitecture(option.id, $event)"
+          >
+            {{ t(option.labelKey) }}
+          </button>
+        </div>
+      </details>
       <button class="toolbar-action" data-tour="toolbar-save" type="button" [title]="t('aria.save')" [attr.aria-label]="t('aria.save')" (click)="saveCurrent()">{{ t("toolbar.save") }}</button>
       <details class="toolbar-dropdown">
         <summary class="toolbar-action toolbar-dropdown__trigger" [title]="t('aria.share')" [attr.aria-label]="t('aria.share')">

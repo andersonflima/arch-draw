@@ -177,6 +177,18 @@ type PaletteCategoryGroup = Readonly<{
   templates: readonly NodeTemplate[];
 }>;
 
+type ExampleTemplateId =
+  | "complete"
+  | "aws-cross-account"
+  | "cluster-platform"
+  | "software-platform"
+  | "stress";
+
+type ExampleTemplateOption = Readonly<{
+  id: ExampleTemplateId;
+  labelKey: string;
+}>;
+
 type CollaborationSessionState = Readonly<{
   shareId: string;
   clientId: string;
@@ -366,10 +378,17 @@ const EXPORT_EXCLUDED_SELECTORS = [
   ".node-inline-label-input"
 ] as const;
 const EXPORT_BOUNDS_MARGIN = 48;
+const EXAMPLE_TEMPLATE_OPTIONS: readonly ExampleTemplateOption[] = [
+  { id: "complete", labelKey: "example.complete" },
+  { id: "aws-cross-account", labelKey: "example.awsCrossAccount" },
+  { id: "cluster-platform", labelKey: "example.clusterPlatform" },
+  { id: "software-platform", labelKey: "example.softwarePlatform" },
+  { id: "stress", labelKey: "example.stress" }
+] as const;
 const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, string>>>> = {
   "pt-BR": {
     "toolbar.new": "Nova",
-    "toolbar.example": "Exemplo",
+    "toolbar.example": "Exemplos",
     "toolbar.save": "Salvar",
     "toolbar.export": "Exportar",
     "toolbar.share": "Compartilhar",
@@ -381,9 +400,20 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "toolbar.showLeftMenu": "Mostrar menu",
     "toolbar.clear": "Limpar",
     "toolbar.languageSwitch": "Idioma",
+    "example.complete": "Completo: Macro para Micro",
+    "example.awsCrossAccount": "AWS Cross-Account",
+    "example.clusterPlatform": "Cluster Kubernetes",
+    "example.softwarePlatform": "Plataforma de Software",
+    "example.stress": "Stress Test",
     "title.newArchitecture": "Nova arquitetura",
     "title.demoTemplate": "Exemplo Completo: Macro para Micro",
     "title.demoDescription": "Modelo em camadas com borda pública, app, dados e observabilidade.",
+    "title.awsCrossAccountTemplate": "AWS Cross-Account: Evento e Dados",
+    "title.awsCrossAccountDescription": "Dois accounts com integração por EventBridge, SQS e políticas de acesso entre contas.",
+    "title.clusterPlatformTemplate": "Cluster Kubernetes: Plataforma de Produção",
+    "title.clusterPlatformDescription": "Entrada via ingress, serviços por namespace, filas internas e observabilidade centralizada.",
+    "title.softwarePlatformTemplate": "Software: Frontend, BFF e Serviços",
+    "title.softwarePlatformDescription": "Arquitetura de software com frontend, BFF, APIs, worker assíncrono e pipeline de entrega.",
     "title.stressTemplate": "Stress Test: Todos os Blocos e Junções",
     "title.stressDescription": "Matriz de cobertura completa com todos os blocos e conexões cruzadas para testes de usabilidade.",
     "export.archdraw": "Exportar Arch-Draw",
@@ -479,6 +509,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "status.sessionEnded": "Sessão encerrada",
     "status.newArchitectureCreated": "Nova arquitetura criada",
     "status.exampleCreated": "Exemplo completo criado",
+    "status.exampleTemplateCreated": "Exemplo de arquitetura criado",
     "status.stressCreated": "Arquitetura de stress criada",
     "status.diagramDeleted": "Diagrama excluído",
     "status.noDiagramFound": "Nenhum diagrama encontrado",
@@ -510,6 +541,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "status.tutorialCompleted": "Tutorial concluído",
     "aria.newArchitecture": "Nova arquitetura",
     "aria.completeExample": "Criar exemplo completo",
+    "aria.examples": "Abrir exemplos de arquitetura",
     "aria.save": "Salvar",
     "aria.export": "Exportar diagramas",
     "aria.share": "Compartilhar arquivo atual",
@@ -521,7 +553,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
   },
   "en-US": {
     "toolbar.new": "New",
-    "toolbar.example": "Example",
+    "toolbar.example": "Examples",
     "toolbar.save": "Save",
     "toolbar.export": "Export",
     "toolbar.share": "Share",
@@ -533,9 +565,20 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "toolbar.showLeftMenu": "Show menu",
     "toolbar.clear": "Clear",
     "toolbar.languageSwitch": "Language",
+    "example.complete": "Complete: Macro to Micro",
+    "example.awsCrossAccount": "AWS Cross-Account",
+    "example.clusterPlatform": "Kubernetes Cluster",
+    "example.softwarePlatform": "Software Platform",
+    "example.stress": "Stress Test",
     "title.newArchitecture": "New architecture",
     "title.demoTemplate": "Complete Example: Macro to Micro",
     "title.demoDescription": "Layered model with public edge, app, data, and observability.",
+    "title.awsCrossAccountTemplate": "AWS Cross-Account: Event and Data",
+    "title.awsCrossAccountDescription": "Two AWS accounts integrated by EventBridge, SQS, and cross-account access policies.",
+    "title.clusterPlatformTemplate": "Kubernetes Cluster: Production Platform",
+    "title.clusterPlatformDescription": "Ingress entrypoint, namespace services, internal queues, and centralized observability.",
+    "title.softwarePlatformTemplate": "Software: Frontend, BFF and Services",
+    "title.softwarePlatformDescription": "Software architecture with frontend, BFF, APIs, async workers, and delivery pipeline.",
     "title.stressTemplate": "Stress Test: All Blocks and Junctions",
     "title.stressDescription": "Full coverage matrix with all blocks and cross-connections for usability testing.",
     "export.archdraw": "Export Arch-Draw",
@@ -631,6 +674,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "status.sessionEnded": "Session ended",
     "status.newArchitectureCreated": "New architecture created",
     "status.exampleCreated": "Complete example created",
+    "status.exampleTemplateCreated": "Architecture example created",
     "status.stressCreated": "Stress architecture created",
     "status.diagramDeleted": "Diagram deleted",
     "status.noDiagramFound": "No diagram found",
@@ -662,6 +706,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "status.tutorialCompleted": "Tutorial completed",
     "aria.newArchitecture": "New architecture",
     "aria.completeExample": "Create complete example",
+    "aria.examples": "Open architecture examples",
     "aria.save": "Save",
     "aria.export": "Export diagrams",
     "aria.share": "Share current file",
@@ -1505,6 +1550,7 @@ export class AppComponent implements OnDestroy {
   readonly edgeLines: readonly ArchitectureEdgeLineStyle[] = ["solid", "dashed", "dotted"];
   readonly edgeDirections: readonly EdgeDirection[] = ["left-to-right", "right-to-left", "both"];
   readonly codeLanguageOptions: readonly CodeLanguageOption[] = CODE_LANGUAGE_OPTIONS;
+  readonly exampleTemplateOptions: readonly ExampleTemplateOption[] = EXAMPLE_TEMPLATE_OPTIONS;
   readonly currentYear = new Date().getFullYear();
 
   summaries: readonly ArchitectureSummary[] = [];
@@ -1658,6 +1704,10 @@ export class AppComponent implements OnDestroy {
 
   trackByTutorialGuideId(_index: number, guide: TutorialGuide): string {
     return guide.id;
+  }
+
+  trackByExampleTemplateId(_index: number, option: ExampleTemplateOption): ExampleTemplateId {
+    return option.id;
   }
 
   trackByPaletteCategory(_index: number, group: PaletteCategoryGroup): NodeTemplateCategory {
@@ -1824,31 +1874,30 @@ export class AppComponent implements OnDestroy {
   }
 
   async createCompleteExampleArchitecture(): Promise<void> {
-    if (!this.canEditArchitecture()) return;
-    await this.runSafely(async () => {
-      this.cancelAutoSave();
-      this.disconnectCollaborationSession();
-      const created = await api.createArchitecture(this.t("title.demoTemplate"));
-      const seeded = this.createFirstAccessArchitectureTemplate(created);
-      const saved = await api.saveArchitecture(seeded);
-      this.updateCurrent(saved);
-      await this.refreshSummaries();
-      this.status = this.t("status.exampleCreated");
-    });
+    await this.createExampleArchitecture("complete");
   }
 
   async createStressTestArchitecture(): Promise<void> {
+    await this.createExampleArchitecture("stress");
+  }
+
+  async createExampleArchitecture(templateId: ExampleTemplateId, event?: Event): Promise<void> {
     if (!this.canEditArchitecture()) return;
+    event?.preventDefault();
+    event?.stopPropagation();
     await this.runSafely(async () => {
       this.cancelAutoSave();
       this.disconnectCollaborationSession();
-      const created = await api.createArchitecture(this.t("title.stressTemplate"));
-      const seeded = this.createStressTestArchitectureTemplate(created);
+      const exampleTemplate = this.resolveExampleTemplate(templateId);
+      const created = await api.createArchitecture(this.t(exampleTemplate.titleKey));
+      const seeded = exampleTemplate.build(created);
       const saved = await api.saveArchitecture(seeded);
       this.updateCurrent(saved);
       await this.refreshSummaries();
-      this.status = this.t("status.stressCreated");
+      this.status = this.t("status.exampleTemplateCreated");
     });
+    const trigger = event?.currentTarget as HTMLElement | null;
+    trigger?.closest("details")?.removeAttribute("open");
   }
 
   async deleteCurrent(): Promise<void> {
@@ -5553,6 +5602,412 @@ spec:
       mermaidSource: `graph LR
   Start["Stress Start"] --> Matrix["Stress Matrix"]
   Matrix --> End["Coverage"]`,
+      nodes,
+      edges,
+      updatedAt: now
+    };
+  }
+
+  private resolveExampleTemplate(templateId: ExampleTemplateId): Readonly<{
+    titleKey: string;
+    build: (base: ArchitectureDocument) => ArchitectureDocument;
+  }> {
+    switch (templateId) {
+      case "aws-cross-account":
+        return {
+          titleKey: "title.awsCrossAccountTemplate",
+          build: (base) => this.createAwsCrossAccountArchitectureTemplate(base)
+        };
+      case "cluster-platform":
+        return {
+          titleKey: "title.clusterPlatformTemplate",
+          build: (base) => this.createClusterPlatformArchitectureTemplate(base)
+        };
+      case "software-platform":
+        return {
+          titleKey: "title.softwarePlatformTemplate",
+          build: (base) => this.createSoftwarePlatformArchitectureTemplate(base)
+        };
+      case "stress":
+        return {
+          titleKey: "title.stressTemplate",
+          build: (base) => this.createStressTestArchitectureTemplate(base)
+        };
+      case "complete":
+      default:
+        return {
+          titleKey: "title.demoTemplate",
+          build: (base) => this.createFirstAccessArchitectureTemplate(base)
+        };
+    }
+  }
+
+  private createExampleTemplateNode(
+    id: string,
+    kind: ArchitectureNodeKind,
+    label: string,
+    position: Readonly<{ x: number; y: number }>,
+    size: Readonly<{ width: number; height: number }>,
+    options?: Readonly<{
+      parentId?: string;
+      properties?: Readonly<Record<string, string>>;
+      startsCollapsed?: boolean;
+    }>
+  ): CanvasNode {
+    const isContainerKind = isContainerNodeKind(kind);
+    const isCodeKind = isCodeSnippetNodeKind(kind);
+    const supportsCode = isCodeKind || CONTAINER_CODE_PROPERTY_KINDS.has(kind);
+    const startsCollapsed = options?.startsCollapsed ?? (isContainerKind || isCodeKind);
+    const isLegacyLeafSize =
+      !isContainerKind
+      && !isCodeKind
+      && size.width === LEGACY_EXAMPLE_LEAF_NODE_SIZE.width
+      && size.height === LEGACY_EXAMPLE_LEAF_NODE_SIZE.height;
+    const resolvedSize = isLegacyLeafSize ? getDefaultNodeSize(kind) : size;
+    const nextProperties: Record<string, string> = { ...(options?.properties ?? {}) };
+
+    if (supportsCode) {
+      const currentContent = (nextProperties["codeContent"] ?? "").trim();
+      if (currentContent.length === 0) {
+        const language = this.getPreferredCodeLanguageForKind(kind);
+        nextProperties["codeLanguage"] = nextProperties["codeLanguage"]?.trim() || language;
+        nextProperties["codeContent"] = this.getDefaultCodeSnippet(
+          kind,
+          nextProperties["codeLanguage"] as CodeLanguage
+        );
+      } else if ((nextProperties["codeLanguage"] ?? "").trim().length === 0) {
+        const detected = detectCodeLanguageFromContent(currentContent);
+        nextProperties["codeLanguage"] = detected ?? this.getPreferredCodeLanguageForKind(kind);
+      }
+    }
+
+    return {
+      id,
+      kind,
+      label,
+      parentId: options?.parentId,
+      position,
+      size: startsCollapsed ? { ...CODE_SNIPPET_COLLAPSED_SIZE } : resolvedSize,
+      color: getNodeKindColor(kind),
+      collapsed: startsCollapsed ? true : undefined,
+      collapsedIconKind: isContainerKind
+        ? this.getDefaultCollapsedIconKind(kind)
+        : isCodeKind
+          ? kind
+          : undefined,
+      expandedSize: startsCollapsed
+        ? (isCodeKind ? { ...CODE_SNIPPET_EXPANDED_SIZE } : { ...resolvedSize })
+        : undefined,
+      properties: Object.keys(nextProperties).length > 0 ? nextProperties : undefined
+    };
+  }
+
+  private createAwsCrossAccountArchitectureTemplate(base: ArchitectureDocument): ArchitectureDocument {
+    const now = new Date().toISOString();
+    const style: ArchitectureEdgeStyle = {
+      path: "smoothstep",
+      line: "solid",
+      color: "#111827",
+      animated: true,
+      bidirectional: false
+    };
+    const makeNode = (
+      id: string,
+      kind: ArchitectureNodeKind,
+      label: string,
+      position: Readonly<{ x: number; y: number }>,
+      size: Readonly<{ width: number; height: number }>,
+      options?: Readonly<{
+        parentId?: string;
+        properties?: Readonly<Record<string, string>>;
+        startsCollapsed?: boolean;
+      }>
+    ): CanvasNode => this.createExampleTemplateNode(id, kind, label, position, size, options);
+
+    const nodes: CanvasNode[] = [
+      makeNode("xa-root", "group-container-plus", "Cross-Account Event Platform", { x: 40, y: 40 }, { width: 3520, height: 2140 }, { startsCollapsed: false }),
+      makeNode("xa-users", "external", "External Users", { x: 80, y: 180 }, { width: 172, height: 176 }),
+      makeNode("xa-account-shared", "aws-account", "AWS Account Shared Services", { x: 260, y: 80 }, { width: 1560, height: 1980 }, { parentId: "xa-root", startsCollapsed: false }),
+      makeNode("xa-account-workload", "aws-account", "AWS Account Workload", { x: 1860, y: 80 }, { width: 1560, height: 1980 }, { parentId: "xa-root", startsCollapsed: false }),
+      makeNode("xa-shared-region", "aws-region", "us-east-1", { x: 70, y: 70 }, { width: 1420, height: 1840 }, { parentId: "xa-account-shared", startsCollapsed: false }),
+      makeNode("xa-workload-region", "aws-region", "us-east-1", { x: 70, y: 70 }, { width: 1420, height: 1840 }, { parentId: "xa-account-workload", startsCollapsed: false }),
+      makeNode("xa-shared-vpc", "aws-vpc", "Shared VPC", { x: 70, y: 80 }, { width: 1280, height: 580 }, { parentId: "xa-shared-region", startsCollapsed: false }),
+      makeNode("xa-workload-vpc", "aws-vpc", "Workload VPC", { x: 70, y: 80 }, { width: 1280, height: 580 }, { parentId: "xa-workload-region", startsCollapsed: false }),
+      makeNode("xa-route53", "aws-route53", "Route 53", { x: 130, y: 220 }, { width: 172, height: 176 }, { parentId: "xa-workload-region" }),
+      makeNode("xa-cloudfront", "aws-cloudfront", "CloudFront", { x: 360, y: 220 }, { width: 172, height: 176 }, { parentId: "xa-workload-region" }),
+      makeNode("xa-waf", "aws-waf", "WAF", { x: 590, y: 220 }, { width: 172, height: 176 }, { parentId: "xa-workload-region" }),
+      makeNode("xa-apigw", "aws-api-gateway", "API Gateway", { x: 820, y: 220 }, { width: 172, height: 176 }, { parentId: "xa-workload-region" }),
+      makeNode("xa-lambda-orders", "aws-lambda", "Orders Lambda", { x: 1050, y: 220 }, { width: 172, height: 176 }, { parentId: "xa-workload-region" }),
+      makeNode("xa-eventbridge-workload", "aws-eventbridge", "Workload Event Bus", { x: 260, y: 900 }, { width: 172, height: 176 }, { parentId: "xa-workload-region" }),
+      makeNode("xa-sqs-workload", "aws-sqs", "Orders Queue", { x: 490, y: 900 }, { width: 172, height: 176 }, { parentId: "xa-workload-region" }),
+      makeNode("xa-dynamodb", "aws-dynamodb", "DynamoDB Orders", { x: 780, y: 900 }, { width: 172, height: 176 }, { parentId: "xa-workload-region" }),
+      makeNode("xa-rds", "aws-rds", "RDS Billing", { x: 1010, y: 900 }, { width: 172, height: 176 }, { parentId: "xa-workload-region" }),
+      makeNode("xa-eventbridge-shared", "aws-eventbridge", "Shared Event Bus", { x: 240, y: 850 }, { width: 172, height: 176 }, { parentId: "xa-shared-region" }),
+      makeNode("xa-step-functions", "aws-step-functions", "Step Functions", { x: 470, y: 850 }, { width: 172, height: 176 }, { parentId: "xa-shared-region" }),
+      makeNode("xa-lambda-worker", "aws-lambda", "Processor Lambda", { x: 700, y: 850 }, { width: 172, height: 176 }, { parentId: "xa-shared-region" }),
+      makeNode("xa-s3", "aws-s3", "S3 Data Lake", { x: 930, y: 850 }, { width: 172, height: 176 }, { parentId: "xa-shared-region" }),
+      makeNode("xa-ecr", "aws-ecr", "Shared ECR", { x: 220, y: 1150 }, { width: 520, height: 400 }, { parentId: "xa-shared-region", startsCollapsed: false }),
+      makeNode("xa-ecr-image", "software-docker", "orders-runtime:3.2.1", { x: 165, y: 90 }, { width: 172, height: 176 }, { parentId: "xa-ecr" }),
+      makeNode("xa-repo", "code-repository", "platform-repo", { x: 800, y: 1220 }, { width: 172, height: 176 }, { parentId: "xa-shared-region" }),
+      makeNode("xa-pipeline", "code-pipeline", "cross-account-pipeline", { x: 1030, y: 1220 }, { width: 172, height: 176 }, { parentId: "xa-shared-region" }),
+      makeNode("xa-iam", "aws-iam", "Cross-Account IAM Role", { x: 1240, y: 850 }, { width: 172, height: 176 }, {
+        parentId: "xa-shared-region",
+        properties: {
+          codeLanguage: "yaml",
+          codeContent: `Resources:
+  CrossAccountRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: shared-event-consumer
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: arn:aws:iam::222222222222:root`
+        }
+      }),
+      makeNode("xa-cloudtrail", "aws-cloudtrail", "CloudTrail", { x: 1240, y: 1220 }, { width: 172, height: 176 }, { parentId: "xa-shared-region" })
+    ];
+
+    const makeEdge = (id: string, from: string, to: string, label?: string): CanvasEdge => ({
+      id,
+      from,
+      to,
+      label,
+      style
+    });
+
+    const edges: CanvasEdge[] = [
+      makeEdge("xa-e1", "xa-users", "xa-route53", "DNS"),
+      makeEdge("xa-e2", "xa-route53", "xa-cloudfront", "HTTPS"),
+      makeEdge("xa-e3", "xa-cloudfront", "xa-waf", "inspect"),
+      makeEdge("xa-e4", "xa-waf", "xa-apigw", "allow"),
+      makeEdge("xa-e5", "xa-apigw", "xa-lambda-orders", "invoke"),
+      makeEdge("xa-e6", "xa-lambda-orders", "xa-eventbridge-workload", "publish"),
+      makeEdge("xa-e7", "xa-eventbridge-workload", "xa-eventbridge-shared", "cross-account bus"),
+      makeEdge("xa-e8", "xa-eventbridge-shared", "xa-step-functions", "route"),
+      makeEdge("xa-e9", "xa-step-functions", "xa-lambda-worker", "orchestrate"),
+      makeEdge("xa-e10", "xa-lambda-worker", "xa-s3", "archive"),
+      makeEdge("xa-e11", "xa-lambda-orders", "xa-sqs-workload", "enqueue"),
+      makeEdge("xa-e12", "xa-sqs-workload", "xa-lambda-worker", "consume"),
+      makeEdge("xa-e13", "xa-lambda-orders", "xa-dynamodb", "write"),
+      makeEdge("xa-e14", "xa-lambda-orders", "xa-rds", "billing"),
+      makeEdge("xa-e15", "xa-repo", "xa-pipeline", "CI"),
+      makeEdge("xa-e16", "xa-pipeline", "xa-ecr", "publish image"),
+      makeEdge("xa-e17", "xa-ecr-image", "xa-lambda-orders", "runtime"),
+      makeEdge("xa-e18", "xa-iam", "xa-lambda-orders", "assume role"),
+      makeEdge("xa-e19", "xa-cloudtrail", "xa-eventbridge-shared", "audit")
+    ];
+
+    return {
+      ...base,
+      title: this.t("title.awsCrossAccountTemplate"),
+      description: this.t("title.awsCrossAccountDescription"),
+      mermaidSource: `graph LR
+  Users["Users"] --> R53["Route53"]
+  R53 --> CF["CloudFront"]
+  CF --> WAF["WAF"]
+  WAF --> APIGW["API Gateway"]
+  APIGW --> Lambda["Orders Lambda"]
+  Lambda --> WorkloadBus["Workload EventBridge"]
+  WorkloadBus --> SharedBus["Shared EventBridge"]
+  SharedBus --> SFN["Step Functions"]`,
+      nodes,
+      edges,
+      updatedAt: now
+    };
+  }
+
+  private createClusterPlatformArchitectureTemplate(base: ArchitectureDocument): ArchitectureDocument {
+    const now = new Date().toISOString();
+    const style: ArchitectureEdgeStyle = {
+      path: "smoothstep",
+      line: "solid",
+      color: "#111827",
+      animated: true,
+      bidirectional: false
+    };
+    const makeNode = (
+      id: string,
+      kind: ArchitectureNodeKind,
+      label: string,
+      position: Readonly<{ x: number; y: number }>,
+      size: Readonly<{ width: number; height: number }>,
+      options?: Readonly<{
+        parentId?: string;
+        properties?: Readonly<Record<string, string>>;
+        startsCollapsed?: boolean;
+      }>
+    ): CanvasNode => this.createExampleTemplateNode(id, kind, label, position, size, options);
+
+    const nodes: CanvasNode[] = [
+      makeNode("kc-root", "group-container-plus", "Kubernetes Production Platform", { x: 60, y: 60 }, { width: 3200, height: 1980 }, { startsCollapsed: false }),
+      makeNode("kc-users", "external", "Users", { x: 120, y: 180 }, { width: 172, height: 176 }),
+      makeNode("kc-route53", "aws-route53", "Route 53", { x: 360, y: 180 }, { width: 172, height: 176 }),
+      makeNode("kc-vpc", "aws-vpc", "VPC 10.20.0.0/16", { x: 80, y: 80 }, { width: 3000, height: 1800 }, { parentId: "kc-root", startsCollapsed: false }),
+      makeNode("kc-subnet-public", "aws-subnet", "Public Subnet", { x: 80, y: 80 }, { width: 1380, height: 430 }, { parentId: "kc-vpc", startsCollapsed: false }),
+      makeNode("kc-subnet-private", "aws-subnet", "Private Subnet", { x: 80, y: 560 }, { width: 1940, height: 1200 }, { parentId: "kc-vpc", startsCollapsed: false }),
+      makeNode("kc-subnet-data", "aws-subnet", "Data Subnet", { x: 2080, y: 560 }, { width: 900, height: 1200 }, { parentId: "kc-vpc", startsCollapsed: false }),
+      makeNode("kc-alb", "aws-alb", "Public ALB", { x: 120, y: 160 }, { width: 172, height: 176 }, { parentId: "kc-subnet-public" }),
+      makeNode("kc-eks", "aws-eks", "EKS Cluster", { x: 90, y: 100 }, { width: 1760, height: 1040 }, { parentId: "kc-subnet-private", startsCollapsed: false }),
+      makeNode("kc-ns-edge", "cluster-namespace", "Namespace ingress", { x: 60, y: 80 }, { width: 520, height: 360 }, { parentId: "kc-eks", startsCollapsed: false }),
+      makeNode("kc-ns-orders", "cluster-namespace", "Namespace orders", { x: 620, y: 80 }, { width: 1080, height: 420 }, { parentId: "kc-eks", startsCollapsed: false }),
+      makeNode("kc-ns-ops", "cluster-namespace", "Namespace observability", { x: 620, y: 530 }, { width: 1080, height: 420 }, { parentId: "kc-eks", startsCollapsed: false }),
+      makeNode("kc-ingress", "cluster-ingress", "orders.ingress", { x: 140, y: 110 }, { width: 172, height: 176 }, { parentId: "kc-ns-edge" }),
+      makeNode("kc-svc-api", "cluster-service", "orders-api-svc", { x: 120, y: 140 }, { width: 172, height: 176 }, { parentId: "kc-ns-orders" }),
+      makeNode("kc-deploy-api", "cluster-deployment", "orders-api", { x: 360, y: 90 }, { width: 300, height: 260 }, { parentId: "kc-ns-orders", startsCollapsed: false }),
+      makeNode("kc-pod-api", "cluster-pod", "orders-api-pod", { x: 60, y: 70 }, { width: 172, height: 176 }, { parentId: "kc-deploy-api" }),
+      makeNode("kc-deploy-worker", "cluster-deployment", "orders-worker", { x: 700, y: 90 }, { width: 300, height: 260 }, { parentId: "kc-ns-orders", startsCollapsed: false }),
+      makeNode("kc-pod-worker", "cluster-pod", "orders-worker-pod", { x: 60, y: 70 }, { width: 172, height: 176 }, { parentId: "kc-deploy-worker" }),
+      makeNode("kc-kafka", "queue-kafka", "Kafka", { x: 120, y: 470 }, { width: 172, height: 176 }, { parentId: "kc-subnet-private" }),
+      makeNode("kc-redis", "cache-redis", "Redis", { x: 360, y: 470 }, { width: 172, height: 176 }, { parentId: "kc-subnet-private" }),
+      makeNode("kc-rabbit", "queue-rabbitmq", "RabbitMQ", { x: 600, y: 470 }, { width: 172, height: 176 }, { parentId: "kc-subnet-private" }),
+      makeNode("kc-rds", "aws-rds", "RDS", { x: 140, y: 160 }, { width: 172, height: 176 }, { parentId: "kc-subnet-data" }),
+      makeNode("kc-s3", "aws-s3", "S3 Backups", { x: 380, y: 160 }, { width: 172, height: 176 }, { parentId: "kc-subnet-data" }),
+      makeNode("kc-cloudwatch", "aws-cloudwatch", "CloudWatch", { x: 860, y: 130 }, { width: 172, height: 176 }, { parentId: "kc-ns-ops" }),
+      makeNode("kc-opensearch", "aws-opensearch", "OpenSearch", { x: 860, y: 360 }, { width: 172, height: 176 }, { parentId: "kc-ns-ops" })
+    ];
+
+    const makeEdge = (id: string, from: string, to: string, label?: string): CanvasEdge => ({
+      id,
+      from,
+      to,
+      label,
+      style
+    });
+
+    const edges: CanvasEdge[] = [
+      makeEdge("kc-e1", "kc-users", "kc-route53", "DNS"),
+      makeEdge("kc-e2", "kc-route53", "kc-alb", "HTTPS"),
+      makeEdge("kc-e3", "kc-alb", "kc-ingress", "forward"),
+      makeEdge("kc-e4", "kc-ingress", "kc-svc-api", "route"),
+      makeEdge("kc-e5", "kc-svc-api", "kc-pod-api", "service"),
+      makeEdge("kc-e6", "kc-pod-api", "kc-redis", "cache"),
+      makeEdge("kc-e7", "kc-pod-api", "kc-rds", "write"),
+      makeEdge("kc-e8", "kc-pod-api", "kc-kafka", "events"),
+      makeEdge("kc-e9", "kc-kafka", "kc-pod-worker", "consume"),
+      makeEdge("kc-e10", "kc-pod-worker", "kc-rabbit", "emit"),
+      makeEdge("kc-e11", "kc-pod-worker", "kc-s3", "backup"),
+      makeEdge("kc-e12", "kc-cloudwatch", "kc-pod-api", "metrics"),
+      makeEdge("kc-e13", "kc-cloudwatch", "kc-pod-worker", "logs"),
+      makeEdge("kc-e14", "kc-pod-worker", "kc-opensearch", "index")
+    ];
+
+    return {
+      ...base,
+      title: this.t("title.clusterPlatformTemplate"),
+      description: this.t("title.clusterPlatformDescription"),
+      mermaidSource: `graph LR
+  Users["Users"] --> DNS["Route53"]
+  DNS --> ALB["ALB"]
+  ALB --> Ingress["K8s Ingress"]
+  Ingress --> API["orders-api"]
+  API --> Kafka["Kafka"]
+  Kafka --> Worker["orders-worker"]
+  API --> RDS["RDS"]`,
+      nodes,
+      edges,
+      updatedAt: now
+    };
+  }
+
+  private createSoftwarePlatformArchitectureTemplate(base: ArchitectureDocument): ArchitectureDocument {
+    const now = new Date().toISOString();
+    const style: ArchitectureEdgeStyle = {
+      path: "smoothstep",
+      line: "solid",
+      color: "#111827",
+      animated: true,
+      bidirectional: false
+    };
+    const makeNode = (
+      id: string,
+      kind: ArchitectureNodeKind,
+      label: string,
+      position: Readonly<{ x: number; y: number }>,
+      size: Readonly<{ width: number; height: number }>,
+      options?: Readonly<{
+        parentId?: string;
+        properties?: Readonly<Record<string, string>>;
+        startsCollapsed?: boolean;
+      }>
+    ): CanvasNode => this.createExampleTemplateNode(id, kind, label, position, size, options);
+
+    const nodes: CanvasNode[] = [
+      makeNode("sw-root", "group-container-plus", "Software Delivery Platform", { x: 60, y: 60 }, { width: 2920, height: 1820 }, { startsCollapsed: false }),
+      makeNode("sw-client-web", "software-frontend", "Web Frontend", { x: 140, y: 220 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-client-mobile", "software-mobile", "Mobile App", { x: 390, y: 220 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-bff", "software-bff", "BFF Gateway", { x: 640, y: 220 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-api-orders", "software-api", "Orders API", { x: 900, y: 220 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-api-billing", "software-api", "Billing API", { x: 1150, y: 220 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-worker", "software-worker", "Invoice Worker", { x: 900, y: 520 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-queue", "queue-rabbitmq", "RabbitMQ", { x: 1150, y: 520 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-cache", "cache-redis", "Redis Cache", { x: 1400, y: 220 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-rds", "aws-rds", "PostgreSQL (RDS)", { x: 1650, y: 220 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-mongo", "database-mongodb", "MongoDB", { x: 1900, y: 220 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-s3", "aws-s3", "S3 Documents", { x: 2150, y: 220 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-eventbridge", "aws-eventbridge", "EventBridge", { x: 1400, y: 520 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-lambda", "aws-lambda", "Notifier Lambda", { x: 1650, y: 520 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-repo", "code-repository", "mono-repository", { x: 300, y: 980 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-pipeline", "code-pipeline", "delivery-pipeline", { x: 560, y: 980 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-ecr", "aws-ecr", "Container Registry", { x: 820, y: 900 }, { width: 520, height: 400 }, { parentId: "sw-root", startsCollapsed: false }),
+      makeNode("sw-image-api", "software-docker", "orders-api:4.0.0", { x: 90, y: 90 }, { width: 172, height: 176 }, { parentId: "sw-ecr" }),
+      makeNode("sw-image-worker", "software-docker", "invoice-worker:4.0.0", { x: 270, y: 90 }, { width: 172, height: 176 }, { parentId: "sw-ecr" }),
+      makeNode("sw-cloudwatch", "aws-cloudwatch", "CloudWatch", { x: 1450, y: 980 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-secrets", "aws-secrets-manager", "Secrets Manager", { x: 1700, y: 980 }, { width: 172, height: 176 }, {
+        parentId: "sw-root",
+        properties: {
+          codeLanguage: "yaml",
+          codeContent: `ordersDb:
+  username: app_runtime
+  rotation: enabled
+apiKeys:
+  paymentProvider: vault://payments/key`
+        }
+      })
+    ];
+
+    const makeEdge = (id: string, from: string, to: string, label?: string): CanvasEdge => ({
+      id,
+      from,
+      to,
+      label,
+      style
+    });
+
+    const edges: CanvasEdge[] = [
+      makeEdge("sw-e1", "sw-client-web", "sw-bff", "HTTPS"),
+      makeEdge("sw-e2", "sw-client-mobile", "sw-bff", "HTTPS"),
+      makeEdge("sw-e3", "sw-bff", "sw-api-orders", "REST"),
+      makeEdge("sw-e4", "sw-bff", "sw-api-billing", "REST"),
+      makeEdge("sw-e5", "sw-api-orders", "sw-cache", "cache"),
+      makeEdge("sw-e6", "sw-api-orders", "sw-rds", "write"),
+      makeEdge("sw-e7", "sw-api-orders", "sw-queue", "enqueue"),
+      makeEdge("sw-e8", "sw-queue", "sw-worker", "consume"),
+      makeEdge("sw-e9", "sw-worker", "sw-mongo", "projection"),
+      makeEdge("sw-e10", "sw-worker", "sw-s3", "document"),
+      makeEdge("sw-e11", "sw-api-billing", "sw-eventbridge", "publish"),
+      makeEdge("sw-e12", "sw-eventbridge", "sw-lambda", "trigger"),
+      makeEdge("sw-e13", "sw-repo", "sw-pipeline", "CI"),
+      makeEdge("sw-e14", "sw-pipeline", "sw-ecr", "build"),
+      makeEdge("sw-e15", "sw-image-api", "sw-api-orders", "runtime"),
+      makeEdge("sw-e16", "sw-image-worker", "sw-worker", "runtime"),
+      makeEdge("sw-e17", "sw-cloudwatch", "sw-api-orders", "metrics"),
+      makeEdge("sw-e18", "sw-secrets", "sw-api-billing", "secrets")
+    ];
+
+    return {
+      ...base,
+      title: this.t("title.softwarePlatformTemplate"),
+      description: this.t("title.softwarePlatformDescription"),
+      mermaidSource: `graph LR
+  Web["Web"] --> BFF["BFF"]
+  Mobile["Mobile"] --> BFF
+  BFF --> Orders["Orders API"]
+  BFF --> Billing["Billing API"]
+  Orders --> Queue["RabbitMQ"]
+  Queue --> Worker["Invoice Worker"]
+  Worker --> Mongo["MongoDB"]`,
       nodes,
       edges,
       updatedAt: now
