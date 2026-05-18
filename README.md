@@ -14,6 +14,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - A área de contato das âncoras atua como escudo invisível de roteamento, mantendo conexões por fora do elemento mesmo quando os controles não estão visíveis.
 - Drag de conexão iniciado em âncora mantém preview e alvo travado na porta destacada, evitando conexão acidental em outro elemento no drop.
 - Rotas de conexão são revalidadas contra obstáculos atuais do canvas e reajustadas quando novos elementos passam a cruzar uma linha existente.
+- Reparação final de rotas corrige colisões residuais após restrições de âncora, mantendo tolerância apenas no segmento terminal do próprio elemento.
 - Conexão reversa entre dois elementos reaproveita a linha já desenhada e apenas promove o fluxo para bidirecional, sem criar segunda linha SVG sobreposta.
 - Setas de conexão ancoradas pela borda externa da bolinha de contato (apenas lados esquerdo/direito), com ponta da seta na bolinha e linha terminando no centro traseiro da seta.
 - Em conexões múltiplas no mesmo ponto, as âncoras se unificam na bolinha de contato e só abrem afastamento no percurso, com tronco comum simétrico na origem e no destino.

@@ -278,8 +278,58 @@ describe("edge routing", () => {
       const from = routed[index];
       const to = routed[index + 1];
       if (!from || !to) continue;
-      expect(segmentIntersectsRect(from, to, sourceHard)).toBe(false);
-      expect(segmentIntersectsRect(from, to, targetHard)).toBe(false);
+      if (index > 0) {
+        expect(segmentIntersectsRect(from, to, sourceHard)).toBe(false);
+      }
+      if (index < routed.length - 2) {
+        expect(segmentIntersectsRect(from, to, targetHard)).toBe(false);
+      }
+    }
+  });
+
+  it("lets terminal segments leave endpoint hard boundaries while still avoiding other blockers", () => {
+    const sourceHard: EdgeObstacleRect = {
+      id: "source__hard",
+      left: 80,
+      top: 80,
+      right: 120,
+      bottom: 120
+    };
+    const targetHard: EdgeObstacleRect = {
+      id: "target__hard",
+      left: 280,
+      top: 80,
+      right: 320,
+      bottom: 120
+    };
+    const blocker: EdgeObstacleRect = {
+      id: "middle",
+      left: 170,
+      top: 70,
+      right: 220,
+      bottom: 130
+    };
+
+    const routed = routePolylineAroundObstacles(
+      [{ x: 100, y: 100 }, { x: 300, y: 100 }],
+      [sourceHard, targetHard, blocker],
+      "source",
+      "target",
+      { maxPasses: 12, obstacleClearance: 24 }
+    );
+
+    expect(routed.length).toBeGreaterThan(2);
+    for (let index = 0; index < routed.length - 1; index += 1) {
+      const from = routed[index];
+      const to = routed[index + 1];
+      if (!from || !to) continue;
+      expect(segmentIntersectsRect(from, to, blocker)).toBe(false);
+      if (index > 0) {
+        expect(segmentIntersectsRect(from, to, sourceHard)).toBe(false);
+      }
+      if (index < routed.length - 2) {
+        expect(segmentIntersectsRect(from, to, targetHard)).toBe(false);
+      }
     }
   });
 

@@ -6086,12 +6086,13 @@ spec:
       geometry.sourceSide,
       geometry.targetSide
     );
-    const normalized = this.shouldRerouteConstrainedEdgePath(
+    const constrainedNeedsReroute = this.shouldRerouteConstrainedEdgePath(
       constrained,
       obstacleRects,
       geometry.sourceId,
       geometry.targetId
-    )
+    );
+    const normalized = constrainedNeedsReroute
       ? this.enforceEdgeEndpointSideConstraints(
         routeEdgePolylineAroundObstacles(
           this.orthogonalizePolyline(constrained),
@@ -6109,13 +6110,21 @@ spec:
         geometry.targetSide
       )
       : constrained;
-    if (normalized.length < 2) {
+    const finalPoints = this.repairEdgePathObstacleCollisions(
+      normalized,
+      obstacleRects,
+      geometry.sourceId,
+      geometry.targetId,
+      geometry.sourceSide,
+      geometry.targetSide
+    );
+    if (finalPoints.length < 2) {
       this.edgePathDataCache.set(edge.id, null);
       return null;
     }
 
     const data = {
-      points: normalized,
+      points: finalPoints,
       obstacles: obstacleRects,
       style: geometry.style
     };
@@ -6131,6 +6140,45 @@ spec:
   ): boolean {
     return this.hasDiagonalSegments(points)
       || this.hasEdgePathObstacleCollision(points, obstacles, sourceId, targetId);
+  }
+
+  private repairEdgePathObstacleCollisions(
+    points: readonly EdgePoint[],
+    obstacles: readonly EdgeObstacleRect[],
+    sourceId: string,
+    targetId: string,
+    sourceSide: ArchitectureEdgePortSide,
+    targetSide: ArchitectureEdgePortSide
+  ): readonly EdgePoint[] {
+    if (!this.hasEdgePathObstacleCollision(points, obstacles, sourceId, targetId)) return points;
+
+    const repaired = routeEdgePolylineAroundObstacles(
+      this.orthogonalizePolyline(points),
+      obstacles,
+      sourceId,
+      targetId,
+      {
+        maxPasses: EDGE_ROUTE_MAX_PASSES * 4,
+        obstacleClearance: EDGE_OBSTACLE_CLEARANCE
+      }
+    );
+    const constrained = this.enforceEdgeEndpointSideConstraints(
+      repaired,
+      sourceId,
+      targetId,
+      sourceSide,
+      targetSide
+    );
+    if (!this.hasDiagonalSegments(constrained)
+      && !this.hasEdgePathObstacleCollision(constrained, obstacles, sourceId, targetId)) {
+      return constrained;
+    }
+    if (!this.hasDiagonalSegments(repaired)
+      && !this.hasEdgePathObstacleCollision(repaired, obstacles, sourceId, targetId)) {
+      return repaired;
+    }
+
+    return points;
   }
 
   private hasEdgePathObstacleCollision(
@@ -6163,9 +6211,16 @@ spec:
   ): boolean {
     if (isFirstSegment && rect.id === sourceId) return false;
     if (isLastSegment && rect.id === targetId) return false;
+    if (isFirstSegment && this.isEndpointOwnedObstacle(rect, sourceId)) return false;
+    if (isLastSegment && this.isEndpointOwnedObstacle(rect, targetId)) return false;
     if (isFirstSegment && rect.id === `${sourceId}__contact-shield`) return false;
     if (isLastSegment && rect.id === `${targetId}__contact-shield`) return false;
     return true;
+  }
+
+  private isEndpointOwnedObstacle(rect: EdgeObstacleRect, nodeId: string): boolean {
+    return rect.id === `${nodeId}__hard`
+      || rect.id === `${nodeId}__icon`;
   }
 
   private enforceEdgeEndpointSideConstraints(
