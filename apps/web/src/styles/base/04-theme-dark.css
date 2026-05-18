@@ -88,6 +88,11 @@
   color: #f8fafc;
 }
 
+.app-shell.theme-dark .node-code-language-badge {
+  border-color: #111827;
+  box-shadow: 1px 1px 0 #020617;
+}
+
 .app-shell.theme-dark .title-input {
   border-bottom-color: #e5e7eb;
 }

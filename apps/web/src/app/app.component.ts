@@ -238,6 +238,20 @@ type CodeLanguageOption = Readonly<{
   label: string;
 }>;
 
+type CodeLanguageBadge = Readonly<{
+  iconClass: string;
+  label: string;
+  shortLabel: string;
+  color: string;
+  background: string;
+}>;
+
+type CodeLanguageBadgeCacheEntry = Readonly<{
+  signature: string;
+  badge: CodeLanguageBadge;
+  style: Record<string, string>;
+}>;
+
 type UiLanguage = "pt-BR" | "en-US";
 
 const DEFAULT_MERMAID_SOURCE = `graph LR
@@ -985,6 +999,93 @@ const CODE_LANGUAGE_OPTIONS: readonly CodeLanguageOption[] = [
   { value: "elixir", label: "Elixir" }
 ];
 
+const CODE_LANGUAGE_BADGES: Readonly<Record<CodeLanguage, CodeLanguageBadge>> = {
+  python: {
+    iconClass: "fa-brands fa-python",
+    label: "Python",
+    shortLabel: "PY",
+    color: "#2563eb",
+    background: "#dbeafe"
+  },
+  javascript: {
+    iconClass: "fa-brands fa-js",
+    label: "JavaScript",
+    shortLabel: "JS",
+    color: "#713f12",
+    background: "#fef3c7"
+  },
+  nodejs: {
+    iconClass: "fa-brands fa-node-js",
+    label: "Node.js",
+    shortLabel: "ND",
+    color: "#166534",
+    background: "#dcfce7"
+  },
+  typescript: {
+    iconClass: "fa-solid fa-code",
+    label: "TypeScript",
+    shortLabel: "TS",
+    color: "#1d4ed8",
+    background: "#dbeafe"
+  },
+  sql: {
+    iconClass: "fa-solid fa-database",
+    label: "SQL",
+    shortLabel: "SQL",
+    color: "#0f766e",
+    background: "#ccfbf1"
+  },
+  yaml: {
+    iconClass: "fa-solid fa-file-code",
+    label: "YAML",
+    shortLabel: "YML",
+    color: "#9a3412",
+    background: "#ffedd5"
+  },
+  mermaid: {
+    iconClass: "fa-solid fa-diagram-project",
+    label: "Mermaid",
+    shortLabel: "MMD",
+    color: "#7c3aed",
+    background: "#ede9fe"
+  },
+  markdown: {
+    iconClass: "fa-brands fa-markdown",
+    label: "Markdown",
+    shortLabel: "MD",
+    color: "#334155",
+    background: "#e2e8f0"
+  },
+  go: {
+    iconClass: "fa-brands fa-golang",
+    label: "Go",
+    shortLabel: "GO",
+    color: "#0369a1",
+    background: "#e0f2fe"
+  },
+  rust: {
+    iconClass: "fa-brands fa-rust",
+    label: "Rust",
+    shortLabel: "RS",
+    color: "#7c2d12",
+    background: "#fed7aa"
+  },
+  java: {
+    iconClass: "fa-brands fa-java",
+    label: "Java",
+    shortLabel: "JV",
+    color: "#b91c1c",
+    background: "#fee2e2"
+  },
+  elixir: {
+    iconClass: "fa-solid fa-droplet",
+    label: "Elixir",
+    shortLabel: "EX",
+    color: "#6b21a8",
+    background: "#f3e8ff"
+  }
+};
+
 const VPC_FIELDS: readonly NodePropertyField[] = [
   { key: "cidrBlock", label: "CIDR Block", placeholder: "10.0.0.0/16" },
   { key: "ipv6CidrBlock", label: "IPv6 CIDR Block", placeholder: "2600:1f18:abcd::/56" },
@@ -1610,6 +1711,7 @@ export class AppComponent implements OnDestroy {
   private viewRenderFrame: number | null = null;
   private readonly nodePropertyFieldsCache = new Map<ArchitectureNodeKind, readonly NodePropertyField[]>();
   private readonly iconColorCache = new Map<string, string>();
+  private readonly codeLanguageBadgeCache = new Map<string, CodeLanguageBadgeCacheEntry>();
   private readonly edgePathDataCache = new Map<string, EdgePathData | null>();
   private readonly edgePathStringCache = new Map<string, string>();
   private readonly edgeBidirectionalFlowPathCache = new Map<string, string>();
@@ -2868,6 +2970,43 @@ export class AppComponent implements OnDestroy {
   getNodeCodeLanguageLabel(node: CanvasNode): string {
     const language = this.getNodeCodeLanguage(node);
     return this.codeLanguageOptions.find((option) => option.value === language)?.label ?? "TypeScript";
+  }
+
+  shouldShowNodeCodeLanguageBadge(node: CanvasNode): boolean {
+    return this.isCodeSnippetCollapsed(node);
+  }
+
+  getNodeCodeLanguageBadge(node: CanvasNode): CodeLanguageBadge {
+    return this.getNodeCodeLanguageBadgeEntry(node).badge;
+  }
+
+  getNodeCodeLanguageBadgeStyle(node: CanvasNode): Record<string, string> {
+    return this.getNodeCodeLanguageBadgeEntry(node).style;
+  }
+
+  private getNodeCodeLanguageBadgeEntry(node: CanvasNode): CodeLanguageBadgeCacheEntry {
+    const signature = this.buildNodeCodeLanguageBadgeSignature(node);
+    const cached = this.codeLanguageBadgeCache.get(node.id);
+    if (cached?.signature === signature) return cached;
+
+    const badge = CODE_LANGUAGE_BADGES[this.getNodeCodeLanguage(node)];
+    const entry = {
+      signature,
+      badge,
+      style: {
+        "--code-language-badge-color": badge.color,
+        "--code-language-badge-bg": badge.background
+      }
+    };
+    this.codeLanguageBadgeCache.set(node.id, entry);
+    return entry;
+  }
+
+  private buildNodeCodeLanguageBadgeSignature(node: CanvasNode): string {
+    const draftContent = this.nodeInlineCodeDrafts.get(node.id);
+    const content = draftContent ?? node.properties?.["codeContent"] ?? "";
+    const configuredLanguage = node.properties?.["codeLanguage"] ?? "";
+    return `${node.kind}:${configuredLanguage}:${content}`;
   }
 
   getNodeCodeContent(node: CanvasNode): string {
@@ -10248,6 +10387,7 @@ spec:
     this.leafNodeLabelKnockoutRectCache.clear();
     this.edgeClipContainersCache = null;
     this.leafLabelKnockoutNodesCache = null;
+    this.codeLanguageBadgeCache.clear();
   }
 
   private markViewportChanged(): void {

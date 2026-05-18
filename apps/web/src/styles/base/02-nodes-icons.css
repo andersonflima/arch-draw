@@ -531,6 +531,50 @@ app-flow-document-node {
   font-size: var(--leaf-node-icon-font-size, 34px);
 }
 
+.architecture-node--leaf .node-code-language-badge {
+  position: absolute;
+  right: -8px;
+  bottom: -8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  box-sizing: border-box;
+  color: var(--code-language-badge-color, #111827);
+  background: color-mix(in srgb, var(--code-language-badge-bg, #f8fafc) 88%, #ffffff 12%);
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  box-shadow: 1px 1px 0 rgba(17, 24, 39, 0.45);
+  pointer-events: none;
+}
+
+.architecture-node--leaf .node-code-language-badge i {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.architecture-node--leaf .node-code-language-badge__text {
+  position: absolute;
+  right: -4px;
+  bottom: -2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 10px;
+  padding: 0 2px;
+  box-sizing: border-box;
+  color: #ffffff;
+  background: var(--code-language-badge-color, #111827);
+  border-radius: 999px;
+  font-size: 6px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
 .architecture-node--leaf strong {
   display: block;
   margin: 0;
