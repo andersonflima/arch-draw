@@ -911,13 +911,10 @@
 
       <a
         class="primary-action auth-login-button"
-        [class.is-disabled]="authActionInFlight"
-        [attr.aria-disabled]="authActionInFlight"
-        [href]="getGoogleLoginUrl()"
-        (click)="startGoogleLogin()"
+        [href]="googleLoginUrl"
       >
         <i class="fa-brands fa-google" aria-hidden="true"></i>
-        <span>{{ authActionInFlight ? t("auth.redirecting") : t("auth.loginWithGoogle") }}</span>
+        <span>{{ t("auth.loginWithGoogle") }}</span>
       </a>
     </main>
   </div>

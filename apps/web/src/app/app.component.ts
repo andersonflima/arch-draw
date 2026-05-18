@@ -1539,6 +1539,7 @@ export class AppComponent implements OnDestroy {
   authenticatedUser: AuthenticatedUser | null = null;
   authActionInFlight = false;
   loginError = "";
+  googleLoginUrl = "";
   showDoubleClickHint = false;
   uiTheme: "light" | "dark" = "light";
   uiLanguage: UiLanguage = "pt-BR";
@@ -1613,6 +1614,7 @@ export class AppComponent implements OnDestroy {
     this.loadUiThemePreference();
     this.loadLeftPanelsVisibilityPreference();
     this.status = this.t("status.initializing");
+    this.refreshGoogleLoginUrl();
     this.rebuildPaletteGroups();
     this.startDoubleClickHintLoop();
     void this.boot();
@@ -1710,15 +1712,6 @@ export class AppComponent implements OnDestroy {
     this.isLeftPanelsHidden = !this.isLeftPanelsHidden;
     this.persistLeftPanelsVisibilityPreference();
     this.markInteractionChanged();
-  }
-
-  async startGoogleLogin(): Promise<void> {
-    this.authActionInFlight = true;
-    this.markViewChanged();
-  }
-
-  getGoogleLoginUrl(): string {
-    return api.buildGoogleLoginUrl(window.location.href);
   }
 
   async logoutFromSession(): Promise<void> {
@@ -4821,6 +4814,7 @@ LIMIT 50;`;
   private async boot(): Promise<void> {
     await this.runSafely(async () => {
       this.captureAuthErrorFromUrl();
+      this.refreshGoogleLoginUrl();
       await this.refreshAuthSession();
       if (this.authEnabled && !this.isAuthenticated) {
         this.clearCurrentArchitecture();
@@ -4947,6 +4941,10 @@ LIMIT 50;`;
     this.loginError = this.resolveLoginErrorMessage(authError);
     locationUrl.searchParams.delete("auth_error");
     window.history.replaceState({}, "", locationUrl.toString());
+  }
+
+  private refreshGoogleLoginUrl(): void {
+    this.googleLoginUrl = api.buildGoogleLoginUrl(window.location.href);
   }
 
   private resolveLoginErrorMessage(code: string): string {

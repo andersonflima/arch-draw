@@ -239,6 +239,8 @@ WEB_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 GOOGLE_OAUTH_REDIRECT_URI=http://127.0.0.1:3333/auth/google/callback
 ```
 
+A mesma URL definida em `GOOGLE_OAUTH_REDIRECT_URI` precisa estar cadastrada em **Authorized redirect URIs** no OAuth Client do Google Cloud. Se o Google retornar `redirect_uri_mismatch`, cadastre exatamente `http://127.0.0.1:3333/auth/google/callback` ou ajuste a variável para uma URL já autorizada.
+
 A API carrega automaticamente o arquivo `.env` local ao iniciar por `npm run dev`, sem sobrescrever variáveis já exportadas no ambiente.
 
 Para desenvolvimento com Docker Compose (`web` em `localhost:8080`), use callback OAuth no proxy web:
