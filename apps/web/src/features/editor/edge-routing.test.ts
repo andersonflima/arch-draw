@@ -236,6 +236,55 @@ describe("edge routing", () => {
     }
   });
 
+  it("continues rerouting after bends until every segment avoids every obstacle", () => {
+    const obstacles: readonly EdgeObstacleRect[] = [
+      {
+        id: "after-first-bend",
+        left: 130,
+        top: 95,
+        right: 190,
+        bottom: 155
+      },
+      {
+        id: "after-second-bend",
+        left: 210,
+        top: 190,
+        right: 260,
+        bottom: 250
+      },
+      {
+        id: "late-blocker",
+        left: 290,
+        top: 190,
+        right: 330,
+        bottom: 250
+      }
+    ];
+
+    const routed = routePolylineAroundObstacles(
+      [
+        { x: 20, y: 80 },
+        { x: 160, y: 80 },
+        { x: 160, y: 220 },
+        { x: 380, y: 220 }
+      ],
+      obstacles,
+      "source",
+      "target",
+      { maxPasses: 4, obstacleClearance: 24 }
+    );
+
+    expect(routed.length).toBeGreaterThan(4);
+    for (let index = 0; index < routed.length - 1; index += 1) {
+      const from = routed[index];
+      const to = routed[index + 1];
+      if (!from || !to) continue;
+      for (const obstacle of obstacles) {
+        expect(segmentIntersectsRect(from, to, obstacle)).toBe(false);
+      }
+    }
+  });
+
   it("keeps endpoint hard boundaries blocking along the whole route", () => {
     const sourcePadded: EdgeObstacleRect = {
       id: "source",

@@ -28,6 +28,7 @@ type GraphDirection = "horizontal" | "vertical" | "start";
 const EPSILON = 0.001;
 const MAX_AXIS_VALUES = 84;
 const BEND_COST = 10000;
+const MAX_OPERATIONS_PER_PASS_MULTIPLIER = 8;
 
 export const routePolylineAroundObstacles = (
   points: readonly EdgePoint[],
@@ -43,24 +44,39 @@ export const routePolylineAroundObstacles = (
   while (pass < config.maxPasses) {
     pass += 1;
     let changed = false;
+    let operations = 0;
+    const maxOperations = Math.max(
+      config.maxPasses,
+      obstacles.length * MAX_OPERATIONS_PER_PASS_MULTIPLIER
+    );
 
-    for (let index = 0; index < routed.length - 1; index += 1) {
+    let index = 0;
+    while (index < routed.length - 1 && operations < maxOperations) {
       const start = routed[index];
       const end = routed[index + 1];
-      if (!start || !end) continue;
+      if (!start || !end) {
+        index += 1;
+        continue;
+      }
 
       const isFirstSegment = index === 0;
       const isLastSegment = index === routed.length - 2;
       const segmentObstacles = getSegmentObstacles(obstacles, sourceId, targetId, isFirstSegment, isLastSegment);
       const blocking = segmentObstacles.find((rect) => segmentIntersectsRect(start, end, rect));
-      if (!blocking) continue;
+      if (!blocking) {
+        index += 1;
+        continue;
+      }
 
       const astarPath = routeSegmentWithAStar(start, end, segmentObstacles, config.obstacleClearance);
       const detour = astarPath
         ? astarPath.slice(1, Math.max(1, astarPath.length - 1))
         : buildSegmentDetour(start, end, blocking, segmentObstacles, config.obstacleClearance);
 
-      if (detour.length === 0) continue;
+      if (detour.length === 0) {
+        index += 1;
+        continue;
+      }
 
       routed = compactPolyline([
         ...routed.slice(0, index + 1),
@@ -68,7 +84,9 @@ export const routePolylineAroundObstacles = (
         ...routed.slice(index + 1)
       ]);
       changed = true;
-      break;
+      operations += 1;
+      index = Math.max(0, index - 1);
+      continue;
     }
 
     if (!changed) break;
