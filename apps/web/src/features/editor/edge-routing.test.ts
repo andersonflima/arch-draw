@@ -168,4 +168,51 @@ describe("edge routing", () => {
       expect(segmentIntersectsRect(from, to, obstacleAfter)).toBe(false);
     }
   });
+
+  it("keeps endpoint hard boundaries blocking along the whole route", () => {
+    const sourcePadded: EdgeObstacleRect = {
+      id: "source",
+      left: 0,
+      top: 20,
+      right: 120,
+      bottom: 180
+    };
+    const sourceHard: EdgeObstacleRect = {
+      id: "source__hard",
+      left: 28,
+      top: 78,
+      right: 88,
+      bottom: 122
+    };
+    const targetPadded: EdgeObstacleRect = {
+      id: "target",
+      left: 200,
+      top: 20,
+      right: 300,
+      bottom: 180
+    };
+    const targetHard: EdgeObstacleRect = {
+      id: "target__hard",
+      left: 220,
+      top: 78,
+      right: 250,
+      bottom: 122
+    };
+    const routed = routePolylineAroundObstacles(
+      [{ x: 180, y: 100 }, { x: 280, y: 100 }],
+      [sourcePadded, sourceHard, targetPadded, targetHard],
+      "source",
+      "target",
+      { maxPasses: 12, obstacleClearance: 18 }
+    );
+
+    expect(routed.length).toBeGreaterThanOrEqual(2);
+    for (let index = 0; index < routed.length - 1; index += 1) {
+      const from = routed[index];
+      const to = routed[index + 1];
+      if (!from || !to) continue;
+      expect(segmentIntersectsRect(from, to, sourceHard)).toBe(false);
+      expect(segmentIntersectsRect(from, to, targetHard)).toBe(false);
+    }
+  });
 });

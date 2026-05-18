@@ -82,10 +82,11 @@ const getSegmentObstacles = (
   isLastSegment: boolean
 ): readonly EdgeObstacleRect[] =>
   obstacles.filter((rect) => {
-    const isSourceRect = rect.id === sourceId || rect.id.startsWith(`${sourceId}__`);
-    const isTargetRect = rect.id === targetId || rect.id.startsWith(`${targetId}__`);
-    if (isFirstSegment && isSourceRect) return false;
-    if (isLastSegment && isTargetRect) return false;
+    // Terminal segments can ignore only the padded endpoint rect (`sourceId` / `targetId`)
+    // so the line can leave/enter naturally, but hard/icon endpoint rects must still block
+    // to prevent routes crossing through the element body at any point.
+    if (isFirstSegment && rect.id === sourceId) return false;
+    if (isLastSegment && rect.id === targetId) return false;
     return true;
   });
 
