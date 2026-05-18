@@ -33,6 +33,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Ícones de elementos minimizados mantêm alinhamento central mesmo com labels longas.
 - Elementos de código minimizados exibem badge da linguagem detectada, atualizada sempre que o conteúdo interno muda, para facilitar identificação rápida do conteúdo.
 - Containers não expandem automaticamente durante drag and drop; ajuste dinâmico ocorre apenas em fluxos de expansão/maximização.
+- Ao carregar/criar exemplos e importar arquiteturas, filhos de container que encostariam no header são reposicionados em bloco (preservando espaçamento relativo) para manter tipo/título editável sempre livres.
 - Colapso de elementos aninhados com manutenção do foco visual no canvas e redução de ruído em labels agregadas.
 - Normalização automática de vínculo em containers ao carregar/importar templates (nós internos sem `parentId` válido são reanexados ao container correto pelo contexto visual).
 - Exclusão em cascata para hierarquias: ao remover um container/pai, todos os itens internos (filhos e descendentes) também são removidos, independentemente de estado minimizado/maximizado.

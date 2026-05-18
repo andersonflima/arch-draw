@@ -7700,18 +7700,51 @@ apiKeys:
 
   private enforceContainerChildHeaderBounds(nodes: readonly CanvasNode[]): CanvasNode[] {
     if (nodes.length === 0) return [];
-    const byId = new Map(nodes.map((node) => [node.id, node] as const));
-    return nodes.map((node) => {
-      if (!node.parentId) return node;
-      const parent = byId.get(node.parentId);
-      if (!parent || !this.rendersAsContainer(parent)) return node;
-      const clampedPosition = this.clampChildPositionWithinContainerHeader(parent, node.position);
-      if (clampedPosition.x === node.position.x && clampedPosition.y === node.position.y) return node;
-      return {
-        ...node,
-        position: clampedPosition
-      };
-    });
+    const nextNodes = [...nodes];
+    const childIndexesByParent = new Map<string, number[]>();
+
+    for (let index = 0; index < nextNodes.length; index += 1) {
+      const node = nextNodes[index];
+      if (!node?.parentId) continue;
+      const list = childIndexesByParent.get(node.parentId);
+      if (list) {
+        list.push(index);
+      } else {
+        childIndexesByParent.set(node.parentId, [index]);
+      }
+    }
+
+    for (const container of nextNodes) {
+      if (!this.rendersAsContainer(container)) continue;
+      const childIndexes = childIndexesByParent.get(container.id);
+      if (!childIndexes || childIndexes.length === 0) continue;
+
+      let minChildY = Number.POSITIVE_INFINITY;
+      for (const childIndex of childIndexes) {
+        const child = nextNodes[childIndex];
+        if (!child) continue;
+        minChildY = Math.min(minChildY, child.position.y);
+      }
+      if (!Number.isFinite(minChildY)) continue;
+
+      const minAllowedY = this.getContainerContentInsetTop(container);
+      if (minChildY >= minAllowedY) continue;
+
+      const shiftY = minAllowedY - minChildY;
+      for (const childIndex of childIndexes) {
+        const child = nextNodes[childIndex];
+        if (!child) continue;
+        nextNodes[childIndex] = {
+          ...child,
+          position: {
+            x: child.position.x,
+            y: child.position.y + shiftY
+          }
+        };
+      }
+    }
+
+    return nextNodes;
   }
 
   private isDescendantOfContainer(nodeId: string, containerId: string): boolean {
