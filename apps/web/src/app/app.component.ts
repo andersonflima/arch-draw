@@ -4071,7 +4071,7 @@ LIMIT 50;`;
     if (edge.id === this.selectedEdgeId || edge.id === this.editingEdgeId || edge.id === this.hoveredEdgeId) {
       return false;
     }
-    if (this.isDragDropContactAreaActive() && this.isEdgeTouchingActiveContactArea(edge)) return true;
+    if (this.isActiveContactAreaSuppressionEnabled() && this.isEdgeTouchingActiveContactArea(edge)) return true;
     if (!this.isProximitySuppressionActive()) return false;
 
     const focusPoint = this.getInteractionFocusPoint();
@@ -4087,10 +4087,8 @@ LIMIT 50;`;
   getEdgeProximityIndicatorStyle(): Record<string, string> | null {
     const connectionTargetStyle = this.getConnectionTargetContactAreaIndicatorStyle();
     if (connectionTargetStyle) return connectionTargetStyle;
-    const selectedContactStyle = this.isDragDropContactAreaActive()
-      ? this.getSelectedContactAreaIndicatorStyle()
-      : null;
-    if (selectedContactStyle) return selectedContactStyle;
+    const activeContactAreaStyle = this.getActiveContactAreaIndicatorStyle();
+    if (activeContactAreaStyle) return activeContactAreaStyle;
     const tutorialContactStyle = this.getTutorialContactAreaIndicatorStyle();
     if (tutorialContactStyle) return tutorialContactStyle;
     if (!this.isProximitySuppressionActive()) return null;
@@ -4133,6 +4131,10 @@ LIMIT 50;`;
     );
   }
 
+  private isActiveContactAreaSuppressionEnabled(): boolean {
+    return this.isDragDropContactAreaActive() || this.isResizeContactAreaActive();
+  }
+
   private getInteractionFocusPoint(): Readonly<{ x: number; y: number }> | null {
     if (this.connectionDragState) return this.connectionDragState.current;
 
@@ -4164,11 +4166,35 @@ LIMIT 50;`;
     return Boolean(this.dragState?.hasMoved);
   }
 
-  private getSelectedContactAreaIndicatorStyle(): Record<string, string> | null {
-    const selectedNodes = this.selectedNodeIds
-      .map((nodeId) => this.nodes.find((candidate) => candidate.id === nodeId))
-      .filter((node): node is CanvasNode => Boolean(node));
-    return this.buildContactAreaIndicatorStyle(selectedNodes);
+  private isResizeContactAreaActive(): boolean {
+    return Boolean(this.resizeState);
+  }
+
+  private getActiveContactAreaIndicatorStyle(): Record<string, string> | null {
+    if (!this.isActiveContactAreaSuppressionEnabled()) return null;
+    return this.buildContactAreaIndicatorStyle(this.getActiveContactAreaNodes());
+  }
+
+  private getActiveContactAreaNodes(): readonly CanvasNode[] {
+    const nodesById = new Map<string, CanvasNode>();
+
+    if (this.isDragDropContactAreaActive()) {
+      for (const nodeId of this.selectedNodeIds) {
+        const node = this.nodes.find((candidate) => candidate.id === nodeId);
+        if (!node || !this.isVisibleNode(node)) continue;
+        nodesById.set(node.id, node);
+      }
+    }
+
+    const resizeState = this.resizeState;
+    if (resizeState) {
+      const resizingNode = this.nodes.find((candidate) => candidate.id === resizeState.nodeId);
+      if (resizingNode && this.isVisibleNode(resizingNode)) {
+        nodesById.set(resizingNode.id, resizingNode);
+      }
+    }
+
+    return Array.from(nodesById.values());
   }
 
   private getTutorialContactAreaIndicatorStyle(): Record<string, string> | null {
@@ -4223,9 +4249,7 @@ LIMIT 50;`;
   }
 
   private isEdgeTouchingActiveContactArea(edge: CanvasEdge): boolean {
-    const activeNodes = this.selectedNodeIds
-      .map((nodeId) => this.nodes.find((candidate) => candidate.id === nodeId))
-      .filter((node): node is CanvasNode => Boolean(node));
+    const activeNodes = this.getActiveContactAreaNodes();
     if (activeNodes.length === 0) return false;
     const data = this.getEdgePathData(edge);
     if (!data || data.points.length < 2) return false;
