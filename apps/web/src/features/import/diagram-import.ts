@@ -33,6 +33,7 @@ type DrawIoCell = Readonly<{
     y: number;
     width: number;
     height: number;
+    relative?: boolean;
   }>;
 }>;
 
@@ -71,12 +72,16 @@ type ExcalidrawElement = Readonly<{
   endArrowhead?: string | null;
   isDeleted?: boolean;
   customData?: unknown;
+  frameId?: string | null;
+  groupIds?: readonly string[];
 }>;
 
 type ExcalidrawDocument = Readonly<{
   type: "excalidraw";
   elements: readonly ExcalidrawElement[];
 }>;
+
+type MermaidFlowDirection = "LR" | "RL" | "TB" | "BT";
 
 const templateByKind = new Map(nodeCatalog.map((template) => [template.kind, template]));
 const drawioAwsIconMap: Readonly<Record<string, ArchitectureNodeKind>> = {
@@ -203,7 +208,7 @@ const parseExcalidrawToArchitecture = (
     ["rectangle", "ellipse", "diamond", "frame", "image"].includes(element.type)
   );
   const usedNodeIds = new Set<string>();
-  const nodes = nodeElements.map((element) => {
+  const nodeDrafts = nodeElements.map((element, index) => {
     const geometry = normalizeExcalidrawGeometry(element);
     const inferredLabel =
       normalizeExcalidrawLabel(element.text)
@@ -213,25 +218,114 @@ const parseExcalidrawToArchitecture = (
     const size = normalizeNodeSize(kind, geometry);
     const nodeId = resolveImportedExcalidrawNodeId(element, usedNodeIds);
     return {
-      id: nodeId,
+      element,
+      index,
+      nodeId,
       kind,
       label: inferredLabel || getDefaultLabel(kind),
-      position: {
+      size,
+      color: inferExcalidrawColor(kind, element),
+      absolutePosition: {
         x: geometry.x,
         y: geometry.y
-      },
-      size,
-      color: inferExcalidrawColor(kind, element)
-    } satisfies ArchitectureNode;
+      }
+    } as const;
   });
 
-  const nodeIdByElementId = new Map<string, string>();
-  for (let index = 0; index < nodeElements.length; index += 1) {
-    const element = nodeElements[index];
-    const node = nodes[index];
-    if (!element || !node) continue;
-    nodeIdByElementId.set(element.id, node.id);
+  const nodeIdByElementId = new Map(nodeDrafts.map((draft) => [draft.element.id, draft.nodeId] as const));
+  const draftByElementId = new Map(nodeDrafts.map((draft) => [draft.element.id, draft] as const));
+  const parentElementIdByElementId = new Map<string, string>();
+  for (const draft of nodeDrafts) {
+    const frameId = draft.element.frameId?.trim();
+    if (!frameId || frameId === draft.element.id || !draftByElementId.has(frameId)) continue;
+    parentElementIdByElementId.set(draft.element.id, frameId);
   }
+
+  const containerCandidates = nodeDrafts.filter((draft) =>
+    draft.element.type === "frame"
+    || isContainerNodeKind(draft.kind)
+    || (draft.element.type === "rectangle" && draft.size.width >= 260 && draft.size.height >= 180)
+  );
+  for (const draft of nodeDrafts) {
+    if (parentElementIdByElementId.has(draft.element.id)) continue;
+    const fallbackParent = findContainingExcalidrawParentElementId(draft, containerCandidates);
+    if (!fallbackParent) continue;
+    parentElementIdByElementId.set(draft.element.id, fallbackParent);
+  }
+
+  const resolvedNodesByElementId = new Map<string, Readonly<{
+    node: ArchitectureNode;
+    absolutePosition: Readonly<{ x: number; y: number }>;
+  }>>();
+  const resolvingNodes = new Set<string>();
+  const resolveNode = (elementId: string): Readonly<{
+    node: ArchitectureNode;
+    absolutePosition: Readonly<{ x: number; y: number }>;
+  }> => {
+    const cached = resolvedNodesByElementId.get(elementId);
+    if (cached) return cached;
+    const draft = draftByElementId.get(elementId);
+    if (!draft) {
+      const fallbackNode: ArchitectureNode = {
+        id: `excalidraw-${elementId}`,
+        kind: "system",
+        label: "Node",
+        position: { x: 0, y: 0 },
+        size: { width: 190, height: 92 },
+        color: getNodeKindColor("system")
+      };
+      const fallback = { node: fallbackNode, absolutePosition: { x: 0, y: 0 } };
+      resolvedNodesByElementId.set(elementId, fallback);
+      return fallback;
+    }
+
+    if (resolvingNodes.has(elementId)) {
+      const fallbackNode: ArchitectureNode = {
+        id: draft.nodeId,
+        kind: draft.kind,
+        label: draft.label,
+        position: draft.absolutePosition,
+        size: draft.size,
+        color: draft.color
+      };
+      const fallback = { node: fallbackNode, absolutePosition: draft.absolutePosition };
+      resolvedNodesByElementId.set(elementId, fallback);
+      return fallback;
+    }
+
+    resolvingNodes.add(elementId);
+    const parentElementId = parentElementIdByElementId.get(elementId);
+    const parentResolved = parentElementId ? resolveNode(parentElementId) : null;
+    const localPosition = parentResolved
+      ? {
+          x: draft.absolutePosition.x - parentResolved.absolutePosition.x,
+          y: draft.absolutePosition.y - parentResolved.absolutePosition.y
+        }
+      : draft.absolutePosition;
+
+    const node: ArchitectureNode = {
+      id: draft.nodeId,
+      kind: draft.kind,
+      label: draft.label,
+      parentId: parentResolved?.node.id,
+      position: localPosition,
+      size: draft.size,
+      color: draft.color
+    };
+    const resolved = {
+      node,
+      absolutePosition: draft.absolutePosition
+    };
+    resolvedNodesByElementId.set(elementId, resolved);
+    resolvingNodes.delete(elementId);
+    return resolved;
+  };
+
+  for (const draft of nodeDrafts) resolveNode(draft.element.id);
+  const nodes = nodeElements
+    .map((element) => resolvedNodesByElementId.get(element.id)?.node)
+    .filter((node): node is ArchitectureNode => Boolean(node));
+
   const textContainerElementByTextId = new Map<string, string>();
   for (const element of liveElements) {
     if (element.type !== "text" || !element.containerId) continue;
@@ -245,10 +339,15 @@ const parseExcalidrawToArchitecture = (
     if (!containerElementId) return undefined;
     return nodeIdByElementId.get(containerElementId);
   };
-  const nodeCenters = new Map(nodes.map((node) => [node.id, {
-    x: node.position.x + node.size.width / 2,
-    y: node.position.y + node.size.height / 2
-  }] as const));
+  const nodeCenters = new Map<string, Readonly<{ x: number; y: number }>>();
+  for (const draft of nodeDrafts) {
+    const resolved = resolvedNodesByElementId.get(draft.element.id);
+    if (!resolved) continue;
+    nodeCenters.set(resolved.node.id, {
+      x: resolved.absolutePosition.x + resolved.node.size.width / 2,
+      y: resolved.absolutePosition.y + resolved.node.size.height / 2
+    });
+  }
   const edges: ArchitectureEdge[] = [];
 
   for (const element of liveElements) {
@@ -266,6 +365,14 @@ const parseExcalidrawToArchitecture = (
     const from = fromCustom ?? fromBound ?? (startPoint ? findNearestNodeId(startPoint, nodeCenters) : null);
     const to = toCustom ?? toBound ?? (endPoint ? findNearestNodeId(endPoint, nodeCenters, from ?? undefined) : null);
     if (!from || !to || from === to) continue;
+    const edgePorts = inferExcalidrawEdgePorts({
+      fromNodeId: from,
+      toNodeId: to,
+      startPoint,
+      endPoint,
+      nodeDrafts,
+      resolvedNodesByElementId
+    });
 
     const style: ArchitectureEdgeStyle = {
       path: "smoothstep",
@@ -286,6 +393,8 @@ const parseExcalidrawToArchitecture = (
       id: `excalidraw-edge-${element.id}`,
       from,
       to,
+      sourcePort: edgePorts.sourcePort,
+      targetPort: edgePorts.targetPort,
       label: normalizeExcalidrawLabel(element.text) || undefined,
       style
     });
@@ -317,9 +426,11 @@ const parseMermaidToArchitecture = ({
   });
 
   const generated = architectureFromMermaid(architecture, text, now);
+  const direction = inferMermaidFlowDirection(text);
+  const layoutedNodes = applyMermaidFlowLayout(generated.nodes, generated.edges, direction);
   return {
     ...generated,
-    nodes: generated.nodes.map((node) => ({
+    nodes: layoutedNodes.map((node) => ({
       ...node,
       color: getNodeKindColor(node.kind)
     }))
@@ -355,29 +466,147 @@ const parseDrawIoToArchitecture = async ({
 };
 
 const mapDrawIoNodes = (cells: readonly DrawIoCell[]): readonly ArchitectureNode[] => {
-  const nodeCells = cells.filter(isDrawIoVertexCell);
-  const presentIds = new Set(nodeCells.map((cell) => cell.id));
+  const nodeCells = cells
+    .filter(isDrawIoVertexCell)
+    .filter((cell) => cell.id !== "0" && cell.id !== "1");
+  const draftByCellId = new Map<string, Readonly<{
+    cell: DrawIoVertexCell;
+    index: number;
+    kind: ArchitectureNodeKind;
+    size: Readonly<{ width: number; height: number }>;
+    color: string;
+    label: string;
+  }>>();
+
+  for (const [index, cell] of nodeCells.entries()) {
+    const kind = inferDrawIoNodeKind(cell);
+    draftByCellId.set(cell.id, {
+      cell,
+      index,
+      kind,
+      size: normalizeNodeSize(kind, cell.geometry),
+      color: inferDrawIoColor(kind, cell.style),
+      label: cell.value || getDefaultLabel(kind)
+    });
+  }
+
+  const childCountByParentCellId = new Map<string, number>();
+  for (const draft of draftByCellId.values()) {
+    const parentCellId = draft.cell.parentId;
+    if (!parentCellId || !draftByCellId.has(parentCellId)) continue;
+    childCountByParentCellId.set(parentCellId, (childCountByParentCellId.get(parentCellId) ?? 0) + 1);
+  }
+
+  const explicitParentByCellId = new Map<string, string>();
+  for (const draft of draftByCellId.values()) {
+    const parentCellId = draft.cell.parentId;
+    if (!parentCellId || !draftByCellId.has(parentCellId)) continue;
+    explicitParentByCellId.set(draft.cell.id, parentCellId);
+  }
+
+  const resolvedParentByCellId = new Map(explicitParentByCellId);
+  const allDrafts = [...draftByCellId.values()];
+  for (const draft of allDrafts) {
+    if (resolvedParentByCellId.has(draft.cell.id)) continue;
+    const fallbackParentId = findContainingDrawIoParentCellId(
+      draft,
+      allDrafts,
+      childCountByParentCellId
+    );
+    if (fallbackParentId) resolvedParentByCellId.set(draft.cell.id, fallbackParentId);
+  }
+
+  const resolvedByCellId = new Map<string, Readonly<{
+    node: ArchitectureNode;
+    absolutePosition: Readonly<{ x: number; y: number }>;
+  }>>();
+  const resolving = new Set<string>();
+
+  const resolve = (cellId: string): Readonly<{
+    node: ArchitectureNode;
+    absolutePosition: Readonly<{ x: number; y: number }>;
+  }> => {
+    const cached = resolvedByCellId.get(cellId);
+    if (cached) return cached;
+    const draft = draftByCellId.get(cellId);
+    if (!draft) {
+      const fallbackNode: ArchitectureNode = {
+        id: `drawio-${cellId}`,
+        kind: "system",
+        label: "Node",
+        position: { x: 0, y: 0 },
+        size: { width: 190, height: 92 },
+        color: getNodeKindColor("system")
+      };
+      const fallback = { node: fallbackNode, absolutePosition: { x: 0, y: 0 } };
+      resolvedByCellId.set(cellId, fallback);
+      return fallback;
+    }
+
+    if (resolving.has(cellId)) {
+      const fallbackPosition = {
+        x: Number.isFinite(draft.cell.geometry.x) ? draft.cell.geometry.x : 0,
+        y: Number.isFinite(draft.cell.geometry.y) ? draft.cell.geometry.y : 0
+      };
+      const fallbackNode: ArchitectureNode = {
+        id: `drawio-${cellId}`,
+        kind: draft.kind,
+        label: draft.label,
+        position: fallbackPosition,
+        size: draft.size,
+        color: draft.color
+      };
+      const fallback = {
+        node: fallbackNode,
+        absolutePosition: fallbackPosition
+      };
+      resolvedByCellId.set(cellId, fallback);
+      return fallback;
+    }
+
+    resolving.add(cellId);
+    const parentCellId = resolvedParentByCellId.get(cellId);
+    const parentResolved = parentCellId ? resolve(parentCellId) : null;
+    const parentGeometry = parentCellId ? draftByCellId.get(parentCellId)?.cell.geometry : undefined;
+    const localPosition = resolveDrawIoLocalPosition(
+      draft,
+      parentResolved?.absolutePosition,
+      parentGeometry
+    );
+    const absolutePosition = parentResolved
+      ? {
+          x: parentResolved.absolutePosition.x + localPosition.x,
+          y: parentResolved.absolutePosition.y + localPosition.y
+        }
+      : localPosition;
+
+    const parentKind = parentResolved?.node.kind ?? null;
+    const hasChildren = (childCountByParentCellId.get(cellId) ?? 0) > 0;
+    const resolvedKind = hasChildren
+      ? promoteDrawIoContainerKind(draft.kind, draft.label, parentKind)
+      : draft.kind;
+
+    const node: ArchitectureNode = {
+      id: `drawio-${draft.cell.id}`,
+      kind: resolvedKind,
+      label: draft.label,
+      parentId: parentResolved ? parentResolved.node.id : undefined,
+      position: localPosition,
+      size: draft.size,
+      color: draft.color
+    };
+
+    const resolved = { node, absolutePosition };
+    resolvedByCellId.set(cellId, resolved);
+    resolving.delete(cellId);
+    return resolved;
+  };
+
+  for (const draft of allDrafts) resolve(draft.cell.id);
 
   return nodeCells
-    .map((cell, index) => {
-      const kind = inferDrawIoNodeKind(cell);
-      const size = normalizeNodeSize(kind, cell.geometry);
-      return {
-        id: `drawio-${cell.id}`,
-        kind,
-        label: cell.value || getDefaultLabel(kind),
-        parentId: cell.parentId && presentIds.has(cell.parentId)
-          ? `drawio-${cell.parentId}`
-          : undefined,
-        position: {
-          x: Number.isFinite(cell.geometry.x) ? cell.geometry.x : 120 + (index % 4) * 240,
-          y: Number.isFinite(cell.geometry.y) ? cell.geometry.y : 120 + Math.floor(index / 4) * 140
-        },
-        size,
-        color: inferDrawIoColor(kind, cell.style)
-      };
-    })
-    .filter((node) => node.id !== "drawio-0" && node.id !== "drawio-1");
+    .map((cell) => resolvedByCellId.get(cell.id)?.node)
+    .filter((node): node is ArchitectureNode => Boolean(node));
 };
 
 const mapDrawIoEdges = (
@@ -397,12 +626,147 @@ const mapDrawIoEdges = (
       id: `drawio-edge-${cell.id}`,
       from,
       to,
+      sourcePort: inferDrawIoEdgePortSide(cell.style, "source") ?? undefined,
+      targetPort: inferDrawIoEdgePortSide(cell.style, "target") ?? undefined,
       label: cell.value || undefined,
       style: inferDrawIoEdgeStyle(cell.style)
     });
   }
 
   return edges;
+};
+
+const findContainingDrawIoParentCellId = (
+  child: Readonly<{
+    cell: DrawIoVertexCell;
+    kind: ArchitectureNodeKind;
+    label: string;
+  }>,
+  candidates: readonly Readonly<{
+    cell: DrawIoVertexCell;
+    kind: ArchitectureNodeKind;
+    label: string;
+  }>[],
+  childCountByParentCellId: ReadonlyMap<string, number>
+): string | null => {
+  const childX = child.cell.geometry.x;
+  const childY = child.cell.geometry.y;
+  const childWidth = child.cell.geometry.width;
+  const childHeight = child.cell.geometry.height;
+  if (![childX, childY, childWidth, childHeight].every(Number.isFinite)) return null;
+
+  let bestParentId: string | null = null;
+  let bestArea = Number.POSITIVE_INFINITY;
+
+  for (const candidate of candidates) {
+    if (candidate.cell.id === child.cell.id) continue;
+    const parentKind = promoteDrawIoContainerKind(candidate.kind, candidate.label, null);
+    const hasChildren = (childCountByParentCellId.get(candidate.cell.id) ?? 0) > 0;
+    if (!isContainerNodeKind(parentKind) && !hasChildren) continue;
+
+    const px = candidate.cell.geometry.x;
+    const py = candidate.cell.geometry.y;
+    const pw = candidate.cell.geometry.width;
+    const ph = candidate.cell.geometry.height;
+    if (![px, py, pw, ph].every(Number.isFinite)) continue;
+    if (pw <= 0 || ph <= 0) continue;
+
+    const tolerance = 8;
+    const isInside =
+      childX >= px - tolerance
+      && childY >= py - tolerance
+      && childX + childWidth <= px + pw + tolerance
+      && childY + childHeight <= py + ph + tolerance;
+    if (!isInside) continue;
+
+    const area = pw * ph;
+    if (area < bestArea) {
+      bestArea = area;
+      bestParentId = candidate.cell.id;
+    }
+  }
+
+  return bestParentId;
+};
+
+const resolveDrawIoLocalPosition = (
+  draft: Readonly<{
+    cell: DrawIoVertexCell;
+    index: number;
+    size: Readonly<{ width: number; height: number }>;
+  }>,
+  parentAbsolutePosition?: Readonly<{ x: number; y: number }>,
+  parentGeometry?: Readonly<{ x: number; y: number; width: number; height: number; relative?: boolean }>
+): Readonly<{ x: number; y: number }> => {
+  const fallback = {
+    x: 120 + (draft.index % 4) * 240,
+    y: 120 + Math.floor(draft.index / 4) * 140
+  };
+  const rawX = Number.isFinite(draft.cell.geometry.x) ? draft.cell.geometry.x : fallback.x;
+  const rawY = Number.isFinite(draft.cell.geometry.y) ? draft.cell.geometry.y : fallback.y;
+  if (!parentAbsolutePosition || !parentGeometry) {
+    return { x: rawX, y: rawY };
+  }
+
+  if (draft.cell.geometry.relative) {
+    return { x: rawX, y: rawY };
+  }
+
+  // draw.io costuma gravar geometria local ao parent; alguns exporters gravam absoluto.
+  const localCandidate = { x: rawX, y: rawY };
+  const absoluteCandidate = {
+    x: rawX - parentAbsolutePosition.x,
+    y: rawY - parentAbsolutePosition.y
+  };
+  const scoreCandidate = (candidate: Readonly<{ x: number; y: number }>): number => {
+    const leftOverflow = Math.max(0, -candidate.x);
+    const topOverflow = Math.max(0, -candidate.y);
+    const rightOverflow = Math.max(0, candidate.x + draft.size.width - parentGeometry.width);
+    const bottomOverflow = Math.max(0, candidate.y + draft.size.height - parentGeometry.height);
+    return leftOverflow + topOverflow + rightOverflow + bottomOverflow;
+  };
+  const localScore = scoreCandidate(localCandidate);
+  const absoluteScore = scoreCandidate(absoluteCandidate);
+  if (absoluteScore + 4 < localScore) return absoluteCandidate;
+  return localCandidate;
+};
+
+const promoteDrawIoContainerKind = (
+  kind: ArchitectureNodeKind,
+  label: string,
+  parentKind: ArchitectureNodeKind | null
+): ArchitectureNodeKind => {
+  if (isContainerNodeKind(kind)) return kind;
+  const inferredFromLabel = inferKindFromLabel(label);
+  if (isContainerNodeKind(inferredFromLabel)) return inferredFromLabel;
+
+  if (parentKind === "aws-account") return "aws-region";
+  if (parentKind === "aws-region") return "aws-vpc";
+  if (parentKind === "aws-vpc") return "aws-subnet";
+  if (parentKind === "cluster" || parentKind === "aws-eks") return "cluster-namespace";
+  return "group-container";
+};
+
+const inferDrawIoEdgePortSide = (
+  styleText: string,
+  role: "source" | "target"
+): ArchitectureEdge["sourcePort"] | null => {
+  const style = parseStyle(styleText);
+  const xKey = role === "source" ? "exitX" : "entryX";
+  const yKey = role === "source" ? "exitY" : "entryY";
+  const x = parseNumber(style[xKey] ?? null, Number.NaN);
+  const y = parseNumber(style[yKey] ?? null, Number.NaN);
+
+  const hasX = Number.isFinite(x);
+  const hasY = Number.isFinite(y);
+  if (!hasX && !hasY) return null;
+  if (hasX && !hasY) return x < 0.5 ? "left" : "right";
+  if (!hasX && hasY) return y < 0.5 ? "top" : "bottom";
+
+  const deltaX = Math.abs(x - 0.5);
+  const deltaY = Math.abs(y - 0.5);
+  if (deltaX >= deltaY) return x < 0.5 ? "left" : "right";
+  return y < 0.5 ? "top" : "bottom";
 };
 
 const inferDrawIoNodeKind = (cell: DrawIoCell): ArchitectureNodeKind => {
@@ -427,6 +791,14 @@ const inferDrawIoNodeKind = (cell: DrawIoCell): ArchitectureNodeKind => {
     if (value.includes("module")) return "code-module";
     if (value.includes("folder")) return "code-folder";
     if (value.includes("cloud")) return "cloud-provider";
+    return "group-container";
+  }
+
+  if (shape.includes("group")) {
+    if (value.includes("vpc")) return "aws-vpc";
+    if (value.includes("subnet")) return "aws-subnet";
+    if (value.includes("region")) return "aws-region";
+    if (value.includes("account")) return "aws-account";
     return "group-container";
   }
 
@@ -464,8 +836,123 @@ const inferDrawIoEdgeStyle = (styleText: string): ArchitectureEdgeStyle => {
     ? (style.strokeColor as string)
     : "#111827";
   const animated = style.flowAnimation === "1";
+  const bidirectional = style.startArrow !== undefined && style.startArrow !== "none";
 
-  return { path, line, color, animated, bidirectional: false };
+  return { path, line, color, animated, bidirectional };
+};
+
+const inferMermaidFlowDirection = (source: string): MermaidFlowDirection => {
+  for (const rawLine of source.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (line.length === 0 || line.startsWith("%%")) continue;
+    const match = line.match(/^(graph|flowchart)\s+([A-Za-z]{2})\b/i);
+    if (!match) continue;
+    const token = match[2]?.toUpperCase();
+    if (token === "RL") return "RL";
+    if (token === "TB") return "TB";
+    if (token === "BT") return "BT";
+    return "LR";
+  }
+  return "LR";
+};
+
+const applyMermaidFlowLayout = (
+  nodes: readonly ArchitectureNode[],
+  edges: readonly ArchitectureEdge[],
+  direction: MermaidFlowDirection
+): readonly ArchitectureNode[] => {
+  if (nodes.length === 0) return nodes;
+
+  const nodeIds = nodes.map((node) => node.id);
+  const nodeOrder = new Map(nodeIds.map((id, index) => [id, index] as const));
+  const outgoing = new Map<string, string[]>();
+  const incomingCount = new Map<string, number>();
+
+  for (const nodeId of nodeIds) {
+    outgoing.set(nodeId, []);
+    incomingCount.set(nodeId, 0);
+  }
+
+  for (const edge of edges) {
+    if (!outgoing.has(edge.from) || !incomingCount.has(edge.to)) continue;
+    outgoing.get(edge.from)?.push(edge.to);
+    incomingCount.set(edge.to, (incomingCount.get(edge.to) ?? 0) + 1);
+  }
+
+  const layerById = new Map<string, number>();
+  const queue = nodeIds
+    .filter((nodeId) => (incomingCount.get(nodeId) ?? 0) === 0)
+    .sort((left, right) => (nodeOrder.get(left) ?? 0) - (nodeOrder.get(right) ?? 0));
+
+  while (queue.length > 0) {
+    const currentId = queue.shift();
+    if (!currentId) continue;
+    const currentLayer = layerById.get(currentId) ?? 0;
+    layerById.set(currentId, currentLayer);
+    const targets = outgoing.get(currentId) ?? [];
+    for (const targetId of targets) {
+      const nextLayer = Math.max(layerById.get(targetId) ?? 0, currentLayer + 1);
+      layerById.set(targetId, nextLayer);
+      const nextIncoming = (incomingCount.get(targetId) ?? 0) - 1;
+      incomingCount.set(targetId, nextIncoming);
+      if (nextIncoming === 0) queue.push(targetId);
+    }
+  }
+
+  // Ciclos e nós desconectados mantêm ordem de leitura.
+  for (const nodeId of nodeIds) {
+    if (layerById.has(nodeId)) continue;
+    const maxAssignedLayer = Math.max(0, ...layerById.values());
+    layerById.set(nodeId, maxAssignedLayer + 1);
+  }
+
+  const layerBuckets = new Map<number, string[]>();
+  for (const nodeId of nodeIds) {
+    const layer = layerById.get(nodeId) ?? 0;
+    const bucket = layerBuckets.get(layer) ?? [];
+    bucket.push(nodeId);
+    layerBuckets.set(layer, bucket);
+  }
+
+  for (const bucket of layerBuckets.values()) {
+    bucket.sort((left, right) => (nodeOrder.get(left) ?? 0) - (nodeOrder.get(right) ?? 0));
+  }
+
+  const orderedLayers = [...layerBuckets.keys()].sort((left, right) => left - right);
+  const maxLayer = orderedLayers.at(-1) ?? 0;
+  const layerDistance = 280;
+  const laneDistance = 190;
+  const baseX = 120;
+  const baseY = 120;
+  const positionByNodeId = new Map<string, Readonly<{ x: number; y: number }>>();
+
+  for (const layer of orderedLayers) {
+    const lane = layerBuckets.get(layer) ?? [];
+    lane.forEach((nodeId, laneIndex) => {
+      let x = baseX;
+      let y = baseY;
+      const layerIndex = direction === "RL" || direction === "BT" ? maxLayer - layer : layer;
+
+      if (direction === "LR" || direction === "RL") {
+        x += layerIndex * layerDistance;
+        y += laneIndex * laneDistance;
+      } else {
+        x += laneIndex * layerDistance;
+        y += layerIndex * laneDistance;
+      }
+
+      positionByNodeId.set(nodeId, { x, y });
+    });
+  }
+
+  return nodes.map((node) => {
+    const position = positionByNodeId.get(node.id);
+    if (!position) return node;
+    return {
+      ...node,
+      position
+    };
+  });
 };
 
 const inferKindFromLabel = (label: string): ArchitectureNodeKind => {
@@ -622,7 +1109,8 @@ const readDrawIoCells = (doc: XMLDocument): readonly DrawIoCell[] => {
             x: parseNumber(geometryElement.getAttribute("x"), Number.NaN),
             y: parseNumber(geometryElement.getAttribute("y"), Number.NaN),
             width: parseNumber(geometryElement.getAttribute("width"), Number.NaN),
-            height: parseNumber(geometryElement.getAttribute("height"), Number.NaN)
+            height: parseNumber(geometryElement.getAttribute("height"), Number.NaN),
+            relative: geometryElement.getAttribute("relative") === "1"
           }
         : undefined
     });
@@ -876,6 +1364,108 @@ const inferExcalidrawColor = (kind: ArchitectureNodeKind, element: ExcalidrawEle
   return templateByKind.get(kind)?.color ?? "#f8fafc";
 };
 
+const findContainingExcalidrawParentElementId = (
+  child: Readonly<{
+    element: ExcalidrawElement;
+    size: Readonly<{ width: number; height: number }>;
+    absolutePosition: Readonly<{ x: number; y: number }>;
+  }>,
+  containers: readonly Readonly<{
+    element: ExcalidrawElement;
+    size: Readonly<{ width: number; height: number }>;
+    absolutePosition: Readonly<{ x: number; y: number }>;
+  }>[]
+): string | null => {
+  let bestId: string | null = null;
+  let bestArea = Number.POSITIVE_INFINITY;
+  const cx = child.absolutePosition.x;
+  const cy = child.absolutePosition.y;
+  const cw = child.size.width;
+  const ch = child.size.height;
+  const tolerance = 8;
+
+  for (const container of containers) {
+    if (container.element.id === child.element.id) continue;
+    const px = container.absolutePosition.x;
+    const py = container.absolutePosition.y;
+    const pw = container.size.width;
+    const ph = container.size.height;
+    if (pw <= 0 || ph <= 0) continue;
+    const fits =
+      cx >= px - tolerance
+      && cy >= py - tolerance
+      && cx + cw <= px + pw + tolerance
+      && cy + ch <= py + ph + tolerance;
+    if (!fits) continue;
+    const area = pw * ph;
+    if (area < bestArea) {
+      bestArea = area;
+      bestId = container.element.id;
+    }
+  }
+
+  return bestId;
+};
+
+const inferExcalidrawEdgePorts = ({
+  fromNodeId,
+  toNodeId,
+  startPoint,
+  endPoint,
+  nodeDrafts,
+  resolvedNodesByElementId
+}: Readonly<{
+  fromNodeId: string;
+  toNodeId: string;
+  startPoint: Readonly<{ x: number; y: number }> | null;
+  endPoint: Readonly<{ x: number; y: number }> | null;
+  nodeDrafts: readonly Readonly<{
+    element: ExcalidrawElement;
+    nodeId: string;
+    size: Readonly<{ width: number; height: number }>;
+  }>[];
+  resolvedNodesByElementId: ReadonlyMap<string, Readonly<{
+    node: ArchitectureNode;
+    absolutePosition: Readonly<{ x: number; y: number }>;
+  }>>;
+}>): Readonly<{
+  sourcePort: ArchitectureEdge["sourcePort"] | undefined;
+  targetPort: ArchitectureEdge["targetPort"] | undefined;
+}> => {
+  const fromDraft = nodeDrafts.find((draft) => draft.nodeId === fromNodeId);
+  const toDraft = nodeDrafts.find((draft) => draft.nodeId === toNodeId);
+  if (!fromDraft || !toDraft) {
+    return { sourcePort: undefined, targetPort: undefined };
+  }
+
+  const fromResolved = resolvedNodesByElementId.get(fromDraft.element.id);
+  const toResolved = resolvedNodesByElementId.get(toDraft.element.id);
+  if (!fromResolved || !toResolved) {
+    return { sourcePort: undefined, targetPort: undefined };
+  }
+
+  const sourcePort = startPoint
+    ? inferNodePortFromPoint(startPoint, fromResolved.absolutePosition, fromResolved.node.size)
+    : undefined;
+  const targetPort = endPoint
+    ? inferNodePortFromPoint(endPoint, toResolved.absolutePosition, toResolved.node.size)
+    : undefined;
+  return { sourcePort, targetPort };
+};
+
+const inferNodePortFromPoint = (
+  point: Readonly<{ x: number; y: number }>,
+  nodeAbsolutePosition: Readonly<{ x: number; y: number }>,
+  nodeSize: Readonly<{ width: number; height: number }>
+): ArchitectureEdge["sourcePort"] => {
+  const centerX = nodeAbsolutePosition.x + nodeSize.width / 2;
+  const centerY = nodeAbsolutePosition.y + nodeSize.height / 2;
+  const dx = point.x - centerX;
+  const dy = point.y - centerY;
+  if (Math.abs(dx) >= Math.abs(dy)) return dx < 0 ? "left" : "right";
+  return dy < 0 ? "top" : "bottom";
+};
+
 const findNearestNodeId = (
   point: Readonly<{ x: number; y: number }>,
   centers: ReadonlyMap<string, Readonly<{ x: number; y: number }>>,
@@ -909,9 +1499,10 @@ const normalizeNodeSize = (
   const width = geometry.width > 0 ? geometry.width : defaults.width;
   const height = geometry.height > 0 ? geometry.height : defaults.height;
 
-  return isContainerNodeKind(kind)
-    ? { width: Math.max(width, defaults.width), height: Math.max(height, defaults.height) }
-    : { width: Math.max(width, 72), height: Math.max(height, 36) };
+  return {
+    width: Math.max(width, 72),
+    height: Math.max(height, 36)
+  };
 };
 
 const extractAwsKind = (resIcon: string): ArchitectureNodeKind | null => {

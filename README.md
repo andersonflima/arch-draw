@@ -39,6 +39,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Blocos que suportam conteúdo técnico (código, YAML, SQL, Mermaid e configurações).
 - Exportação de diagramas em múltiplos formatos (`.archdraw.json`, `.drawio`, `.excalidraw`, `.mmd`, SVG e PNG).
 - Importação de diagramas em múltiplos formatos (`.archdraw`, JSON, `.drawio`/XML, `.excalidraw`, `.mmd`/`.mermaid`).
+- Import mantém hierarquia visual e fluxo entre plataformas (draw.io, Excalidraw e Mermaid), convertendo para tipos internos sem desmontar a estrutura original.
 - Painel de propriedades contextual no ponto do clique, com ajustes globais de fonte de labels, fonte de âncoras e tamanho de ícones.
 - Compartilhamento por arquivo com link dedicado (`?share=...`) e modo de acesso controlado no servidor (`edit` ou `read-only`), sem expor permissão no URL.
 - Persistência backend em pacotes locais comprimidos (`.adpk`) com manifest de busca por sessão, arquivo e share, sem dependência de banco relacional para salvar arquiteturas.
