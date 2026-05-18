@@ -771,7 +771,10 @@
             <label class="property-field">
               {{ t("properties.language") }}
               <select [ngModel]="getNodeCodeLanguage(node)" (ngModelChange)="updateSelectedCodeLanguage($event)">
-                <option *ngFor="let option of codeLanguageOptions; trackBy: trackByCodeLanguageOption">
+                <option
+                  *ngFor="let option of codeLanguageOptions; trackBy: trackByCodeLanguageOption"
+                  [ngValue]="option.value"
+                >
                   {{ option.label }}
                 </option>
               </select>
