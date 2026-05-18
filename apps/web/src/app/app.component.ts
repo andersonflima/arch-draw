@@ -81,6 +81,7 @@ import {
   insertMermaidLineBreak,
   removeMermaidIndent
 } from "../features/editor/mermaid-editor";
+import { getBidirectionalPairPrimaryEdge } from "../features/editor/edge-bidirectional";
 
 type DragState = Readonly<{
   pointerOffsets: ReadonlyMap<string, Readonly<{ x: number; y: number }>>;
@@ -7635,14 +7636,7 @@ spec:
       || (edge.from === to && edge.to === from)
     );
     if (pairEdges.length > 0) {
-      const forwardEdge = pairEdges.find((edge) => edge.from === from && edge.to === to) ?? null;
-      const reverseEdge = pairEdges.find((edge) => edge.from === to && edge.to === from) ?? null;
-
-      // Same direction already exists: avoid duplicate edge creation.
-      if (forwardEdge && !reverseEdge) return;
-
-      // Reverse direction exists: collapse the pair into a single bidirectional edge.
-      const pairPrimaryEdge = reverseEdge ?? forwardEdge;
+      const pairPrimaryEdge = getBidirectionalPairPrimaryEdge(pairEdges, from, to);
       if (pairPrimaryEdge) {
         this.enableBidirectionalForNodePair(pairPrimaryEdge.id, from, to);
         return;

@@ -15,6 +15,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Áreas de clique das portas de conexão calibradas para maior precisão: gesto na direção da porta inicia vínculo, enquanto o drag de elementos minimizados inicia apenas sobre o ícone do elemento.
 - Âncoras de conexão mantêm prioridade de clique sobre controles de resize quando o elemento está selecionado.
 - Quando há conexão em ambos os sentidos entre dois nós, o diagrama consolida em uma única âncora bidirecional com animação ping-pong (ida e volta), sem duplicar linhas.
+- Ao tentar conectar novamente dois elementos que já possuem vínculo direcional, o vínculo existente é promovido para bidirecional.
 - Camadas visuais por hierarquia de container (filhos sempre acima do container pai), sem elevar z-index apenas por foco de clique.
 - Quando um bloco de código está expandido, ele recebe precedência de camada sobre irmãos no mesmo contexto para evitar sobreposição visual do conteúdo aberto.
 - Supressão automática de linhas de conexão que encostam na área de contato durante drag and drop, com área visível para elementos minimizados/maximizados (inclusive dentro de containers) e sem ativação por foco/clique/abertura.
