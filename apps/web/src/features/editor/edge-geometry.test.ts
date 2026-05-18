@@ -4,6 +4,7 @@ import {
   buildEdgeHalfPath,
   buildFullEdgePath,
   getEdgeLeadPoint,
+  getEdgeTerminalBundle,
   getEdgeTerminalAxis,
   offsetSegmentEndpoints
 } from "./edge-geometry";
@@ -20,6 +21,21 @@ describe("edge geometry", () => {
     const center = { x: 100, y: 100 };
     expect(getEdgeLeadPoint({ x: 200, y: 100 }, center, "horizontal", 20)).toEqual({ x: 220, y: 100 });
     expect(getEdgeLeadPoint({ x: 100, y: 40 }, center, "vertical", 20)).toEqual({ x: 100, y: 20 });
+  });
+
+  it("builds terminal bundle points outward from the same anchor", () => {
+    expect(getEdgeTerminalBundle(
+      { x: 200, y: 100 },
+      { x: 100, y: 100 },
+      "horizontal",
+      9,
+      8,
+      12
+    )).toEqual({
+      terminal: { x: 209, y: 100 },
+      trunk: { x: 217, y: 100 },
+      lead: { x: 229, y: 100 }
+    });
   });
 
   it("keeps endpoint offsets inside segment length", () => {

@@ -67,6 +67,7 @@ import {
 import {
   type EdgePoint,
   getEdgeLeadPoint as getEdgeLeadPointCore,
+  getEdgeTerminalBundle,
   getEdgeTerminalAxis as getEdgeTerminalAxisCore,
   offsetSegmentEndpoints as offsetSegmentEndpointsCore,
   type EdgeFlowDirection
@@ -5996,29 +5997,34 @@ spec:
     const startAxis = this.getEdgeTerminalAxis(source, rawStart, sourceCenter);
     const endAxis = this.getEdgeTerminalAxis(target, rawEnd, targetCenter);
     const style = normalizeEdgeStyle(edge.style);
-    const start = style.bidirectional
-      ? this.offsetTerminalPoint(rawStart, sourceCenter, startAxis, EDGE_MARKER_CLEARANCE, false)
-      : rawStart;
-    const end = this.offsetTerminalPoint(rawEnd, targetCenter, endAxis, EDGE_MARKER_CLEARANCE, false);
-    // Keep a shared terminal trunk near the contact bubble so all connections
-    // unify at the same point, then fan out farther from the node.
-    const startTrunk = this.offsetTerminalPoint(start, sourceCenter, startAxis, EDGE_ENDPOINT_STUB, false);
-    const endTrunk = this.offsetTerminalPoint(end, targetCenter, endAxis, EDGE_ENDPOINT_STUB, true);
-    const spreadDistance = EDGE_ENDPOINT_STUB + EDGE_BUNDLE_TRUNK_LENGTH;
-    const startLeadBase = this.offsetTerminalPoint(start, sourceCenter, startAxis, spreadDistance, false);
-    const endLeadBase = this.offsetTerminalPoint(end, targetCenter, endAxis, spreadDistance, true);
-    const startLead = this.offsetPointByConnectionSide(startLeadBase, sourceSide, sourceLaneOffset);
-    const endLead = this.offsetPointByConnectionSide(endLeadBase, targetSide, targetLaneOffset);
+    const sourceBundle = getEdgeTerminalBundle(
+      rawStart,
+      sourceCenter,
+      startAxis,
+      style.bidirectional ? EDGE_MARKER_CLEARANCE : 0,
+      EDGE_ENDPOINT_STUB,
+      EDGE_BUNDLE_TRUNK_LENGTH
+    );
+    const targetBundle = getEdgeTerminalBundle(
+      rawEnd,
+      targetCenter,
+      endAxis,
+      EDGE_MARKER_CLEARANCE,
+      EDGE_ENDPOINT_STUB,
+      EDGE_BUNDLE_TRUNK_LENGTH
+    );
+    const startLead = this.offsetPointByConnectionSide(sourceBundle.lead, sourceSide, sourceLaneOffset);
+    const endLead = this.offsetPointByConnectionSide(targetBundle.lead, targetSide, targetLaneOffset);
     return {
       sourceId: source.id,
       targetId: target.id,
       sourceSide,
       targetSide,
-      start,
-      startTrunk,
+      start: sourceBundle.terminal,
+      startTrunk: sourceBundle.trunk,
       startLead,
-      end,
-      endTrunk,
+      end: targetBundle.terminal,
+      endTrunk: targetBundle.trunk,
       endLead,
       style
     };
@@ -6650,24 +6656,6 @@ spec:
     distance: number
   ): Readonly<{ x: number; y: number }> {
     return getEdgeLeadPointCore(point, center, axis, distance);
-  }
-
-  private offsetTerminalPoint(
-    start: Readonly<{ x: number; y: number }>,
-    center: Readonly<{ x: number; y: number }>,
-    axis: "horizontal" | "vertical",
-    distance: number,
-    towardCenter: boolean
-  ): Readonly<{ x: number; y: number }> {
-    if (distance <= 0) return start;
-    if (axis === "horizontal") {
-      const side = Math.sign(start.x - center.x) || 1;
-      const direction = towardCenter ? -side : side;
-      return { x: start.x + direction * distance, y: start.y };
-    }
-    const side = Math.sign(start.y - center.y) || 1;
-    const direction = towardCenter ? -side : side;
-    return { x: start.x, y: start.y + direction * distance };
   }
 
   private offsetSegmentEndpoints(

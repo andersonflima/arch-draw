@@ -3,6 +3,11 @@ import type { ArchitectureEdgePath } from "@arch-draw/domain";
 export type EdgePoint = Readonly<{ x: number; y: number }>;
 export type EdgeFlowDirection = "forward" | "reverse";
 export type EdgeTerminalAxis = "horizontal" | "vertical";
+export type EdgeTerminalBundle = Readonly<{
+  terminal: EdgePoint;
+  trunk: EdgePoint;
+  lead: EdgePoint;
+}>;
 
 export const getEdgeTerminalAxis = (
   nodeSize: Readonly<{ width: number; height: number }>,
@@ -31,6 +36,24 @@ export const getEdgeLeadPoint = (
 
   const direction = Math.sign(point.y - center.y) || 1;
   return { x: point.x, y: point.y + direction * distance };
+};
+
+export const getEdgeTerminalBundle = (
+  rawTerminal: EdgePoint,
+  center: EdgePoint,
+  axis: EdgeTerminalAxis,
+  markerClearance: number,
+  terminalStub: number,
+  trunkLength: number
+): EdgeTerminalBundle => {
+  const terminal = getEdgeLeadPoint(rawTerminal, center, axis, markerClearance);
+  const leadDistance = terminalStub + trunkLength;
+
+  return {
+    terminal,
+    trunk: getEdgeLeadPoint(terminal, center, axis, terminalStub),
+    lead: getEdgeLeadPoint(terminal, center, axis, leadDistance)
+  };
 };
 
 export const buildFullEdgePath = (
