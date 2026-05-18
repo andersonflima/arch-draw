@@ -1233,9 +1233,13 @@ app-flow-document-node {
   align-items: start;
   justify-items: center;
   gap: 6px;
-  min-width: 108px;
+  min-width: max(
+    108px,
+    calc(var(--leaf-node-icon-size, 70px) + (var(--node-port-edge-offset, 22px) * 2) + 12px)
+  );
   min-height: 114px;
-  padding: 4px 6px;
+  padding: 4px 10px;
+  --node-port-edge-offset: 22px;
   transform: none;
 }
 
@@ -1246,10 +1250,12 @@ app-flow-document-node {
 
 .architecture-node--leaf .architecture-node__header {
   position: relative;
-  width: 100%;
+  width: fit-content;
   margin: 0;
   padding: 0;
-  justify-content: center;
+  display: grid;
+  place-items: center;
+  justify-self: center;
 }
 
 .architecture-node--leaf .architecture-node__kind-label {
@@ -2588,8 +2594,8 @@ app-flow-document-node {
   content: "";
   position: absolute;
   top: 50%;
-  width: var(--node-port-dot-size, 14px);
-  height: var(--node-port-dot-size, 14px);
+  width: var(--node-port-dot-size, 18px);
+  height: var(--node-port-dot-size, 18px);
   border: 2px solid #111827;
   border-radius: 999px;
   background: #ffffff;
@@ -2752,19 +2758,19 @@ app-flow-document-node {
   width: 100%;
   height: 100%;
   border: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   background: transparent;
   color: #111827;
   font-size: 12px;
   font-weight: 700;
-  line-height: 1.35;
+  line-height: 1.2;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 5px 10px;
+  padding: 7px 14px;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .canvas-edge-label-editor {
