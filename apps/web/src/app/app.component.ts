@@ -1716,6 +1716,9 @@ export class AppComponent implements OnDestroy {
   private readonly renderableNodeIdsCache = new Map<string, boolean>();
   private readonly renderableEdgeIdsCache = new Map<string, boolean>();
   private renderableCanvasRectCache: CanvasRect | null = null;
+  private containerRenderableNodesCache: readonly CanvasNode[] | null = null;
+  private leafRenderableNodesCache: readonly CanvasNode[] | null = null;
+  private renderableEdgesCache: readonly CanvasEdge[] | null = null;
   private readonly leafNodeLabelKnockoutRectCache = new Map<string, CanvasRect | null>();
   private edgeClipContainersCache: readonly CanvasNode[] | null = null;
   private leafLabelKnockoutNodesCache: readonly CanvasNode[] | null = null;
@@ -4528,6 +4531,28 @@ LIMIT 50;`;
     return this.isVisibleNode(node) && !this.rendersAsContainer(node);
   }
 
+  getContainerRenderableNodes(): readonly CanvasNode[] {
+    if (this.containerRenderableNodesCache) return this.containerRenderableNodesCache;
+    this.containerRenderableNodesCache = this.nodes.filter((node) =>
+      this.isContainerLayerNode(node) && this.isRenderableNode(node)
+    );
+    return this.containerRenderableNodesCache;
+  }
+
+  getLeafRenderableNodes(): readonly CanvasNode[] {
+    if (this.leafRenderableNodesCache) return this.leafRenderableNodesCache;
+    this.leafRenderableNodesCache = this.nodes.filter((node) =>
+      this.isLeafLayerNode(node) && this.isRenderableNode(node)
+    );
+    return this.leafRenderableNodesCache;
+  }
+
+  getRenderableEdges(): readonly CanvasEdge[] {
+    if (this.renderableEdgesCache) return this.renderableEdgesCache;
+    this.renderableEdgesCache = this.edges.filter((edge) => this.isRenderableEdge(edge));
+    return this.renderableEdgesCache;
+  }
+
   getMarqueeStyle(): Record<string, string> {
     if (!this.marqueeState) return {};
     const rect = this.normalizeRect(this.marqueeState.start, this.marqueeState.current);
@@ -4858,6 +4883,12 @@ LIMIT 50;`;
 
   getEdgeContextOverlayColor(): string {
     return "#111827";
+  }
+
+  shouldRenderEdgeContextOverlays(): boolean {
+    if (!this.isDarkMode) return false;
+    if (this.isEdgeRenderingSuspended()) return false;
+    return !this.shouldReduceCanvasDetailForPerformance();
   }
 
   getEdgeContainerClipPathId(containerId: string): string {
@@ -11210,6 +11241,9 @@ spec:
     this.renderableNodeIdsCache.clear();
     this.renderableEdgeIdsCache.clear();
     this.renderableCanvasRectCache = null;
+    this.containerRenderableNodesCache = null;
+    this.leafRenderableNodesCache = null;
+    this.renderableEdgesCache = null;
     this.leafNodeLabelKnockoutRectCache.clear();
     this.edgeClipContainersCache = null;
     this.leafLabelKnockoutNodesCache = null;
@@ -11226,6 +11260,9 @@ spec:
     this.renderableNodeIdsCache.clear();
     this.renderableEdgeIdsCache.clear();
     this.renderableCanvasRectCache = null;
+    this.containerRenderableNodesCache = null;
+    this.leafRenderableNodesCache = null;
+    this.renderableEdgesCache = null;
     this.edgeLabelDyCache.clear();
     this.edgeLabelStartOffsetCache.clear();
     this.edgeLabelPositionCache.clear();
@@ -11283,6 +11320,9 @@ spec:
     this.renderableNodeIdsCache.clear();
     this.renderableEdgeIdsCache.clear();
     this.renderableCanvasRectCache = null;
+    this.containerRenderableNodesCache = null;
+    this.leafRenderableNodesCache = null;
+    this.renderableEdgesCache = null;
   }
 
   private syncTutorialStepRequirements(): void {
