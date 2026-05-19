@@ -327,10 +327,10 @@ const EDGE_OBSTACLE_QUERY_MIN_MARGIN = 260;
 const EDGE_OBSTACLE_QUERY_MAX_MARGIN = 1400;
 const EDGE_ROUTE_FAST_PATH_OBSTACLE_THRESHOLD = 36;
 const EDGE_ROUTE_FAST_MODE_WINDOW_MS = 900;
-const EDGE_ROUTE_FORCE_FAST_COMPLEXITY_THRESHOLD = 42;
-const EDGE_SIMPLIFIED_OBSTACLE_COMPLEXITY_THRESHOLD = 40;
-const EDGE_LABEL_HIDE_COMPLEXITY_THRESHOLD = 40;
-const EDGE_LABEL_HIDE_ZOOM_THRESHOLD = 0.5;
+const EDGE_ROUTE_FORCE_FAST_COMPLEXITY_THRESHOLD = 30;
+const EDGE_SIMPLIFIED_OBSTACLE_COMPLEXITY_THRESHOLD = 30;
+const EDGE_LABEL_HIDE_COMPLEXITY_THRESHOLD = 26;
+const EDGE_LABEL_HIDE_ZOOM_THRESHOLD = 0.7;
 const EDGE_RENDER_SUSPEND_ON_EXPAND_MS = 220;
 const EDGE_PROXIMITY_SUPPRESSION_RADIUS = 190;
 const EDGE_ROUTE_MAX_PASSES = 10;
@@ -370,7 +370,9 @@ const VIEWPORT_CHECKPOINT_STORAGE_PREFIX = "arch-draw.viewport";
 const VIEWPORT_CHECKPOINT_DEBOUNCE_MS = 260;
 const VIEWPORT_NAVIGATION_PERSIST_DEBOUNCE_MS = 180;
 const DEFAULT_INITIAL_CANVAS_ZOOM = 0.27;
-const CANVAS_RENDER_VIEWPORT_MARGIN_PX = 720;
+const CANVAS_RENDER_VIEWPORT_MARGIN_PX = 520;
+const CANVAS_RENDER_WORLD_MARGIN_MIN = 280;
+const CANVAS_RENDER_WORLD_MARGIN_MAX = 1600;
 const CONTAINER_CHILD_PADDING_LEFT = 16;
 const CONTAINER_CHILD_PADDING_RIGHT = 16;
 const CONTAINER_CHILD_PADDING_TOP = 56;
@@ -1033,6 +1035,20 @@ const TUTORIAL_GUIDES_EN_LOCALIZATION: Readonly<Record<string, Readonly<{
     ]
   }
 };
+
+const TUTORIAL_GUIDES_EN: readonly TutorialGuide[] = TUTORIAL_GUIDES.map((guide) => {
+  const localized = TUTORIAL_GUIDES_EN_LOCALIZATION[guide.id];
+  if (!localized) return guide;
+  return {
+    ...guide,
+    title: localized.title,
+    description: localized.description,
+    steps: guide.steps.map((step, index) => ({
+      ...step,
+      text: localized.steps[index] ?? step.text
+    }))
+  };
+});
 
 const VPC_FIELDS: readonly NodePropertyField[] = [
   { key: "cidrBlock", label: "CIDR Block", placeholder: "10.0.0.0/16" },
@@ -1698,6 +1714,8 @@ export class AppComponent implements OnDestroy {
   private readonly leafNodeLabelKnockoutRectCache = new Map<string, CanvasRect | null>();
   private edgeClipContainersCache: readonly CanvasNode[] | null = null;
   private leafLabelKnockoutNodesCache: readonly CanvasNode[] | null = null;
+  private visibleContainerLayerCeilingZIndexCache: number | null = null;
+  private containerContextEdgeLayerZIndexCache: number | null = null;
   private edgeLabelMeasureContext: CanvasRenderingContext2D | null | undefined;
   private tutorialActiveTargetSelector: string | null = null;
   private tutorialActiveTargetElement: HTMLElement | null = null;
@@ -1823,19 +1841,7 @@ export class AppComponent implements OnDestroy {
 
   get tutorialGuides(): readonly TutorialGuide[] {
     if (this.uiLanguage === "pt-BR") return TUTORIAL_GUIDES;
-    return TUTORIAL_GUIDES.map((guide) => {
-      const localized = TUTORIAL_GUIDES_EN_LOCALIZATION[guide.id];
-      if (!localized) return guide;
-      return {
-        ...guide,
-        title: localized.title,
-        description: localized.description,
-        steps: guide.steps.map((step, index) => ({
-          ...step,
-          text: localized.steps[index] ?? step.text
-        }))
-      };
-    });
+    return TUTORIAL_GUIDES_EN;
   }
 
   getCurrentLanguageShortLabel(): string {
@@ -4033,7 +4039,7 @@ LIMIT 50;`;
   }
 
   canResizeNode(nodeId: string): boolean {
-    const node = this.nodes.find((candidate) => candidate.id === nodeId);
+    const node = this.getNodeById(nodeId);
     if (node && (this.isContainerCollapsed(node) || this.isCodeSnippetCollapsed(node))) return false;
     return (
       this.selectedNodeIds.length === 1 &&
@@ -4119,6 +4125,10 @@ LIMIT 50;`;
   }
 
   private getVisibleContainerLayerCeilingZIndex(): number {
+    if (this.visibleContainerLayerCeilingZIndexCache !== null) {
+      return this.visibleContainerLayerCeilingZIndexCache;
+    }
+
     let ceiling = NODE_LAYER_CONTAINER_BASE_Z_INDEX;
     for (const node of this.nodes) {
       if (!this.isVisibleNode(node)) continue;
@@ -4127,10 +4137,15 @@ LIMIT 50;`;
       const zIndex = NODE_LAYER_CONTAINER_BASE_Z_INDEX + depth * NODE_LAYER_DEPTH_STEP;
       ceiling = Math.max(ceiling, zIndex);
     }
+    this.visibleContainerLayerCeilingZIndexCache = ceiling;
     return ceiling;
   }
 
   private getContainerContextEdgeLayerZIndex(): number {
+    if (this.containerContextEdgeLayerZIndexCache !== null) {
+      return this.containerContextEdgeLayerZIndexCache;
+    }
+
     let deepestSharedContainerDepth = -1;
     for (const edge of this.edges) {
       if (!this.isVisibleEdge(edge)) continue;
@@ -4143,8 +4158,14 @@ LIMIT 50;`;
         this.getSharedContainerContextDepth(fromNode, toNode)
       );
     }
-    if (deepestSharedContainerDepth < 0) return 0;
-    return EDGE_LAYER_CONTAINER_CONTEXT_BASE_Z_INDEX + deepestSharedContainerDepth * NODE_LAYER_DEPTH_STEP;
+    if (deepestSharedContainerDepth < 0) {
+      this.containerContextEdgeLayerZIndexCache = 0;
+      return 0;
+    }
+
+    const resolved = EDGE_LAYER_CONTAINER_CONTEXT_BASE_Z_INDEX + deepestSharedContainerDepth * NODE_LAYER_DEPTH_STEP;
+    this.containerContextEdgeLayerZIndexCache = resolved;
+    return resolved;
   }
 
   private getSharedContainerContextDepth(fromNode: CanvasNode, toNode: CanvasNode): number {
@@ -4155,7 +4176,7 @@ LIMIT 50;`;
     const toSet = new Set(toLineage);
     return fromLineage.reduce((deepest, containerId) => {
       if (!toSet.has(containerId)) return deepest;
-      const container = this.nodes.find((candidate) => candidate.id === containerId);
+      const container = this.getNodeById(containerId);
       if (!container) return deepest;
       return Math.max(deepest, this.getNodeHierarchyDepth(container));
     }, 0);
@@ -4200,7 +4221,7 @@ LIMIT 50;`;
 
   private getConnectionTargetContactAreaIndicatorStyle(): Record<string, string> | null {
     if (!this.connectionDragState || !this.connectionDragTarget) return null;
-    const targetNode = this.nodes.find((node) => node.id === this.connectionDragTarget?.nodeId);
+    const targetNode = this.getNodeById(this.connectionDragTarget.nodeId);
     if (!targetNode || !this.isVisibleNode(targetNode)) return null;
     return this.buildContactAreaIndicatorStyle([targetNode]);
   }
@@ -4233,13 +4254,13 @@ LIMIT 50;`;
     if (this.connectionDragState) return this.connectionDragState.current;
 
     if (this.resizeState) {
-      const node = this.nodes.find((candidate) => candidate.id === this.resizeState?.nodeId);
+      const node = this.getNodeById(this.resizeState.nodeId);
       return node ? this.getNodeCenter(node) : null;
     }
 
     if (this.dragState?.hasMoved && this.selectedNodeIds.length > 0) {
       const centers = this.selectedNodeIds
-        .map((nodeId) => this.nodes.find((candidate) => candidate.id === nodeId))
+        .map((nodeId) => this.getNodeById(nodeId))
         .filter((node): node is CanvasNode => Boolean(node))
         .map((node) => this.getNodeCenter(node));
       if (centers.length === 0) return this.dragState.startPoint;
@@ -4274,7 +4295,7 @@ LIMIT 50;`;
 
     if (this.isDragDropContactAreaActive()) {
       for (const nodeId of this.selectedNodeIds) {
-        const node = this.nodes.find((candidate) => candidate.id === nodeId);
+        const node = this.getNodeById(nodeId);
         if (!node || !this.isVisibleNode(node)) continue;
         nodesById.set(node.id, node);
       }
@@ -4282,7 +4303,7 @@ LIMIT 50;`;
 
     const resizeState = this.resizeState;
     if (resizeState) {
-      const resizingNode = this.nodes.find((candidate) => candidate.id === resizeState.nodeId);
+      const resizingNode = this.getNodeById(resizeState.nodeId);
       if (resizingNode && this.isVisibleNode(resizingNode)) {
         nodesById.set(resizingNode.id, resizingNode);
       }
@@ -4300,7 +4321,7 @@ LIMIT 50;`;
 
   private getTutorialContactAreaFocusNode(): CanvasNode | null {
     const selectedNode = this.selectedNodeIds
-      .map((nodeId) => this.nodes.find((candidate) => candidate.id === nodeId))
+      .map((nodeId) => this.getNodeById(nodeId))
       .find((candidate): candidate is CanvasNode => Boolean(candidate));
     if (selectedNode && this.isVisibleNode(selectedNode)) return selectedNode;
 
@@ -4371,7 +4392,7 @@ LIMIT 50;`;
     let currentNodeId: string | null = nodeId;
     while (currentNodeId && !visited.has(currentNodeId)) {
       visited.add(currentNodeId);
-      const currentNode = this.nodes.find((candidate) => candidate.id === currentNodeId);
+      const currentNode = this.getNodeById(currentNodeId);
       if (!currentNode) return false;
       const parentId = currentNode.parentId ?? null;
       if (!parentId) return false;
@@ -4563,7 +4584,7 @@ LIMIT 50;`;
   getConnectionPreviewMarkerEnd(): string {
     const dragState = this.connectionDragState;
     if (!dragState) return "url(#edge-preview-arrow-right)";
-    const source = this.nodes.find((node) => node.id === dragState.sourceId);
+    const source = this.getNodeById(dragState.sourceId);
     if (!source) return "url(#edge-preview-arrow-right)";
     const sourceAbsolute = this.getAbsolutePosition(source);
     return dragState.current.x < sourceAbsolute.x
@@ -7089,6 +7110,18 @@ apiKeys:
   private shouldReduceCanvasDetailForPerformance(): boolean {
     if (this.renderAllCanvasForExport) return false;
     const complexity = this.nodes.length + this.edges.length;
+    const isInteracting = Boolean(
+      this.panState
+      || this.dragState?.hasMoved
+      || this.connectionDragState
+      || this.resizeState
+      || this.isMiniMapDragging()
+    );
+
+    if (isInteracting && complexity >= Math.floor(EDGE_LABEL_HIDE_COMPLEXITY_THRESHOLD * 0.65)) {
+      return true;
+    }
+
     return complexity >= EDGE_LABEL_HIDE_COMPLEXITY_THRESHOLD
       && this.canvasZoom <= EDGE_LABEL_HIDE_ZOOM_THRESHOLD;
   }
@@ -8223,7 +8256,21 @@ apiKeys:
     if (this.renderableCanvasRectCache) return this.renderableCanvasRectCache;
 
     const visible = this.getVisibleCanvasRect();
-    const margin = CANVAS_RENDER_VIEWPORT_MARGIN_PX / Math.max(this.canvasZoom, 0.001);
+    const baseMargin = CANVAS_RENDER_VIEWPORT_MARGIN_PX / Math.max(this.canvasZoom, 0.001);
+    const isInteracting = Boolean(
+      this.panState
+      || this.dragState?.hasMoved
+      || this.connectionDragState
+      || this.resizeState
+      || this.isMiniMapDragging()
+    );
+    const clampedMargin = Math.min(
+      CANVAS_RENDER_WORLD_MARGIN_MAX,
+      Math.max(CANVAS_RENDER_WORLD_MARGIN_MIN, baseMargin)
+    );
+    const margin = isInteracting
+      ? Math.max(CANVAS_RENDER_WORLD_MARGIN_MIN, clampedMargin * 0.75)
+      : clampedMargin;
     const rect = {
       x: visible.left - margin,
       y: visible.top - margin,
@@ -11130,6 +11177,8 @@ spec:
     this.leafNodeLabelKnockoutRectCache.clear();
     this.edgeClipContainersCache = null;
     this.leafLabelKnockoutNodesCache = null;
+    this.visibleContainerLayerCeilingZIndexCache = null;
+    this.containerContextEdgeLayerZIndexCache = null;
     this.codeLanguageBadgeCache.clear();
   }
 
@@ -11148,6 +11197,8 @@ spec:
     this.leafNodeLabelKnockoutRectCache.clear();
     this.edgeClipContainersCache = null;
     this.leafLabelKnockoutNodesCache = null;
+    this.visibleContainerLayerCeilingZIndexCache = null;
+    this.containerContextEdgeLayerZIndexCache = null;
   }
 
   private consumeViewChangeState(): Readonly<{ documentChanged: boolean; requiresRouteCacheReset: boolean }> {
