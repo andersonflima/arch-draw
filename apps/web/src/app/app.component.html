@@ -661,9 +661,8 @@
 
       <section class="canvas-map" [attr.aria-label]="t('map.aria')" (click)="$event.stopPropagation()">
         <div #miniMap class="mini-map" data-tour="mini-map" (pointerdown)="onMiniMapPointerDown($event)">
-          <ng-container *ngFor="let node of nodes; trackBy: trackByNodeId">
+          <ng-container *ngFor="let node of getMiniMapRenderableNodes(); trackBy: trackByNodeId">
             <span
-              *ngIf="isVisibleNode(node)"
               [class]="isContainerLayerNode(node) ? 'mini-map-node mini-map-node--container' : 'mini-map-node'"
               [ngStyle]="getMiniMapNodeStyle(node)"
             ></span>

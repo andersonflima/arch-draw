@@ -332,6 +332,8 @@ const EDGE_SIMPLIFIED_OBSTACLE_COMPLEXITY_THRESHOLD = 30;
 const EDGE_LABEL_HIDE_COMPLEXITY_THRESHOLD = 26;
 const EDGE_LABEL_HIDE_ZOOM_THRESHOLD = 0.7;
 const EDGE_RENDER_SUSPEND_ON_EXPAND_MS = 220;
+const EDGE_RENDER_NAVIGATION_SUSPEND_MS = 140;
+const EDGE_RENDER_NAVIGATION_COMPLEXITY_THRESHOLD = 24;
 const EDGE_PROXIMITY_SUPPRESSION_RADIUS = 190;
 const EDGE_ROUTE_MAX_PASSES = 10;
 const EDGE_SIDE_LANE_GAP = 14;
@@ -373,6 +375,7 @@ const DEFAULT_INITIAL_CANVAS_ZOOM = 0.27;
 const CANVAS_RENDER_VIEWPORT_MARGIN_PX = 520;
 const CANVAS_RENDER_WORLD_MARGIN_MIN = 280;
 const CANVAS_RENDER_WORLD_MARGIN_MAX = 1600;
+const MINI_MAP_DENSE_COMPLEXITY_THRESHOLD = 180;
 const CONTAINER_CHILD_PADDING_LEFT = 16;
 const CONTAINER_CHILD_PADDING_RIGHT = 16;
 const CONTAINER_CHILD_PADDING_TOP = 56;
@@ -1662,6 +1665,7 @@ export class AppComponent implements OnDestroy {
   private edgeRouteFastModeTimer: ReturnType<typeof setTimeout> | null = null;
   private edgeRenderSuspendUntil = 0;
   private edgeRenderSuspendTimer: ReturnType<typeof setTimeout> | null = null;
+  private edgeNavigationSuspendUntil = 0;
   private renderAllCanvasForExport = false;
   private lastCollaborationSignature = "";
   private lastCollaborationViewSignature = "";
@@ -1708,6 +1712,7 @@ export class AppComponent implements OnDestroy {
   private readonly nodeStyleCache = new Map<string, Record<string, string | number>>();
   private readonly nodeClassCache = new Map<string, string>();
   private readonly miniMapNodeStyleCache = new Map<string, Record<string, string>>();
+  private miniMapRenderableNodesCache: readonly CanvasNode[] | null = null;
   private readonly renderableNodeIdsCache = new Map<string, boolean>();
   private readonly renderableEdgeIdsCache = new Map<string, boolean>();
   private renderableCanvasRectCache: CanvasRect | null = null;
@@ -3544,6 +3549,7 @@ LIMIT 50;`;
   onCanvasWheel(event: WheelEvent): void {
     if (event.ctrlKey || event.metaKey) {
       event.preventDefault();
+      this.markEdgeNavigationStressWindow();
       const zoomFactor = Math.exp(-event.deltaY * WHEEL_ZOOM_SENSITIVITY);
       this.zoomTo(
         this.clampZoom(this.canvasZoom * zoomFactor),
@@ -3554,6 +3560,7 @@ LIMIT 50;`;
 
     if (this.shouldIgnoreCanvasWheelPan(event)) return;
     event.preventDefault();
+    this.markEdgeNavigationStressWindow();
     this.canvasPan = panCanvasFromWheel(
       this.canvasPan,
       {
@@ -3944,6 +3951,24 @@ LIMIT 50;`;
     };
   }
 
+  getMiniMapRenderableNodes(): readonly CanvasNode[] {
+    if (this.miniMapRenderableNodesCache) return this.miniMapRenderableNodesCache;
+
+    const complexity = this.nodes.length + this.edges.length;
+    if (complexity < MINI_MAP_DENSE_COMPLEXITY_THRESHOLD) {
+      this.miniMapRenderableNodesCache = this.nodes.filter((node) => this.isVisibleNode(node));
+      return this.miniMapRenderableNodesCache;
+    }
+
+    const selectedIds = new Set(this.selectedNodeIds);
+    if (this.selectedNodeId) selectedIds.add(this.selectedNodeId);
+
+    this.miniMapRenderableNodesCache = this.nodes.filter((node) =>
+      this.isVisibleNode(node) && (this.rendersAsContainer(node) || selectedIds.has(node.id))
+    );
+    return this.miniMapRenderableNodesCache;
+  }
+
   getMiniMapNodeStyle(node: CanvasNode): Record<string, string> {
     const cached = this.miniMapNodeStyleCache.get(node.id);
     if (cached) return cached;
@@ -4009,6 +4034,7 @@ LIMIT 50;`;
         ? { x: localPoint.x - viewportCenter.x, y: localPoint.y - viewportCenter.y }
         : { x: 0, y: 0 }
     };
+    this.markEdgeNavigationStressWindow(EDGE_RENDER_NAVIGATION_SUSPEND_MS + 40);
     this.panCanvasFromMiniMapPoint(localPoint, this.miniMapDragState.offsetFromViewportCenter);
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
   }
@@ -7141,7 +7167,15 @@ apiKeys:
   }
 
   private isEdgeRenderingSuspended(): boolean {
-    return Date.now() < this.edgeRenderSuspendUntil;
+    if (Date.now() < this.edgeRenderSuspendUntil) return true;
+    const complexity = this.nodes.length + this.edges.length;
+    if (complexity < EDGE_RENDER_NAVIGATION_COMPLEXITY_THRESHOLD) return false;
+    return Date.now() < this.edgeNavigationSuspendUntil;
+  }
+
+  private markEdgeNavigationStressWindow(durationMs = EDGE_RENDER_NAVIGATION_SUSPEND_MS): void {
+    const now = Date.now();
+    this.edgeNavigationSuspendUntil = Math.max(this.edgeNavigationSuspendUntil, now + durationMs);
   }
 
   private shouldRerouteConstrainedEdgePath(
@@ -8865,6 +8899,7 @@ apiKeys:
       startPointer: { x: event.clientX, y: event.clientY },
       startPan: this.canvasPan
     };
+    this.markEdgeNavigationStressWindow();
     (event.currentTarget as HTMLElement | null)?.setPointerCapture?.(event.pointerId);
     this.markTransientUiChanged();
   }
@@ -11171,6 +11206,7 @@ spec:
     this.nodeStyleCache.clear();
     this.nodeClassCache.clear();
     this.miniMapNodeStyleCache.clear();
+    this.miniMapRenderableNodesCache = null;
     this.renderableNodeIdsCache.clear();
     this.renderableEdgeIdsCache.clear();
     this.renderableCanvasRectCache = null;
@@ -11186,6 +11222,7 @@ spec:
     this.nodeStyleCache.clear();
     this.nodeClassCache.clear();
     this.miniMapNodeStyleCache.clear();
+    this.miniMapRenderableNodesCache = null;
     this.renderableNodeIdsCache.clear();
     this.renderableEdgeIdsCache.clear();
     this.renderableCanvasRectCache = null;
