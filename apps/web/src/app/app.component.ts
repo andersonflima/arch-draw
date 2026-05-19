@@ -177,6 +177,20 @@ type PaletteCategoryGroup = Readonly<{
   templates: readonly NodeTemplate[];
 }>;
 
+type ExampleTemplateId =
+  | "complete"
+  | "aws-cross-account"
+  | "cluster-platform"
+  | "software-platform"
+  | "aws-serverless-saas"
+  | "aws-data-platform"
+  | "software-microservices";
+
+type ExampleTemplateOption = Readonly<{
+  id: ExampleTemplateId;
+  labelKey: string;
+}>;
+
 type CollaborationSessionState = Readonly<{
   shareId: string;
   clientId: string;
@@ -309,6 +323,17 @@ const EDGE_OBSTACLE_PADDING = 18;
 const EDGE_CONTACT_SHIELD_PADDING = 0;
 const LEAF_ICON_OBSTACLE_PADDING = 20;
 const EDGE_OBSTACLE_CLEARANCE = 30;
+const EDGE_OBSTACLE_QUERY_MIN_MARGIN = 260;
+const EDGE_OBSTACLE_QUERY_MAX_MARGIN = 1400;
+const EDGE_ROUTE_FAST_PATH_OBSTACLE_THRESHOLD = 36;
+const EDGE_ROUTE_FAST_MODE_WINDOW_MS = 900;
+const EDGE_ROUTE_FORCE_FAST_COMPLEXITY_THRESHOLD = 30;
+const EDGE_SIMPLIFIED_OBSTACLE_COMPLEXITY_THRESHOLD = 30;
+const EDGE_LABEL_HIDE_COMPLEXITY_THRESHOLD = 26;
+const EDGE_LABEL_HIDE_ZOOM_THRESHOLD = 0.7;
+const EDGE_RENDER_SUSPEND_ON_EXPAND_MS = 220;
+const EDGE_RENDER_NAVIGATION_SUSPEND_MS = 140;
+const EDGE_RENDER_NAVIGATION_COMPLEXITY_THRESHOLD = 24;
 const EDGE_PROXIMITY_SUPPRESSION_RADIUS = 190;
 const EDGE_ROUTE_MAX_PASSES = 10;
 const EDGE_SIDE_LANE_GAP = 14;
@@ -347,7 +372,10 @@ const VIEWPORT_CHECKPOINT_STORAGE_PREFIX = "arch-draw.viewport";
 const VIEWPORT_CHECKPOINT_DEBOUNCE_MS = 260;
 const VIEWPORT_NAVIGATION_PERSIST_DEBOUNCE_MS = 180;
 const DEFAULT_INITIAL_CANVAS_ZOOM = 0.27;
-const CANVAS_RENDER_VIEWPORT_MARGIN_PX = 720;
+const CANVAS_RENDER_VIEWPORT_MARGIN_PX = 520;
+const CANVAS_RENDER_WORLD_MARGIN_MIN = 280;
+const CANVAS_RENDER_WORLD_MARGIN_MAX = 1600;
+const MINI_MAP_DENSE_COMPLEXITY_THRESHOLD = 180;
 const CONTAINER_CHILD_PADDING_LEFT = 16;
 const CONTAINER_CHILD_PADDING_RIGHT = 16;
 const CONTAINER_CHILD_PADDING_TOP = 56;
@@ -360,10 +388,19 @@ const EXPORT_EXCLUDED_SELECTORS = [
   ".node-inline-label-input"
 ] as const;
 const EXPORT_BOUNDS_MARGIN = 48;
+const EXAMPLE_TEMPLATE_OPTIONS: readonly ExampleTemplateOption[] = [
+  { id: "complete", labelKey: "example.complete" },
+  { id: "aws-cross-account", labelKey: "example.awsCrossAccount" },
+  { id: "cluster-platform", labelKey: "example.clusterPlatform" },
+  { id: "software-platform", labelKey: "example.softwarePlatform" },
+  { id: "aws-serverless-saas", labelKey: "example.awsServerlessSaas" },
+  { id: "aws-data-platform", labelKey: "example.awsDataPlatform" },
+  { id: "software-microservices", labelKey: "example.softwareMicroservices" }
+] as const;
 const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, string>>>> = {
   "pt-BR": {
     "toolbar.new": "Nova",
-    "toolbar.example": "Exemplo",
+    "toolbar.example": "Exemplos",
     "toolbar.save": "Salvar",
     "toolbar.export": "Exportar",
     "toolbar.share": "Compartilhar",
@@ -375,11 +412,28 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "toolbar.showLeftMenu": "Mostrar menu",
     "toolbar.clear": "Limpar",
     "toolbar.languageSwitch": "Idioma",
+    "example.complete": "Completo: Macro para Micro",
+    "example.awsCrossAccount": "AWS Cross-Account",
+    "example.clusterPlatform": "Cluster Kubernetes",
+    "example.softwarePlatform": "Plataforma de Software",
+    "example.awsServerlessSaas": "AWS Serverless SaaS",
+    "example.awsDataPlatform": "AWS Data Platform",
+    "example.softwareMicroservices": "Microserviços de Software",
     "title.newArchitecture": "Nova arquitetura",
     "title.demoTemplate": "Exemplo Completo: Macro para Micro",
     "title.demoDescription": "Modelo em camadas com borda pública, app, dados e observabilidade.",
-    "title.stressTemplate": "Stress Test: Todos os Blocos e Junções",
-    "title.stressDescription": "Matriz de cobertura completa com todos os blocos e conexões cruzadas para testes de usabilidade.",
+    "title.awsCrossAccountTemplate": "AWS Cross-Account: Evento e Dados",
+    "title.awsCrossAccountDescription": "Dois accounts com integração por EventBridge, SQS e políticas de acesso entre contas.",
+    "title.clusterPlatformTemplate": "Cluster Kubernetes: Plataforma de Produção",
+    "title.clusterPlatformDescription": "Entrada via ingress, serviços por namespace, filas internas e observabilidade centralizada.",
+    "title.softwarePlatformTemplate": "Software: Frontend, BFF e Serviços",
+    "title.softwarePlatformDescription": "Arquitetura de software com frontend, BFF, APIs, worker assíncrono e pipeline de entrega.",
+    "title.awsServerlessSaasTemplate": "AWS Serverless SaaS: API e Eventos",
+    "title.awsServerlessSaasDescription": "SaaS serverless com borda global, API, filas, orquestração e persistência orientada a eventos.",
+    "title.awsDataPlatformTemplate": "AWS Data Platform: Ingestão e Analytics",
+    "title.awsDataPlatformDescription": "Plataforma de dados com ingestão contínua, processamento por etapas e camadas de consumo analítico.",
+    "title.softwareMicroservicesTemplate": "Software: Microserviços Orientados a Eventos",
+    "title.softwareMicroservicesDescription": "Arquitetura de domínio com serviços independentes, event streaming, cache e observabilidade central.",
     "export.archdraw": "Exportar Arch-Draw",
     "export.drawio": "Exportar draw.io",
     "export.excalidraw": "Exportar Excalidraw",
@@ -402,7 +456,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "toast.checkpointCreated": "Checkpoint criado!",
     "toast.autoSaved": "Auto save concluido!",
     "toast.missionComplete": "Missão completa!",
-    "toast.memoryCleared": "Memória limpa!",
+    "toast.memoryCleared": "Cartao de memoria apagado",
     "toast.shareLinkCopied": "Link de compartilhamento copiado!",
     "toast.close": "Fechar notificação",
     "toast.closeError": "Fechar erro",
@@ -473,7 +527,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "status.sessionEnded": "Sessão encerrada",
     "status.newArchitectureCreated": "Nova arquitetura criada",
     "status.exampleCreated": "Exemplo completo criado",
-    "status.stressCreated": "Arquitetura de stress criada",
+    "status.exampleTemplateCreated": "Exemplo de arquitetura criado",
     "status.diagramDeleted": "Diagrama excluído",
     "status.noDiagramFound": "Nenhum diagrama encontrado",
     "status.architectureImported": "Arquitetura importada",
@@ -488,7 +542,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "status.operationFailed": "Operação falhou",
     "status.apiUnavailable": "API indisponível",
     "status.mermaidApplied": "Mermaid aplicado: +{nodes} nós, +{edges} vínculos",
-    "status.saved": "Salvo no SQLite",
+    "status.saved": "Salvo localmente",
     "status.noChanges": "Sem alterações para salvar",
     "status.exportedArchDraw": "Arquivo de compartilhamento exportado",
     "status.exportedSvg": "Arquivo SVG exportado",
@@ -504,6 +558,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "status.tutorialCompleted": "Tutorial concluído",
     "aria.newArchitecture": "Nova arquitetura",
     "aria.completeExample": "Criar exemplo completo",
+    "aria.examples": "Abrir exemplos de arquitetura",
     "aria.save": "Salvar",
     "aria.export": "Exportar diagramas",
     "aria.share": "Compartilhar arquivo atual",
@@ -515,7 +570,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
   },
   "en-US": {
     "toolbar.new": "New",
-    "toolbar.example": "Example",
+    "toolbar.example": "Examples",
     "toolbar.save": "Save",
     "toolbar.export": "Export",
     "toolbar.share": "Share",
@@ -527,11 +582,28 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "toolbar.showLeftMenu": "Show menu",
     "toolbar.clear": "Clear",
     "toolbar.languageSwitch": "Language",
+    "example.complete": "Complete: Macro to Micro",
+    "example.awsCrossAccount": "AWS Cross-Account",
+    "example.clusterPlatform": "Kubernetes Cluster",
+    "example.softwarePlatform": "Software Platform",
+    "example.awsServerlessSaas": "AWS Serverless SaaS",
+    "example.awsDataPlatform": "AWS Data Platform",
+    "example.softwareMicroservices": "Software Microservices",
     "title.newArchitecture": "New architecture",
     "title.demoTemplate": "Complete Example: Macro to Micro",
     "title.demoDescription": "Layered model with public edge, app, data, and observability.",
-    "title.stressTemplate": "Stress Test: All Blocks and Junctions",
-    "title.stressDescription": "Full coverage matrix with all blocks and cross-connections for usability testing.",
+    "title.awsCrossAccountTemplate": "AWS Cross-Account: Event and Data",
+    "title.awsCrossAccountDescription": "Two AWS accounts integrated by EventBridge, SQS, and cross-account access policies.",
+    "title.clusterPlatformTemplate": "Kubernetes Cluster: Production Platform",
+    "title.clusterPlatformDescription": "Ingress entrypoint, namespace services, internal queues, and centralized observability.",
+    "title.softwarePlatformTemplate": "Software: Frontend, BFF and Services",
+    "title.softwarePlatformDescription": "Software architecture with frontend, BFF, APIs, async workers, and delivery pipeline.",
+    "title.awsServerlessSaasTemplate": "AWS Serverless SaaS: API and Events",
+    "title.awsServerlessSaasDescription": "Serverless SaaS reference with global edge, API, queues, orchestration, and event-driven persistence.",
+    "title.awsDataPlatformTemplate": "AWS Data Platform: Ingestion and Analytics",
+    "title.awsDataPlatformDescription": "Data platform with continuous ingestion, staged processing, and analytical consumption layers.",
+    "title.softwareMicroservicesTemplate": "Software: Event-Driven Microservices",
+    "title.softwareMicroservicesDescription": "Domain architecture with independent services, event streaming, cache, and centralized observability.",
     "export.archdraw": "Export Arch-Draw",
     "export.drawio": "Export draw.io",
     "export.excalidraw": "Export Excalidraw",
@@ -554,7 +626,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "toast.checkpointCreated": "Checkpoint created!",
     "toast.autoSaved": "Auto save completed!",
     "toast.missionComplete": "Mission complete!",
-    "toast.memoryCleared": "Memory card cleared!",
+    "toast.memoryCleared": "Memory card erased",
     "toast.shareLinkCopied": "Share link copied!",
     "toast.close": "Close notification",
     "toast.closeError": "Close error",
@@ -625,7 +697,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "status.sessionEnded": "Session ended",
     "status.newArchitectureCreated": "New architecture created",
     "status.exampleCreated": "Complete example created",
-    "status.stressCreated": "Stress architecture created",
+    "status.exampleTemplateCreated": "Architecture example created",
     "status.diagramDeleted": "Diagram deleted",
     "status.noDiagramFound": "No diagram found",
     "status.architectureImported": "Architecture imported",
@@ -640,7 +712,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "status.operationFailed": "Operation failed",
     "status.apiUnavailable": "API unavailable",
     "status.mermaidApplied": "Mermaid applied: +{nodes} nodes, +{edges} links",
-    "status.saved": "Saved to SQLite",
+    "status.saved": "Saved locally",
     "status.noChanges": "No changes to save",
     "status.exportedArchDraw": "Share file exported",
     "status.exportedSvg": "SVG file exported",
@@ -656,6 +728,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "status.tutorialCompleted": "Tutorial completed",
     "aria.newArchitecture": "New architecture",
     "aria.completeExample": "Create complete example",
+    "aria.examples": "Open architecture examples",
     "aria.save": "Save",
     "aria.export": "Export diagrams",
     "aria.share": "Share current file",
@@ -965,6 +1038,20 @@ const TUTORIAL_GUIDES_EN_LOCALIZATION: Readonly<Record<string, Readonly<{
     ]
   }
 };
+
+const TUTORIAL_GUIDES_EN: readonly TutorialGuide[] = TUTORIAL_GUIDES.map((guide) => {
+  const localized = TUTORIAL_GUIDES_EN_LOCALIZATION[guide.id];
+  if (!localized) return guide;
+  return {
+    ...guide,
+    title: localized.title,
+    description: localized.description,
+    steps: guide.steps.map((step, index) => ({
+      ...step,
+      text: localized.steps[index] ?? step.text
+    }))
+  };
+});
 
 const VPC_FIELDS: readonly NodePropertyField[] = [
   { key: "cidrBlock", label: "CIDR Block", placeholder: "10.0.0.0/16" },
@@ -1499,6 +1586,7 @@ export class AppComponent implements OnDestroy {
   readonly edgeLines: readonly ArchitectureEdgeLineStyle[] = ["solid", "dashed", "dotted"];
   readonly edgeDirections: readonly EdgeDirection[] = ["left-to-right", "right-to-left", "both"];
   readonly codeLanguageOptions: readonly CodeLanguageOption[] = CODE_LANGUAGE_OPTIONS;
+  readonly exampleTemplateOptions: readonly ExampleTemplateOption[] = EXAMPLE_TEMPLATE_OPTIONS;
   readonly currentYear = new Date().getFullYear();
 
   summaries: readonly ArchitectureSummary[] = [];
@@ -1573,6 +1661,11 @@ export class AppComponent implements OnDestroy {
   private collaborationSyncQueued = false;
   private collaborationApplyingRemoteDocument = false;
   private collaborationApplyingRemoteView = false;
+  private edgeRouteFastModeUntil = 0;
+  private edgeRouteFastModeTimer: ReturnType<typeof setTimeout> | null = null;
+  private edgeRenderSuspendUntil = 0;
+  private edgeRenderSuspendTimer: ReturnType<typeof setTimeout> | null = null;
+  private edgeNavigationSuspendUntil = 0;
   private renderAllCanvasForExport = false;
   private lastCollaborationSignature = "";
   private lastCollaborationViewSignature = "";
@@ -1586,8 +1679,15 @@ export class AppComponent implements OnDestroy {
   private lastPersistedSignature = "";
   private lastCanvasTopologySignature = "";
   private history: EditorSnapshot[] = [];
+  private historySignatures: string[] = [];
   private historyIndex = -1;
   private applyingHistory = false;
+  private lastTrackedNodesRef: readonly CanvasNode[] = this.nodes;
+  private lastTrackedEdgesRef: readonly CanvasEdge[] = this.edges;
+  private lastTrackedArchitectureTitle = "";
+  private lastTrackedArchitectureDescription = "";
+  private lastTrackedMermaidDraft = this.mermaidDraft;
+  private lastTrackedNodeIconSize = this.nodeIconSize;
   private viewRenderFrame: number | null = null;
   private readonly nodePropertyFieldsCache = new Map<ArchitectureNodeKind, readonly NodePropertyField[]>();
   private readonly iconColorCache = new Map<string, string>();
@@ -1612,12 +1712,15 @@ export class AppComponent implements OnDestroy {
   private readonly nodeStyleCache = new Map<string, Record<string, string | number>>();
   private readonly nodeClassCache = new Map<string, string>();
   private readonly miniMapNodeStyleCache = new Map<string, Record<string, string>>();
+  private miniMapRenderableNodesCache: readonly CanvasNode[] | null = null;
   private readonly renderableNodeIdsCache = new Map<string, boolean>();
   private readonly renderableEdgeIdsCache = new Map<string, boolean>();
   private renderableCanvasRectCache: CanvasRect | null = null;
   private readonly leafNodeLabelKnockoutRectCache = new Map<string, CanvasRect | null>();
   private edgeClipContainersCache: readonly CanvasNode[] | null = null;
   private leafLabelKnockoutNodesCache: readonly CanvasNode[] | null = null;
+  private visibleContainerLayerCeilingZIndexCache: number | null = null;
+  private containerContextEdgeLayerZIndexCache: number | null = null;
   private edgeLabelMeasureContext: CanvasRenderingContext2D | null | undefined;
   private tutorialActiveTargetSelector: string | null = null;
   private tutorialActiveTargetElement: HTMLElement | null = null;
@@ -1641,6 +1744,10 @@ export class AppComponent implements OnDestroy {
 
   trackByTutorialGuideId(_index: number, guide: TutorialGuide): string {
     return guide.id;
+  }
+
+  trackByExampleTemplateId(_index: number, option: ExampleTemplateOption): ExampleTemplateId {
+    return option.id;
   }
 
   trackByPaletteCategory(_index: number, group: PaletteCategoryGroup): NodeTemplateCategory {
@@ -1692,6 +1799,14 @@ export class AppComponent implements OnDestroy {
       clearTimeout(this.successToastTimer);
       this.successToastTimer = null;
     }
+    if (this.edgeRouteFastModeTimer) {
+      clearTimeout(this.edgeRouteFastModeTimer);
+      this.edgeRouteFastModeTimer = null;
+    }
+    if (this.edgeRenderSuspendTimer) {
+      clearTimeout(this.edgeRenderSuspendTimer);
+      this.edgeRenderSuspendTimer = null;
+    }
     this.disconnectCollaborationStream();
     this.cancelCollaborationSync();
     this.cancelViewportNavigationPersist();
@@ -1731,19 +1846,7 @@ export class AppComponent implements OnDestroy {
 
   get tutorialGuides(): readonly TutorialGuide[] {
     if (this.uiLanguage === "pt-BR") return TUTORIAL_GUIDES;
-    return TUTORIAL_GUIDES.map((guide) => {
-      const localized = TUTORIAL_GUIDES_EN_LOCALIZATION[guide.id];
-      if (!localized) return guide;
-      return {
-        ...guide,
-        title: localized.title,
-        description: localized.description,
-        steps: guide.steps.map((step, index) => ({
-          ...step,
-          text: localized.steps[index] ?? step.text
-        }))
-      };
-    });
+    return TUTORIAL_GUIDES_EN;
   }
 
   getCurrentLanguageShortLabel(): string {
@@ -1799,31 +1902,28 @@ export class AppComponent implements OnDestroy {
   }
 
   async createCompleteExampleArchitecture(): Promise<void> {
-    if (!this.canEditArchitecture()) return;
-    await this.runSafely(async () => {
-      this.cancelAutoSave();
-      this.disconnectCollaborationSession();
-      const created = await api.createArchitecture(this.t("title.demoTemplate"));
-      const seeded = this.createFirstAccessArchitectureTemplate(created);
-      const saved = await api.saveArchitecture(seeded);
-      this.updateCurrent(saved);
-      await this.refreshSummaries();
-      this.status = this.t("status.exampleCreated");
-    });
+    await this.createExampleArchitecture("complete");
   }
 
-  async createStressTestArchitecture(): Promise<void> {
+  async createExampleArchitecture(templateId: ExampleTemplateId, event?: Event): Promise<void> {
     if (!this.canEditArchitecture()) return;
+    event?.preventDefault();
+    event?.stopPropagation();
     await this.runSafely(async () => {
       this.cancelAutoSave();
       this.disconnectCollaborationSession();
-      const created = await api.createArchitecture(this.t("title.stressTemplate"));
-      const seeded = this.createStressTestArchitectureTemplate(created);
+      const exampleTemplate = this.resolveExampleTemplate(templateId);
+      const created = await api.createArchitecture(this.t(exampleTemplate.titleKey));
+      const seeded = exampleTemplate.build(created);
       const saved = await api.saveArchitecture(seeded);
+      this.activateEdgeRouteFastMode(5000);
+      this.suspendEdgeRenderingTemporarily(900);
       this.updateCurrent(saved);
       await this.refreshSummaries();
-      this.status = this.t("status.stressCreated");
+      this.status = this.t("status.exampleTemplateCreated");
     });
+    const trigger = event?.currentTarget as HTMLElement | null;
+    trigger?.closest("details")?.removeAttribute("open");
   }
 
   async deleteCurrent(): Promise<void> {
@@ -2563,6 +2663,8 @@ export class AppComponent implements OnDestroy {
   onNodeDoubleClick(node: CanvasNode, event: MouseEvent): void {
     event.stopPropagation();
     if (this.isCodeSnippetCollapsed(node)) {
+      this.activateEdgeRouteFastMode(2200);
+      this.suspendEdgeRenderingTemporarily(520);
       this.setCodeSnippetCollapsed(node.id, false);
       this.maximizedNodeId = node.id;
       this.selectedNodeId = node.id;
@@ -2579,11 +2681,13 @@ export class AppComponent implements OnDestroy {
         clearTimeout(this.doubleClickHintTimer);
         this.doubleClickHintTimer = null;
       }
-      this.markViewChanged();
+      this.markCollapseToggleChanged();
       return;
     }
 
     if (this.isContainerCollapsed(node)) {
+      this.activateEdgeRouteFastMode(2200);
+      this.suspendEdgeRenderingTemporarily(520);
       this.setContainerCollapsed(node.id, false);
       this.maximizedNodeId = node.id;
       this.selectedNodeId = node.id;
@@ -2600,7 +2704,7 @@ export class AppComponent implements OnDestroy {
         clearTimeout(this.doubleClickHintTimer);
         this.doubleClickHintTimer = null;
       }
-      this.markViewChanged();
+      this.markCollapseToggleChanged();
       return;
     }
 
@@ -3445,6 +3549,7 @@ LIMIT 50;`;
   onCanvasWheel(event: WheelEvent): void {
     if (event.ctrlKey || event.metaKey) {
       event.preventDefault();
+      this.markEdgeNavigationStressWindow();
       const zoomFactor = Math.exp(-event.deltaY * WHEEL_ZOOM_SENSITIVITY);
       this.zoomTo(
         this.clampZoom(this.canvasZoom * zoomFactor),
@@ -3455,6 +3560,7 @@ LIMIT 50;`;
 
     if (this.shouldIgnoreCanvasWheelPan(event)) return;
     event.preventDefault();
+    this.markEdgeNavigationStressWindow();
     this.canvasPan = panCanvasFromWheel(
       this.canvasPan,
       {
@@ -3845,6 +3951,24 @@ LIMIT 50;`;
     };
   }
 
+  getMiniMapRenderableNodes(): readonly CanvasNode[] {
+    if (this.miniMapRenderableNodesCache) return this.miniMapRenderableNodesCache;
+
+    const complexity = this.nodes.length + this.edges.length;
+    if (complexity < MINI_MAP_DENSE_COMPLEXITY_THRESHOLD) {
+      this.miniMapRenderableNodesCache = this.nodes.filter((node) => this.isVisibleNode(node));
+      return this.miniMapRenderableNodesCache;
+    }
+
+    const selectedIds = new Set(this.selectedNodeIds);
+    if (this.selectedNodeId) selectedIds.add(this.selectedNodeId);
+
+    this.miniMapRenderableNodesCache = this.nodes.filter((node) =>
+      this.isVisibleNode(node) && (this.rendersAsContainer(node) || selectedIds.has(node.id))
+    );
+    return this.miniMapRenderableNodesCache;
+  }
+
   getMiniMapNodeStyle(node: CanvasNode): Record<string, string> {
     const cached = this.miniMapNodeStyleCache.get(node.id);
     if (cached) return cached;
@@ -3910,6 +4034,7 @@ LIMIT 50;`;
         ? { x: localPoint.x - viewportCenter.x, y: localPoint.y - viewportCenter.y }
         : { x: 0, y: 0 }
     };
+    this.markEdgeNavigationStressWindow(EDGE_RENDER_NAVIGATION_SUSPEND_MS + 40);
     this.panCanvasFromMiniMapPoint(localPoint, this.miniMapDragState.offsetFromViewportCenter);
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
   }
@@ -3940,7 +4065,7 @@ LIMIT 50;`;
   }
 
   canResizeNode(nodeId: string): boolean {
-    const node = this.nodes.find((candidate) => candidate.id === nodeId);
+    const node = this.getNodeById(nodeId);
     if (node && (this.isContainerCollapsed(node) || this.isCodeSnippetCollapsed(node))) return false;
     return (
       this.selectedNodeIds.length === 1 &&
@@ -3971,6 +4096,7 @@ LIMIT 50;`;
   }
 
   isRenderableEdge(edge: CanvasEdge): boolean {
+    if (this.isEdgeRenderingSuspended()) return false;
     if (this.renderAllCanvasForExport) return this.isVisibleEdge(edge);
     const cached = this.renderableEdgeIdsCache.get(edge.id);
     if (cached !== undefined) return cached;
@@ -4025,6 +4151,10 @@ LIMIT 50;`;
   }
 
   private getVisibleContainerLayerCeilingZIndex(): number {
+    if (this.visibleContainerLayerCeilingZIndexCache !== null) {
+      return this.visibleContainerLayerCeilingZIndexCache;
+    }
+
     let ceiling = NODE_LAYER_CONTAINER_BASE_Z_INDEX;
     for (const node of this.nodes) {
       if (!this.isVisibleNode(node)) continue;
@@ -4033,10 +4163,15 @@ LIMIT 50;`;
       const zIndex = NODE_LAYER_CONTAINER_BASE_Z_INDEX + depth * NODE_LAYER_DEPTH_STEP;
       ceiling = Math.max(ceiling, zIndex);
     }
+    this.visibleContainerLayerCeilingZIndexCache = ceiling;
     return ceiling;
   }
 
   private getContainerContextEdgeLayerZIndex(): number {
+    if (this.containerContextEdgeLayerZIndexCache !== null) {
+      return this.containerContextEdgeLayerZIndexCache;
+    }
+
     let deepestSharedContainerDepth = -1;
     for (const edge of this.edges) {
       if (!this.isVisibleEdge(edge)) continue;
@@ -4049,8 +4184,14 @@ LIMIT 50;`;
         this.getSharedContainerContextDepth(fromNode, toNode)
       );
     }
-    if (deepestSharedContainerDepth < 0) return 0;
-    return EDGE_LAYER_CONTAINER_CONTEXT_BASE_Z_INDEX + deepestSharedContainerDepth * NODE_LAYER_DEPTH_STEP;
+    if (deepestSharedContainerDepth < 0) {
+      this.containerContextEdgeLayerZIndexCache = 0;
+      return 0;
+    }
+
+    const resolved = EDGE_LAYER_CONTAINER_CONTEXT_BASE_Z_INDEX + deepestSharedContainerDepth * NODE_LAYER_DEPTH_STEP;
+    this.containerContextEdgeLayerZIndexCache = resolved;
+    return resolved;
   }
 
   private getSharedContainerContextDepth(fromNode: CanvasNode, toNode: CanvasNode): number {
@@ -4061,7 +4202,7 @@ LIMIT 50;`;
     const toSet = new Set(toLineage);
     return fromLineage.reduce((deepest, containerId) => {
       if (!toSet.has(containerId)) return deepest;
-      const container = this.nodes.find((candidate) => candidate.id === containerId);
+      const container = this.getNodeById(containerId);
       if (!container) return deepest;
       return Math.max(deepest, this.getNodeHierarchyDepth(container));
     }, 0);
@@ -4071,7 +4212,7 @@ LIMIT 50;`;
     if (edge.id === this.selectedEdgeId || edge.id === this.editingEdgeId || edge.id === this.hoveredEdgeId) {
       return false;
     }
-    if (this.isDragDropContactAreaActive() && this.isEdgeTouchingActiveContactArea(edge)) return true;
+    if (this.isActiveContactAreaSuppressionEnabled() && this.isEdgeTouchingActiveContactArea(edge)) return true;
     if (!this.isProximitySuppressionActive()) return false;
 
     const focusPoint = this.getInteractionFocusPoint();
@@ -4087,10 +4228,8 @@ LIMIT 50;`;
   getEdgeProximityIndicatorStyle(): Record<string, string> | null {
     const connectionTargetStyle = this.getConnectionTargetContactAreaIndicatorStyle();
     if (connectionTargetStyle) return connectionTargetStyle;
-    const selectedContactStyle = this.isDragDropContactAreaActive()
-      ? this.getSelectedContactAreaIndicatorStyle()
-      : null;
-    if (selectedContactStyle) return selectedContactStyle;
+    const activeContactAreaStyle = this.getActiveContactAreaIndicatorStyle();
+    if (activeContactAreaStyle) return activeContactAreaStyle;
     const tutorialContactStyle = this.getTutorialContactAreaIndicatorStyle();
     if (tutorialContactStyle) return tutorialContactStyle;
     if (!this.isProximitySuppressionActive()) return null;
@@ -4108,7 +4247,7 @@ LIMIT 50;`;
 
   private getConnectionTargetContactAreaIndicatorStyle(): Record<string, string> | null {
     if (!this.connectionDragState || !this.connectionDragTarget) return null;
-    const targetNode = this.nodes.find((node) => node.id === this.connectionDragTarget?.nodeId);
+    const targetNode = this.getNodeById(this.connectionDragTarget.nodeId);
     if (!targetNode || !this.isVisibleNode(targetNode)) return null;
     return this.buildContactAreaIndicatorStyle([targetNode]);
   }
@@ -4133,17 +4272,21 @@ LIMIT 50;`;
     );
   }
 
+  private isActiveContactAreaSuppressionEnabled(): boolean {
+    return this.isDragDropContactAreaActive() || this.isResizeContactAreaActive();
+  }
+
   private getInteractionFocusPoint(): Readonly<{ x: number; y: number }> | null {
     if (this.connectionDragState) return this.connectionDragState.current;
 
     if (this.resizeState) {
-      const node = this.nodes.find((candidate) => candidate.id === this.resizeState?.nodeId);
+      const node = this.getNodeById(this.resizeState.nodeId);
       return node ? this.getNodeCenter(node) : null;
     }
 
     if (this.dragState?.hasMoved && this.selectedNodeIds.length > 0) {
       const centers = this.selectedNodeIds
-        .map((nodeId) => this.nodes.find((candidate) => candidate.id === nodeId))
+        .map((nodeId) => this.getNodeById(nodeId))
         .filter((node): node is CanvasNode => Boolean(node))
         .map((node) => this.getNodeCenter(node));
       if (centers.length === 0) return this.dragState.startPoint;
@@ -4164,11 +4307,35 @@ LIMIT 50;`;
     return Boolean(this.dragState?.hasMoved);
   }
 
-  private getSelectedContactAreaIndicatorStyle(): Record<string, string> | null {
-    const selectedNodes = this.selectedNodeIds
-      .map((nodeId) => this.nodes.find((candidate) => candidate.id === nodeId))
-      .filter((node): node is CanvasNode => Boolean(node));
-    return this.buildContactAreaIndicatorStyle(selectedNodes);
+  private isResizeContactAreaActive(): boolean {
+    return Boolean(this.resizeState);
+  }
+
+  private getActiveContactAreaIndicatorStyle(): Record<string, string> | null {
+    if (!this.isActiveContactAreaSuppressionEnabled()) return null;
+    return this.buildContactAreaIndicatorStyle(this.getActiveContactAreaNodes());
+  }
+
+  private getActiveContactAreaNodes(): readonly CanvasNode[] {
+    const nodesById = new Map<string, CanvasNode>();
+
+    if (this.isDragDropContactAreaActive()) {
+      for (const nodeId of this.selectedNodeIds) {
+        const node = this.getNodeById(nodeId);
+        if (!node || !this.isVisibleNode(node)) continue;
+        nodesById.set(node.id, node);
+      }
+    }
+
+    const resizeState = this.resizeState;
+    if (resizeState) {
+      const resizingNode = this.getNodeById(resizeState.nodeId);
+      if (resizingNode && this.isVisibleNode(resizingNode)) {
+        nodesById.set(resizingNode.id, resizingNode);
+      }
+    }
+
+    return Array.from(nodesById.values());
   }
 
   private getTutorialContactAreaIndicatorStyle(): Record<string, string> | null {
@@ -4180,7 +4347,7 @@ LIMIT 50;`;
 
   private getTutorialContactAreaFocusNode(): CanvasNode | null {
     const selectedNode = this.selectedNodeIds
-      .map((nodeId) => this.nodes.find((candidate) => candidate.id === nodeId))
+      .map((nodeId) => this.getNodeById(nodeId))
       .find((candidate): candidate is CanvasNode => Boolean(candidate));
     if (selectedNode && this.isVisibleNode(selectedNode)) return selectedNode;
 
@@ -4223,9 +4390,7 @@ LIMIT 50;`;
   }
 
   private isEdgeTouchingActiveContactArea(edge: CanvasEdge): boolean {
-    const activeNodes = this.selectedNodeIds
-      .map((nodeId) => this.nodes.find((candidate) => candidate.id === nodeId))
-      .filter((node): node is CanvasNode => Boolean(node));
+    const activeNodes = this.getActiveContactAreaNodes();
     if (activeNodes.length === 0) return false;
     const data = this.getEdgePathData(edge);
     if (!data || data.points.length < 2) return false;
@@ -4253,7 +4418,7 @@ LIMIT 50;`;
     let currentNodeId: string | null = nodeId;
     while (currentNodeId && !visited.has(currentNodeId)) {
       visited.add(currentNodeId);
-      const currentNode = this.nodes.find((candidate) => candidate.id === currentNodeId);
+      const currentNode = this.getNodeById(currentNodeId);
       if (!currentNode) return false;
       const parentId = currentNode.parentId ?? null;
       if (!parentId) return false;
@@ -4445,7 +4610,7 @@ LIMIT 50;`;
   getConnectionPreviewMarkerEnd(): string {
     const dragState = this.connectionDragState;
     if (!dragState) return "url(#edge-preview-arrow-right)";
-    const source = this.nodes.find((node) => node.id === dragState.sourceId);
+    const source = this.getNodeById(dragState.sourceId);
     if (!source) return "url(#edge-preview-arrow-right)";
     const sourceAbsolute = this.getAbsolutePosition(source);
     return dragState.current.x < sourceAbsolute.x
@@ -4618,6 +4783,10 @@ LIMIT 50;`;
 
   getLeafLabelKnockoutNodes(): readonly CanvasNode[] {
     if (this.leafLabelKnockoutNodesCache) return this.leafLabelKnockoutNodesCache;
+    if (this.shouldReduceCanvasDetailForPerformance()) {
+      this.leafLabelKnockoutNodesCache = [];
+      return this.leafLabelKnockoutNodesCache;
+    }
 
     const nodes = this.nodes.filter((node) =>
       this.isRenderableNode(node)
@@ -4697,6 +4866,10 @@ LIMIT 50;`;
 
   getEdgeClipContainers(): readonly CanvasNode[] {
     if (this.edgeClipContainersCache) return this.edgeClipContainersCache;
+    if (!this.isDarkMode || this.shouldReduceCanvasDetailForPerformance()) {
+      this.edgeClipContainersCache = [];
+      return this.edgeClipContainersCache;
+    }
     const containers = this.nodes.filter((node) => isContainerNodeKind(node.kind) && this.isRenderableNode(node));
     this.edgeClipContainersCache = containers;
     return containers;
@@ -4705,7 +4878,7 @@ LIMIT 50;`;
   getEdgeDarkTransitionClipIds(edge: CanvasEdge): readonly string[] {
     const cached = this.edgeDarkTransitionClipIdsCache.get(edge.id);
     if (cached) return cached;
-    if (!this.isDarkMode) {
+    if (!this.isDarkMode || this.shouldReduceCanvasDetailForPerformance()) {
       this.edgeDarkTransitionClipIdsCache.set(edge.id, []);
       return [];
     }
@@ -4779,6 +4952,7 @@ LIMIT 50;`;
   }
 
   shouldRenderEdgeLabel(edge: CanvasEdge): boolean {
+    if (this.shouldReduceCanvasDetailForPerformance()) return false;
     if (!edge.label) return false;
     if (!this.isVisibleEdge(edge)) return false;
     return !this.isEdgeRepresentedByCollapsedEndpoint(edge);
@@ -5068,12 +5242,14 @@ LIMIT 50;`;
       if (supportsCode) {
         const currentContent = (nextProperties["codeContent"] ?? "").trim();
         if (currentContent.length === 0) {
-          const language = this.getPreferredCodeLanguageForKind(kind);
-          nextProperties["codeLanguage"] = nextProperties["codeLanguage"]?.trim() || language;
-          nextProperties["codeContent"] = this.getDefaultCodeSnippet(
-            kind,
-            nextProperties["codeLanguage"] as CodeLanguage
-          );
+          if (isCodeKind) {
+            const language = this.getPreferredCodeLanguageForKind(kind);
+            nextProperties["codeLanguage"] = nextProperties["codeLanguage"]?.trim() || language;
+            nextProperties["codeContent"] = this.getDefaultCodeSnippet(
+              kind,
+              nextProperties["codeLanguage"] as CodeLanguage
+            );
+          }
         } else if ((nextProperties["codeLanguage"] ?? "").trim().length === 0) {
           const detected = detectCodeLanguageFromContent(currentContent);
           nextProperties["codeLanguage"] = detected ?? this.getPreferredCodeLanguageForKind(kind);
@@ -5385,120 +5561,709 @@ spec:
     };
   }
 
-  private createStressTestArchitectureTemplate(base: ArchitectureDocument): ArchitectureDocument {
-    const now = new Date().toISOString();
-    const availableTemplates = this.nodeCatalog.filter((template) => !this.isSimpleContainerKind(template.kind));
-    const columns = 12;
-    const cellWidth = 220;
-    const cellHeight = 190;
-    const rootPaddingX = 90;
-    const rootPaddingTop = 130;
-    const rows = Math.max(1, Math.ceil(availableTemplates.length / columns));
-    const rootWidth = rootPaddingX * 2 + columns * cellWidth;
-    const rootHeight = rootPaddingTop + 120 + rows * cellHeight;
+  private resolveExampleTemplate(templateId: ExampleTemplateId): Readonly<{
+    titleKey: string;
+    build: (base: ArchitectureDocument) => ArchitectureDocument;
+  }> {
+    switch (templateId) {
+      case "aws-cross-account":
+        return {
+          titleKey: "title.awsCrossAccountTemplate",
+          build: (base) => this.createAwsCrossAccountArchitectureTemplate(base)
+        };
+      case "cluster-platform":
+        return {
+          titleKey: "title.clusterPlatformTemplate",
+          build: (base) => this.createClusterPlatformArchitectureTemplate(base)
+        };
+      case "software-platform":
+        return {
+          titleKey: "title.softwarePlatformTemplate",
+          build: (base) => this.createSoftwarePlatformArchitectureTemplate(base)
+        };
+      case "aws-serverless-saas":
+        return {
+          titleKey: "title.awsServerlessSaasTemplate",
+          build: (base) => this.createAwsServerlessSaasArchitectureTemplate(base)
+        };
+      case "aws-data-platform":
+        return {
+          titleKey: "title.awsDataPlatformTemplate",
+          build: (base) => this.createAwsDataPlatformArchitectureTemplate(base)
+        };
+      case "software-microservices":
+        return {
+          titleKey: "title.softwareMicroservicesTemplate",
+          build: (base) => this.createSoftwareMicroservicesArchitectureTemplate(base)
+        };
+      case "complete":
+      default:
+        return {
+          titleKey: "title.demoTemplate",
+          build: (base) => this.createFirstAccessArchitectureTemplate(base)
+        };
+    }
+  }
 
-    const root: CanvasNode = {
-      id: "stress-root",
-      kind: "group-container-plus",
-      label: "Stress Matrix",
-      color: getNodeKindColor("group-container-plus"),
-      position: { x: 40, y: 40 },
-      size: { width: rootWidth, height: rootHeight },
-      collapsed: false,
-      collapsedIconKind: this.getDefaultCollapsedIconKind("group-container-plus"),
-      expandedSize: { width: rootWidth, height: rootHeight }
+  private createExampleTemplateNode(
+    id: string,
+    kind: ArchitectureNodeKind,
+    label: string,
+    position: Readonly<{ x: number; y: number }>,
+    size: Readonly<{ width: number; height: number }>,
+    options?: Readonly<{
+      parentId?: string;
+      properties?: Readonly<Record<string, string>>;
+      startsCollapsed?: boolean;
+    }>
+  ): CanvasNode {
+    const isContainerKind = isContainerNodeKind(kind);
+    const isCodeKind = isCodeSnippetNodeKind(kind);
+    const supportsCode = isCodeKind || CONTAINER_CODE_PROPERTY_KINDS.has(kind);
+    const startsCollapsed = options?.startsCollapsed ?? (isContainerKind || isCodeKind);
+    const isLegacyLeafSize =
+      !isContainerKind
+      && !isCodeKind
+      && size.width === LEGACY_EXAMPLE_LEAF_NODE_SIZE.width
+      && size.height === LEGACY_EXAMPLE_LEAF_NODE_SIZE.height;
+    const resolvedSize = isLegacyLeafSize ? getDefaultNodeSize(kind) : size;
+    const nextProperties: Record<string, string> = { ...(options?.properties ?? {}) };
+
+    if (supportsCode) {
+      const currentContent = (nextProperties["codeContent"] ?? "").trim();
+      if (currentContent.length === 0) {
+        if (isCodeKind) {
+          const language = this.getPreferredCodeLanguageForKind(kind);
+          nextProperties["codeLanguage"] = nextProperties["codeLanguage"]?.trim() || language;
+          nextProperties["codeContent"] = this.getDefaultCodeSnippet(
+            kind,
+            nextProperties["codeLanguage"] as CodeLanguage
+          );
+        }
+      } else if ((nextProperties["codeLanguage"] ?? "").trim().length === 0) {
+        const detected = detectCodeLanguageFromContent(currentContent);
+        nextProperties["codeLanguage"] = detected ?? this.getPreferredCodeLanguageForKind(kind);
+      }
+    }
+
+    return {
+      id,
+      kind,
+      label,
+      parentId: options?.parentId,
+      position,
+      size: startsCollapsed ? { ...CODE_SNIPPET_COLLAPSED_SIZE } : resolvedSize,
+      color: getNodeKindColor(kind),
+      collapsed: startsCollapsed ? true : undefined,
+      collapsedIconKind: isContainerKind
+        ? this.getDefaultCollapsedIconKind(kind)
+        : isCodeKind
+          ? kind
+          : undefined,
+      expandedSize: startsCollapsed
+        ? (isCodeKind ? { ...CODE_SNIPPET_EXPANDED_SIZE } : { ...resolvedSize })
+        : undefined,
+      properties: Object.keys(nextProperties).length > 0 ? nextProperties : undefined
     };
+  }
 
-    const nodes: CanvasNode[] = [root];
-    const styleBase: ArchitectureEdgeStyle = {
+  private createAwsCrossAccountArchitectureTemplate(base: ArchitectureDocument): ArchitectureDocument {
+    const now = new Date().toISOString();
+    const style: ArchitectureEdgeStyle = {
       path: "smoothstep",
       line: "solid",
       color: "#111827",
       animated: true,
       bidirectional: false
     };
+    const makeNode = (
+      id: string,
+      kind: ArchitectureNodeKind,
+      label: string,
+      position: Readonly<{ x: number; y: number }>,
+      size: Readonly<{ width: number; height: number }>,
+      options?: Readonly<{
+        parentId?: string;
+        properties?: Readonly<Record<string, string>>;
+        startsCollapsed?: boolean;
+      }>
+    ): CanvasNode => this.createExampleTemplateNode(id, kind, label, position, size, options);
 
-    for (let index = 0; index < availableTemplates.length; index += 1) {
-      const template = availableTemplates[index];
-      if (!template) continue;
-      const column = index % columns;
-      const row = Math.floor(index / columns);
-      const id = `stress-${template.kind}-${index}`;
-      const defaultSize = getDefaultNodeSize(template.kind);
-      const isContainerKind = isContainerNodeKind(template.kind);
-      const isCodeKind = isCodeSnippetNodeKind(template.kind);
-      const startsCollapsed = isContainerKind || isCodeKind;
-
-      nodes.push({
-        id,
-        kind: template.kind,
-        label: template.label,
-        parentId: root.id,
-        color: template.color,
-        position: {
-          x: rootPaddingX + column * cellWidth,
-          y: rootPaddingTop + row * cellHeight
-        },
-        size: startsCollapsed ? { ...CODE_SNIPPET_COLLAPSED_SIZE } : defaultSize,
-        collapsed: startsCollapsed ? true : undefined,
-        collapsedIconKind: isContainerKind
-          ? this.getDefaultCollapsedIconKind(template.kind)
-          : isCodeKind
-            ? template.kind
-            : undefined,
-        expandedSize: startsCollapsed
-          ? (isCodeKind ? { ...CODE_SNIPPET_EXPANDED_SIZE } : { ...defaultSize })
-          : undefined
-      });
-    }
-
-    const stressNodeIds = nodes
-      .filter((node) => node.id !== root.id)
-      .map((node) => node.id);
-
-    const edges: CanvasEdge[] = [];
-    for (let index = 0; index < stressNodeIds.length - 1; index += 1) {
-      const from = stressNodeIds[index];
-      const to = stressNodeIds[index + 1];
-      if (!from || !to) continue;
-      edges.push({
-        id: `stress-chain-${index}`,
-        from,
-        to,
-        label: `L${index + 1}`,
-        style: {
-          ...styleBase,
-          line: index % 3 === 0 ? "solid" : index % 3 === 1 ? "dashed" : "dotted",
-          path: "smoothstep"
+    const nodes: CanvasNode[] = [
+      makeNode("xa-root", "group-container-plus", "Cross-Account Event Platform", { x: 40, y: 40 }, { width: 3520, height: 2140 }, { startsCollapsed: false }),
+      makeNode("xa-users", "external", "External Users", { x: 80, y: 180 }, { width: 172, height: 176 }),
+      makeNode("xa-account-shared", "aws-account", "AWS Account Shared Services", { x: 260, y: 80 }, { width: 1560, height: 1980 }, { parentId: "xa-root", startsCollapsed: false }),
+      makeNode("xa-account-workload", "aws-account", "AWS Account Workload", { x: 1860, y: 80 }, { width: 1560, height: 1980 }, { parentId: "xa-root", startsCollapsed: false }),
+      makeNode("xa-shared-region", "aws-region", "us-east-1", { x: 70, y: 70 }, { width: 1420, height: 1840 }, { parentId: "xa-account-shared", startsCollapsed: false }),
+      makeNode("xa-workload-region", "aws-region", "us-east-1", { x: 70, y: 70 }, { width: 1420, height: 1840 }, { parentId: "xa-account-workload", startsCollapsed: false }),
+      makeNode("xa-shared-vpc", "aws-vpc", "Shared VPC", { x: 70, y: 80 }, { width: 1280, height: 580 }, { parentId: "xa-shared-region", startsCollapsed: false }),
+      makeNode("xa-workload-vpc", "aws-vpc", "Workload VPC", { x: 70, y: 80 }, { width: 1280, height: 580 }, { parentId: "xa-workload-region", startsCollapsed: false }),
+      makeNode("xa-route53", "aws-route53", "Route 53", { x: 130, y: 220 }, { width: 172, height: 176 }, { parentId: "xa-workload-region" }),
+      makeNode("xa-cloudfront", "aws-cloudfront", "CloudFront", { x: 360, y: 220 }, { width: 172, height: 176 }, { parentId: "xa-workload-region" }),
+      makeNode("xa-waf", "aws-waf", "WAF", { x: 590, y: 220 }, { width: 172, height: 176 }, { parentId: "xa-workload-region" }),
+      makeNode("xa-apigw", "aws-api-gateway", "API Gateway", { x: 820, y: 220 }, { width: 172, height: 176 }, { parentId: "xa-workload-region" }),
+      makeNode("xa-lambda-orders", "aws-lambda", "Orders Lambda", { x: 1050, y: 220 }, { width: 172, height: 176 }, { parentId: "xa-workload-region" }),
+      makeNode("xa-eventbridge-workload", "aws-eventbridge", "Workload Event Bus", { x: 260, y: 900 }, { width: 172, height: 176 }, { parentId: "xa-workload-region" }),
+      makeNode("xa-sqs-workload", "aws-sqs", "Orders Queue", { x: 490, y: 900 }, { width: 172, height: 176 }, { parentId: "xa-workload-region" }),
+      makeNode("xa-dynamodb", "aws-dynamodb", "DynamoDB Orders", { x: 780, y: 900 }, { width: 172, height: 176 }, { parentId: "xa-workload-region" }),
+      makeNode("xa-rds", "aws-rds", "RDS Billing", { x: 1010, y: 900 }, { width: 172, height: 176 }, { parentId: "xa-workload-region" }),
+      makeNode("xa-eventbridge-shared", "aws-eventbridge", "Shared Event Bus", { x: 240, y: 850 }, { width: 172, height: 176 }, { parentId: "xa-shared-region" }),
+      makeNode("xa-step-functions", "aws-step-functions", "Step Functions", { x: 470, y: 850 }, { width: 172, height: 176 }, { parentId: "xa-shared-region" }),
+      makeNode("xa-lambda-worker", "aws-lambda", "Processor Lambda", { x: 700, y: 850 }, { width: 172, height: 176 }, { parentId: "xa-shared-region" }),
+      makeNode("xa-s3", "aws-s3", "S3 Data Lake", { x: 930, y: 850 }, { width: 172, height: 176 }, { parentId: "xa-shared-region" }),
+      makeNode("xa-ecr", "aws-ecr", "Shared ECR", { x: 220, y: 1150 }, { width: 520, height: 400 }, { parentId: "xa-shared-region", startsCollapsed: false }),
+      makeNode("xa-ecr-image", "software-docker", "orders-runtime:3.2.1", { x: 165, y: 90 }, { width: 172, height: 176 }, { parentId: "xa-ecr" }),
+      makeNode("xa-repo", "code-repository", "platform-repo", { x: 800, y: 1220 }, { width: 172, height: 176 }, { parentId: "xa-shared-region" }),
+      makeNode("xa-pipeline", "code-pipeline", "cross-account-pipeline", { x: 1030, y: 1220 }, { width: 172, height: 176 }, { parentId: "xa-shared-region" }),
+      makeNode("xa-iam", "aws-iam", "Cross-Account IAM Role", { x: 1240, y: 850 }, { width: 172, height: 176 }, {
+        parentId: "xa-shared-region",
+        properties: {
+          codeLanguage: "yaml",
+          codeContent: `Resources:
+  CrossAccountRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: shared-event-consumer
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: arn:aws:iam::222222222222:root`
         }
-      });
-    }
+      }),
+      makeNode("xa-cloudtrail", "aws-cloudtrail", "CloudTrail", { x: 1240, y: 1220 }, { width: 172, height: 176 }, { parentId: "xa-shared-region" })
+    ];
 
-    for (let index = 0; index < stressNodeIds.length - 12; index += 4) {
-      const from = stressNodeIds[index];
-      const to = stressNodeIds[index + 11];
-      if (!from || !to) continue;
-      edges.push({
-        id: `stress-cross-${index}`,
-        from,
-        to,
-        label: `X${index + 1}`,
-        style: {
-          ...styleBase,
-          line: "dashed",
-          path: "smoothstep",
-          bidirectional: index % 8 === 0
-        }
-      });
-    }
+    const makeEdge = (id: string, from: string, to: string, label?: string): CanvasEdge => ({
+      id,
+      from,
+      to,
+      label,
+      style
+    });
+
+    const edges: CanvasEdge[] = [
+      makeEdge("xa-e1", "xa-users", "xa-route53", "DNS"),
+      makeEdge("xa-e2", "xa-route53", "xa-cloudfront", "HTTPS"),
+      makeEdge("xa-e3", "xa-cloudfront", "xa-waf", "inspect"),
+      makeEdge("xa-e4", "xa-waf", "xa-apigw", "allow"),
+      makeEdge("xa-e5", "xa-apigw", "xa-lambda-orders", "invoke"),
+      makeEdge("xa-e6", "xa-lambda-orders", "xa-eventbridge-workload", "publish"),
+      makeEdge("xa-e7", "xa-eventbridge-workload", "xa-eventbridge-shared", "cross-account bus"),
+      makeEdge("xa-e8", "xa-eventbridge-shared", "xa-step-functions", "route"),
+      makeEdge("xa-e9", "xa-step-functions", "xa-lambda-worker", "orchestrate"),
+      makeEdge("xa-e10", "xa-lambda-worker", "xa-s3", "archive"),
+      makeEdge("xa-e11", "xa-lambda-orders", "xa-sqs-workload", "enqueue"),
+      makeEdge("xa-e12", "xa-sqs-workload", "xa-lambda-worker", "consume"),
+      makeEdge("xa-e13", "xa-lambda-orders", "xa-dynamodb", "write"),
+      makeEdge("xa-e14", "xa-lambda-orders", "xa-rds", "billing"),
+      makeEdge("xa-e15", "xa-repo", "xa-pipeline", "CI"),
+      makeEdge("xa-e16", "xa-pipeline", "xa-ecr", "publish image"),
+      makeEdge("xa-e17", "xa-ecr-image", "xa-lambda-orders", "runtime"),
+      makeEdge("xa-e18", "xa-iam", "xa-lambda-orders", "assume role"),
+      makeEdge("xa-e19", "xa-cloudtrail", "xa-eventbridge-shared", "audit")
+    ];
 
     return {
       ...base,
-      title: this.t("title.stressTemplate"),
-      description: this.t("title.stressDescription"),
+      title: this.t("title.awsCrossAccountTemplate"),
+      description: this.t("title.awsCrossAccountDescription"),
       mermaidSource: `graph LR
-  Start["Stress Start"] --> Matrix["Stress Matrix"]
-  Matrix --> End["Coverage"]`,
+  Users["Users"] --> R53["Route53"]
+  R53 --> CF["CloudFront"]
+  CF --> WAF["WAF"]
+  WAF --> APIGW["API Gateway"]
+  APIGW --> Lambda["Orders Lambda"]
+  Lambda --> WorkloadBus["Workload EventBridge"]
+  WorkloadBus --> SharedBus["Shared EventBridge"]
+  SharedBus --> SFN["Step Functions"]`,
+      nodes,
+      edges,
+      updatedAt: now
+    };
+  }
+
+  private createClusterPlatformArchitectureTemplate(base: ArchitectureDocument): ArchitectureDocument {
+    const now = new Date().toISOString();
+    const style: ArchitectureEdgeStyle = {
+      path: "smoothstep",
+      line: "solid",
+      color: "#111827",
+      animated: true,
+      bidirectional: false
+    };
+    const makeNode = (
+      id: string,
+      kind: ArchitectureNodeKind,
+      label: string,
+      position: Readonly<{ x: number; y: number }>,
+      size: Readonly<{ width: number; height: number }>,
+      options?: Readonly<{
+        parentId?: string;
+        properties?: Readonly<Record<string, string>>;
+        startsCollapsed?: boolean;
+      }>
+    ): CanvasNode => this.createExampleTemplateNode(id, kind, label, position, size, options);
+
+    const nodes: CanvasNode[] = [
+      makeNode("kc-root", "group-container-plus", "Kubernetes Production Platform", { x: 60, y: 60 }, { width: 3200, height: 1980 }, { startsCollapsed: false }),
+      makeNode("kc-users", "external", "Users", { x: 120, y: 180 }, { width: 172, height: 176 }),
+      makeNode("kc-route53", "aws-route53", "Route 53", { x: 360, y: 180 }, { width: 172, height: 176 }),
+      makeNode("kc-vpc", "aws-vpc", "VPC 10.20.0.0/16", { x: 80, y: 80 }, { width: 3000, height: 1800 }, { parentId: "kc-root", startsCollapsed: false }),
+      makeNode("kc-subnet-public", "aws-subnet", "Public Subnet", { x: 80, y: 80 }, { width: 1380, height: 430 }, { parentId: "kc-vpc", startsCollapsed: false }),
+      makeNode("kc-subnet-private", "aws-subnet", "Private Subnet", { x: 80, y: 560 }, { width: 1940, height: 1200 }, { parentId: "kc-vpc", startsCollapsed: false }),
+      makeNode("kc-subnet-data", "aws-subnet", "Data Subnet", { x: 2080, y: 560 }, { width: 900, height: 1200 }, { parentId: "kc-vpc", startsCollapsed: false }),
+      makeNode("kc-alb", "aws-alb", "Public ALB", { x: 120, y: 160 }, { width: 172, height: 176 }, { parentId: "kc-subnet-public" }),
+      makeNode("kc-eks", "aws-eks", "EKS Cluster", { x: 90, y: 100 }, { width: 1760, height: 1040 }, { parentId: "kc-subnet-private", startsCollapsed: false }),
+      makeNode("kc-ns-edge", "cluster-namespace", "Namespace ingress", { x: 60, y: 80 }, { width: 520, height: 360 }, { parentId: "kc-eks", startsCollapsed: false }),
+      makeNode("kc-ns-orders", "cluster-namespace", "Namespace orders", { x: 620, y: 80 }, { width: 1080, height: 420 }, { parentId: "kc-eks", startsCollapsed: false }),
+      makeNode("kc-ns-ops", "cluster-namespace", "Namespace observability", { x: 620, y: 530 }, { width: 1080, height: 420 }, { parentId: "kc-eks", startsCollapsed: false }),
+      makeNode("kc-ingress", "cluster-ingress", "orders.ingress", { x: 140, y: 110 }, { width: 172, height: 176 }, { parentId: "kc-ns-edge" }),
+      makeNode("kc-svc-api", "cluster-service", "orders-api-svc", { x: 120, y: 140 }, { width: 172, height: 176 }, { parentId: "kc-ns-orders" }),
+      makeNode("kc-deploy-api", "cluster-deployment", "orders-api", { x: 360, y: 90 }, { width: 300, height: 260 }, { parentId: "kc-ns-orders", startsCollapsed: false }),
+      makeNode("kc-pod-api", "cluster-pod", "orders-api-pod", { x: 60, y: 70 }, { width: 172, height: 176 }, { parentId: "kc-deploy-api" }),
+      makeNode("kc-deploy-worker", "cluster-deployment", "orders-worker", { x: 700, y: 90 }, { width: 300, height: 260 }, { parentId: "kc-ns-orders", startsCollapsed: false }),
+      makeNode("kc-pod-worker", "cluster-pod", "orders-worker-pod", { x: 60, y: 70 }, { width: 172, height: 176 }, { parentId: "kc-deploy-worker" }),
+      makeNode("kc-kafka", "queue-kafka", "Kafka", { x: 120, y: 470 }, { width: 172, height: 176 }, { parentId: "kc-subnet-private" }),
+      makeNode("kc-redis", "cache-redis", "Redis", { x: 360, y: 470 }, { width: 172, height: 176 }, { parentId: "kc-subnet-private" }),
+      makeNode("kc-rabbit", "queue-rabbitmq", "RabbitMQ", { x: 600, y: 470 }, { width: 172, height: 176 }, { parentId: "kc-subnet-private" }),
+      makeNode("kc-rds", "aws-rds", "RDS", { x: 140, y: 160 }, { width: 172, height: 176 }, { parentId: "kc-subnet-data" }),
+      makeNode("kc-s3", "aws-s3", "S3 Backups", { x: 380, y: 160 }, { width: 172, height: 176 }, { parentId: "kc-subnet-data" }),
+      makeNode("kc-cloudwatch", "aws-cloudwatch", "CloudWatch", { x: 860, y: 130 }, { width: 172, height: 176 }, { parentId: "kc-ns-ops" }),
+      makeNode("kc-opensearch", "aws-opensearch", "OpenSearch", { x: 860, y: 360 }, { width: 172, height: 176 }, { parentId: "kc-ns-ops" })
+    ];
+
+    const makeEdge = (id: string, from: string, to: string, label?: string): CanvasEdge => ({
+      id,
+      from,
+      to,
+      label,
+      style
+    });
+
+    const edges: CanvasEdge[] = [
+      makeEdge("kc-e1", "kc-users", "kc-route53", "DNS"),
+      makeEdge("kc-e2", "kc-route53", "kc-alb", "HTTPS"),
+      makeEdge("kc-e3", "kc-alb", "kc-ingress", "forward"),
+      makeEdge("kc-e4", "kc-ingress", "kc-svc-api", "route"),
+      makeEdge("kc-e5", "kc-svc-api", "kc-pod-api", "service"),
+      makeEdge("kc-e6", "kc-pod-api", "kc-redis", "cache"),
+      makeEdge("kc-e7", "kc-pod-api", "kc-rds", "write"),
+      makeEdge("kc-e8", "kc-pod-api", "kc-kafka", "events"),
+      makeEdge("kc-e9", "kc-kafka", "kc-pod-worker", "consume"),
+      makeEdge("kc-e10", "kc-pod-worker", "kc-rabbit", "emit"),
+      makeEdge("kc-e11", "kc-pod-worker", "kc-s3", "backup"),
+      makeEdge("kc-e12", "kc-cloudwatch", "kc-pod-api", "metrics"),
+      makeEdge("kc-e13", "kc-cloudwatch", "kc-pod-worker", "logs"),
+      makeEdge("kc-e14", "kc-pod-worker", "kc-opensearch", "index")
+    ];
+
+    return {
+      ...base,
+      title: this.t("title.clusterPlatformTemplate"),
+      description: this.t("title.clusterPlatformDescription"),
+      mermaidSource: `graph LR
+  Users["Users"] --> DNS["Route53"]
+  DNS --> ALB["ALB"]
+  ALB --> Ingress["K8s Ingress"]
+  Ingress --> API["orders-api"]
+  API --> Kafka["Kafka"]
+  Kafka --> Worker["orders-worker"]
+  API --> RDS["RDS"]`,
+      nodes,
+      edges,
+      updatedAt: now
+    };
+  }
+
+  private createSoftwarePlatformArchitectureTemplate(base: ArchitectureDocument): ArchitectureDocument {
+    const now = new Date().toISOString();
+    const style: ArchitectureEdgeStyle = {
+      path: "smoothstep",
+      line: "solid",
+      color: "#111827",
+      animated: true,
+      bidirectional: false
+    };
+    const makeNode = (
+      id: string,
+      kind: ArchitectureNodeKind,
+      label: string,
+      position: Readonly<{ x: number; y: number }>,
+      size: Readonly<{ width: number; height: number }>,
+      options?: Readonly<{
+        parentId?: string;
+        properties?: Readonly<Record<string, string>>;
+        startsCollapsed?: boolean;
+      }>
+    ): CanvasNode => this.createExampleTemplateNode(id, kind, label, position, size, options);
+
+    const nodes: CanvasNode[] = [
+      makeNode("sw-root", "group-container-plus", "Software Delivery Platform", { x: 60, y: 60 }, { width: 2920, height: 1820 }, { startsCollapsed: false }),
+      makeNode("sw-client-web", "software-frontend", "Web Frontend", { x: 140, y: 220 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-client-mobile", "software-mobile", "Mobile App", { x: 390, y: 220 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-bff", "software-bff", "BFF Gateway", { x: 640, y: 220 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-api-orders", "software-api", "Orders API", { x: 900, y: 220 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-api-billing", "software-api", "Billing API", { x: 1150, y: 220 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-worker", "software-worker", "Invoice Worker", { x: 900, y: 520 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-queue", "queue-rabbitmq", "RabbitMQ", { x: 1150, y: 520 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-cache", "cache-redis", "Redis Cache", { x: 1400, y: 220 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-rds", "aws-rds", "PostgreSQL (RDS)", { x: 1650, y: 220 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-mongo", "database-mongodb", "MongoDB", { x: 1900, y: 220 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-s3", "aws-s3", "S3 Documents", { x: 2150, y: 220 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-eventbridge", "aws-eventbridge", "EventBridge", { x: 1400, y: 520 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-lambda", "aws-lambda", "Notifier Lambda", { x: 1650, y: 520 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-repo", "code-repository", "mono-repository", { x: 300, y: 980 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-pipeline", "code-pipeline", "delivery-pipeline", { x: 560, y: 980 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-ecr", "aws-ecr", "Container Registry", { x: 820, y: 900 }, { width: 520, height: 400 }, { parentId: "sw-root", startsCollapsed: false }),
+      makeNode("sw-image-api", "software-docker", "orders-api:4.0.0", { x: 90, y: 90 }, { width: 172, height: 176 }, { parentId: "sw-ecr" }),
+      makeNode("sw-image-worker", "software-docker", "invoice-worker:4.0.0", { x: 270, y: 90 }, { width: 172, height: 176 }, { parentId: "sw-ecr" }),
+      makeNode("sw-cloudwatch", "aws-cloudwatch", "CloudWatch", { x: 1450, y: 980 }, { width: 172, height: 176 }, { parentId: "sw-root" }),
+      makeNode("sw-secrets", "aws-secrets-manager", "Secrets Manager", { x: 1700, y: 980 }, { width: 172, height: 176 }, {
+        parentId: "sw-root",
+        properties: {
+          codeLanguage: "yaml",
+          codeContent: `ordersDb:
+  username: app_runtime
+  rotation: enabled
+apiKeys:
+  paymentProvider: vault://payments/key`
+        }
+      })
+    ];
+
+    const makeEdge = (id: string, from: string, to: string, label?: string): CanvasEdge => ({
+      id,
+      from,
+      to,
+      label,
+      style
+    });
+
+    const edges: CanvasEdge[] = [
+      makeEdge("sw-e1", "sw-client-web", "sw-bff", "HTTPS"),
+      makeEdge("sw-e2", "sw-client-mobile", "sw-bff", "HTTPS"),
+      makeEdge("sw-e3", "sw-bff", "sw-api-orders", "REST"),
+      makeEdge("sw-e4", "sw-bff", "sw-api-billing", "REST"),
+      makeEdge("sw-e5", "sw-api-orders", "sw-cache", "cache"),
+      makeEdge("sw-e6", "sw-api-orders", "sw-rds", "write"),
+      makeEdge("sw-e7", "sw-api-orders", "sw-queue", "enqueue"),
+      makeEdge("sw-e8", "sw-queue", "sw-worker", "consume"),
+      makeEdge("sw-e9", "sw-worker", "sw-mongo", "projection"),
+      makeEdge("sw-e10", "sw-worker", "sw-s3", "document"),
+      makeEdge("sw-e11", "sw-api-billing", "sw-eventbridge", "publish"),
+      makeEdge("sw-e12", "sw-eventbridge", "sw-lambda", "trigger"),
+      makeEdge("sw-e13", "sw-repo", "sw-pipeline", "CI"),
+      makeEdge("sw-e14", "sw-pipeline", "sw-ecr", "build"),
+      makeEdge("sw-e15", "sw-image-api", "sw-api-orders", "runtime"),
+      makeEdge("sw-e16", "sw-image-worker", "sw-worker", "runtime"),
+      makeEdge("sw-e17", "sw-cloudwatch", "sw-api-orders", "metrics"),
+      makeEdge("sw-e18", "sw-secrets", "sw-api-billing", "secrets")
+    ];
+
+    return {
+      ...base,
+      title: this.t("title.softwarePlatformTemplate"),
+      description: this.t("title.softwarePlatformDescription"),
+      mermaidSource: `graph LR
+  Web["Web"] --> BFF["BFF"]
+  Mobile["Mobile"] --> BFF
+  BFF --> Orders["Orders API"]
+  BFF --> Billing["Billing API"]
+  Orders --> Queue["RabbitMQ"]
+  Queue --> Worker["Invoice Worker"]
+  Worker --> Mongo["MongoDB"]`,
+      nodes,
+      edges,
+      updatedAt: now
+    };
+  }
+
+  private createAwsServerlessSaasArchitectureTemplate(base: ArchitectureDocument): ArchitectureDocument {
+    const now = new Date().toISOString();
+    const style: ArchitectureEdgeStyle = {
+      path: "smoothstep",
+      line: "solid",
+      color: "#111827",
+      animated: true,
+      bidirectional: false
+    };
+    const makeNode = (
+      id: string,
+      kind: ArchitectureNodeKind,
+      label: string,
+      position: Readonly<{ x: number; y: number }>,
+      size: Readonly<{ width: number; height: number }>,
+      options?: Readonly<{
+        parentId?: string;
+        properties?: Readonly<Record<string, string>>;
+        startsCollapsed?: boolean;
+      }>
+    ): CanvasNode => this.createExampleTemplateNode(id, kind, label, position, size, options);
+
+    const nodes: CanvasNode[] = [
+      makeNode("sls-users", "external", "Tenant Users", { x: 80, y: 200 }, { width: 172, height: 176 }),
+      makeNode("sls-root", "group-container-plus", "Serverless SaaS Platform", { x: 280, y: 60 }, { width: 3340, height: 1980 }, { startsCollapsed: false }),
+      makeNode("sls-region", "aws-region", "us-east-1", { x: 80, y: 70 }, { width: 3180, height: 1860 }, { parentId: "sls-root", startsCollapsed: false }),
+      makeNode("sls-subnet-edge", "aws-subnet", "Edge Zone", { x: 80, y: 90 }, { width: 3020, height: 420 }, { parentId: "sls-region", startsCollapsed: false }),
+      makeNode("sls-subnet-app", "aws-subnet", "App Zone", { x: 80, y: 560 }, { width: 1980, height: 1260 }, { parentId: "sls-region", startsCollapsed: false }),
+      makeNode("sls-subnet-data", "aws-subnet", "Data Zone", { x: 2120, y: 560 }, { width: 980, height: 1260 }, { parentId: "sls-region", startsCollapsed: false }),
+      makeNode("sls-route53", "aws-route53", "Route 53", { x: 120, y: 170 }, { width: 172, height: 176 }, { parentId: "sls-subnet-edge" }),
+      makeNode("sls-cloudfront", "aws-cloudfront", "CloudFront", { x: 360, y: 170 }, { width: 172, height: 176 }, { parentId: "sls-subnet-edge" }),
+      makeNode("sls-waf", "aws-waf", "WAF", { x: 600, y: 170 }, { width: 172, height: 176 }, { parentId: "sls-subnet-edge" }),
+      makeNode("sls-apigw", "aws-api-gateway", "API Gateway", { x: 840, y: 170 }, { width: 172, height: 176 }, { parentId: "sls-subnet-edge" }),
+      makeNode("sls-lambda-auth", "aws-lambda", "Auth Lambda", { x: 160, y: 180 }, { width: 172, height: 176 }, { parentId: "sls-subnet-app" }),
+      makeNode("sls-lambda-orders", "aws-lambda", "Orders Lambda", { x: 420, y: 180 }, { width: 172, height: 176 }, { parentId: "sls-subnet-app" }),
+      makeNode("sls-step-functions", "aws-step-functions", "Step Functions", { x: 680, y: 180 }, { width: 172, height: 176 }, { parentId: "sls-subnet-app" }),
+      makeNode("sls-eventbridge", "aws-eventbridge", "EventBridge", { x: 940, y: 180 }, { width: 172, height: 176 }, { parentId: "sls-subnet-app" }),
+      makeNode("sls-sqs", "aws-sqs", "Orders Queue", { x: 1200, y: 180 }, { width: 172, height: 176 }, { parentId: "sls-subnet-app" }),
+      makeNode("sls-lambda-worker", "aws-lambda", "Worker Lambda", { x: 1460, y: 180 }, { width: 172, height: 176 }, { parentId: "sls-subnet-app" }),
+      makeNode("sls-cloudwatch", "aws-cloudwatch", "CloudWatch", { x: 160, y: 520 }, { width: 172, height: 176 }, { parentId: "sls-subnet-app" }),
+      makeNode("sls-secrets", "aws-secrets-manager", "Secrets Manager", { x: 420, y: 520 }, { width: 172, height: 176 }, { parentId: "sls-subnet-app" }),
+      makeNode("sls-dynamodb", "aws-dynamodb", "DynamoDB", { x: 120, y: 180 }, { width: 172, height: 176 }, { parentId: "sls-subnet-data" }),
+      makeNode("sls-rds", "aws-rds", "Aurora Serverless", { x: 360, y: 180 }, { width: 172, height: 176 }, { parentId: "sls-subnet-data" }),
+      makeNode("sls-s3", "aws-s3", "S3 Documents", { x: 600, y: 180 }, { width: 172, height: 176 }, { parentId: "sls-subnet-data" }),
+      makeNode("sls-repo", "code-repository", "mono-repo", { x: 120, y: 520 }, { width: 172, height: 176 }, { parentId: "sls-subnet-data" }),
+      makeNode("sls-pipeline", "code-pipeline", "ci-cd-pipeline", { x: 360, y: 520 }, { width: 172, height: 176 }, { parentId: "sls-subnet-data" }),
+      makeNode("sls-ecr", "aws-ecr", "Container Registry", { x: 600, y: 440 }, { width: 340, height: 320 }, { parentId: "sls-subnet-data", startsCollapsed: false }),
+      makeNode("sls-ecr-image", "software-docker", "orders-worker:5.2.0", { x: 90, y: 90 }, { width: 172, height: 176 }, { parentId: "sls-ecr" })
+    ];
+
+    const makeEdge = (id: string, from: string, to: string, label?: string): CanvasEdge => ({
+      id,
+      from,
+      to,
+      label,
+      style
+    });
+
+    const edges: CanvasEdge[] = [
+      makeEdge("sls-e1", "sls-users", "sls-route53", "DNS"),
+      makeEdge("sls-e2", "sls-route53", "sls-cloudfront", "HTTPS"),
+      makeEdge("sls-e3", "sls-cloudfront", "sls-waf", "inspect"),
+      makeEdge("sls-e4", "sls-waf", "sls-apigw", "allow"),
+      makeEdge("sls-e5", "sls-apigw", "sls-lambda-auth", "authorize"),
+      makeEdge("sls-e6", "sls-lambda-auth", "sls-lambda-orders", "token ok"),
+      makeEdge("sls-e7", "sls-lambda-orders", "sls-step-functions", "orchestrate"),
+      makeEdge("sls-e8", "sls-step-functions", "sls-eventbridge", "emit domain event"),
+      makeEdge("sls-e9", "sls-eventbridge", "sls-sqs", "fan-out"),
+      makeEdge("sls-e10", "sls-sqs", "sls-lambda-worker", "consume"),
+      makeEdge("sls-e11", "sls-lambda-orders", "sls-dynamodb", "write"),
+      makeEdge("sls-e12", "sls-lambda-worker", "sls-rds", "billing"),
+      makeEdge("sls-e13", "sls-lambda-worker", "sls-s3", "store docs"),
+      makeEdge("sls-e14", "sls-cloudwatch", "sls-lambda-orders", "metrics"),
+      makeEdge("sls-e15", "sls-cloudwatch", "sls-lambda-worker", "logs"),
+      makeEdge("sls-e16", "sls-secrets", "sls-lambda-orders", "runtime secret"),
+      makeEdge("sls-e17", "sls-repo", "sls-pipeline", "CI"),
+      makeEdge("sls-e18", "sls-pipeline", "sls-ecr", "build"),
+      makeEdge("sls-e19", "sls-ecr-image", "sls-lambda-worker", "runtime image")
+    ];
+
+    return {
+      ...base,
+      title: this.t("title.awsServerlessSaasTemplate"),
+      description: this.t("title.awsServerlessSaasDescription"),
+      mermaidSource: `graph LR
+  User["Tenant User"] --> R53["Route53"]
+  R53 --> CF["CloudFront"]
+  CF --> WAF["WAF"]
+  WAF --> APIGW["API Gateway"]
+  APIGW --> Orders["Orders Lambda"]
+  Orders --> SFN["Step Functions"]
+  SFN --> Bus["EventBridge"]`,
+      nodes,
+      edges,
+      updatedAt: now
+    };
+  }
+
+  private createAwsDataPlatformArchitectureTemplate(base: ArchitectureDocument): ArchitectureDocument {
+    const now = new Date().toISOString();
+    const style: ArchitectureEdgeStyle = {
+      path: "smoothstep",
+      line: "solid",
+      color: "#111827",
+      animated: true,
+      bidirectional: false
+    };
+    const makeNode = (
+      id: string,
+      kind: ArchitectureNodeKind,
+      label: string,
+      position: Readonly<{ x: number; y: number }>,
+      size: Readonly<{ width: number; height: number }>,
+      options?: Readonly<{
+        parentId?: string;
+        properties?: Readonly<Record<string, string>>;
+        startsCollapsed?: boolean;
+      }>
+    ): CanvasNode => this.createExampleTemplateNode(id, kind, label, position, size, options);
+
+    const nodes: CanvasNode[] = [
+      makeNode("dp-producers", "external", "Operational Systems", { x: 60, y: 200 }, { width: 172, height: 176 }),
+      makeNode("dp-consumers", "external", "BI Consumers", { x: 60, y: 520 }, { width: 172, height: 176 }),
+      makeNode("dp-root", "group-container-plus", "AWS Data Platform", { x: 260, y: 60 }, { width: 3360, height: 2060 }, { startsCollapsed: false }),
+      makeNode("dp-region", "aws-region", "us-east-1", { x: 80, y: 70 }, { width: 3200, height: 1940 }, { parentId: "dp-root", startsCollapsed: false }),
+      makeNode("dp-vpc", "aws-vpc", "VPC 10.50.0.0/16", { x: 80, y: 90 }, { width: 3040, height: 1820 }, { parentId: "dp-region", startsCollapsed: false }),
+      makeNode("dp-subnet-ingest", "aws-subnet", "Ingestion Zone", { x: 80, y: 90 }, { width: 2880, height: 460 }, { parentId: "dp-vpc", startsCollapsed: false }),
+      makeNode("dp-subnet-processing", "aws-subnet", "Processing Zone", { x: 80, y: 610 }, { width: 1880, height: 1210 }, { parentId: "dp-vpc", startsCollapsed: false }),
+      makeNode("dp-subnet-serving", "aws-subnet", "Serving Zone", { x: 2020, y: 610 }, { width: 940, height: 1210 }, { parentId: "dp-vpc", startsCollapsed: false }),
+      makeNode("dp-apigw", "aws-api-gateway", "Ingestion API", { x: 140, y: 170 }, { width: 172, height: 176 }, { parentId: "dp-subnet-ingest" }),
+      makeNode("dp-lambda-ingest", "aws-lambda", "Ingestion Lambda", { x: 380, y: 170 }, { width: 172, height: 176 }, { parentId: "dp-subnet-ingest" }),
+      makeNode("dp-kafka", "queue-kafka", "Kafka Stream", { x: 620, y: 170 }, { width: 172, height: 176 }, { parentId: "dp-subnet-ingest" }),
+      makeNode("dp-s3-raw", "aws-s3", "S3 Raw Zone", { x: 860, y: 170 }, { width: 172, height: 176 }, { parentId: "dp-subnet-ingest" }),
+      makeNode("dp-step-functions", "aws-step-functions", "ETL Orchestrator", { x: 140, y: 180 }, { width: 172, height: 176 }, { parentId: "dp-subnet-processing" }),
+      makeNode("dp-lambda-transform", "aws-lambda", "Transform Lambda", { x: 380, y: 180 }, { width: 172, height: 176 }, { parentId: "dp-subnet-processing" }),
+      makeNode("dp-eventbridge", "aws-eventbridge", "Scheduler EventBridge", { x: 620, y: 180 }, { width: 172, height: 176 }, { parentId: "dp-subnet-processing" }),
+      makeNode("dp-sqs", "aws-sqs", "ETL Queue", { x: 860, y: 180 }, { width: 172, height: 176 }, { parentId: "dp-subnet-processing" }),
+      makeNode("dp-s3-curated", "aws-s3", "S3 Curated Zone", { x: 1100, y: 180 }, { width: 172, height: 176 }, { parentId: "dp-subnet-processing" }),
+      makeNode("dp-dynamo-catalog", "aws-dynamodb", "Data Catalog", { x: 1340, y: 180 }, { width: 172, height: 176 }, { parentId: "dp-subnet-processing" }),
+      makeNode("dp-cloudwatch", "aws-cloudwatch", "CloudWatch", { x: 160, y: 540 }, { width: 172, height: 176 }, { parentId: "dp-subnet-processing" }),
+      makeNode("dp-cloudtrail", "aws-cloudtrail", "CloudTrail", { x: 400, y: 540 }, { width: 172, height: 176 }, { parentId: "dp-subnet-processing" }),
+      makeNode("dp-rds", "aws-rds", "Analytics RDS", { x: 140, y: 200 }, { width: 172, height: 176 }, { parentId: "dp-subnet-serving" }),
+      makeNode("dp-opensearch", "aws-opensearch", "OpenSearch", { x: 380, y: 200 }, { width: 172, height: 176 }, { parentId: "dp-subnet-serving" }),
+      makeNode("dp-repo", "code-repository", "data-platform-repo", { x: 620, y: 200 }, { width: 172, height: 176 }, { parentId: "dp-subnet-serving" }),
+      makeNode("dp-pipeline", "code-pipeline", "etl-deploy-pipeline", { x: 620, y: 500 }, { width: 172, height: 176 }, { parentId: "dp-subnet-serving" })
+    ];
+
+    const makeEdge = (id: string, from: string, to: string, label?: string): CanvasEdge => ({
+      id,
+      from,
+      to,
+      label,
+      style
+    });
+
+    const edges: CanvasEdge[] = [
+      makeEdge("dp-e1", "dp-producers", "dp-apigw", "ingest"),
+      makeEdge("dp-e2", "dp-apigw", "dp-lambda-ingest", "invoke"),
+      makeEdge("dp-e3", "dp-lambda-ingest", "dp-kafka", "stream"),
+      makeEdge("dp-e4", "dp-kafka", "dp-s3-raw", "landing"),
+      makeEdge("dp-e5", "dp-eventbridge", "dp-step-functions", "schedule"),
+      makeEdge("dp-e6", "dp-step-functions", "dp-sqs", "fan-out"),
+      makeEdge("dp-e7", "dp-sqs", "dp-lambda-transform", "consume"),
+      makeEdge("dp-e8", "dp-lambda-transform", "dp-s3-curated", "write curated"),
+      makeEdge("dp-e9", "dp-lambda-transform", "dp-dynamo-catalog", "publish metadata"),
+      makeEdge("dp-e10", "dp-s3-curated", "dp-rds", "load marts"),
+      makeEdge("dp-e11", "dp-s3-curated", "dp-opensearch", "index"),
+      makeEdge("dp-e12", "dp-cloudwatch", "dp-lambda-transform", "metrics"),
+      makeEdge("dp-e13", "dp-cloudtrail", "dp-step-functions", "audit"),
+      makeEdge("dp-e14", "dp-repo", "dp-pipeline", "CI"),
+      makeEdge("dp-e15", "dp-pipeline", "dp-lambda-transform", "deploy"),
+      makeEdge("dp-e16", "dp-consumers", "dp-rds", "SQL"),
+      makeEdge("dp-e17", "dp-consumers", "dp-opensearch", "search")
+    ];
+
+    return {
+      ...base,
+      title: this.t("title.awsDataPlatformTemplate"),
+      description: this.t("title.awsDataPlatformDescription"),
+      mermaidSource: `graph LR
+  Source["Operational Systems"] --> Ingest["Ingestion API"]
+  Ingest --> Stream["Kafka"]
+  Stream --> Raw["S3 Raw"]
+  Raw --> Etl["ETL Orchestrator"]
+  Etl --> Curated["S3 Curated"]
+  Curated --> Mart["Analytics RDS"]`,
+      nodes,
+      edges,
+      updatedAt: now
+    };
+  }
+
+  private createSoftwareMicroservicesArchitectureTemplate(base: ArchitectureDocument): ArchitectureDocument {
+    const now = new Date().toISOString();
+    const style: ArchitectureEdgeStyle = {
+      path: "smoothstep",
+      line: "solid",
+      color: "#111827",
+      animated: true,
+      bidirectional: false
+    };
+    const makeNode = (
+      id: string,
+      kind: ArchitectureNodeKind,
+      label: string,
+      position: Readonly<{ x: number; y: number }>,
+      size: Readonly<{ width: number; height: number }>,
+      options?: Readonly<{
+        parentId?: string;
+        properties?: Readonly<Record<string, string>>;
+        startsCollapsed?: boolean;
+      }>
+    ): CanvasNode => this.createExampleTemplateNode(id, kind, label, position, size, options);
+
+    const nodes: CanvasNode[] = [
+      makeNode("ms-root", "group-container-plus", "Event-Driven Microservices Platform", { x: 60, y: 60 }, { width: 3380, height: 1980 }, { startsCollapsed: false }),
+      makeNode("ms-web", "software-frontend", "Web App", { x: 120, y: 220 }, { width: 172, height: 176 }, { parentId: "ms-root" }),
+      makeNode("ms-mobile", "software-mobile", "Mobile App", { x: 360, y: 220 }, { width: 172, height: 176 }, { parentId: "ms-root" }),
+      makeNode("ms-bff", "software-bff", "API Gateway BFF", { x: 600, y: 220 }, { width: 172, height: 176 }, { parentId: "ms-root" }),
+      makeNode("ms-orders-domain", "group-container-plus", "Orders Domain", { x: 980, y: 120 }, { width: 760, height: 780 }, { parentId: "ms-root", startsCollapsed: false }),
+      makeNode("ms-payments-domain", "group-container-plus", "Payments Domain", { x: 1780, y: 120 }, { width: 760, height: 780 }, { parentId: "ms-root", startsCollapsed: false }),
+      makeNode("ms-catalog-domain", "group-container-plus", "Catalog Domain", { x: 2580, y: 120 }, { width: 720, height: 780 }, { parentId: "ms-root", startsCollapsed: false }),
+      makeNode("ms-orders-api", "software-api", "Orders API", { x: 80, y: 130 }, { width: 172, height: 176 }, { parentId: "ms-orders-domain" }),
+      makeNode("ms-orders-worker", "software-worker", "Orders Worker", { x: 320, y: 130 }, { width: 172, height: 176 }, { parentId: "ms-orders-domain" }),
+      makeNode("ms-orders-db", "aws-rds", "Orders DB", { x: 200, y: 380 }, { width: 172, height: 176 }, { parentId: "ms-orders-domain" }),
+      makeNode("ms-payments-api", "software-api", "Payments API", { x: 80, y: 130 }, { width: 172, height: 176 }, { parentId: "ms-payments-domain" }),
+      makeNode("ms-payments-worker", "software-worker", "Payments Worker", { x: 320, y: 130 }, { width: 172, height: 176 }, { parentId: "ms-payments-domain" }),
+      makeNode("ms-payments-db", "database-mongodb", "Payments MongoDB", { x: 200, y: 380 }, { width: 172, height: 176 }, { parentId: "ms-payments-domain" }),
+      makeNode("ms-catalog-api", "software-api", "Catalog API", { x: 70, y: 130 }, { width: 172, height: 176 }, { parentId: "ms-catalog-domain" }),
+      makeNode("ms-catalog-cache", "cache-redis", "Catalog Redis", { x: 300, y: 130 }, { width: 172, height: 176 }, { parentId: "ms-catalog-domain" }),
+      makeNode("ms-kafka", "queue-kafka", "Domain Event Bus", { x: 980, y: 980 }, { width: 172, height: 176 }, { parentId: "ms-root" }),
+      makeNode("ms-rabbitmq", "queue-rabbitmq", "Command Queue", { x: 1240, y: 980 }, { width: 172, height: 176 }, { parentId: "ms-root" }),
+      makeNode("ms-eventbridge", "aws-eventbridge", "Integration Events", { x: 1500, y: 980 }, { width: 172, height: 176 }, { parentId: "ms-root" }),
+      makeNode("ms-cloudwatch", "aws-cloudwatch", "CloudWatch", { x: 1760, y: 980 }, { width: 172, height: 176 }, { parentId: "ms-root" }),
+      makeNode("ms-opensearch", "aws-opensearch", "OpenSearch", { x: 2020, y: 980 }, { width: 172, height: 176 }, { parentId: "ms-root" }),
+      makeNode("ms-repo", "code-repository", "microservices-repo", { x: 460, y: 1380 }, { width: 172, height: 176 }, { parentId: "ms-root" }),
+      makeNode("ms-pipeline", "code-pipeline", "microservices-pipeline", { x: 720, y: 1380 }, { width: 172, height: 176 }, { parentId: "ms-root" }),
+      makeNode("ms-ecr", "aws-ecr", "Service Images", { x: 980, y: 1300 }, { width: 520, height: 420 }, { parentId: "ms-root", startsCollapsed: false }),
+      makeNode("ms-image-orders", "software-docker", "orders-api:2.8.0", { x: 90, y: 90 }, { width: 172, height: 176 }, { parentId: "ms-ecr" }),
+      makeNode("ms-image-payments", "software-docker", "payments-api:2.8.0", { x: 260, y: 90 }, { width: 172, height: 176 }, { parentId: "ms-ecr" })
+    ];
+
+    const makeEdge = (id: string, from: string, to: string, label?: string): CanvasEdge => ({
+      id,
+      from,
+      to,
+      label,
+      style
+    });
+
+    const edges: CanvasEdge[] = [
+      makeEdge("ms-e1", "ms-web", "ms-bff", "HTTPS"),
+      makeEdge("ms-e2", "ms-mobile", "ms-bff", "HTTPS"),
+      makeEdge("ms-e3", "ms-bff", "ms-orders-api", "REST"),
+      makeEdge("ms-e4", "ms-bff", "ms-payments-api", "REST"),
+      makeEdge("ms-e5", "ms-bff", "ms-catalog-api", "REST"),
+      makeEdge("ms-e6", "ms-orders-api", "ms-orders-db", "write"),
+      makeEdge("ms-e7", "ms-payments-api", "ms-payments-db", "write"),
+      makeEdge("ms-e8", "ms-catalog-api", "ms-catalog-cache", "cache"),
+      makeEdge("ms-e9", "ms-orders-api", "ms-kafka", "order.created"),
+      makeEdge("ms-e10", "ms-kafka", "ms-payments-worker", "consume"),
+      makeEdge("ms-e11", "ms-payments-worker", "ms-rabbitmq", "command"),
+      makeEdge("ms-e12", "ms-rabbitmq", "ms-orders-worker", "retry"),
+      makeEdge("ms-e13", "ms-orders-worker", "ms-eventbridge", "integration"),
+      makeEdge("ms-e14", "ms-eventbridge", "ms-opensearch", "index"),
+      makeEdge("ms-e15", "ms-cloudwatch", "ms-orders-api", "metrics"),
+      makeEdge("ms-e16", "ms-cloudwatch", "ms-payments-api", "logs"),
+      makeEdge("ms-e17", "ms-repo", "ms-pipeline", "CI"),
+      makeEdge("ms-e18", "ms-pipeline", "ms-ecr", "build"),
+      makeEdge("ms-e19", "ms-image-orders", "ms-orders-api", "runtime"),
+      makeEdge("ms-e20", "ms-image-payments", "ms-payments-api", "runtime")
+    ];
+
+    return {
+      ...base,
+      title: this.t("title.softwareMicroservicesTemplate"),
+      description: this.t("title.softwareMicroservicesDescription"),
+      mermaidSource: `graph LR
+  Web["Web App"] --> BFF["API Gateway BFF"]
+  Mobile["Mobile App"] --> BFF
+  BFF --> Orders["Orders API"]
+  BFF --> Payments["Payments API"]
+  Orders --> Bus["Kafka"]
+  Bus --> Worker["Payments Worker"]
+  Worker --> Events["Integration Events"]`,
       nodes,
       edges,
       updatedAt: now
@@ -5567,6 +6332,7 @@ spec:
     let changed = false;
     const normalizedCodeNodes: ArchitectureNode[] = architecture.nodes.map((node) => {
       const supportsCode = isCodeSnippetNodeKind(node.kind) || CONTAINER_CODE_PROPERTY_KINDS.has(node.kind);
+      const isCodeSnippetKind = isCodeSnippetNodeKind(node.kind);
       const nextProperties: Record<string, string> = { ...(node.properties ?? {}) };
       let nodeChanged = false;
 
@@ -5575,10 +6341,12 @@ spec:
         const normalizedLanguage = normalizeCodeLanguageValue(nextProperties["codeLanguage"]);
 
         if (currentContent.length === 0) {
-          const fallbackLanguage = normalizedLanguage ?? this.getPreferredCodeLanguageForKind(node.kind);
-          nextProperties["codeLanguage"] = fallbackLanguage;
-          nextProperties["codeContent"] = this.getDefaultCodeSnippet(node.kind, fallbackLanguage);
-          nodeChanged = true;
+          if (isCodeSnippetKind) {
+            const fallbackLanguage = normalizedLanguage ?? this.getPreferredCodeLanguageForKind(node.kind);
+            nextProperties["codeLanguage"] = fallbackLanguage;
+            nextProperties["codeContent"] = this.getDefaultCodeSnippet(node.kind, fallbackLanguage);
+            nodeChanged = true;
+          }
         } else {
           const currentLanguage = detectCodeLanguageFromContent(currentContent) ?? this.getPreferredCodeLanguageForKind(node.kind);
           if (normalizedLanguage !== currentLanguage) {
@@ -5588,7 +6356,6 @@ spec:
         }
       }
 
-      const isCodeSnippetKind = isCodeSnippetNodeKind(node.kind);
       const isCodeContainerKind = isContainerNodeKind(node.kind) && CONTAINER_CODE_PROPERTY_KINDS.has(node.kind);
 
       if (isCodeSnippetKind) {
@@ -5865,7 +6632,6 @@ spec:
       this.resizeEnabledNodeId = null;
     }
 
-    this.fitContainerAndAncestorChain(nodeId);
     if (collapsed) {
       this.ensureNodeVisibleInViewport(nodeId);
     }
@@ -5907,7 +6673,6 @@ spec:
       })
     );
 
-    this.fitContainerAndAncestorChain(nodeId);
     if (collapsed) {
       this.ensureNodeVisibleInViewport(nodeId);
     }
@@ -6237,8 +7002,33 @@ spec:
       this.edgePathDataCache.set(edge.id, null);
       return null;
     }
+    const useFastRouteMode = this.isEdgeRouteFastModeActive();
     const basePolyline = this.getBaseEdgePolyline(geometry);
+    if (useFastRouteMode) {
+      const fastPoints = this.enforceEdgeEndpointSideConstraints(
+        this.compactPolyline(basePolyline),
+        geometry.sourceId,
+        geometry.targetId,
+        geometry.sourceSide,
+        geometry.targetSide
+      );
+      const fastData = {
+        points: fastPoints,
+        obstacles: [] as readonly EdgeObstacleRect[],
+        style: geometry.style
+      };
+      this.edgePathDataCache.set(edge.id, fastData);
+      return fastData;
+    }
     const obstacleRects = this.getEdgeObstacleRects(edge, geometry.sourceId, geometry.targetId);
+    const useSimplifiedObstacles = this.shouldUseSimplifiedEdgeObstacles();
+    const useDenseRouteMode = obstacleRects.length >= EDGE_ROUTE_FAST_PATH_OBSTACLE_THRESHOLD;
+    const primaryMaxPasses = useDenseRouteMode
+      ? Math.max(2, Math.floor(EDGE_ROUTE_MAX_PASSES / 2))
+      : EDGE_ROUTE_MAX_PASSES;
+    const routeMaxPasses = useSimplifiedObstacles
+      ? Math.min(4, primaryMaxPasses)
+      : primaryMaxPasses;
     const routeCore = this.compactPolyline(basePolyline.slice(1, -1));
     const routeSeed = routeCore.length >= 2
       ? routeCore
@@ -6250,7 +7040,7 @@ spec:
         geometry.sourceId,
         geometry.targetId,
         {
-          maxPasses: EDGE_ROUTE_MAX_PASSES,
+          maxPasses: routeMaxPasses,
           obstacleClearance: EDGE_OBSTACLE_CLEARANCE
         }
       )
@@ -6267,7 +7057,7 @@ spec:
       geometry.sourceSide,
       geometry.targetSide
     );
-    const constrainedNeedsReroute = this.shouldRerouteConstrainedEdgePath(
+    const constrainedNeedsReroute = !useDenseRouteMode && this.shouldRerouteConstrainedEdgePath(
       constrained,
       obstacleRects,
       geometry.sourceId,
@@ -6291,14 +7081,16 @@ spec:
         geometry.targetSide
       )
       : constrained;
-    const finalPoints = this.repairEdgePathObstacleCollisions(
-      normalized,
-      obstacleRects,
-      geometry.sourceId,
-      geometry.targetId,
-      geometry.sourceSide,
-      geometry.targetSide
-    );
+    const finalPoints = useDenseRouteMode
+      ? normalized
+      : this.repairEdgePathObstacleCollisions(
+        normalized,
+        obstacleRects,
+        geometry.sourceId,
+        geometry.targetId,
+        geometry.sourceSide,
+        geometry.targetSide
+      );
     if (finalPoints.length < 2) {
       this.edgePathDataCache.set(edge.id, null);
       return null;
@@ -6311,6 +7103,79 @@ spec:
     };
     this.edgePathDataCache.set(edge.id, data);
     return data;
+  }
+
+  private activateEdgeRouteFastMode(durationMs = EDGE_ROUTE_FAST_MODE_WINDOW_MS): void {
+    const now = Date.now();
+    this.edgeRouteFastModeUntil = Math.max(this.edgeRouteFastModeUntil, now + durationMs);
+    if (this.edgeRouteFastModeTimer) {
+      clearTimeout(this.edgeRouteFastModeTimer);
+      this.edgeRouteFastModeTimer = null;
+    }
+    this.edgeRouteFastModeTimer = setTimeout(() => {
+      this.edgeRouteFastModeTimer = null;
+      this.edgeRouteFastModeUntil = 0;
+      if (this.shouldPreferFastEdgeRouting()) return;
+      this.clearCanvasRenderCaches();
+      this.requestViewRender();
+    }, durationMs + 24);
+  }
+
+  private isEdgeRouteFastModeActive(): boolean {
+    return Date.now() < this.edgeRouteFastModeUntil || this.shouldPreferFastEdgeRouting();
+  }
+
+  private shouldPreferFastEdgeRouting(): boolean {
+    return (this.nodes.length + this.edges.length) >= EDGE_ROUTE_FORCE_FAST_COMPLEXITY_THRESHOLD;
+  }
+
+  private shouldUseSimplifiedEdgeObstacles(): boolean {
+    return (this.nodes.length + this.edges.length) >= EDGE_SIMPLIFIED_OBSTACLE_COMPLEXITY_THRESHOLD;
+  }
+
+  private shouldReduceCanvasDetailForPerformance(): boolean {
+    if (this.renderAllCanvasForExport) return false;
+    const complexity = this.nodes.length + this.edges.length;
+    const isInteracting = Boolean(
+      this.panState
+      || this.dragState?.hasMoved
+      || this.connectionDragState
+      || this.resizeState
+      || this.isMiniMapDragging()
+    );
+
+    if (isInteracting && complexity >= Math.floor(EDGE_LABEL_HIDE_COMPLEXITY_THRESHOLD * 0.65)) {
+      return true;
+    }
+
+    return complexity >= EDGE_LABEL_HIDE_COMPLEXITY_THRESHOLD
+      && this.canvasZoom <= EDGE_LABEL_HIDE_ZOOM_THRESHOLD;
+  }
+
+  private suspendEdgeRenderingTemporarily(durationMs = EDGE_RENDER_SUSPEND_ON_EXPAND_MS): void {
+    const now = Date.now();
+    this.edgeRenderSuspendUntil = Math.max(this.edgeRenderSuspendUntil, now + durationMs);
+    if (this.edgeRenderSuspendTimer) {
+      clearTimeout(this.edgeRenderSuspendTimer);
+      this.edgeRenderSuspendTimer = null;
+    }
+    this.edgeRenderSuspendTimer = setTimeout(() => {
+      this.edgeRenderSuspendTimer = null;
+      this.edgeRenderSuspendUntil = 0;
+      this.requestViewRender();
+    }, durationMs + 16);
+  }
+
+  private isEdgeRenderingSuspended(): boolean {
+    if (Date.now() < this.edgeRenderSuspendUntil) return true;
+    const complexity = this.nodes.length + this.edges.length;
+    if (complexity < EDGE_RENDER_NAVIGATION_COMPLEXITY_THRESHOLD) return false;
+    return Date.now() < this.edgeNavigationSuspendUntil;
+  }
+
+  private markEdgeNavigationStressWindow(durationMs = EDGE_RENDER_NAVIGATION_SUSPEND_MS): void {
+    const now = Date.now();
+    this.edgeNavigationSuspendUntil = Math.max(this.edgeNavigationSuspendUntil, now + durationMs);
   }
 
   private shouldRerouteConstrainedEdgePath(
@@ -6369,15 +7234,26 @@ spec:
     targetId: string
   ): boolean {
     if (points.length < 2 || obstacles.length === 0) return false;
+    const defaultSegmentObstacles = obstacles.filter((rect) =>
+      this.shouldBlockEdgeSegment(rect, sourceId, targetId, false, false)
+    );
+    const firstSegmentObstacles = obstacles.filter((rect) =>
+      this.shouldBlockEdgeSegment(rect, sourceId, targetId, true, false)
+    );
+    const lastSegmentObstacles = obstacles.filter((rect) =>
+      this.shouldBlockEdgeSegment(rect, sourceId, targetId, false, true)
+    );
     for (let index = 0; index < points.length - 1; index += 1) {
       const start = points[index];
       const end = points[index + 1];
       if (!start || !end) continue;
       const isFirstSegment = index === 0;
       const isLastSegment = index === points.length - 2;
-      const segmentObstacles = obstacles.filter((rect) =>
-        this.shouldBlockEdgeSegment(rect, sourceId, targetId, isFirstSegment, isLastSegment)
-      );
+      const segmentObstacles = isFirstSegment
+        ? firstSegmentObstacles
+        : isLastSegment
+          ? lastSegmentObstacles
+          : defaultSegmentObstacles;
       if (segmentObstacles.some((rect) => segmentIntersectsRect(start, end, rect))) return true;
     }
     return false;
@@ -6519,9 +7395,16 @@ spec:
       ...this.getOpenAncestorContainerIds(edge.from),
       ...this.getOpenAncestorContainerIds(edge.to)
     ]);
+    const routeBounds = this.getEdgeObstacleQueryBounds(sourceId, targetId);
+    const useSimplifiedObstacles = this.shouldUseSimplifiedEdgeObstacles();
 
     return this.nodes
       .filter((node) => this.isVisibleNode(node))
+      .filter((node) => {
+        if (!routeBounds) return true;
+        if (node.id === sourceId || node.id === targetId) return true;
+        return this.isNodeOverlappingBounds(node, routeBounds);
+      })
       .filter((node) => {
         const isOpenContainer = this.rendersAsContainer(node);
         if (!isOpenContainer) return true;
@@ -6530,11 +7413,12 @@ spec:
       })
       .flatMap((node) => {
         const paddedRect = this.createEdgeObstacleRect(node.id, node, EDGE_OBSTACLE_PADDING);
-        const contactShieldRect = this.createNodeContactShieldObstacleRect(
-          node.id,
-          node,
-          EDGE_CONTACT_SHIELD_PADDING
-        );
+        if (useSimplifiedObstacles) {
+          if (node.id !== sourceId && node.id !== targetId) return [paddedRect];
+          const hardRect = this.createEdgeObstacleRect(`${node.id}__hard`, node, 0);
+          return [paddedRect, hardRect];
+        }
+        const contactShieldRect = this.createNodeContactShieldObstacleRect(node.id, node, EDGE_CONTACT_SHIELD_PADDING);
         const leafIconRect = this.createLeafIconObstacleRect(node.id, node, LEAF_ICON_OBSTACLE_PADDING);
         if (node.id !== sourceId && node.id !== targetId) {
           return leafIconRect
@@ -6548,6 +7432,46 @@ spec:
           ? [paddedRect, hardRect, contactShieldRect, leafIconRect]
           : [paddedRect, hardRect, contactShieldRect];
       });
+  }
+
+  private getEdgeObstacleQueryBounds(
+    sourceId: string,
+    targetId: string
+  ): Readonly<{ left: number; top: number; right: number; bottom: number }> | null {
+    const sourceNode = this.nodes.find((node) => node.id === sourceId);
+    const targetNode = this.nodes.find((node) => node.id === targetId);
+    if (!sourceNode || !targetNode) return null;
+
+    const sourceCenter = this.getNodeCenter(sourceNode);
+    const targetCenter = this.getNodeCenter(targetNode);
+    const distance = Math.hypot(targetCenter.x - sourceCenter.x, targetCenter.y - sourceCenter.y);
+    const margin = Math.max(
+      EDGE_OBSTACLE_QUERY_MIN_MARGIN,
+      Math.min(EDGE_OBSTACLE_QUERY_MAX_MARGIN, Math.round(distance * 0.45))
+    );
+
+    return {
+      left: Math.min(sourceCenter.x, targetCenter.x) - margin,
+      top: Math.min(sourceCenter.y, targetCenter.y) - margin,
+      right: Math.max(sourceCenter.x, targetCenter.x) + margin,
+      bottom: Math.max(sourceCenter.y, targetCenter.y) + margin
+    };
+  }
+
+  private isNodeOverlappingBounds(
+    node: CanvasNode,
+    bounds: Readonly<{ left: number; top: number; right: number; bottom: number }>
+  ): boolean {
+    const absolute = this.getAbsolutePosition(node);
+    const left = absolute.x;
+    const top = absolute.y;
+    const right = absolute.x + node.size.width;
+    const bottom = absolute.y + node.size.height;
+
+    return right >= bounds.left
+      && left <= bounds.right
+      && bottom >= bounds.top
+      && top <= bounds.bottom;
   }
 
   private createEdgeObstacleRect(nodeId: string, node: CanvasNode, padding: number): EdgeObstacleRect {
@@ -7069,6 +7993,55 @@ spec:
     };
   }
 
+  private enforceContainerChildHeaderBounds(nodes: readonly CanvasNode[]): CanvasNode[] {
+    if (nodes.length === 0) return [];
+    const nextNodes = [...nodes];
+    const childIndexesByParent = new Map<string, number[]>();
+
+    for (let index = 0; index < nextNodes.length; index += 1) {
+      const node = nextNodes[index];
+      if (!node?.parentId) continue;
+      const list = childIndexesByParent.get(node.parentId);
+      if (list) {
+        list.push(index);
+      } else {
+        childIndexesByParent.set(node.parentId, [index]);
+      }
+    }
+
+    for (const container of nextNodes) {
+      if (!this.rendersAsContainer(container)) continue;
+      const childIndexes = childIndexesByParent.get(container.id);
+      if (!childIndexes || childIndexes.length === 0) continue;
+
+      let minChildY = Number.POSITIVE_INFINITY;
+      for (const childIndex of childIndexes) {
+        const child = nextNodes[childIndex];
+        if (!child) continue;
+        minChildY = Math.min(minChildY, child.position.y);
+      }
+      if (!Number.isFinite(minChildY)) continue;
+
+      const minAllowedY = this.getContainerContentInsetTop(container);
+      if (minChildY >= minAllowedY) continue;
+
+      const shiftY = minAllowedY - minChildY;
+      for (const childIndex of childIndexes) {
+        const child = nextNodes[childIndex];
+        if (!child) continue;
+        nextNodes[childIndex] = {
+          ...child,
+          position: {
+            x: child.position.x,
+            y: child.position.y + shiftY
+          }
+        };
+      }
+    }
+
+    return nextNodes;
+  }
+
   private isDescendantOfContainer(nodeId: string, containerId: string): boolean {
     let currentParentId = this.nodes.find((node) => node.id === nodeId)?.parentId;
     while (currentParentId) {
@@ -7317,7 +8290,21 @@ spec:
     if (this.renderableCanvasRectCache) return this.renderableCanvasRectCache;
 
     const visible = this.getVisibleCanvasRect();
-    const margin = CANVAS_RENDER_VIEWPORT_MARGIN_PX / Math.max(this.canvasZoom, 0.001);
+    const baseMargin = CANVAS_RENDER_VIEWPORT_MARGIN_PX / Math.max(this.canvasZoom, 0.001);
+    const isInteracting = Boolean(
+      this.panState
+      || this.dragState?.hasMoved
+      || this.connectionDragState
+      || this.resizeState
+      || this.isMiniMapDragging()
+    );
+    const clampedMargin = Math.min(
+      CANVAS_RENDER_WORLD_MARGIN_MAX,
+      Math.max(CANVAS_RENDER_WORLD_MARGIN_MIN, baseMargin)
+    );
+    const margin = isInteracting
+      ? Math.max(CANVAS_RENDER_WORLD_MARGIN_MIN, clampedMargin * 0.75)
+      : clampedMargin;
     const rect = {
       x: visible.left - margin,
       y: visible.top - margin,
@@ -7360,7 +8347,8 @@ spec:
   }
 
   private sortNodes(nodes: readonly CanvasNode[]): CanvasNode[] {
-    const byId = new Map(nodes.map((node) => [node.id, node] as const));
+    const boundedNodes = this.enforceContainerChildHeaderBounds(nodes);
+    const byId = new Map(boundedNodes.map((node) => [node.id, node] as const));
     const depthCache = new Map<string, number>();
     const getDepth = (nodeId: string): number => {
       const cached = depthCache.get(nodeId);
@@ -7377,7 +8365,7 @@ spec:
       return depth;
     };
 
-    return [...nodes].sort((a, b) => {
+    return [...boundedNodes].sort((a, b) => {
       const containerDiff = Number(this.rendersAsContainer(b)) - Number(this.rendersAsContainer(a));
       if (containerDiff !== 0) return containerDiff;
 
@@ -7911,6 +8899,7 @@ spec:
       startPointer: { x: event.clientX, y: event.clientY },
       startPan: this.canvasPan
     };
+    this.markEdgeNavigationStressWindow();
     (event.currentTarget as HTMLElement | null)?.setPointerCapture?.(event.pointerId);
     this.markTransientUiChanged();
   }
@@ -8500,8 +9489,6 @@ spec:
   private scheduleAutoSave(): void {
     if (this.collaborationSession) return;
     if (!this.architecture) return;
-    const signature = this.buildPersistenceSignature();
-    if (signature === this.lastPersistedSignature) return;
 
     if (this.autoSaveInFlight) {
       this.autoSaveQueued = true;
@@ -8592,7 +9579,9 @@ spec:
 
   private resetHistory(): void {
     const snapshot = this.captureSnapshot();
+    const signature = this.snapshotSignature(snapshot);
     this.history = [snapshot];
+    this.historySignatures = [signature];
     this.historyIndex = 0;
   }
 
@@ -8616,16 +9605,21 @@ spec:
   private recordHistory(): void {
     if (!this.architecture || this.applyingHistory) return;
     const snapshot = this.captureSnapshot();
-    const current = this.history[this.historyIndex];
-    if (current && this.snapshotSignature(current) === this.snapshotSignature(snapshot)) return;
+    const signature = this.snapshotSignature(snapshot);
+    const currentSignature = this.historySignatures[this.historyIndex];
+    if (currentSignature === signature) return;
 
     if (this.historyIndex < this.history.length - 1) {
       this.history = this.history.slice(0, this.historyIndex + 1);
+      this.historySignatures = this.historySignatures.slice(0, this.historyIndex + 1);
     }
 
     this.history = [...this.history, snapshot];
+    this.historySignatures = [...this.historySignatures, signature];
     if (this.history.length > MAX_UNDO_HISTORY) {
-      this.history = this.history.slice(this.history.length - MAX_UNDO_HISTORY);
+      const trimStart = this.history.length - MAX_UNDO_HISTORY;
+      this.history = this.history.slice(trimStart);
+      this.historySignatures = this.historySignatures.slice(trimStart);
     }
     this.historyIndex = this.history.length - 1;
   }
@@ -10130,6 +11124,42 @@ spec:
   }
 
   private markViewChanged(): void {
+    const changeState = this.consumeViewChangeState();
+    if (changeState.requiresRouteCacheReset) {
+      this.clearCanvasRenderCaches();
+    } else {
+      this.clearVisualRenderCaches();
+    }
+    if (!this.hasCollapsedNodeForDoubleClickHint()) {
+      if (this.showDoubleClickHint) {
+        this.showDoubleClickHint = false;
+      }
+      if (this.doubleClickHintTimer) {
+        clearTimeout(this.doubleClickHintTimer);
+        this.doubleClickHintTimer = null;
+      }
+      if (this.doubleClickHintBootTimer) {
+        clearTimeout(this.doubleClickHintBootTimer);
+        this.doubleClickHintBootTimer = null;
+      }
+    }
+    if (changeState.documentChanged) {
+      this.syncMermaidFromCanvasIfNeeded();
+      this.recordHistory();
+      if (this.collaborationSession) {
+        this.scheduleCollaborationSync();
+        this.scheduleCollaborationViewPublish();
+      } else {
+        this.scheduleAutoSave();
+      }
+    } else {
+      this.scheduleCollaborationViewPublish();
+    }
+    this.scheduleViewportCheckpointPersist();
+    this.requestViewRender();
+  }
+
+  private markCollapseToggleChanged(): void {
     this.clearCanvasRenderCaches();
     if (!this.hasCollapsedNodeForDoubleClickHint()) {
       if (this.showDoubleClickHint) {
@@ -10144,8 +11174,6 @@ spec:
         this.doubleClickHintBootTimer = null;
       }
     }
-    this.syncMermaidFromCanvasIfNeeded();
-    this.recordHistory();
     if (this.collaborationSession) {
       this.scheduleCollaborationSync();
       this.scheduleCollaborationViewPublish();
@@ -10178,13 +11206,60 @@ spec:
     this.nodeStyleCache.clear();
     this.nodeClassCache.clear();
     this.miniMapNodeStyleCache.clear();
+    this.miniMapRenderableNodesCache = null;
     this.renderableNodeIdsCache.clear();
     this.renderableEdgeIdsCache.clear();
     this.renderableCanvasRectCache = null;
     this.leafNodeLabelKnockoutRectCache.clear();
     this.edgeClipContainersCache = null;
     this.leafLabelKnockoutNodesCache = null;
+    this.visibleContainerLayerCeilingZIndexCache = null;
+    this.containerContextEdgeLayerZIndexCache = null;
     this.codeLanguageBadgeCache.clear();
+  }
+
+  private clearVisualRenderCaches(): void {
+    this.nodeStyleCache.clear();
+    this.nodeClassCache.clear();
+    this.miniMapNodeStyleCache.clear();
+    this.miniMapRenderableNodesCache = null;
+    this.renderableNodeIdsCache.clear();
+    this.renderableEdgeIdsCache.clear();
+    this.renderableCanvasRectCache = null;
+    this.edgeLabelDyCache.clear();
+    this.edgeLabelStartOffsetCache.clear();
+    this.edgeLabelPositionCache.clear();
+    this.edgeLabelRenderWidthCache.clear();
+    this.edgeDarkTransitionClipIdsCache.clear();
+    this.leafNodeLabelKnockoutRectCache.clear();
+    this.edgeClipContainersCache = null;
+    this.leafLabelKnockoutNodesCache = null;
+    this.visibleContainerLayerCeilingZIndexCache = null;
+    this.containerContextEdgeLayerZIndexCache = null;
+  }
+
+  private consumeViewChangeState(): Readonly<{ documentChanged: boolean; requiresRouteCacheReset: boolean }> {
+    const currentTitle = this.architecture?.title ?? "";
+    const currentDescription = this.architecture?.description ?? "";
+    const documentChanged =
+      this.nodes !== this.lastTrackedNodesRef
+      || this.edges !== this.lastTrackedEdgesRef
+      || currentTitle !== this.lastTrackedArchitectureTitle
+      || currentDescription !== this.lastTrackedArchitectureDescription
+      || this.mermaidDraft !== this.lastTrackedMermaidDraft;
+    const routeGeometryChanged = this.nodeIconSize !== this.lastTrackedNodeIconSize;
+
+    this.lastTrackedNodesRef = this.nodes;
+    this.lastTrackedEdgesRef = this.edges;
+    this.lastTrackedArchitectureTitle = currentTitle;
+    this.lastTrackedArchitectureDescription = currentDescription;
+    this.lastTrackedMermaidDraft = this.mermaidDraft;
+    this.lastTrackedNodeIconSize = this.nodeIconSize;
+
+    return {
+      documentChanged,
+      requiresRouteCacheReset: documentChanged || routeGeometryChanged
+    };
   }
 
   private markViewportChanged(): void {

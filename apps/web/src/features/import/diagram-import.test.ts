@@ -60,6 +60,27 @@ describe("diagram import parser", () => {
     expect(parsed.architecture.nodes.find((node) => node.id === "Db")?.color).toBe("#e0f2fe");
   });
 
+  it("preserves Mermaid flow direction on imported layout", async () => {
+    const source = `graph TB
+  User["User"] --> Api["API"]
+  Api --> Db["Database"]`;
+
+    const parsed = await parseImportToSharePackage({
+      fileName: "top-down.mmd",
+      text: source,
+      now
+    });
+
+    const user = parsed.architecture.nodes.find((node) => node.id === "User");
+    const api = parsed.architecture.nodes.find((node) => node.id === "Api");
+    const db = parsed.architecture.nodes.find((node) => node.id === "Db");
+    expect(user).toBeDefined();
+    expect(api).toBeDefined();
+    expect(db).toBeDefined();
+    expect(user!.position.y).toBeLessThan(api!.position.y);
+    expect(api!.position.y).toBeLessThan(db!.position.y);
+  });
+
   it("imports Excalidraw JSON and converts elements into nodes and edges", async () => {
     const source = {
       type: "excalidraw",
@@ -250,6 +271,96 @@ describe("diagram import parser", () => {
     expect(parsed.architecture.edges).toHaveLength(1);
     expect(parsed.architecture.edges[0]?.from).toBe("excalidraw-node-a");
     expect(parsed.architecture.edges[0]?.to).toBe("excalidraw-node-b");
+  });
+
+  it("keeps Excalidraw frame hierarchy with relative child position", async () => {
+    const source = {
+      type: "excalidraw",
+      elements: [
+        {
+          id: "frame-1",
+          type: "frame",
+          x: 120,
+          y: 90,
+          width: 560,
+          height: 340,
+          text: "Application"
+        },
+        {
+          id: "node-a",
+          type: "rectangle",
+          x: 220,
+          y: 170,
+          width: 140,
+          height: 72,
+          text: "API",
+          frameId: "frame-1"
+        }
+      ]
+    };
+
+    const parsed = await parseImportToSharePackage({
+      fileName: "frame.excalidraw",
+      text: JSON.stringify(source),
+      now
+    });
+
+    const frame = parsed.architecture.nodes.find((node) => node.id === "excalidraw-frame-1");
+    const api = parsed.architecture.nodes.find((node) => node.id === "excalidraw-node-a");
+    expect(frame).toBeDefined();
+    expect(api).toBeDefined();
+    expect(api?.parentId).toBe("excalidraw-frame-1");
+    expect(api?.position).toEqual({ x: 100, y: 80 });
+  });
+
+  it("infers Excalidraw edge ports from line endpoints", async () => {
+    const source = {
+      type: "excalidraw",
+      elements: [
+        {
+          id: "node-a",
+          type: "rectangle",
+          x: 120,
+          y: 80,
+          width: 140,
+          height: 72,
+          text: "API"
+        },
+        {
+          id: "node-b",
+          type: "rectangle",
+          x: 420,
+          y: 80,
+          width: 140,
+          height: 72,
+          text: "DB"
+        },
+        {
+          id: "edge-1",
+          type: "arrow",
+          x: 0,
+          y: 0,
+          width: 0,
+          height: 0,
+          startBinding: { elementId: "node-a" },
+          endBinding: { elementId: "node-b" },
+          points: [
+            [260, 116],
+            [420, 116]
+          ]
+        }
+      ]
+    };
+
+    const parsed = await parseImportToSharePackage({
+      fileName: "ports.excalidraw",
+      text: JSON.stringify(source),
+      now
+    });
+
+    expect(parsed.architecture.edges).toHaveLength(1);
+    expect(parsed.architecture.edges[0]?.sourcePort).toBe("right");
+    expect(parsed.architecture.edges[0]?.targetPort).toBe("left");
   });
 
   it("keeps Excalidraw coordinates at 0 without fallback overlap", async () => {
