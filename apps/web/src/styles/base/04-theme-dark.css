@@ -230,6 +230,10 @@
     0 -1px 3px rgba(2, 6, 23, 0.8);
 }
 
+.app-shell.theme-dark.app-shell--perf-lite .canvas-edge-label-box {
+  text-shadow: none;
+}
+
 .app-shell.theme-dark .node-port::before {
   border-color: #9ca3af;
   background: #1f2937;

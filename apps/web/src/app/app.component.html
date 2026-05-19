@@ -1,6 +1,11 @@
 <ng-container *ngIf="authChecked; else sessionBoot">
 <ng-container *ngIf="!authEnabled || isAuthenticated; else loginGate">
-<div class="app-shell" [class.theme-dark]="isDarkMode" [class.app-shell--tutorial-lock]="isTutorialActive()">
+<div
+  class="app-shell"
+  [class.theme-dark]="isDarkMode"
+  [class.app-shell--tutorial-lock]="isTutorialActive()"
+  [class.app-shell--perf-lite]="shouldUsePerformanceLiteMode()"
+>
   <header class="topbar">
     <div class="brand-lockup">
       <img class="brand-logo" src="assets/brand/logo-mark.svg" alt="Arch Draw" />
@@ -336,12 +341,14 @@
               *ngFor="let containerNode of getEdgeClipContainers(); trackBy: trackByNodeId"
               [attr.id]="getEdgeContainerClipPathId(containerNode.id)"
             >
+            <ng-container *ngIf="getNodeAbsoluteRect(containerNode) as containerRect">
               <rect
-                [attr.x]="getNodeAbsoluteRect(containerNode).x"
-                [attr.y]="getNodeAbsoluteRect(containerNode).y"
-                [attr.width]="getNodeAbsoluteRect(containerNode).width"
-                [attr.height]="getNodeAbsoluteRect(containerNode).height"
+                [attr.x]="containerRect.x"
+                [attr.y]="containerRect.y"
+                [attr.width]="containerRect.width"
+                [attr.height]="containerRect.height"
               ></rect>
+            </ng-container>
             </clipPath>
           </defs>
           <ng-container *ngFor="let edge of getRenderableEdges(); trackBy: trackByEdgeId">
@@ -538,24 +545,27 @@
               ></button>
             </ng-template>
             <div class="architecture-node__header">
-              <span
-                [class]="'node-icon node-icon--' + getNodeIconKind(node)"
-                [style.--icon-color]="getIconColor(node.color)"
-                [attr.title]="getNodeIcon(getNodeIconKind(node))"
-              >
-                <i [class]="getNodeIconClass(getNodeIconKind(node))" aria-hidden="true"></i>
-                <span class="node-icon__label">{{ getNodeIcon(getNodeIconKind(node)) }}</span>
+              <ng-container *ngIf="getNodeIconKind(node) as iconKind">
                 <span
-                  *ngIf="shouldShowNodeCodeLanguageBadge(node)"
-                  class="node-code-language-badge"
-                  [ngStyle]="getNodeCodeLanguageBadgeStyle(node)"
-                  [attr.title]="getNodeCodeLanguageBadge(node).label"
-                  [attr.aria-label]="getNodeCodeLanguageBadge(node).label"
+                  [class]="'node-icon node-icon--' + iconKind"
+                  [style.--icon-color]="getIconColor(node.color)"
+                  [attr.title]="getNodeIcon(iconKind)"
                 >
-                  <i [class]="getNodeCodeLanguageBadge(node).iconClass" aria-hidden="true"></i>
-                  <span class="node-code-language-badge__text">{{ getNodeCodeLanguageBadge(node).shortLabel }}</span>
+                  <i [class]="getNodeIconClass(iconKind)" aria-hidden="true"></i>
+                  <span class="node-icon__label">{{ getNodeIcon(iconKind) }}</span>
+                  <ng-container *ngIf="shouldShowNodeCodeLanguageBadge(node) && getNodeCodeLanguageBadge(node) as codeBadge">
+                    <span
+                      class="node-code-language-badge"
+                      [ngStyle]="getNodeCodeLanguageBadgeStyle(node)"
+                      [attr.title]="codeBadge.label"
+                      [attr.aria-label]="codeBadge.label"
+                    >
+                      <i [class]="codeBadge.iconClass" aria-hidden="true"></i>
+                      <span class="node-code-language-badge__text">{{ codeBadge.shortLabel }}</span>
+                    </span>
+                  </ng-container>
                 </span>
-              </span>
+              </ng-container>
               <span class="architecture-node__kind-label">{{ getNodeLabel(node.kind) }}</span>
               <button
                 *ngIf="(isCollapsibleContainerNode(node) && !isContainerCollapsed(node)) || (isCollapsibleCodeSnippetNode(node) && !isCodeSnippetCollapsed(node))"
