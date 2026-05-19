@@ -33,12 +33,18 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Ícones de elementos minimizados mantêm alinhamento central mesmo com labels longas.
 - Elementos de código minimizados exibem badge da linguagem detectada, atualizada sempre que o conteúdo interno muda, para facilitar identificação rápida do conteúdo.
 - Containers não expandem automaticamente durante drag and drop; ajuste dinâmico ocorre apenas em fluxos de expansão/maximização.
+- Ao carregar/criar exemplos e importar arquiteturas, filhos de container que encostariam no header são reposicionados em bloco (preservando espaçamento relativo) para manter tipo/título editável sempre livres.
 - Colapso de elementos aninhados com manutenção do foco visual no canvas e redução de ruído em labels agregadas.
 - Normalização automática de vínculo em containers ao carregar/importar templates (nós internos sem `parentId` válido são reanexados ao container correto pelo contexto visual).
 - Exclusão em cascata para hierarquias: ao remover um container/pai, todos os itens internos (filhos e descendentes) também são removidos, independentemente de estado minimizado/maximizado.
 - Blocos que suportam conteúdo técnico (código, YAML, SQL, Mermaid e configurações).
+- Para manter criação/importação fluida em boards grandes, snippets padrão de nós de infraestrutura são materializados sob demanda (na edição), em vez de persistidos em massa na criação do exemplo.
+- Em arquiteturas mais densas, o roteamento de linhas usa modo adaptativo (consulta de obstáculos reduzida + janela maior de fast-route ao expandir/criar exemplos) para manter navegação e abertura de containers mais fluida.
+- Em zoom baixo com alta densidade, labels/knockouts de conexões e overlays de contexto em dark mode são reduzidos temporariamente para priorizar FPS durante navegação.
 - Exportação de diagramas em múltiplos formatos (`.archdraw.json`, `.drawio`, `.excalidraw`, `.mmd`, SVG e PNG).
 - Importação de diagramas em múltiplos formatos (`.archdraw`, JSON, `.drawio`/XML, `.excalidraw`, `.mmd`/`.mermaid`).
+- Import mantém hierarquia visual e fluxo entre plataformas (draw.io, Excalidraw e Mermaid), convertendo para tipos internos sem desmontar a estrutura original.
+- Export `.mmd` inclui metadado interno de layout; ao reimportar esse Mermaid no Arch Draw, posições, hierarquia de containers e estilos de conexão são restaurados com fidelidade.
 - Painel de propriedades contextual no ponto do clique, com ajustes globais de fonte de labels, fonte de âncoras e tamanho de ícones.
 - Compartilhamento por arquivo com link dedicado (`?share=...`) e modo de acesso controlado no servidor (`edit` ou `read-only`), sem expor permissão no URL.
 - Persistência backend em pacotes locais comprimidos (`.adpk`) com manifest de busca por sessão, arquivo e share, sem dependência de banco relacional para salvar arquiteturas.
@@ -50,6 +56,8 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Checkpoint automático de viewport por arquivo (zoom + posição do canvas), retomando no mesmo ponto após recarregar ou reabrir o navegador.
 - Navegação do canvas por gesto de dois dedos no touchpad, mantendo `Ctrl/Command + scroll` para zoom.
 - Pan, zoom e preview de conexão preservam caches de rotas, paths SVG, labels, retângulos, estilos e identidade das listas do canvas, com renderização limitada à área visível e persistência agrupada durante navegação para reduzir travamentos em diagramas densos.
+- Culling de viewport e redução de detalhes visuais são adaptativos durante navegação/interação (pan, drag, resize e mini map), reduzindo custo de render em boards densos e mantendo o fluxo funcional.
+- Durante navegação contínua em diagramas densos (pan/zoom/minimap), o render de arestas entra em janela curta de alívio e o minimap prioriza containers/seleção para manter fluidez sem perder orientação.
 - Expansão de estruturas aninhadas reutiliza índice de nós, posições absolutas, profundidade de hierarquia e visibilidade de ancestrais para reduzir buscas repetidas em containers grandes.
 - Zoom ampliado de 5% a 500% para navegar arquiteturas maiores sem perder detalhamento.
 - Toasts visuais no padrão da plataforma para ações de produtividade (salvar checkpoint, exportar e limpar).
@@ -59,7 +67,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Otimização de entrega web com compressão HTTP (`gzip`), cache imutável para assets hashados e `index.html` sem cache.
 - Auto save com debounce adaptativo por complexidade (nós + conexões) para reduzir carga em arquiteturas grandes.
 - Isolamento por sessão para cada usuário ver apenas seus próprios arquivos e template.
-- Criação rápida de “Exemplo completo” para acelerar demonstrações e validações.
+- Menu `Exemplos` na toolbar com templates prontos de arquitetura (completo macro→micro, AWS cross-account, cluster Kubernetes, software platform, AWS serverless SaaS, AWS data platform e software microservices).
 
 ## Casos de uso
 
@@ -194,10 +202,13 @@ sudo ufw status verbose
 
 ```bash
 npm run typecheck
-npm test
 npm run build
 npm run lint
+npm test
+npm run verify
 ```
+
+`npm run verify` executa o gate completo de integridade local (`typecheck`, `lint`, `test` e `build`) no mesmo padrão da pipeline CI.
 
 ## Estrutura do monorepo
 
