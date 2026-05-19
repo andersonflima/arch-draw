@@ -1,11 +1,14 @@
 import { architectureToMermaid, type ArchitectureDocument, type ArchitectureEdge, type ArchitectureNode } from "@arch-draw/domain";
+import { appendMermaidLayoutMetadata } from "../interchange/mermaid-layout-metadata";
 
 type ExcalidrawElement = Readonly<Record<string, unknown>>;
 
 const XML_HEADER = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>";
 
-export const exportArchitectureToMermaid = (architecture: ArchitectureDocument): string =>
-  architectureToMermaid(architecture);
+export const exportArchitectureToMermaid = (architecture: ArchitectureDocument): string => {
+  const source = architectureToMermaid(architecture);
+  return appendMermaidLayoutMetadata(source, architecture);
+};
 
 export const exportArchitectureToDrawIo = (architecture: ArchitectureDocument): string => {
   const nodeIds = new Set(architecture.nodes.map((node) => node.id));

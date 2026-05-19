@@ -11,6 +11,7 @@ import {
   type ArchitectureNodeKind,
   type ArchitectureSharePackage
 } from "@arch-draw/domain";
+import { extractMermaidLayoutMetadata } from "../interchange/mermaid-layout-metadata";
 import { getDefaultNodeSize, getNodeKindColor, isContainerNodeKind, nodeCatalog } from "../editor/node-catalog";
 
 type ImportInput = Readonly<{
@@ -419,6 +420,19 @@ const parseMermaidToArchitecture = ({
   now
 }: ImportInput): ArchitectureDocument => {
   const title = importTitleFromFile(fileName, "Import Mermaid");
+  const metadata = extractMermaidLayoutMetadata(text);
+  if (metadata) {
+    const restored = restoreArchitectureFromMermaidMetadata({
+      fileName,
+      text,
+      now,
+      title,
+      nodes: metadata.nodes,
+      edges: metadata.edges
+    });
+    if (restored) return restored;
+  }
+
   const architecture = createEmptyArchitecture({
     id: `import-mermaid-${crypto.randomUUID()}`,
     title,
@@ -436,6 +450,256 @@ const parseMermaidToArchitecture = ({
     }))
   };
 };
+
+type MermaidMetadataRestoreInput = Readonly<{
+  fileName: string;
+  text: string;
+  now: string;
+  title: string;
+  nodes: readonly unknown[];
+  edges: readonly unknown[];
+}>;
+
+const restoreArchitectureFromMermaidMetadata = ({
+  fileName,
+  text,
+  now,
+  title,
+  nodes,
+  edges
+}: MermaidMetadataRestoreInput): ArchitectureDocument | null => {
+  const normalizedNodes = normalizeMermaidMetadataNodes(nodes);
+  if (normalizedNodes.length === 0) return null;
+
+  const nodeIdSet = new Set(normalizedNodes.map((node) => node.id));
+  const nodesWithValidParents = normalizedNodes.map((node) => {
+    if (!node.parentId || !nodeIdSet.has(node.parentId) || node.parentId === node.id) {
+      return { ...node, parentId: undefined };
+    }
+    return node;
+  });
+  const normalizedEdges = normalizeMermaidMetadataEdges(edges, nodeIdSet);
+
+  return {
+    version: ARCHITECTURE_DOCUMENT_VERSION,
+    id: `import-mermaid-${crypto.randomUUID()}`,
+    title: importTitleFromFile(fileName, title),
+    description: "",
+    nodes: nodesWithValidParents,
+    edges: normalizedEdges,
+    mermaidSource: text,
+    createdAt: now,
+    updatedAt: now
+  };
+};
+
+const normalizeMermaidMetadataNodes = (nodes: readonly unknown[]): readonly ArchitectureNode[] => {
+  const normalized: ArchitectureNode[] = [];
+  const usedIds = new Set<string>();
+
+  for (const [index, entry] of nodes.entries()) {
+    if (!isObjectRecord(entry)) continue;
+    const fallbackId = `mermaid-node-${index + 1}`;
+    const id = uniqueImportedToken(normalizeImportedToken(entry.id), fallbackId, usedIds);
+    const label = normalizeImportedLabel(entry.label, id);
+    const inferredKind = inferKindFromLabel(label);
+    const kind = isKnownNodeKind(entry.kind) ? entry.kind : inferredKind;
+    const position = normalizeImportedPoint(entry.position, index);
+    const size = normalizeImportedSize(entry.size, kind);
+    const color = normalizeImportedColor(entry.color, kind);
+    const parentId = normalizeImportedToken(entry.parentId);
+    const properties = normalizeImportedProperties(entry.properties);
+    const collapsed = typeof entry.collapsed === "boolean" ? entry.collapsed : undefined;
+    const collapsedIconKind = isKnownNodeKind(entry.collapsedIconKind) ? entry.collapsedIconKind : undefined;
+    const expandedSize = normalizeImportedExpandedSize(entry.expandedSize);
+    const mermaidSource = typeof entry.mermaidSource === "string" ? entry.mermaidSource : undefined;
+
+    const node: ArchitectureNode = {
+      id,
+      kind,
+      label,
+      position,
+      size,
+      color,
+      ...(parentId && parentId !== id ? { parentId } : {}),
+      ...(properties ? { properties } : {}),
+      ...(collapsed !== undefined ? { collapsed } : {}),
+      ...(collapsedIconKind ? { collapsedIconKind } : {}),
+      ...(expandedSize ? { expandedSize } : {}),
+      ...(mermaidSource ? { mermaidSource } : {})
+    };
+
+    normalized.push(node);
+  }
+
+  return normalized;
+};
+
+const normalizeMermaidMetadataEdges = (
+  edges: readonly unknown[],
+  nodeIds: ReadonlySet<string>
+): readonly ArchitectureEdge[] => {
+  const normalized: ArchitectureEdge[] = [];
+  const usedIds = new Set<string>();
+
+  for (const [index, entry] of edges.entries()) {
+    if (!isObjectRecord(entry)) continue;
+    const from = normalizeImportedToken(entry.from);
+    const to = normalizeImportedToken(entry.to);
+    if (!from || !to || from === to) continue;
+    if (!nodeIds.has(from) || !nodeIds.has(to)) continue;
+
+    const fallbackId = `mermaid-edge-${index + 1}`;
+    const id = uniqueImportedToken(normalizeImportedToken(entry.id), fallbackId, usedIds);
+    const sourcePort = normalizeImportedPort(entry.sourcePort);
+    const targetPort = normalizeImportedPort(entry.targetPort);
+    const label = normalizeImportedEdgeLabel(entry.label);
+    const style = normalizeImportedEdgeStyle(entry.style);
+    const edge: ArchitectureEdge = {
+      id,
+      from,
+      to,
+      ...(sourcePort ? { sourcePort } : {}),
+      ...(targetPort ? { targetPort } : {}),
+      ...(label ? { label } : {}),
+      ...(style ? { style } : {})
+    };
+
+    normalized.push(edge);
+  }
+
+  return normalized;
+};
+
+const normalizeImportedToken = (value: unknown): string | null => {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+};
+
+const uniqueImportedToken = (
+  preferred: string | null,
+  fallback: string,
+  used: Set<string>
+): string => {
+  const base = preferred ?? fallback;
+  let candidate = base;
+  let suffix = 2;
+  while (used.has(candidate)) {
+    candidate = `${base}-${suffix}`;
+    suffix += 1;
+  }
+  used.add(candidate);
+  return candidate;
+};
+
+const normalizeImportedLabel = (value: unknown, fallback: string): string => {
+  if (typeof value !== "string") return fallback;
+  const normalized = value
+    .replaceAll(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ")
+    .trim();
+  return normalized.length > 0 ? normalized.slice(0, MAX_IMPORT_LABEL_LENGTH) : fallback;
+};
+
+const normalizeImportedEdgeLabel = (value: unknown): string | undefined => {
+  if (typeof value !== "string") return undefined;
+  const normalized = value
+    .replaceAll(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ")
+    .trim();
+  return normalized.length > 0 ? normalized.slice(0, MAX_IMPORT_LABEL_LENGTH) : undefined;
+};
+
+const normalizeImportedPoint = (
+  value: unknown,
+  index: number
+): Readonly<{ x: number; y: number }> => {
+  if (isObjectRecord(value)) {
+    const x = readFiniteNumber(value.x);
+    const y = readFiniteNumber(value.y);
+    if (x !== null && y !== null) return { x, y };
+  }
+  return {
+    x: 120 + (index % 4) * 260,
+    y: 120 + Math.floor(index / 4) * 160
+  };
+};
+
+const normalizeImportedSize = (
+  value: unknown,
+  kind: ArchitectureNodeKind
+): Readonly<{ width: number; height: number }> => {
+  if (isObjectRecord(value)) {
+    const width = readFiniteNumber(value.width);
+    const height = readFiniteNumber(value.height);
+    if (width === null || height === null) return getDefaultNodeSize(kind);
+    return normalizeNodeSize(kind, {
+      width: Math.abs(width),
+      height: Math.abs(height)
+    });
+  }
+  return getDefaultNodeSize(kind);
+};
+
+const normalizeImportedExpandedSize = (
+  value: unknown
+): Readonly<{ width: number; height: number }> | undefined => {
+  if (!isObjectRecord(value)) return undefined;
+  const widthValue = readFiniteNumber(value.width);
+  const heightValue = readFiniteNumber(value.height);
+  if (widthValue === null || heightValue === null) return undefined;
+  const width = Math.max(1, Math.abs(widthValue));
+  const height = Math.max(1, Math.abs(heightValue));
+  return { width, height };
+};
+
+const normalizeImportedColor = (value: unknown, kind: ArchitectureNodeKind): string => {
+  if (typeof value === "string" && /^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/.test(value)) return value;
+  return getNodeKindColor(kind);
+};
+
+const normalizeImportedProperties = (
+  value: unknown
+): Readonly<Record<string, string>> | undefined => {
+  if (!isObjectRecord(value)) return undefined;
+  const entries = Object.entries(value)
+    .map(([key, content]) => [key.trim(), typeof content === "string" ? content : null] as const)
+    .filter(([key, content]) => key.length > 0 && content !== null);
+  if (entries.length === 0) return undefined;
+  return entries.reduce<Record<string, string>>((acc, [key, content]) => {
+    if (content === null) return acc;
+    acc[key] = content;
+    return acc;
+  }, {});
+};
+
+const normalizeImportedEdgeStyle = (value: unknown): ArchitectureEdgeStyle | undefined => {
+  if (!isObjectRecord(value)) return undefined;
+  const line = value.line === "dashed" || value.line === "dotted" ? value.line : "solid";
+  const color = typeof value.color === "string" && /^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/.test(value.color)
+    ? value.color
+    : "#111827";
+  return {
+    path: "smoothstep",
+    line,
+    color,
+    animated: value.animated === true,
+    bidirectional: value.bidirectional === true
+  };
+};
+
+const normalizeImportedPort = (value: unknown): ArchitectureEdge["sourcePort"] | undefined =>
+  value === "left" || value === "right" || value === "top" || value === "bottom"
+    ? value
+    : undefined;
+
+const isKnownNodeKind = (value: unknown): value is ArchitectureNodeKind =>
+  typeof value === "string" && templateByKind.has(value as ArchitectureNodeKind);
+
+const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const readFiniteNumber = (value: unknown): number | null =>
+  typeof value === "number" && Number.isFinite(value) ? value : null;
 
 const parseDrawIoToArchitecture = async ({
   fileName,
