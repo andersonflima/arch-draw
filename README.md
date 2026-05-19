@@ -202,10 +202,13 @@ sudo ufw status verbose
 
 ```bash
 npm run typecheck
-npm test
 npm run build
 npm run lint
+npm test
+npm run verify
 ```
+
+`npm run verify` executa o gate completo de integridade local (`typecheck`, `lint`, `test` e `build`) no mesmo padrão da pipeline CI.
 
 ## Estrutura do monorepo
 
