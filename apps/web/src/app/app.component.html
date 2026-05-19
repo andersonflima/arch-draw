@@ -282,12 +282,10 @@
         <i [class]="isLeftPanelsHidden ? 'fa-solid fa-bars' : 'fa-solid fa-chevron-left'" aria-hidden="true"></i>
       </button>
       <div class="canvas-viewport" [ngStyle]="getViewportStyle()">
-        <ng-container *ngFor="let node of nodes; trackBy: trackByNodeId">
-          <ng-container *ngIf="isContainerLayerNode(node) && isRenderableNode(node)">
-            <ng-container
-              *ngTemplateOutlet="canvasNodeTemplate; context: { $implicit: node }"
-            ></ng-container>
-          </ng-container>
+        <ng-container *ngFor="let node of getContainerRenderableNodes(); trackBy: trackByNodeId">
+          <ng-container
+            *ngTemplateOutlet="canvasNodeTemplate; context: { $implicit: node }"
+          ></ng-container>
         </ng-container>
 
         <svg
@@ -320,9 +318,8 @@
             >
               <path d="M 9 0 L 0 4.5 L 9 9 z" fill="#2563eb"></path>
             </marker>
-            <ng-container *ngFor="let edge of edges; trackBy: trackByEdgeId">
+            <ng-container *ngFor="let edge of getRenderableEdges(); trackBy: trackByEdgeId">
               <marker
-                *ngIf="isRenderableEdge(edge)"
                 [attr.id]="getEdgeMarkerId(edge)"
                 markerWidth="9"
                 markerHeight="9"
@@ -347,9 +344,8 @@
               ></rect>
             </clipPath>
           </defs>
-          <ng-container *ngFor="let edge of edges; trackBy: trackByEdgeId">
+          <ng-container *ngFor="let edge of getRenderableEdges(); trackBy: trackByEdgeId">
             <g
-              *ngIf="isRenderableEdge(edge)"
               [class.canvas-edge-group--muted]="isEdgeTemporarilyMuted(edge)"
             >
               <path
@@ -376,16 +372,18 @@
                 (dblclick)="onEdgeDoubleClick(edge.id, $event)"
                 (contextmenu)="onEdgeContextMenu(edge.id, $event)"
               />
-              <path
-                *ngFor="let clipContainerId of getEdgeDarkTransitionClipIds(edge); trackBy: trackByString"
-                class="canvas-edge canvas-edge-context-overlay"
-                [class.is-live]="isLiveEdge(edge) && !isBidirectional(edge)"
-                [class.is-bidirectional]="isBidirectional(edge)"
-                [attr.d]="getEdgePath(edge)"
-                [attr.stroke]="getEdgeContextOverlayColor()"
-                [attr.stroke-dasharray]="getEdgeDash(edge)"
-                [attr.clip-path]="'url(#' + getEdgeContainerClipPathId(clipContainerId) + ')'"
-              />
+              <ng-container *ngIf="shouldRenderEdgeContextOverlays()">
+                <path
+                  *ngFor="let clipContainerId of getEdgeDarkTransitionClipIds(edge); trackBy: trackByString"
+                  class="canvas-edge canvas-edge-context-overlay"
+                  [class.is-live]="isLiveEdge(edge) && !isBidirectional(edge)"
+                  [class.is-bidirectional]="isBidirectional(edge)"
+                  [attr.d]="getEdgePath(edge)"
+                  [attr.stroke]="getEdgeContextOverlayColor()"
+                  [attr.stroke-dasharray]="getEdgeDash(edge)"
+                  [attr.clip-path]="'url(#' + getEdgeContainerClipPathId(clipContainerId) + ')'"
+                />
+              </ng-container>
               <rect
                 *ngIf="shouldRenderEdgeLabel(edge) && !isEditingEdge(edge.id)"
                 class="canvas-edge-label-knockout"
@@ -467,12 +465,10 @@
           aria-hidden="true"
         ></div>
 
-        <ng-container *ngFor="let node of nodes; trackBy: trackByNodeId">
-          <ng-container *ngIf="isLeafLayerNode(node) && isRenderableNode(node)">
-            <ng-container
-              *ngTemplateOutlet="canvasNodeTemplate; context: { $implicit: node }"
-            ></ng-container>
-          </ng-container>
+        <ng-container *ngFor="let node of getLeafRenderableNodes(); trackBy: trackByNodeId">
+          <ng-container
+            *ngTemplateOutlet="canvasNodeTemplate; context: { $implicit: node }"
+          ></ng-container>
         </ng-container>
 
         <div *ngIf="marqueeState" class="canvas-marquee" [ngStyle]="getMarqueeStyle()"></div>
