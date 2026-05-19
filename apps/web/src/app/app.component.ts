@@ -7183,6 +7183,10 @@ apiKeys:
       && this.canvasZoom <= EDGE_LABEL_HIDE_ZOOM_THRESHOLD;
   }
 
+  shouldUsePerformanceLiteMode(): boolean {
+    return this.shouldReduceCanvasDetailForPerformance();
+  }
+
   private suspendEdgeRenderingTemporarily(durationMs = EDGE_RENDER_SUSPEND_ON_EXPAND_MS): void {
     const now = Date.now();
     this.edgeRenderSuspendUntil = Math.max(this.edgeRenderSuspendUntil, now + durationMs);
