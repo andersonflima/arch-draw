@@ -2,7 +2,7 @@
 
 Arch Draw é um editor visual de diagramas de arquitetura e fluxo de software.
 
-Ele combina modelagem visual por drag and drop com importação/exportação Mermaid, permitindo sair de uma visão macro (cloud, rede, domínio) para uma visão micro (serviços, código, dados e relações) no mesmo board.
+Ele combina modelagem visual por drag and drop com interoperabilidade de formatos de diagrama, permitindo sair de uma visão macro (cloud, rede, domínio) para uma visão micro (serviços, código, dados e relações) no mesmo board.
 
 ## O que o projeto entrega
 
@@ -41,7 +41,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 - Para manter criação/importação fluida em boards grandes, snippets padrão de nós de infraestrutura são materializados sob demanda (na edição), em vez de persistidos em massa na criação do exemplo.
 - Em arquiteturas mais densas, o roteamento de linhas usa modo adaptativo (consulta de obstáculos reduzida + janela maior de fast-route ao expandir/criar exemplos) para manter navegação e abertura de containers mais fluida.
 - Em zoom baixo com alta densidade, labels/knockouts de conexões e overlays de contexto em dark mode são reduzidos temporariamente para priorizar FPS durante navegação.
-- Exportação de diagramas em múltiplos formatos (`.archdraw.json`, `.drawio`, `.excalidraw`, `.mmd`, SVG e PNG).
+- Exportação de diagramas em múltiplos formatos (`.archdraw.json`, `.drawio`, `.excalidraw`, SVG e PNG).
 - Importação de diagramas em múltiplos formatos (`.archdraw`, JSON, `.drawio`/XML, `.excalidraw`, `.mmd`/`.mermaid`).
 - Import mantém hierarquia visual e fluxo entre plataformas (draw.io, Excalidraw e Mermaid), convertendo para tipos internos sem desmontar a estrutura original.
 - Export `.mmd` inclui metadado interno de layout; ao reimportar esse Mermaid no Arch Draw, posições, hierarquia de containers e estilos de conexão são restaurados com fidelidade.
@@ -84,7 +84,7 @@ Ele combina modelagem visual por drag and drop com importação/exportação Mer
 3. Conecte elementos com setas e rótulos de relacionamento.
 4. Abra o popup de propriedades para ajustar tipo, cor, campos técnicos e estilos globais.
 5. Minimize/maximize containers e snippets de código para navegar em arquiteturas grandes.
-6. Exporte em Arch-Draw, Draw.io, Excalidraw, Mermaid, SVG ou PNG.
+6. Exporte em Arch-Draw, Draw.io, Excalidraw, SVG ou PNG.
 7. Clique em `Compartilhar` e escolha `Link com edição` ou `Link somente leitura` para copiar o link colaborativo no modo desejado.
    A permissão é validada no backend e não depende de parâmetro de modo na URL.
    Se uma URL antiga contiver `mode/accessMode/shareMode`, o app remove esses parâmetros automaticamente ao abrir.
@@ -100,7 +100,7 @@ Atalhos de edição:
 
 - Monorepo com npm workspaces
 - Frontend: Angular + TypeScript
-- Renderização: Canvas/SVG customizado + Mermaid
+- Renderização: Canvas/SVG customizado
 - Backend: Node.js + Fastify + TypeScript
 - Núcleo de domínio compartilhado em `packages/domain`
 

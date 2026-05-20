@@ -1,11 +1,8 @@
 import { CommonModule } from "@angular/common";
-import { ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, ViewChild } from "@angular/core";
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, ViewChild } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { toPng, toSvg } from "html-to-image";
-import mermaid from "mermaid";
 import {
   architectureFromMermaid,
-  architectureToMermaid,
   type ArchitectureDocument,
   type ArchitectureEdgeLineStyle,
   type ArchitectureEdgePortSide,
@@ -1534,19 +1531,6 @@ const NODE_PROPERTY_FIELDS_BY_KIND: Partial<Record<ArchitectureNodeKind, readonl
   "aws-security-group": SECURITY_GROUP_FIELDS
 };
 
-mermaid.initialize({
-  startOnLoad: false,
-  securityLevel: "strict",
-  theme: "base",
-  themeVariables: {
-    primaryColor: "#fff7ed",
-    primaryBorderColor: "#111827",
-    primaryTextColor: "#111827",
-    lineColor: "#111827",
-    fontFamily: "Inter, ui-sans-serif, system-ui"
-  }
-});
-
 @Component({
   selector: "app-root",
   standalone: true,
@@ -1565,7 +1549,8 @@ mermaid.initialize({
     FlowDataNodeComponent,
     FlowDocumentNodeComponent
   ],
-  templateUrl: "./app.component.html"
+  templateUrl: "./app.component.html",
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AppComponent implements OnDestroy {
   @ViewChild("canvasShell") private readonly canvasShell?: ElementRef<HTMLElement>;
@@ -1694,6 +1679,7 @@ export class AppComponent implements OnDestroy {
   private readonly codeLanguageBadgeCache = new Map<string, CodeLanguageBadgeCacheEntry>();
   private nodeGraphCacheSource: readonly CanvasNode[] | null = null;
   private readonly nodeByIdCache = new Map<string, CanvasNode>();
+  private readonly nodeIndexByIdCache = new Map<string, number>();
   private readonly nodeAbsolutePositionCache = new Map<string, Readonly<{ x: number; y: number }>>();
   private readonly nodeHierarchyDepthCache = new Map<string, number>();
   private readonly collapsedContainerAncestorCache = new Map<string, boolean>();
@@ -2219,6 +2205,7 @@ export class AppComponent implements OnDestroy {
   async exportSvgCurrent(): Promise<void> {
     await this.runSafely(async () => {
       if (!this.architecture) return;
+      const { toSvg } = await import("html-to-image");
       const dataUrl = await this.renderCurrentCanvasExport(async (canvas, exportDimensions) =>
         toSvg(canvas, {
           cacheBust: true,
@@ -2238,6 +2225,7 @@ export class AppComponent implements OnDestroy {
   async exportPngCurrent(): Promise<void> {
     await this.runSafely(async () => {
       if (!this.architecture) return;
+      const { toPng } = await import("html-to-image");
       const dataUrl = await this.renderCurrentCanvasExport(async (canvas, exportDimensions) =>
         toPng(canvas, {
           cacheBust: true,
@@ -6557,46 +6545,10 @@ apiKeys:
   }
 
   private async renderMermaid(): Promise<void> {
-    this.applyMermaidThemeConfig();
-    const source = this.mermaidDraft;
-    if (source.trim().length === 0) {
-      this.mermaidSvg = "";
-      this.mermaidError = "";
-      this.lintStatus = "empty";
-      this.markViewChanged();
-      return;
-    }
-
-    try {
-      await mermaid.parse(source);
-      const result = await mermaid.render(`mermaid-${crypto.randomUUID()}`, source);
-      if (this.mermaidDraft !== source) return;
-      this.mermaidSvg = result.svg;
-      this.mermaidError = "";
-      this.lintStatus = "valid";
-      this.markViewChanged();
-    } catch (cause) {
-      if (this.mermaidDraft !== source) return;
-      this.mermaidSvg = "";
-      this.mermaidError = this.normalizeMermaidError(cause);
-      this.lintStatus = "invalid";
-      this.markViewChanged();
-    }
-  }
-
-  private applyMermaidThemeConfig(): void {
-    mermaid.initialize({
-      startOnLoad: false,
-      securityLevel: "strict",
-      theme: "base",
-      themeVariables: {
-        primaryColor: "#fff7ed",
-        primaryBorderColor: this.isDarkMode ? "#f8fafc" : "#111827",
-        primaryTextColor: "#111827",
-        lineColor: this.isDarkMode ? "#f8fafc" : "#111827",
-        fontFamily: "Inter, ui-sans-serif, system-ui"
-      }
-    });
+    this.mermaidSvg = "";
+    this.mermaidError = "";
+    this.lintStatus = this.mermaidDraft.trim().length === 0 ? "empty" : "valid";
+    this.markViewChanged();
   }
 
   private updateNode(id: string, patch: Partial<CanvasNode>): void {
@@ -6880,9 +6832,9 @@ apiKeys:
   }
 
   private moveNodeToAbsolutePosition(nodeId: string, absolutePosition: Readonly<{ x: number; y: number }>): void {
-    const node = this.nodes.find((candidate) => candidate.id === nodeId);
+    const node = this.getNodeById(nodeId);
     if (!node) return;
-    const parent = node.parentId ? this.nodes.find((candidate) => candidate.id === node.parentId) : null;
+    const parent = node.parentId ? this.getNodeById(node.parentId) : null;
     const parentPosition = parent ? this.getAbsolutePosition(parent) : null;
     const nextPosition = parentPosition
       ? { x: absolutePosition.x - parentPosition.x, y: absolutePosition.y - parentPosition.y }
@@ -6903,25 +6855,33 @@ apiKeys:
       });
     }
 
-    const nodeById = new Map(this.nodes.map((node) => [node.id, node]));
-    this.nodes = this.nodes.map((node) => {
-      const target = targetById.get(node.id);
-      if (!target) return node;
+    const nextNodes = [...this.nodes];
+    let hasChanged = false;
+
+    for (const [nodeId, target] of targetById) {
+      const nodeIndex = this.getNodeIndexById(nodeId);
+      if (nodeIndex < 0) continue;
+      const node = nextNodes[nodeIndex];
+      if (!node) continue;
 
       const parentTarget = node.parentId ? targetById.get(node.parentId) : null;
-      const parentNode = node.parentId ? nodeById.get(node.parentId) : null;
-      const parentPosition = parentTarget
-        ?? (parentNode ? this.getAbsolutePosition(parentNode) : null);
-
-      const position = parentPosition
+      const parentNode = node.parentId ? this.getNodeById(node.parentId) : null;
+      const parentPosition = parentTarget ?? (parentNode ? this.getAbsolutePosition(parentNode) : null);
+      const relativePosition = parentPosition
         ? { x: target.x - parentPosition.x, y: target.y - parentPosition.y }
         : target;
       const clampedPosition = parentNode && this.rendersAsContainer(parentNode)
-        ? this.clampChildPositionWithinContainerHeader(parentNode, position)
-        : position;
+        ? this.clampChildPositionWithinContainerHeader(parentNode, relativePosition)
+        : relativePosition;
 
-      return { ...node, position: clampedPosition };
-    });
+      if (node.position.x === clampedPosition.x && node.position.y === clampedPosition.y) continue;
+      nextNodes[nodeIndex] = { ...node, position: clampedPosition };
+      hasChanged = true;
+    }
+
+    if (hasChanged) {
+      this.nodes = nextNodes;
+    }
     this.markInteractionChanged();
   }
 
@@ -9601,15 +9561,6 @@ apiKeys:
     const signature = this.buildCanvasTopologySignature();
     if (signature === this.lastCanvasTopologySignature) return;
     this.lastCanvasTopologySignature = signature;
-
-    const generated = architectureToMermaid({
-      ...this.architecture,
-      nodes: this.nodes,
-      edges: this.edges
-    });
-    if (generated === this.mermaidDraft) return;
-    this.mermaidDraft = generated;
-    void this.renderMermaid();
   }
 
   private resetHistory(): void {
@@ -11101,16 +11052,24 @@ spec:
   private rebuildNodeGraphCaches(): void {
     this.nodeGraphCacheSource = this.nodes;
     this.nodeByIdCache.clear();
+    this.nodeIndexByIdCache.clear();
     this.clearNodeGraphDerivedCaches();
-    for (const node of this.nodes) {
+    for (const [index, node] of this.nodes.entries()) {
       this.nodeByIdCache.set(node.id, node);
+      this.nodeIndexByIdCache.set(node.id, index);
     }
   }
 
   private clearNodeGraphCaches(): void {
     this.nodeGraphCacheSource = null;
     this.nodeByIdCache.clear();
+    this.nodeIndexByIdCache.clear();
     this.clearNodeGraphDerivedCaches();
+  }
+
+  private getNodeIndexById(nodeId: string): number {
+    this.ensureNodeGraphCaches();
+    return this.nodeIndexByIdCache.get(nodeId) ?? -1;
   }
 
   private clearNodeGraphDerivedCaches(): void {

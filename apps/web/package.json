@@ -37,7 +37,6 @@
     "aws-icons": "^3.3.0",
     "codemirror-lang-elixir": "^4.0.1",
     "html-to-image": "^1.11.13",
-    "mermaid": "^11.6.0",
     "zone.js": "^0.16.0"
   },
   "devDependencies": {

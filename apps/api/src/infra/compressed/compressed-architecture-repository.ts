@@ -231,28 +231,50 @@ export const makeCompressedArchitectureRepository = (
 const createCompressedStore = (storagePath: string) => {
   const directory = resolve(storagePath);
   const manifestPath = join(directory, manifestFileName);
+  let manifestCache: StorageManifest | null = null;
+  const packRecordsCache = new Map<string, readonly StorageRecord[]>();
+  const maxCachedPacks = 24;
 
   const ensureDirectory = (): void => {
     mkdirSync(directory, { recursive: true });
   };
 
   const readManifest = (): StorageManifest | null => {
+    if (manifestCache) return manifestCache;
     try {
-      return parseManifest(JSON.parse(readFileSync(manifestPath, "utf8")) as unknown);
+      const parsed = parseManifest(JSON.parse(readFileSync(manifestPath, "utf8")) as unknown);
+      manifestCache = parsed;
+      return parsed;
     } catch {
       return null;
     }
   };
 
   const readPackRecords = (fileName: string): readonly StorageRecord[] => {
+    const cached = packRecordsCache.get(fileName);
+    if (cached) {
+      // LRU: renew recency by reinserting key.
+      packRecordsCache.delete(fileName);
+      packRecordsCache.set(fileName, cached);
+      return cached;
+    }
+
     try {
       const payload = readFileSync(join(directory, fileName));
-      return decodeCompressedPack(payload)
+      const records = decodeCompressedPack(payload)
         .toString("utf8")
         .split("\n")
         .map((line) => line.trim())
         .filter((line) => line.length > 0)
         .flatMap(parseStorageRecord);
+      packRecordsCache.set(fileName, records);
+      if (packRecordsCache.size > maxCachedPacks) {
+        const oldestKey = packRecordsCache.keys().next().value;
+        if (typeof oldestKey === "string") {
+          packRecordsCache.delete(oldestKey);
+        }
+      }
+      return records;
     } catch {
       return [];
     }
@@ -314,6 +336,8 @@ const createCompressedStore = (storagePath: string) => {
     };
 
     writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+    manifestCache = manifest;
+    packRecordsCache.clear();
     return manifest;
   };
 
