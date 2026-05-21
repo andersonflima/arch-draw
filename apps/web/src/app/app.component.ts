@@ -9070,7 +9070,8 @@ apiKeys:
   }
 
   isConnectionTargetPort(nodeId: string, targetPort: ArchitectureEdgePortSide): boolean {
-    return this.connectionDragTarget?.nodeId === nodeId
+    return this.connectionDragState !== null
+      && this.connectionDragTarget?.nodeId === nodeId
       && this.connectionDragTarget.targetPort === targetPort;
   }
 
