@@ -1,11 +1,8 @@
 import { CommonModule } from "@angular/common";
-import { ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, ViewChild } from "@angular/core";
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, ViewChild } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { toPng, toSvg } from "html-to-image";
-import mermaid from "mermaid";
 import {
   architectureFromMermaid,
-  architectureToMermaid,
   type ArchitectureDocument,
   type ArchitectureEdgeLineStyle,
   type ArchitectureEdgePortSide,
@@ -77,6 +74,7 @@ import {
   segmentIntersectsRect,
   type EdgeObstacleRect
 } from "../features/editor/edge-routing";
+import { routePolylineAroundObstaclesInWorker } from "../features/editor/edge-routing-worker-client";
 import { buildRoundedPolylinePath } from "../features/editor/edge-rounded-path";
 import {
   insertMermaidIndent,
@@ -1534,19 +1532,6 @@ const NODE_PROPERTY_FIELDS_BY_KIND: Partial<Record<ArchitectureNodeKind, readonl
   "aws-security-group": SECURITY_GROUP_FIELDS
 };
 
-mermaid.initialize({
-  startOnLoad: false,
-  securityLevel: "strict",
-  theme: "base",
-  themeVariables: {
-    primaryColor: "#fff7ed",
-    primaryBorderColor: "#111827",
-    primaryTextColor: "#111827",
-    lineColor: "#111827",
-    fontFamily: "Inter, ui-sans-serif, system-ui"
-  }
-});
-
 @Component({
   selector: "app-root",
   standalone: true,
@@ -1565,7 +1550,8 @@ mermaid.initialize({
     FlowDataNodeComponent,
     FlowDocumentNodeComponent
   ],
-  templateUrl: "./app.component.html"
+  templateUrl: "./app.component.html",
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AppComponent implements OnDestroy {
   @ViewChild("canvasShell") private readonly canvasShell?: ElementRef<HTMLElement>;
@@ -1694,6 +1680,7 @@ export class AppComponent implements OnDestroy {
   private readonly codeLanguageBadgeCache = new Map<string, CodeLanguageBadgeCacheEntry>();
   private nodeGraphCacheSource: readonly CanvasNode[] | null = null;
   private readonly nodeByIdCache = new Map<string, CanvasNode>();
+  private readonly nodeIndexByIdCache = new Map<string, number>();
   private readonly nodeAbsolutePositionCache = new Map<string, Readonly<{ x: number; y: number }>>();
   private readonly nodeHierarchyDepthCache = new Map<string, number>();
   private readonly collapsedContainerAncestorCache = new Map<string, boolean>();
@@ -1708,6 +1695,9 @@ export class AppComponent implements OnDestroy {
   private readonly edgeLabelPositionCache = new Map<string, Readonly<{ x: number; y: number }>>();
   private readonly edgeLabelRenderWidthCache = new Map<string, number>();
   private readonly edgeDarkTransitionClipIdsCache = new Map<string, readonly string[]>();
+  private readonly edgeWorkerRouteCache = new Map<string, readonly EdgePoint[]>();
+  private readonly edgeWorkerRoutePending = new Set<string>();
+  private edgeWorkerRouteRevision = 0;
   private readonly nodeAbsoluteRectCache = new Map<string, CanvasRect>();
   private readonly nodeStyleCache = new Map<string, Record<string, string | number>>();
   private readonly nodeClassCache = new Map<string, string>();
@@ -2219,6 +2209,7 @@ export class AppComponent implements OnDestroy {
   async exportSvgCurrent(): Promise<void> {
     await this.runSafely(async () => {
       if (!this.architecture) return;
+      const { toSvg } = await import("html-to-image");
       const dataUrl = await this.renderCurrentCanvasExport(async (canvas, exportDimensions) =>
         toSvg(canvas, {
           cacheBust: true,
@@ -2238,6 +2229,7 @@ export class AppComponent implements OnDestroy {
   async exportPngCurrent(): Promise<void> {
     await this.runSafely(async () => {
       if (!this.architecture) return;
+      const { toPng } = await import("html-to-image");
       const dataUrl = await this.renderCurrentCanvasExport(async (canvas, exportDimensions) =>
         toPng(canvas, {
           cacheBust: true,
@@ -6557,46 +6549,10 @@ apiKeys:
   }
 
   private async renderMermaid(): Promise<void> {
-    this.applyMermaidThemeConfig();
-    const source = this.mermaidDraft;
-    if (source.trim().length === 0) {
-      this.mermaidSvg = "";
-      this.mermaidError = "";
-      this.lintStatus = "empty";
-      this.markViewChanged();
-      return;
-    }
-
-    try {
-      await mermaid.parse(source);
-      const result = await mermaid.render(`mermaid-${crypto.randomUUID()}`, source);
-      if (this.mermaidDraft !== source) return;
-      this.mermaidSvg = result.svg;
-      this.mermaidError = "";
-      this.lintStatus = "valid";
-      this.markViewChanged();
-    } catch (cause) {
-      if (this.mermaidDraft !== source) return;
-      this.mermaidSvg = "";
-      this.mermaidError = this.normalizeMermaidError(cause);
-      this.lintStatus = "invalid";
-      this.markViewChanged();
-    }
-  }
-
-  private applyMermaidThemeConfig(): void {
-    mermaid.initialize({
-      startOnLoad: false,
-      securityLevel: "strict",
-      theme: "base",
-      themeVariables: {
-        primaryColor: "#fff7ed",
-        primaryBorderColor: this.isDarkMode ? "#f8fafc" : "#111827",
-        primaryTextColor: "#111827",
-        lineColor: this.isDarkMode ? "#f8fafc" : "#111827",
-        fontFamily: "Inter, ui-sans-serif, system-ui"
-      }
-    });
+    this.mermaidSvg = "";
+    this.mermaidError = "";
+    this.lintStatus = this.mermaidDraft.trim().length === 0 ? "empty" : "valid";
+    this.markViewChanged();
   }
 
   private updateNode(id: string, patch: Partial<CanvasNode>): void {
@@ -6880,9 +6836,9 @@ apiKeys:
   }
 
   private moveNodeToAbsolutePosition(nodeId: string, absolutePosition: Readonly<{ x: number; y: number }>): void {
-    const node = this.nodes.find((candidate) => candidate.id === nodeId);
+    const node = this.getNodeById(nodeId);
     if (!node) return;
-    const parent = node.parentId ? this.nodes.find((candidate) => candidate.id === node.parentId) : null;
+    const parent = node.parentId ? this.getNodeById(node.parentId) : null;
     const parentPosition = parent ? this.getAbsolutePosition(parent) : null;
     const nextPosition = parentPosition
       ? { x: absolutePosition.x - parentPosition.x, y: absolutePosition.y - parentPosition.y }
@@ -6903,25 +6859,33 @@ apiKeys:
       });
     }
 
-    const nodeById = new Map(this.nodes.map((node) => [node.id, node]));
-    this.nodes = this.nodes.map((node) => {
-      const target = targetById.get(node.id);
-      if (!target) return node;
+    const nextNodes = [...this.nodes];
+    let hasChanged = false;
+
+    for (const [nodeId, target] of targetById) {
+      const nodeIndex = this.getNodeIndexById(nodeId);
+      if (nodeIndex < 0) continue;
+      const node = nextNodes[nodeIndex];
+      if (!node) continue;
 
       const parentTarget = node.parentId ? targetById.get(node.parentId) : null;
-      const parentNode = node.parentId ? nodeById.get(node.parentId) : null;
-      const parentPosition = parentTarget
-        ?? (parentNode ? this.getAbsolutePosition(parentNode) : null);
-
-      const position = parentPosition
+      const parentNode = node.parentId ? this.getNodeById(node.parentId) : null;
+      const parentPosition = parentTarget ?? (parentNode ? this.getAbsolutePosition(parentNode) : null);
+      const relativePosition = parentPosition
         ? { x: target.x - parentPosition.x, y: target.y - parentPosition.y }
         : target;
       const clampedPosition = parentNode && this.rendersAsContainer(parentNode)
-        ? this.clampChildPositionWithinContainerHeader(parentNode, position)
-        : position;
+        ? this.clampChildPositionWithinContainerHeader(parentNode, relativePosition)
+        : relativePosition;
 
-      return { ...node, position: clampedPosition };
-    });
+      if (node.position.x === clampedPosition.x && node.position.y === clampedPosition.y) continue;
+      nextNodes[nodeIndex] = { ...node, position: clampedPosition };
+      hasChanged = true;
+    }
+
+    if (hasChanged) {
+      this.nodes = nextNodes;
+    }
     this.markInteractionChanged();
   }
 
@@ -7064,18 +7028,32 @@ apiKeys:
     const routeSeed = routeCore.length >= 2
       ? routeCore
       : this.compactPolyline([geometry.startTrunk, geometry.endTrunk]);
+    const edgeComplexity = this.nodes.length + this.edges.length;
+    const shouldUseWorkerRefinement = edgeComplexity >= EDGE_SIMPLIFIED_OBSTACLE_COMPLEXITY_THRESHOLD;
+    const workerRoute = shouldUseWorkerRefinement ? this.edgeWorkerRouteCache.get(edge.id) : undefined;
     const routedCore = routeSeed.length >= 2
-      ? routeEdgePolylineAroundObstacles(
+      ? workerRoute
+        ?? routeEdgePolylineAroundObstacles(
+          routeSeed,
+          obstacleRects,
+          geometry.sourceId,
+          geometry.targetId,
+          {
+            maxPasses: Math.max(1, Math.floor(routeMaxPasses / (shouldUseWorkerRefinement ? 2 : 1))),
+            obstacleClearance: EDGE_OBSTACLE_CLEARANCE
+          }
+        )
+      : routeSeed;
+    if (shouldUseWorkerRefinement && !workerRoute && routeSeed.length >= 2) {
+      this.scheduleEdgeRouteWorkerRefinement(
+        edge.id,
         routeSeed,
         obstacleRects,
         geometry.sourceId,
         geometry.targetId,
-        {
-          maxPasses: routeMaxPasses,
-          obstacleClearance: EDGE_OBSTACLE_CLEARANCE
-        }
-      )
-      : routeSeed;
+        routeMaxPasses
+      );
+    }
     const routed = this.compactPolyline([
       geometry.start,
       ...routedCore,
@@ -7158,6 +7136,52 @@ apiKeys:
 
   private shouldPreferFastEdgeRouting(): boolean {
     return (this.nodes.length + this.edges.length) >= EDGE_ROUTE_FORCE_FAST_COMPLEXITY_THRESHOLD;
+  }
+
+  private scheduleEdgeRouteWorkerRefinement(
+    edgeId: string,
+    routeSeed: readonly EdgePoint[],
+    obstacles: readonly EdgeObstacleRect[],
+    sourceId: string,
+    targetId: string,
+    routeMaxPasses: number
+  ): void {
+    if (this.edgeWorkerRoutePending.has(edgeId)) return;
+    const revisionAtSchedule = this.edgeWorkerRouteRevision;
+    this.edgeWorkerRoutePending.add(edgeId);
+    void routePolylineAroundObstaclesInWorker({
+      points: routeSeed,
+      obstacles,
+      sourceId,
+      targetId,
+      maxPasses: routeMaxPasses,
+      obstacleClearance: EDGE_OBSTACLE_CLEARANCE
+    }).then((workerPoints) => {
+      this.edgeWorkerRoutePending.delete(edgeId);
+      if (!workerPoints || workerPoints.length < 2) return;
+      if (revisionAtSchedule !== this.edgeWorkerRouteRevision) return;
+      const current = this.edgeWorkerRouteCache.get(edgeId);
+      if (current && current.length === workerPoints.length) {
+        let same = true;
+        for (let index = 0; index < current.length; index += 1) {
+          const currentPoint = current[index];
+          const workerPoint = workerPoints[index];
+          if (!currentPoint || !workerPoint || currentPoint.x !== workerPoint.x || currentPoint.y !== workerPoint.y) {
+            same = false;
+            break;
+          }
+        }
+        if (same) return;
+      }
+      this.edgeWorkerRouteCache.set(edgeId, workerPoints);
+      this.edgePathDataCache.delete(edgeId);
+      this.edgePathStringCache.delete(edgeId);
+      this.edgeLabelPositionCache.delete(edgeId);
+      this.edgeLabelRenderWidthCache.delete(edgeId);
+      this.edgeLabelDyCache.clear();
+      this.edgeLabelStartOffsetCache.clear();
+      this.requestViewRender();
+    });
   }
 
   private shouldUseSimplifiedEdgeObstacles(): boolean {
@@ -9601,15 +9625,6 @@ apiKeys:
     const signature = this.buildCanvasTopologySignature();
     if (signature === this.lastCanvasTopologySignature) return;
     this.lastCanvasTopologySignature = signature;
-
-    const generated = architectureToMermaid({
-      ...this.architecture,
-      nodes: this.nodes,
-      edges: this.edges
-    });
-    if (generated === this.mermaidDraft) return;
-    this.mermaidDraft = generated;
-    void this.renderMermaid();
   }
 
   private resetHistory(): void {
@@ -11101,16 +11116,24 @@ spec:
   private rebuildNodeGraphCaches(): void {
     this.nodeGraphCacheSource = this.nodes;
     this.nodeByIdCache.clear();
+    this.nodeIndexByIdCache.clear();
     this.clearNodeGraphDerivedCaches();
-    for (const node of this.nodes) {
+    for (const [index, node] of this.nodes.entries()) {
       this.nodeByIdCache.set(node.id, node);
+      this.nodeIndexByIdCache.set(node.id, index);
     }
   }
 
   private clearNodeGraphCaches(): void {
     this.nodeGraphCacheSource = null;
     this.nodeByIdCache.clear();
+    this.nodeIndexByIdCache.clear();
     this.clearNodeGraphDerivedCaches();
+  }
+
+  private getNodeIndexById(nodeId: string): number {
+    this.ensureNodeGraphCaches();
+    return this.nodeIndexByIdCache.get(nodeId) ?? -1;
   }
 
   private clearNodeGraphDerivedCaches(): void {
@@ -11227,6 +11250,9 @@ spec:
   }
 
   private clearCanvasRenderCaches(): void {
+    this.edgeWorkerRouteRevision += 1;
+    this.edgeWorkerRouteCache.clear();
+    this.edgeWorkerRoutePending.clear();
     this.clearNodeGraphCaches();
     this.edgePathDataCache.clear();
     this.edgePathStringCache.clear();

@@ -1,5 +1,6 @@
 import type { ArchitectureDocument } from "@arch-draw/domain";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type {
   ArchitectureRepository,
@@ -79,24 +80,23 @@ export const makeCompressedArchitectureRepository = (
 
   return {
     findAll: async (sessionToken) =>
-      store
-        .readCandidateRecords({ sessionToken })
+      (await store.readCandidateRecords({ sessionToken }))
         .filter(isArchitectureRecord)
         .filter((record) => record.sessionToken === sessionToken)
         .map(toSummary)
         .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
 
     findById: async (id, sessionToken) =>
-      store
+      (await store
         .findRecord(
           { architectureId: id, sessionToken },
           (record): record is ArchitectureStorageRecord =>
             isArchitectureRecord(record) && record.id === id && record.sessionToken === sessionToken
-        )
+        ))
         ?.document ?? null,
 
     save: async (architecture, sessionToken) => {
-      const state = store.readState();
+      const state = await store.readState();
       const existing = state.records.find(
         (record): record is ArchitectureStorageRecord =>
           isArchitectureRecord(record) && record.id === architecture.id
@@ -112,18 +112,18 @@ export const makeCompressedArchitectureRepository = (
         nextRecord
       ];
 
-      store.writeRecords(records);
+      await store.writeRecords(records);
       return storedArchitecture;
     },
 
     deleteById: async (id, sessionToken) => {
-      const state = store.readState();
+      const state = await store.readState();
       const existing = state.records.some(
         (record) => isArchitectureRecord(record) && record.id === id && record.sessionToken === sessionToken
       );
       if (!existing) return false;
 
-      store.writeRecords(
+      await store.writeRecords(
         state.records.filter((record) => {
           if (isArchitectureRecord(record)) {
             return !(record.id === id && record.sessionToken === sessionToken);
@@ -135,7 +135,7 @@ export const makeCompressedArchitectureRepository = (
     },
 
     findShareByArchitectureId: async (architectureId, sessionToken, accessMode) =>
-      store.findRecord(
+      await store.findRecord(
         { architectureId, sessionToken },
         (record): record is ShareStorageRecord =>
           isShareRecord(record)
@@ -145,13 +145,13 @@ export const makeCompressedArchitectureRepository = (
       ) ?? null,
 
     findShareById: async (shareId) =>
-      store.findRecord(
+      await store.findRecord(
         { shareId },
         (record): record is ShareStorageRecord => isShareRecord(record) && record.shareId === shareId
       ) ?? null,
 
     createShare: async (shareId, architectureId, sessionToken, now, accessMode) => {
-      const state = store.readState();
+      const state = await store.readState();
       const architecture = state.records.find(
         (record): record is ArchitectureStorageRecord =>
           isArchitectureRecord(record) && record.id === architectureId && record.sessionToken === sessionToken
@@ -182,12 +182,12 @@ export const makeCompressedArchitectureRepository = (
         updatedAt: now
       };
 
-      store.writeRecords([...state.records, share]);
+      await store.writeRecords([...state.records, share]);
       return toArchitectureShare(share);
     },
 
     findByShareId: async (shareId) => {
-      const state = store.readState();
+      const state = await store.readState();
       const share = state.records.find(
         (record): record is ShareStorageRecord => isShareRecord(record) && record.shareId === shareId
       );
@@ -200,7 +200,7 @@ export const makeCompressedArchitectureRepository = (
     },
 
     saveByShareId: async (shareId, architecture) => {
-      const state = store.readState();
+      const state = await store.readState();
       const share = state.records.find(
         (record): record is ShareStorageRecord => isShareRecord(record) && record.shareId === shareId
       );
@@ -222,7 +222,7 @@ export const makeCompressedArchitectureRepository = (
         return record;
       });
 
-      store.writeRecords(records);
+      await store.writeRecords(records);
       return architecture;
     }
   };
@@ -231,58 +231,84 @@ export const makeCompressedArchitectureRepository = (
 const createCompressedStore = (storagePath: string) => {
   const directory = resolve(storagePath);
   const manifestPath = join(directory, manifestFileName);
+  let manifestCache: StorageManifest | null = null;
+  const packRecordsCache = new Map<string, readonly StorageRecord[]>();
+  const maxCachedPacks = 24;
 
   const ensureDirectory = (): void => {
     mkdirSync(directory, { recursive: true });
   };
 
-  const readManifest = (): StorageManifest | null => {
+  const readManifest = async (): Promise<StorageManifest | null> => {
+    if (manifestCache) return manifestCache;
     try {
-      return parseManifest(JSON.parse(readFileSync(manifestPath, "utf8")) as unknown);
+      const rawManifest = await readFile(manifestPath, "utf8");
+      const parsed = parseManifest(JSON.parse(rawManifest) as unknown);
+      manifestCache = parsed;
+      return parsed;
     } catch {
       return null;
     }
   };
 
-  const readPackRecords = (fileName: string): readonly StorageRecord[] => {
+  const readPackRecords = async (fileName: string): Promise<readonly StorageRecord[]> => {
+    const cached = packRecordsCache.get(fileName);
+    if (cached) {
+      // LRU: renew recency by reinserting key.
+      packRecordsCache.delete(fileName);
+      packRecordsCache.set(fileName, cached);
+      return cached;
+    }
+
     try {
-      const payload = readFileSync(join(directory, fileName));
-      return decodeCompressedPack(payload)
+      const payload = await readFile(join(directory, fileName));
+      const records = decodeCompressedPack(payload)
         .toString("utf8")
         .split("\n")
         .map((line) => line.trim())
         .filter((line) => line.length > 0)
         .flatMap(parseStorageRecord);
+      packRecordsCache.set(fileName, records);
+      if (packRecordsCache.size > maxCachedPacks) {
+        const oldestKey = packRecordsCache.keys().next().value;
+        if (typeof oldestKey === "string") {
+          packRecordsCache.delete(oldestKey);
+        }
+      }
+      return records;
     } catch {
       return [];
     }
   };
 
-  const readState = (): StoreState => {
+  const readState = async (): Promise<StoreState> => {
     ensureDirectory();
-    const manifest = readManifest();
+    const manifest = await readManifest();
     if (!manifest) {
-      const emptyManifest = writeRecords([]);
+      const emptyManifest = await writeRecords([]);
       return { records: [], manifest: emptyManifest };
     }
 
-    const records = manifest.packIndex.flatMap((entry) => readPackRecords(entry.fileName));
+    const packRecords = await Promise.all(
+      manifest.packIndex.map((entry) => readPackRecords(entry.fileName))
+    );
+    const records = packRecords.flat();
     return { records, manifest };
   };
 
-  const writeRecords = (records: readonly StorageRecord[]): StorageManifest => {
+  const writeRecords = async (records: readonly StorageRecord[]): Promise<StorageManifest> => {
     ensureDirectory();
     const chunks = chunkRows(sortRecords(records), packRecordLimit);
-    const currentManifest = readManifest();
+    const currentManifest = await readManifest();
     for (const entry of currentManifest?.packIndex ?? []) {
-      rmSync(join(directory, entry.fileName), { force: true });
+      await rm(join(directory, entry.fileName), { force: true });
     }
 
     let inputBytes = 0;
     let outputBytes = 0;
     const packIndex: PackIndexEntry[] = [];
 
-    chunks.forEach((chunk, index) => {
+    for (const [index, chunk] of chunks.entries()) {
       const fileName = `pack-${String(index + 1).padStart(4, "0")}.adpk`;
       const serialized = `${chunk.map((record) => JSON.stringify(record)).join("\n")}\n`;
       const compressed = encodeCompressedPack(Buffer.from(serialized, "utf8"), {
@@ -290,11 +316,11 @@ const createCompressedStore = (storagePath: string) => {
         useDictionary: true
       });
 
-      writeFileSync(join(directory, fileName), compressed);
+      await writeFile(join(directory, fileName), compressed);
       inputBytes += Buffer.byteLength(serialized, "utf8");
       outputBytes += compressed.byteLength;
       packIndex.push(toPackIndexEntry(fileName, chunk));
-    });
+    }
 
     const now = new Date().toISOString();
     const manifest: StorageManifest = {
@@ -313,7 +339,9 @@ const createCompressedStore = (storagePath: string) => {
       }
     };
 
-    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+    await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+    manifestCache = manifest;
+    packRecordsCache.clear();
     return manifest;
   };
 
@@ -340,22 +368,24 @@ const createCompressedStore = (storagePath: string) => {
     return (byMetadata.length > 0 ? byMetadata : manifest.packIndex).map((entry) => entry.fileName);
   };
 
-  const readCandidateRecords = (
+  const readCandidateRecords = async (
     query: Readonly<{
       architectureId?: string;
       shareId?: string;
       sessionToken?: string;
       tokens?: readonly string[];
     }>
-  ): readonly StorageRecord[] => {
-    const manifest = readManifest();
+  ): Promise<readonly StorageRecord[]> => {
+    const manifest = await readManifest();
     if (!manifest) return [];
 
-    return selectCandidatePackFiles(manifest, query)
-      .flatMap(readPackRecords);
+    const packs = await Promise.all(
+      selectCandidatePackFiles(manifest, query).map((fileName) => readPackRecords(fileName))
+    );
+    return packs.flat();
   };
 
-  const findRecord = <T extends StorageRecord>(
+  const findRecord = async <T extends StorageRecord>(
     query: Readonly<{
       architectureId?: string;
       shareId?: string;
@@ -363,12 +393,12 @@ const createCompressedStore = (storagePath: string) => {
       tokens?: readonly string[];
     }>,
     predicate: (record: StorageRecord) => record is T
-  ): T | null => {
-    const manifest = readManifest();
+  ): Promise<T | null> => {
+    const manifest = await readManifest();
     if (!manifest) return null;
 
     for (const fileName of selectCandidatePackFiles(manifest, query)) {
-      const records = readPackRecords(fileName);
+      const records = await readPackRecords(fileName);
       const traversal = middleOutIndices(records.length, Math.floor(records.length / 2));
       for (const index of traversal) {
         const record = records[index];
