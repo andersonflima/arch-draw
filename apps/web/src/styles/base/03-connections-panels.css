@@ -80,6 +80,30 @@
   z-index: 40;
 }
 
+.architecture-node--code-snippet .node-port--target {
+  left: 0;
+}
+
+.architecture-node--code-snippet .node-port--target::before {
+  left: 4px;
+}
+
+.architecture-node--code-snippet .node-port--target::after {
+  left: calc(var(--node-port-dot-size, 14px) / 2 + 5px);
+}
+
+.architecture-node--code-snippet .node-port--source {
+  right: 0;
+}
+
+.architecture-node--code-snippet .node-port--source::before {
+  right: 4px;
+}
+
+.architecture-node--code-snippet .node-port--source::after {
+  right: calc(var(--node-port-dot-size, 14px) / 2 + 5px);
+}
+
 .node-port--target {
   left: calc(-1 * var(--node-port-edge-offset, 15px));
 }
