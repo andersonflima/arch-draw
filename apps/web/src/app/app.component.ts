@@ -2649,6 +2649,12 @@ export class AppComponent implements OnDestroy {
     this.markViewChanged();
   }
 
+  private clearConnectionDragPreviewState(): void {
+    this.connectionDragState = null;
+    this.connectionDragTarget = null;
+    this.pendingPortGestureState = null;
+  }
+
   private getVisibleNodeById(nodeId: string): CanvasNode | null {
     const node = this.nodes.find((candidate) => candidate.id === nodeId) ?? null;
     if (!node) return null;
@@ -2657,6 +2663,7 @@ export class AppComponent implements OnDestroy {
 
   onNodeDoubleClick(node: CanvasNode, event: MouseEvent): void {
     event.stopPropagation();
+    this.clearConnectionDragPreviewState();
     if (this.isCodeSnippetCollapsed(node)) {
       this.activateEdgeRouteFastMode(2200);
       this.suspendEdgeRenderingTemporarily(520);
@@ -3469,6 +3476,7 @@ LIMIT 50;`;
 
   onNodeCollapseToggle(node: CanvasNode, event: Event): void {
     event.stopPropagation();
+    this.clearConnectionDragPreviewState();
     if (!this.isCollapsibleContainerNode(node) && !this.isCollapsibleCodeSnippetNode(node)) return;
     this.selectedNodeId = node.id;
     this.selectedNodeIds = [node.id];
