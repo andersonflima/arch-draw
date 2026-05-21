@@ -70,6 +70,16 @@
   background: rgba(245, 158, 11, 0.45);
 }
 
+.architecture-node--code-snippet .node-port,
+.architecture-node--code-snippet .node-port::before {
+  visibility: visible;
+  opacity: 1;
+}
+
+.architecture-node--code-snippet .node-port {
+  z-index: 40;
+}
+
 .node-port--target {
   left: calc(-1 * var(--node-port-edge-offset, 15px));
 }
