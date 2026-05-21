@@ -258,7 +258,6 @@
   opacity: 0;
 }
 
-.app-shell.theme-dark .architecture-node.is-selected .node-port::before,
 .app-shell.theme-dark .node-port.is-connection-target::before {
   border-color: #f59e0b;
   background: #422006;
