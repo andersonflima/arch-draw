@@ -293,7 +293,8 @@ const NODE_LAYER_LEAF_BASE_Z_INDEX = 180;
 const NODE_LAYER_DEPTH_STEP = 6;
 const NODE_LAYER_EXPANDED_CONTAINER_BOOST = 0;
 const NODE_LAYER_EXPANDED_LEAF_BOOST = 120;
-const NODE_LAYER_EXPANDED_PRIORITY_Z_INDEX = 315;
+const NODE_LAYER_EXPANDED_PRIORITY_GAP = 18;
+const NODE_LAYER_EXPANDED_PRIORITY_CEILING = 900;
 const NODE_LAYER_DRAG_Z_INDEX_BASE = 1000;
 const EDGE_LAYER_BASE_Z_INDEX = 150;
 const EDGE_LAYER_INTERACTION_Z_INDEX = 160;
@@ -1713,6 +1714,7 @@ export class AppComponent implements OnDestroy {
   private readonly leafNodeLabelKnockoutRectCache = new Map<string, CanvasRect | null>();
   private edgeClipContainersCache: readonly CanvasNode[] | null = null;
   private leafLabelKnockoutNodesCache: readonly CanvasNode[] | null = null;
+  private visibleNodeLayerCeilingZIndexCache: number | null = null;
   private visibleContainerLayerCeilingZIndexCache: number | null = null;
   private containerContextEdgeLayerZIndexCache: number | null = null;
   private edgeLabelMeasureContext: CanvasRenderingContext2D | null | undefined;
@@ -3891,7 +3893,9 @@ LIMIT 50;`;
       ? (rendersAsContainer ? NODE_LAYER_EXPANDED_CONTAINER_BOOST : NODE_LAYER_EXPANDED_LEAF_BOOST)
       : 0;
     const expandedZIndex = baseZIndex + expandedBoost;
-    const expandedPriorityZIndex = isExpandedNode ? NODE_LAYER_EXPANDED_PRIORITY_Z_INDEX : 0;
+    const expandedPriorityZIndex = isExpandedNode
+      ? this.getExpandedNodePriorityZIndex(baseZIndex)
+      : 0;
     const collapseToggleZIndexFloor =
       !rendersAsContainer && this.shouldRenderNodeCollapseToggle(node) ? 175 : 0;
     const resolvedZIndex = Math.max(
@@ -4176,6 +4180,32 @@ LIMIT 50;`;
     }
     this.visibleContainerLayerCeilingZIndexCache = ceiling;
     return ceiling;
+  }
+
+  private getVisibleNodeLayerCeilingZIndex(): number {
+    if (this.visibleNodeLayerCeilingZIndexCache !== null) {
+      return this.visibleNodeLayerCeilingZIndexCache;
+    }
+
+    let ceiling = NODE_LAYER_LEAF_BASE_Z_INDEX;
+    for (const node of this.nodes) {
+      if (!this.isVisibleNode(node)) continue;
+      const depth = this.getNodeHierarchyDepth(node);
+      const layerBase = this.rendersAsContainer(node)
+        ? NODE_LAYER_CONTAINER_BASE_Z_INDEX
+        : NODE_LAYER_LEAF_BASE_Z_INDEX;
+      const zIndex = layerBase + depth * NODE_LAYER_DEPTH_STEP;
+      ceiling = Math.max(ceiling, zIndex);
+    }
+
+    this.visibleNodeLayerCeilingZIndexCache = ceiling;
+    return ceiling;
+  }
+
+  private getExpandedNodePriorityZIndex(baseZIndex: number): number {
+    const visibleNodeCeiling = this.getVisibleNodeLayerCeilingZIndex();
+    const elevated = Math.max(baseZIndex, visibleNodeCeiling + NODE_LAYER_EXPANDED_PRIORITY_GAP);
+    return Math.min(NODE_LAYER_EXPANDED_PRIORITY_CEILING, elevated);
   }
 
   private getContainerContextEdgeLayerZIndex(): number {
@@ -11294,6 +11324,7 @@ spec:
     this.leafNodeLabelKnockoutRectCache.clear();
     this.edgeClipContainersCache = null;
     this.leafLabelKnockoutNodesCache = null;
+    this.visibleNodeLayerCeilingZIndexCache = null;
     this.visibleContainerLayerCeilingZIndexCache = null;
     this.containerContextEdgeLayerZIndexCache = null;
     this.codeLanguageBadgeCache.clear();
@@ -11318,6 +11349,7 @@ spec:
     this.leafNodeLabelKnockoutRectCache.clear();
     this.edgeClipContainersCache = null;
     this.leafLabelKnockoutNodesCache = null;
+    this.visibleNodeLayerCeilingZIndexCache = null;
     this.visibleContainerLayerCeilingZIndexCache = null;
     this.containerContextEdgeLayerZIndexCache = null;
   }
