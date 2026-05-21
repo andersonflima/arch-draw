@@ -74,6 +74,7 @@ import {
   segmentIntersectsRect,
   type EdgeObstacleRect
 } from "../features/editor/edge-routing";
+import { routePolylineAroundObstaclesInWorker } from "../features/editor/edge-routing-worker-client";
 import { buildRoundedPolylinePath } from "../features/editor/edge-rounded-path";
 import {
   insertMermaidIndent,
@@ -1694,6 +1695,9 @@ export class AppComponent implements OnDestroy {
   private readonly edgeLabelPositionCache = new Map<string, Readonly<{ x: number; y: number }>>();
   private readonly edgeLabelRenderWidthCache = new Map<string, number>();
   private readonly edgeDarkTransitionClipIdsCache = new Map<string, readonly string[]>();
+  private readonly edgeWorkerRouteCache = new Map<string, readonly EdgePoint[]>();
+  private readonly edgeWorkerRoutePending = new Set<string>();
+  private edgeWorkerRouteRevision = 0;
   private readonly nodeAbsoluteRectCache = new Map<string, CanvasRect>();
   private readonly nodeStyleCache = new Map<string, Record<string, string | number>>();
   private readonly nodeClassCache = new Map<string, string>();
@@ -7024,18 +7028,32 @@ apiKeys:
     const routeSeed = routeCore.length >= 2
       ? routeCore
       : this.compactPolyline([geometry.startTrunk, geometry.endTrunk]);
+    const edgeComplexity = this.nodes.length + this.edges.length;
+    const shouldUseWorkerRefinement = edgeComplexity >= EDGE_SIMPLIFIED_OBSTACLE_COMPLEXITY_THRESHOLD;
+    const workerRoute = shouldUseWorkerRefinement ? this.edgeWorkerRouteCache.get(edge.id) : undefined;
     const routedCore = routeSeed.length >= 2
-      ? routeEdgePolylineAroundObstacles(
+      ? workerRoute
+        ?? routeEdgePolylineAroundObstacles(
+          routeSeed,
+          obstacleRects,
+          geometry.sourceId,
+          geometry.targetId,
+          {
+            maxPasses: Math.max(1, Math.floor(routeMaxPasses / (shouldUseWorkerRefinement ? 2 : 1))),
+            obstacleClearance: EDGE_OBSTACLE_CLEARANCE
+          }
+        )
+      : routeSeed;
+    if (shouldUseWorkerRefinement && !workerRoute && routeSeed.length >= 2) {
+      this.scheduleEdgeRouteWorkerRefinement(
+        edge.id,
         routeSeed,
         obstacleRects,
         geometry.sourceId,
         geometry.targetId,
-        {
-          maxPasses: routeMaxPasses,
-          obstacleClearance: EDGE_OBSTACLE_CLEARANCE
-        }
-      )
-      : routeSeed;
+        routeMaxPasses
+      );
+    }
     const routed = this.compactPolyline([
       geometry.start,
       ...routedCore,
@@ -7118,6 +7136,52 @@ apiKeys:
 
   private shouldPreferFastEdgeRouting(): boolean {
     return (this.nodes.length + this.edges.length) >= EDGE_ROUTE_FORCE_FAST_COMPLEXITY_THRESHOLD;
+  }
+
+  private scheduleEdgeRouteWorkerRefinement(
+    edgeId: string,
+    routeSeed: readonly EdgePoint[],
+    obstacles: readonly EdgeObstacleRect[],
+    sourceId: string,
+    targetId: string,
+    routeMaxPasses: number
+  ): void {
+    if (this.edgeWorkerRoutePending.has(edgeId)) return;
+    const revisionAtSchedule = this.edgeWorkerRouteRevision;
+    this.edgeWorkerRoutePending.add(edgeId);
+    void routePolylineAroundObstaclesInWorker({
+      points: routeSeed,
+      obstacles,
+      sourceId,
+      targetId,
+      maxPasses: routeMaxPasses,
+      obstacleClearance: EDGE_OBSTACLE_CLEARANCE
+    }).then((workerPoints) => {
+      this.edgeWorkerRoutePending.delete(edgeId);
+      if (!workerPoints || workerPoints.length < 2) return;
+      if (revisionAtSchedule !== this.edgeWorkerRouteRevision) return;
+      const current = this.edgeWorkerRouteCache.get(edgeId);
+      if (current && current.length === workerPoints.length) {
+        let same = true;
+        for (let index = 0; index < current.length; index += 1) {
+          const currentPoint = current[index];
+          const workerPoint = workerPoints[index];
+          if (!currentPoint || !workerPoint || currentPoint.x !== workerPoint.x || currentPoint.y !== workerPoint.y) {
+            same = false;
+            break;
+          }
+        }
+        if (same) return;
+      }
+      this.edgeWorkerRouteCache.set(edgeId, workerPoints);
+      this.edgePathDataCache.delete(edgeId);
+      this.edgePathStringCache.delete(edgeId);
+      this.edgeLabelPositionCache.delete(edgeId);
+      this.edgeLabelRenderWidthCache.delete(edgeId);
+      this.edgeLabelDyCache.clear();
+      this.edgeLabelStartOffsetCache.clear();
+      this.requestViewRender();
+    });
   }
 
   private shouldUseSimplifiedEdgeObstacles(): boolean {
@@ -11186,6 +11250,9 @@ spec:
   }
 
   private clearCanvasRenderCaches(): void {
+    this.edgeWorkerRouteRevision += 1;
+    this.edgeWorkerRouteCache.clear();
+    this.edgeWorkerRoutePending.clear();
     this.clearNodeGraphCaches();
     this.edgePathDataCache.clear();
     this.edgePathStringCache.clear();
