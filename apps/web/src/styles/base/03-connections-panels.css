@@ -56,7 +56,6 @@
   opacity: 0;
 }
 
-.architecture-node.is-selected .node-port::before,
 .node-port.is-connection-target::before {
   border-color: #f59e0b;
   background: #fffbeb;
