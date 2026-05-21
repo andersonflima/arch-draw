@@ -293,6 +293,7 @@ const NODE_LAYER_LEAF_BASE_Z_INDEX = 180;
 const NODE_LAYER_DEPTH_STEP = 6;
 const NODE_LAYER_EXPANDED_CONTAINER_BOOST = 0;
 const NODE_LAYER_EXPANDED_LEAF_BOOST = 120;
+const NODE_LAYER_EXPANDED_PRIORITY_Z_INDEX = 315;
 const NODE_LAYER_DRAG_Z_INDEX_BASE = 1000;
 const EDGE_LAYER_BASE_Z_INDEX = 150;
 const EDGE_LAYER_INTERACTION_Z_INDEX = 160;
@@ -3890,9 +3891,16 @@ LIMIT 50;`;
       ? (rendersAsContainer ? NODE_LAYER_EXPANDED_CONTAINER_BOOST : NODE_LAYER_EXPANDED_LEAF_BOOST)
       : 0;
     const expandedZIndex = baseZIndex + expandedBoost;
+    const expandedPriorityZIndex = isExpandedNode ? NODE_LAYER_EXPANDED_PRIORITY_Z_INDEX : 0;
     const collapseToggleZIndexFloor =
       !rendersAsContainer && this.shouldRenderNodeCollapseToggle(node) ? 175 : 0;
-    const resolvedZIndex = Math.max(baseZIndex, expandedZIndex, dragZIndex, collapseToggleZIndexFloor);
+    const resolvedZIndex = Math.max(
+      baseZIndex,
+      expandedZIndex,
+      expandedPriorityZIndex,
+      dragZIndex,
+      collapseToggleZIndexFloor
+    );
     const nestedInsideContainer = Boolean(node.parentId);
     const isExpandedCodeSnippet = this.isCodeSnippetExpanded(node);
     const prefersDarkTextInDarkMode =
