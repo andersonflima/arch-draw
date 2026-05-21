@@ -1,6 +1,6 @@
 .node-port {
   position: absolute;
-  z-index: 7;
+  z-index: 24;
   top: var(--node-port-hit-inset, 20px);
   bottom: var(--node-port-hit-inset, 20px);
   width: var(--node-port-hit-width, 22px);
@@ -11,6 +11,9 @@
   box-shadow: none;
   cursor: crosshair;
   touch-action: none;
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .node-port::before {

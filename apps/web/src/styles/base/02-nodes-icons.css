@@ -12,6 +12,7 @@
   user-select: none;
   touch-action: none;
   isolation: isolate;
+  overflow: visible;
 }
 
 .architecture-node::before {
@@ -487,6 +488,7 @@ app-flow-document-node {
   text-align: left;
   display: flex;
   flex-direction: column;
+  overflow: visible;
 }
 
 .architecture-node--code-snippet::before {
