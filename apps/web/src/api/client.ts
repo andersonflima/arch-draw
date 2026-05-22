@@ -43,6 +43,13 @@ export type SharedArchitecturePayload = Readonly<{
   accessMode: ShareAccessMode;
 }>;
 
+export type AwsDiscoveryInput = Readonly<{
+  roleArn?: string;
+  externalId?: string;
+  accountLabel?: string;
+  regions: readonly string[];
+}>;
+
 export type SharedRealtimeEvent =
   | Readonly<{
       type: "presence";
@@ -123,6 +130,11 @@ export const api = {
     request<ArchitectureDocument>("/architectures/import", {
       method: "POST",
       body: JSON.stringify(sharePackage)
+    }),
+  discoverAwsArchitecture: (input: AwsDiscoveryInput) =>
+    request<ArchitectureDocument>("/cloud/aws/discover", {
+      method: "POST",
+      body: JSON.stringify(input)
     }),
   createArchitectureShare: (
     id: string,

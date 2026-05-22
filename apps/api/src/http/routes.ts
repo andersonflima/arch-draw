@@ -12,9 +12,11 @@ import { makeImportArchitecture } from "../application/use-cases/import-architec
 import { makeListArchitectures } from "../application/use-cases/list-architectures";
 import { makeReadArchitecture } from "../application/use-cases/read-architecture";
 import { makeSaveArchitecture } from "../application/use-cases/save-architecture";
+import { makeDiscoverCloudArchitecture } from "../application/use-cases/discover-cloud-architecture";
 import type { ArchitectureRepository } from "../application/contracts/architecture-repository";
 import type { Clock } from "../application/contracts/clock";
 import type { IdGenerator } from "../application/contracts/id-generator";
+import type { CloudInventoryProvider } from "../application/contracts/cloud-inventory";
 import { resolveSessionToken } from "./session-token";
 import { getSecurityMetricsSnapshot, recordSecurityEvent } from "./security-observability";
 import type { CollaborationHub } from "./realtime/collaboration-hub";
@@ -25,6 +27,7 @@ type RouteDependencies = Readonly<{
   idGenerator: IdGenerator;
   forceSecureCookies: boolean;
   collaborationHub: CollaborationHub;
+  cloudInventoryProvider: CloudInventoryProvider;
 }>;
 
 type IdParams = Readonly<{
@@ -61,9 +64,49 @@ export const registerRoutes = async (
     dependencies.clock,
     dependencies.idGenerator
   );
+  const discoverCloudArchitecture = makeDiscoverCloudArchitecture(
+    dependencies.cloudInventoryProvider,
+    dependencies.clock,
+    dependencies.idGenerator
+  );
 
   app.get("/health", async () => ({ ok: true }));
   app.get("/security/metrics", async () => ({ ok: true, metrics: getSecurityMetricsSnapshot() }));
+
+  app.post<{ Body: unknown }>("/cloud/aws/discover", async (request, reply) => {
+    if (!isObject(request.body)) {
+      recordSecurityEvent("invalid_body");
+      request.log.warn({ event: "invalid_body", route: "/cloud/aws/discover" }, "Rejected non-object cloud discovery payload");
+      return reply.code(400).send({ errors: ["Request body must be a JSON object"] });
+    }
+
+    const roleArn = normalizeOptionalString(request.body["roleArn"], 2048);
+    const externalId = normalizeOptionalString(request.body["externalId"], 256);
+    const accountLabel = normalizeOptionalString(request.body["accountLabel"], 120);
+    const regions = sanitizeAwsRegions(request.body["regions"]);
+    if (roleArn === null || externalId === null || accountLabel === null || !regions) {
+      recordSecurityEvent("invalid_body");
+      request.log.warn({ event: "invalid_body", route: "/cloud/aws/discover" }, "Rejected invalid cloud discovery payload");
+      return reply.code(400).send({ errors: ["Invalid AWS discovery payload"] });
+    }
+
+    const result = await discoverCloudArchitecture({
+      provider: "aws",
+      roleArn,
+      externalId,
+      accountLabel,
+      regions
+    });
+    if (!result.ok) return reply.code(400).send({ errors: result.errors });
+
+    const saved = await saveArchitecture(
+      result.architecture,
+      resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies)
+    );
+    return saved.ok
+      ? reply.code(201).send(saved.architecture)
+      : reply.code(saved.statusCode).send({ errors: saved.errors });
+  });
 
   app.get("/architectures", async (request, reply) =>
     listArchitectures(resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies))
@@ -480,6 +523,16 @@ const normalizeRequiredString = (value: unknown): string | null => {
   if (typeof value !== "string") return null;
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
+};
+
+const sanitizeAwsRegions = (value: unknown): readonly string[] | null => {
+  if (!Array.isArray(value)) return ["us-east-1"];
+  const regions = value
+    .filter((entry): entry is string => typeof entry === "string")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => /^[a-z]{2}-[a-z]+-\d$/.test(entry));
+  if (regions.length !== value.length) return null;
+  return [...new Set(regions)].slice(0, 8);
 };
 
 const isSafeArchitectureId = (id: string): boolean => ARCHITECTURE_ID_PATTERN.test(id);
