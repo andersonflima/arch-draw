@@ -740,6 +740,7 @@ const mapDrawIoNodes = (cells: readonly DrawIoCell[]): readonly ArchitectureNode
     size: Readonly<{ width: number; height: number }>;
     color: string;
     label: string;
+    properties: Readonly<Record<string, string>> | undefined;
   }>>();
 
   for (const [index, cell] of nodeCells.entries()) {
@@ -750,7 +751,8 @@ const mapDrawIoNodes = (cells: readonly DrawIoCell[]): readonly ArchitectureNode
       kind,
       size: normalizeNodeSize(kind, cell.geometry),
       color: inferDrawIoColor(kind, cell.style),
-      label: cell.value || getDefaultLabel(kind)
+      label: cell.value || getDefaultLabel(kind),
+      properties: buildDrawIoNodeProperties(cell)
     });
   }
 
@@ -818,7 +820,8 @@ const mapDrawIoNodes = (cells: readonly DrawIoCell[]): readonly ArchitectureNode
         label: draft.label,
         position: fallbackPosition,
         size: draft.size,
-        color: draft.color
+        color: draft.color,
+        properties: draft.properties
       };
       const fallback = {
         node: fallbackNode,
@@ -857,7 +860,8 @@ const mapDrawIoNodes = (cells: readonly DrawIoCell[]): readonly ArchitectureNode
       parentId: parentResolved ? parentResolved.node.id : undefined,
       position: localPosition,
       size: draft.size,
-      color: draft.color
+      color: draft.color,
+      properties: draft.properties
     };
 
     const resolved = { node, absolutePosition };
@@ -1083,6 +1087,40 @@ const inferDrawIoNodeKind = (cell: DrawIoCell): ArchitectureNodeKind => {
   return inferKindFromLabel(value);
 };
 
+const buildDrawIoNodeProperties = (cell: DrawIoVertexCell): Readonly<Record<string, string>> | undefined => {
+  const style = parseStyle(cell.style);
+  const entries: readonly (readonly [string, string | undefined])[] = [
+    ["source", "draw.io"],
+    ["drawioCellId", cell.id],
+    ["drawioParentId", cell.parentId],
+    ["drawioStyle", truncateImportProperty(cell.style, 600)],
+    ["drawioShape", style.shape],
+    ["drawioResIcon", style.resIcon],
+    ["drawioIcon", style.icon],
+    ["drawioImage", truncateImportProperty(style.image, 600)],
+    ["drawioFillColor", style.fillColor],
+    ["drawioStrokeColor", style.strokeColor],
+    ["drawioGeometryX", String(cell.geometry.x)],
+    ["drawioGeometryY", String(cell.geometry.y)],
+    ["drawioGeometryWidth", String(cell.geometry.width)],
+    ["drawioGeometryHeight", String(cell.geometry.height)],
+    ["drawioGeometryRelative", cell.geometry.relative === undefined ? undefined : String(cell.geometry.relative)]
+  ];
+
+  const properties = entries.reduce<Record<string, string>>((acc, [key, value]) => {
+    const normalized = value?.trim();
+    if (!normalized) return acc;
+    return { ...acc, [key]: normalized };
+  }, {});
+
+  return Object.keys(properties).length > 0 ? properties : undefined;
+};
+
+const truncateImportProperty = (value: string | undefined, maxLength: number): string | undefined => {
+  if (!value) return undefined;
+  return value.length > maxLength ? value.slice(0, maxLength) : value;
+};
+
 const inferDrawIoColor = (kind: ArchitectureNodeKind, styleText: string): string => {
   const style = parseStyle(styleText);
   const fillColor = style.fillColor?.trim();
@@ -1286,14 +1324,25 @@ const inferKindFromLabel = (label: string): ArchitectureNodeKind => {
   if (/(tree)/.test(normalized)) return "algorithm-tree";
   if (/(hash)/.test(normalized)) return "algorithm-hash-table";
   if (/(stack)/.test(normalized)) return "algorithm-stack";
-  if (/(queue)/.test(normalized)) return "queue";
   if (/(linked list)/.test(normalized)) return "algorithm-linked-list";
   if (/(rabbitmq|rabbit mq|rabbit)/.test(normalized)) return "queue-rabbitmq";
   if (/(kafka)/.test(normalized)) return "queue-kafka";
+  if (/(queue)/.test(normalized)) return "queue";
   if (/(redis)/.test(normalized)) return "cache-redis";
   if (/(mongodb|mongo db|mongo)/.test(normalized)) return "database-mongodb";
   if (/(nosql query|query nosql|no sql|\bnosql\b)/.test(normalized)) return "query-nosql";
   if (/(sql query|query sql|\bsql\b)/.test(normalized)) return "query-sql";
+  if (/(namespace)/.test(normalized)) return "cluster-namespace";
+  if (/(deployment)/.test(normalized)) return "cluster-deployment";
+  if (/(stateful ?set)/.test(normalized)) return "cluster-statefulset";
+  if (/(daemon ?set)/.test(normalized)) return "cluster-daemonset";
+  if (/(cron ?job)/.test(normalized)) return "cluster-cronjob";
+  if (/(config ?map)/.test(normalized)) return "cluster-configmap";
+  if (/(persistent volume claim|\bpvc\b)/.test(normalized)) return "cluster-pvc";
+  if (/(horizontal pod autoscaler|\bhpa\b)/.test(normalized)) return "cluster-hpa";
+  if (/(pod)/.test(normalized)) return "cluster-pod";
+  if (/(ingress)/.test(normalized)) return "cluster-ingress";
+  if (/(kubernetes service|k8s service)/.test(normalized)) return "cluster-service";
   if (/(db|database|postgres|sqlite|mysql)/.test(normalized)) return "database";
   if (/(cache|redis|memcached)/.test(normalized)) return "cache";
   if (/(k8s|kubernetes)/.test(normalized)) return "kubernetes";
@@ -1800,15 +1849,49 @@ const inferKindFromIconMetadata = (iconMetadata: string): ArchitectureNodeKind |
   if (joined.includes("security group")) return "aws-security-group";
   if (joined.includes("availability zone")) return "aws-availability-zone";
   if (joined.includes("api gateway")) return "aws-api-gateway";
-  if (joined.includes("kubernetes") || joined.includes("k8s")) return "kubernetes";
+  const platformKind = inferKindFromDrawIoPlatformMetadata(joined);
+  if (platformKind) return platformKind;
   if (joined.includes("namespace")) return "cluster-namespace";
+  if (joined.includes("deployment")) return "cluster-deployment";
+  if (joined.includes("statefulset") || joined.includes("stateful set")) return "cluster-statefulset";
+  if (joined.includes("daemonset") || joined.includes("daemon set")) return "cluster-daemonset";
+  if (joined.includes("cronjob") || joined.includes("cron job")) return "cluster-cronjob";
+  if (joined.includes("configmap") || joined.includes("config map")) return "cluster-configmap";
+  if (joined.includes("persistent volume claim") || tokens.includes("pvc")) return "cluster-pvc";
+  if (joined.includes("horizontal pod autoscaler") || tokens.includes("hpa")) return "cluster-hpa";
   if (joined.includes("cluster")) return "cluster";
   if (joined.includes("pod")) return "cluster-pod";
   if (joined.includes("ingress")) return "cluster-ingress";
   if (joined.includes("kong")) return "cluster-kong";
+  if (joined.includes("kubernetes") || joined.includes("k8s")) return "kubernetes";
 
   const inferred = inferKindFromLabel(joined);
   return inferred === "system" ? null : inferred;
+};
+
+const inferKindFromDrawIoPlatformMetadata = (joined: string): ArchitectureNodeKind | null => {
+  if (joined.includes("azure")) {
+    if (joined.includes("functions") || joined.includes("function app")) return "serverless";
+    if (joined.includes("app service") || joined.includes("container apps")) return "service";
+    if (joined.includes("aks") || joined.includes("kubernetes")) return "cluster";
+    if (joined.includes("sql") || joined.includes("database") || joined.includes("cosmos")) return "database";
+    if (joined.includes("storage") || joined.includes("blob")) return "object-storage";
+    if (joined.includes("key vault")) return "secrets";
+    if (joined.includes("load balancer") || joined.includes("application gateway")) return "load-balancer";
+    if (joined.includes("virtual network") || joined.includes("vnet")) return "cloud-vpc";
+  }
+
+  if (joined.includes("google cloud") || joined.includes("gcp")) {
+    if (joined.includes("cloud functions") || joined.includes("cloud run") || joined.includes("app engine")) return "serverless";
+    if (joined.includes("gke") || joined.includes("kubernetes")) return "cluster";
+    if (joined.includes("cloud sql") || joined.includes("spanner") || joined.includes("bigquery")) return "database";
+    if (joined.includes("cloud storage")) return "object-storage";
+    if (joined.includes("pubsub") || joined.includes("pub sub")) return "queue";
+    if (joined.includes("load balancing") || joined.includes("load balancer")) return "load-balancer";
+    if (joined.includes("vpc") || joined.includes("network")) return "cloud-vpc";
+  }
+
+  return null;
 };
 
 const isSwimlane = (style: Record<string, string>, shape: string): boolean =>
