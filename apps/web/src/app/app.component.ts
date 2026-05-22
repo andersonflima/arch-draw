@@ -6505,6 +6505,14 @@ apiKeys:
       }
 
       const isCodeContainerKind = isContainerNodeKind(node.kind) && CONTAINER_CODE_PROPERTY_KINDS.has(node.kind);
+      const hasExplicitContainerCodeContent =
+        (nextProperties["codeContent"] ?? "").trim().length > 0;
+      const hasExplicitContainerCollapseState =
+        node.collapsed === true
+        || node.expandedSize !== undefined
+        || Boolean(node.collapsedIconKind);
+      const shouldNormalizeAsCollapsedCodeContainer =
+        isCodeContainerKind && (hasExplicitContainerCodeContent || hasExplicitContainerCollapseState);
 
       if (isCodeSnippetKind) {
         const nextExpandedSize = node.expandedSize ?? node.size;
@@ -6523,7 +6531,7 @@ apiKeys:
             properties: Object.keys(nextProperties).length > 0 ? nextProperties : undefined
           };
         }
-      } else if (isCodeContainerKind) {
+      } else if (shouldNormalizeAsCollapsedCodeContainer) {
         const nextExpandedSize = node.expandedSize ?? node.size;
         const hasCollapsedSize =
           Math.abs(node.size.width - CONTAINER_COLLAPSED_SIZE.width) < 0.001
