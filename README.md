@@ -228,6 +228,8 @@ npm run verify
 
 `npm run verify` executa o gate completo de integridade local (`typecheck`, `lint`, `test` e `build`) no mesmo padrão da pipeline CI.
 
+Os testes de importação em `apps/web/src/features/import/diagram-import.test.ts` cobrem regressões de layout para Mermaid, draw.io e Excalidraw, incluindo cenários simples e complexos com coordenadas, hierarquia de containers/frames, portas e conexões.
+
 ## Estrutura do monorepo
 
 ```text
