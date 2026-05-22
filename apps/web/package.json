@@ -43,6 +43,7 @@
     "@angular/build": "^21.2.11",
     "@angular/cli": "^21.2.11",
     "@angular/compiler-cli": "^21.2.13",
+    "@xmldom/xmldom": "^0.9.10",
     "typescript": "^5.8.3",
     "vitest": "^4.1.6"
   }
