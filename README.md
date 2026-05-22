@@ -43,6 +43,7 @@ Ele combina modelagem visual por drag and drop com interoperabilidade de formato
 - Em zoom baixo com alta densidade, labels/knockouts de conexões e overlays de contexto em dark mode são reduzidos temporariamente para priorizar FPS durante navegação.
 - Exportação de diagramas em múltiplos formatos (`.archdraw.json`, `.drawio`, `.excalidraw`, SVG e PNG).
 - Importação de diagramas em múltiplos formatos (`.archdraw`, JSON, `.drawio`/XML, `.excalidraw`, `.mmd`/`.mermaid`).
+- Descoberta read-only de ambientes AWS reais pela toolbar `Cloud`, convertendo inventário de conta/regiões em arquitetura editável do Arch Draw.
 - Import mantém hierarquia visual e fluxo entre plataformas (draw.io, Excalidraw e Mermaid), convertendo para tipos internos sem desmontar a estrutura original.
 - Export `.mmd` inclui metadado interno de layout; ao reimportar esse Mermaid no Arch Draw, posições, hierarquia de containers e estilos de conexão são restaurados com fidelidade.
 - Painel de propriedades contextual no ponto do clique, com ajustes globais de fonte de labels, fonte de âncoras e tamanho de ícones.
@@ -137,6 +138,23 @@ URLs padrão:
 
 - Web: `http://127.0.0.1:5173`
 - API: `http://localhost:8080`
+
+## Descoberta AWS
+
+A toolbar inclui a ação `Cloud` para montar uma arquitetura automaticamente a partir de inventário AWS real. O backend usa credenciais AWS read-only disponíveis no ambiente da API ou assume uma role informada na tela.
+
+Permissões mínimas recomendadas para a role ou credencial usada:
+
+- `sts:GetCallerIdentity`
+- `ec2:Describe*`
+- `elasticloadbalancing:DescribeLoadBalancers`
+- `elasticloadbalancing:DescribeTargetGroups`
+- `elasticloadbalancing:DescribeTargetHealth`
+- `rds:DescribeDBInstances`
+- `lambda:ListFunctions`
+- `s3:ListAllMyBuckets`
+
+Serviços sem permissão são ignorados na montagem inicial, preservando os recursos que puderem ser lidos. A descoberta normaliza VPCs, subnets, EC2, security groups, ALB/NLB, RDS/Aurora, Lambda e S3 para nós internos editáveis, com relações principais entre balanceadores, instâncias, security groups e Lambdas em subnets.
 
 ## Rodando com Docker
 
