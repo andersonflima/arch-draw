@@ -13,6 +13,7 @@
   touch-action: none;
   isolation: isolate;
   overflow: visible;
+  contain: layout style;
 }
 
 .architecture-node::before {
