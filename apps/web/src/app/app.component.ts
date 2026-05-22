@@ -2924,7 +2924,7 @@ export class AppComponent implements OnDestroy {
     this.selectedNodeId = selected.id;
     this.selectedNodeIds = [selected.id];
     this.resizeEnabledNodeId = collapsed ? null : selected.id;
-    this.markViewChanged();
+    this.markCollapseToggleChanged();
   }
 
   setSelectedCodeSnippetCollapsed(collapsed: boolean): void {
@@ -2935,7 +2935,7 @@ export class AppComponent implements OnDestroy {
     this.selectedNodeId = selected.id;
     this.selectedNodeIds = [selected.id];
     this.resizeEnabledNodeId = collapsed ? null : selected.id;
-    this.markViewChanged();
+    this.markCollapseToggleChanged();
   }
 
   updateSelectedCollapsedIcon(kind: ArchitectureNodeKind): void {
@@ -3497,7 +3497,7 @@ LIMIT 50;`;
     }
     const isNowExpanded = this.isCodeSnippetNodeExpandedById(node.id) || this.isContainerNodeExpandedById(node.id);
     this.maximizedNodeId = isNowExpanded ? node.id : (this.maximizedNodeId === node.id ? null : this.maximizedNodeId);
-    this.markViewChanged();
+    this.markCollapseToggleChanged();
   }
 
   onResizePointerDown(event: PointerEvent, node: CanvasNode, direction: ResizeDirection): void {
