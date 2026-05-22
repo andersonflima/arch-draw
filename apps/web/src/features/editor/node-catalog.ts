@@ -10,6 +10,27 @@ export type NodeTemplateCategory =
   | "AWS Integration"
   | "AWS Security"
   | "AWS Observability"
+  | "Azure Network"
+  | "Azure Compute"
+  | "Azure Storage"
+  | "Azure Data"
+  | "Azure Integration"
+  | "Azure Security"
+  | "Azure Observability"
+  | "GCP Network"
+  | "GCP Compute"
+  | "GCP Storage"
+  | "GCP Data"
+  | "GCP Integration"
+  | "GCP Security"
+  | "GCP Observability"
+  | "OCI Network"
+  | "OCI Compute"
+  | "OCI Storage"
+  | "OCI Data"
+  | "OCI Integration"
+  | "OCI Security"
+  | "OCI Observability"
   | "Database"
   | "Messaging"
   | "Queries"
@@ -115,6 +136,92 @@ export const nodeCatalog: readonly NodeTemplate[] = [
 
   { category: "AWS Observability", kind: "aws-cloudwatch", label: "CloudWatch", color: "#d1fae5" },
   { category: "AWS Observability", kind: "aws-cloudtrail", label: "CloudTrail", color: "#f3f4f6" },
+
+  { category: "Azure Network", kind: "azure-account", label: "Azure Subscription", color: "#e0f2fe" },
+  { category: "Azure Network", kind: "azure-region", label: "Azure Region", color: "#dbeafe" },
+  { category: "Azure Network", kind: "azure-resource-group", label: "Resource Group", color: "#e0e7ff" },
+  { category: "Azure Network", kind: "azure-virtual-network", label: "Virtual Network", color: "#dcfce7" },
+  { category: "Azure Network", kind: "azure-subnet", label: "Subnet", color: "#ecfccb" },
+  { category: "Azure Network", kind: "azure-load-balancer", label: "Load Balancer", color: "#cffafe" },
+  { category: "Azure Network", kind: "azure-application-gateway", label: "Application Gateway", color: "#fef3c7" },
+
+  { category: "Azure Compute", kind: "azure-vm", label: "Virtual Machine", color: "#ffedd5" },
+  { category: "Azure Compute", kind: "azure-vm-scale-set", label: "VM Scale Set", color: "#fed7aa" },
+  { category: "Azure Compute", kind: "azure-functions", label: "Functions", color: "#fef3c7" },
+  { category: "Azure Compute", kind: "azure-app-service", label: "App Service", color: "#dcfce7" },
+  { category: "Azure Compute", kind: "azure-container-apps", label: "Container Apps", color: "#ccfbf1" },
+  { category: "Azure Compute", kind: "azure-aks", label: "AKS", color: "#dbeafe" },
+  { category: "Azure Compute", kind: "azure-container-registry", label: "Container Registry", color: "#e0e7ff" },
+
+  { category: "Azure Storage", kind: "azure-blob-storage", label: "Blob Storage", color: "#dbeafe" },
+  { category: "Azure Storage", kind: "azure-disk-storage", label: "Disk Storage", color: "#e0f2fe" },
+  { category: "Azure Storage", kind: "azure-files", label: "Files", color: "#cffafe" },
+
+  { category: "Azure Data", kind: "azure-sql-database", label: "SQL Database", color: "#e0f2fe" },
+  { category: "Azure Data", kind: "azure-cosmos-db", label: "Cosmos DB", color: "#dbeafe" },
+  { category: "Azure Data", kind: "azure-cache-redis", label: "Cache for Redis", color: "#fee2e2" },
+
+  { category: "Azure Integration", kind: "azure-service-bus", label: "Service Bus", color: "#dcfce7" },
+  { category: "Azure Integration", kind: "azure-event-hubs", label: "Event Hubs", color: "#ede9fe" },
+
+  { category: "Azure Security", kind: "azure-key-vault", label: "Key Vault", color: "#fef9c3" },
+  { category: "Azure Security", kind: "azure-firewall", label: "Firewall", color: "#fecaca" },
+
+  { category: "Azure Observability", kind: "azure-monitor", label: "Monitor", color: "#d1fae5" },
+
+  { category: "GCP Network", kind: "gcp-organization", label: "Organization", color: "#e0f2fe" },
+  { category: "GCP Network", kind: "gcp-project", label: "Project", color: "#e0e7ff" },
+  { category: "GCP Network", kind: "gcp-region", label: "Region", color: "#dbeafe" },
+  { category: "GCP Network", kind: "gcp-vpc", label: "VPC Network", color: "#dcfce7" },
+  { category: "GCP Network", kind: "gcp-subnet", label: "Subnet", color: "#ecfccb" },
+  { category: "GCP Network", kind: "gcp-load-balancing", label: "Load Balancing", color: "#cffafe" },
+
+  { category: "GCP Compute", kind: "gcp-compute-engine", label: "Compute Engine", color: "#ffedd5" },
+  { category: "GCP Compute", kind: "gcp-managed-instance-group", label: "Instance Group", color: "#fed7aa" },
+  { category: "GCP Compute", kind: "gcp-cloud-run", label: "Cloud Run", color: "#dcfce7" },
+  { category: "GCP Compute", kind: "gcp-cloud-functions", label: "Cloud Functions", color: "#fef3c7" },
+  { category: "GCP Compute", kind: "gcp-gke", label: "GKE", color: "#dbeafe" },
+  { category: "GCP Compute", kind: "gcp-artifact-registry", label: "Artifact Registry", color: "#e0e7ff" },
+
+  { category: "GCP Storage", kind: "gcp-cloud-storage", label: "Cloud Storage", color: "#dbeafe" },
+  { category: "GCP Storage", kind: "gcp-persistent-disk", label: "Persistent Disk", color: "#e0f2fe" },
+
+  { category: "GCP Data", kind: "gcp-cloud-sql", label: "Cloud SQL", color: "#e0f2fe" },
+  { category: "GCP Data", kind: "gcp-spanner", label: "Spanner", color: "#dbeafe" },
+  { category: "GCP Data", kind: "gcp-bigquery", label: "BigQuery", color: "#fce7f3" },
+  { category: "GCP Data", kind: "gcp-memorystore", label: "Memorystore", color: "#fee2e2" },
+
+  { category: "GCP Integration", kind: "gcp-pubsub", label: "Pub/Sub", color: "#dcfce7" },
+
+  { category: "GCP Security", kind: "gcp-secret-manager", label: "Secret Manager", color: "#fef9c3" },
+  { category: "GCP Security", kind: "gcp-cloud-armor", label: "Cloud Armor", color: "#fecaca" },
+
+  { category: "GCP Observability", kind: "gcp-cloud-monitoring", label: "Cloud Monitoring", color: "#d1fae5" },
+  { category: "GCP Observability", kind: "gcp-cloud-logging", label: "Cloud Logging", color: "#f3f4f6" },
+
+  { category: "OCI Network", kind: "oci-tenancy", label: "Tenancy", color: "#fee2e2" },
+  { category: "OCI Network", kind: "oci-region", label: "Region", color: "#ffedd5" },
+  { category: "OCI Network", kind: "oci-vcn", label: "VCN", color: "#dcfce7" },
+  { category: "OCI Network", kind: "oci-subnet", label: "Subnet", color: "#ecfccb" },
+  { category: "OCI Network", kind: "oci-load-balancer", label: "Load Balancer", color: "#cffafe" },
+
+  { category: "OCI Compute", kind: "oci-compute", label: "Compute", color: "#ffedd5" },
+  { category: "OCI Compute", kind: "oci-container-engine", label: "Container Engine", color: "#dbeafe" },
+  { category: "OCI Compute", kind: "oci-functions", label: "Functions", color: "#fef3c7" },
+
+  { category: "OCI Storage", kind: "oci-object-storage", label: "Object Storage", color: "#dbeafe" },
+  { category: "OCI Storage", kind: "oci-block-volume", label: "Block Volume", color: "#e0f2fe" },
+  { category: "OCI Storage", kind: "oci-file-storage", label: "File Storage", color: "#cffafe" },
+
+  { category: "OCI Data", kind: "oci-autonomous-database", label: "Autonomous Database", color: "#e0f2fe" },
+  { category: "OCI Data", kind: "oci-database", label: "Database", color: "#dbeafe" },
+
+  { category: "OCI Integration", kind: "oci-streaming", label: "Streaming", color: "#ede9fe" },
+
+  { category: "OCI Security", kind: "oci-vault", label: "Vault", color: "#fef9c3" },
+  { category: "OCI Security", kind: "oci-waf", label: "WAF", color: "#fecaca" },
+
+  { category: "OCI Observability", kind: "oci-monitoring", label: "Monitoring", color: "#d1fae5" },
 
   { category: "Code", kind: "code-repository", label: "Repository", color: "#f8fafc" },
   { category: "Code", kind: "code-workspace", label: "Workspace", color: "#e0e7ff" },
@@ -231,6 +338,31 @@ const containerKinds = new Set<ArchitectureNodeKind>([
   "aws-ecs",
   "aws-ecr",
   "aws-eks",
+  "azure-account",
+  "azure-region",
+  "azure-resource-group",
+  "azure-virtual-network",
+  "azure-subnet",
+  "azure-vm",
+  "azure-vm-scale-set",
+  "azure-container-apps",
+  "azure-aks",
+  "azure-container-registry",
+  "gcp-organization",
+  "gcp-project",
+  "gcp-region",
+  "gcp-vpc",
+  "gcp-subnet",
+  "gcp-compute-engine",
+  "gcp-managed-instance-group",
+  "gcp-gke",
+  "gcp-artifact-registry",
+  "oci-tenancy",
+  "oci-region",
+  "oci-vcn",
+  "oci-subnet",
+  "oci-compute",
+  "oci-container-engine",
   "cluster",
   "cluster-namespace",
   "cluster-deployment",
@@ -307,6 +439,46 @@ const codeSnippetKinds = new Set<ArchitectureNodeKind>([
   "aws-iam",
   "aws-route53",
   "aws-security-group",
+  "azure-functions",
+  "azure-app-service",
+  "azure-load-balancer",
+  "azure-application-gateway",
+  "azure-blob-storage",
+  "azure-disk-storage",
+  "azure-files",
+  "azure-sql-database",
+  "azure-cosmos-db",
+  "azure-cache-redis",
+  "azure-service-bus",
+  "azure-event-hubs",
+  "azure-key-vault",
+  "azure-monitor",
+  "azure-firewall",
+  "gcp-load-balancing",
+  "gcp-cloud-run",
+  "gcp-cloud-functions",
+  "gcp-cloud-storage",
+  "gcp-persistent-disk",
+  "gcp-cloud-sql",
+  "gcp-spanner",
+  "gcp-bigquery",
+  "gcp-memorystore",
+  "gcp-pubsub",
+  "gcp-secret-manager",
+  "gcp-cloud-monitoring",
+  "gcp-cloud-logging",
+  "gcp-cloud-armor",
+  "oci-load-balancer",
+  "oci-functions",
+  "oci-object-storage",
+  "oci-block-volume",
+  "oci-file-storage",
+  "oci-autonomous-database",
+  "oci-database",
+  "oci-streaming",
+  "oci-vault",
+  "oci-monitoring",
+  "oci-waf",
   "cluster-service",
   "cluster-ingress",
   "cluster-kong",
@@ -359,6 +531,7 @@ export type NodeVisualGroup =
 export const getNodeVisualGroup = (kind: ArchitectureNodeKind): NodeVisualGroup => {
   if (isContainerNodeKind(kind)) return "container";
   if (kind.startsWith("aws-")) return "aws";
+  if (kind.startsWith("azure-") || kind.startsWith("gcp-") || kind.startsWith("oci-")) return "cloud";
   if (kind.startsWith("code-")) return "code";
   if (kind.startsWith("software-")) return "software";
   if (kind.startsWith("device-")) return "device";

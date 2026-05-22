@@ -16,6 +16,9 @@ describe("node catalog", () => {
 
   it("contains AWS, software development, cluster, and algorithm blocks", () => {
     expect(nodeCatalog.some((template) => template.category === "AWS Compute")).toBe(true);
+    expect(nodeCatalog.some((template) => template.category === "Azure Compute")).toBe(true);
+    expect(nodeCatalog.some((template) => template.category === "GCP Compute")).toBe(true);
+    expect(nodeCatalog.some((template) => template.category === "OCI Compute")).toBe(true);
     expect(nodeCatalog.some((template) => template.category === "Code")).toBe(true);
     expect(nodeCatalog.some((template) => template.category === "Development")).toBe(true);
     expect(nodeCatalog.some((template) => template.category === "Cluster")).toBe(true);
@@ -39,6 +42,9 @@ describe("node catalog", () => {
     expect(nodeCatalog.some((template) => template.kind === "query-sql")).toBe(true);
     expect(nodeCatalog.some((template) => template.kind === "query-nosql")).toBe(true);
     expect(nodeCatalog.some((template) => template.kind === "software-docker")).toBe(true);
+    expect(nodeCatalog.some((template) => template.kind === "azure-aks")).toBe(true);
+    expect(nodeCatalog.some((template) => template.kind === "gcp-cloud-run")).toBe(true);
+    expect(nodeCatalog.some((template) => template.kind === "oci-container-engine")).toBe(true);
   });
 
   it("treats core and cloud containers as grouping containers", () => {
@@ -53,6 +59,12 @@ describe("node catalog", () => {
     expect(isContainerNodeKind("aws-ecs")).toBe(true);
     expect(isContainerNodeKind("aws-ecr")).toBe(true);
     expect(isContainerNodeKind("aws-eks")).toBe(true);
+    expect(isContainerNodeKind("azure-virtual-network")).toBe(true);
+    expect(isContainerNodeKind("azure-aks")).toBe(true);
+    expect(isContainerNodeKind("gcp-vpc")).toBe(true);
+    expect(isContainerNodeKind("gcp-gke")).toBe(true);
+    expect(isContainerNodeKind("oci-vcn")).toBe(true);
+    expect(isContainerNodeKind("oci-container-engine")).toBe(true);
     expect(getDefaultNodeSize("group-container")).toEqual(getDefaultNodeSize("container"));
   });
 
