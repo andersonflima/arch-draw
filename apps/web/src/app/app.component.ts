@@ -1733,6 +1733,7 @@ export class AppComponent implements OnDestroy {
   private miniMapRenderableNodesCache: readonly CanvasNode[] | null = null;
   private readonly renderableNodeIdsCache = new Map<string, boolean>();
   private readonly renderableEdgeIdsCache = new Map<string, boolean>();
+  private visibleCanvasRectCache: Readonly<{ left: number; top: number; width: number; height: number }> | null = null;
   private renderableCanvasRectCache: CanvasRect | null = null;
   private containerRenderableNodesCache: readonly CanvasNode[] | null = null;
   private leafRenderableNodesCache: readonly CanvasNode[] | null = null;
@@ -1743,6 +1744,10 @@ export class AppComponent implements OnDestroy {
   private visibleNodeLayerCeilingZIndexCache: number | null = null;
   private visibleContainerLayerCeilingZIndexCache: number | null = null;
   private containerContextEdgeLayerZIndexCache: number | null = null;
+  private viewportStyleCacheSignature = "";
+  private viewportStyleCache: Record<string, string> | null = null;
+  private edgeLayerStyleCacheZIndex: number | null = null;
+  private edgeLayerStyleCache: Record<string, string> | null = null;
   private edgeLabelMeasureContext: CanvasRenderingContext2D | null | undefined;
   private tutorialActiveTargetSelector: string | null = null;
   private tutorialActiveTargetElement: HTMLElement | null = null;
@@ -4026,9 +4031,16 @@ LIMIT 50;`;
   }
 
   getViewportStyle(): Record<string, string> {
-    return {
+    const signature = `${this.canvasPan.x}:${this.canvasPan.y}:${this.canvasZoom}`;
+    if (this.viewportStyleCache && this.viewportStyleCacheSignature === signature) {
+      return this.viewportStyleCache;
+    }
+
+    this.viewportStyleCacheSignature = signature;
+    this.viewportStyleCache = {
       transform: `translate(${this.canvasPan.x}px, ${this.canvasPan.y}px) scale(${this.canvasZoom})`
     };
+    return this.viewportStyleCache;
   }
 
   getMiniMapRenderableNodes(): readonly CanvasNode[] {
@@ -4212,9 +4224,11 @@ LIMIT 50;`;
   }
 
   getEdgeLayerStyle(): Record<string, string> {
-    return {
-      zIndex: `${this.getEdgeLayerZIndex()}`
-    };
+    const zIndex = this.getEdgeLayerZIndex();
+    if (this.edgeLayerStyleCache && this.edgeLayerStyleCacheZIndex === zIndex) return this.edgeLayerStyleCache;
+    this.edgeLayerStyleCacheZIndex = zIndex;
+    this.edgeLayerStyleCache = { zIndex: `${zIndex}` };
+    return this.edgeLayerStyleCache;
   }
 
   private getEdgeLayerZIndex(): number {
@@ -8445,15 +8459,18 @@ apiKeys:
   }
 
   private getVisibleCanvasRect(): Readonly<{ left: number; top: number; width: number; height: number }> {
+    if (this.visibleCanvasRectCache) return this.visibleCanvasRectCache;
+
     const rect = this.canvasShell?.nativeElement.getBoundingClientRect();
     const width = Math.max(320, (rect?.width ?? 960) / this.canvasZoom);
     const height = Math.max(220, (rect?.height ?? 640) / this.canvasZoom);
-    return {
+    this.visibleCanvasRectCache = {
       left: -this.canvasPan.x / this.canvasZoom,
       top: -this.canvasPan.y / this.canvasZoom,
       width,
       height
     };
+    return this.visibleCanvasRectCache;
   }
 
   private getRenderableCanvasRect(): CanvasRect {
@@ -11382,6 +11399,7 @@ spec:
     this.miniMapRenderableNodesCache = null;
     this.renderableNodeIdsCache.clear();
     this.renderableEdgeIdsCache.clear();
+    this.visibleCanvasRectCache = null;
     this.renderableCanvasRectCache = null;
     this.containerRenderableNodesCache = null;
     this.leafRenderableNodesCache = null;
@@ -11392,6 +11410,10 @@ spec:
     this.visibleNodeLayerCeilingZIndexCache = null;
     this.visibleContainerLayerCeilingZIndexCache = null;
     this.containerContextEdgeLayerZIndexCache = null;
+    this.viewportStyleCacheSignature = "";
+    this.viewportStyleCache = null;
+    this.edgeLayerStyleCacheZIndex = null;
+    this.edgeLayerStyleCache = null;
     this.codeLanguageBadgeCache.clear();
   }
 
@@ -11402,6 +11424,7 @@ spec:
     this.miniMapRenderableNodesCache = null;
     this.renderableNodeIdsCache.clear();
     this.renderableEdgeIdsCache.clear();
+    this.visibleCanvasRectCache = null;
     this.renderableCanvasRectCache = null;
     this.containerRenderableNodesCache = null;
     this.leafRenderableNodesCache = null;
@@ -11417,6 +11440,10 @@ spec:
     this.visibleNodeLayerCeilingZIndexCache = null;
     this.visibleContainerLayerCeilingZIndexCache = null;
     this.containerContextEdgeLayerZIndexCache = null;
+    this.viewportStyleCacheSignature = "";
+    this.viewportStyleCache = null;
+    this.edgeLayerStyleCacheZIndex = null;
+    this.edgeLayerStyleCache = null;
   }
 
   private consumeViewChangeState(): Readonly<{ documentChanged: boolean; requiresRouteCacheReset: boolean }> {
@@ -11463,10 +11490,13 @@ spec:
   private clearViewportRenderCaches(): void {
     this.renderableNodeIdsCache.clear();
     this.renderableEdgeIdsCache.clear();
+    this.visibleCanvasRectCache = null;
     this.renderableCanvasRectCache = null;
     this.containerRenderableNodesCache = null;
     this.leafRenderableNodesCache = null;
     this.renderableEdgesCache = null;
+    this.viewportStyleCacheSignature = "";
+    this.viewportStyleCache = null;
   }
 
   private syncTutorialStepRequirements(): void {
