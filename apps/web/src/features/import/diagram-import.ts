@@ -1290,6 +1290,8 @@ const inferKindFromLabel = (label: string): ArchitectureNodeKind => {
   if (/(waf)/.test(normalized)) return "aws-waf";
   if (/(shield)/.test(normalized)) return "aws-shield";
   if (/(security group)/.test(normalized)) return "aws-security-group";
+  const providerKind = inferKindFromDrawIoPlatformMetadata(normalized);
+  if (providerKind) return providerKind;
   if (/(repository|repo)/.test(normalized)) return "code-repository";
   if (/(workspace)/.test(normalized)) return "code-workspace";
   if (/(package)/.test(normalized)) return "code-package";
@@ -1359,6 +1361,53 @@ const inferKindFromLabel = (label: string): ArchitectureNodeKind => {
   if (/(log|logging)/.test(normalized)) return "logging";
   if (/(metric|monitor|observability)/.test(normalized)) return "monitoring";
   if (/(firewall)/.test(normalized)) return "firewall";
+  if (/(azure subscription)/.test(normalized)) return "azure-account";
+  if (/(resource group)/.test(normalized)) return "azure-resource-group";
+  if (/(virtual network|\bvnet\b)/.test(normalized)) return "azure-virtual-network";
+  if (/(application gateway)/.test(normalized)) return "azure-application-gateway";
+  if (/(vm scale set|virtual machine scale set)/.test(normalized)) return "azure-vm-scale-set";
+  if (/(azure functions?|function app)/.test(normalized)) return "azure-functions";
+  if (/(app service)/.test(normalized)) return "azure-app-service";
+  if (/(container apps?)/.test(normalized)) return "azure-container-apps";
+  if (/(aks)/.test(normalized)) return "azure-aks";
+  if (/(container registry|\bacr\b)/.test(normalized)) return "azure-container-registry";
+  if (/(blob storage)/.test(normalized)) return "azure-blob-storage";
+  if (/(disk storage|managed disk)/.test(normalized)) return "azure-disk-storage";
+  if (/(azure files?)/.test(normalized)) return "azure-files";
+  if (/(azure sql|sql database)/.test(normalized)) return "azure-sql-database";
+  if (/(cosmos db|cosmosdb)/.test(normalized)) return "azure-cosmos-db";
+  if (/(service bus)/.test(normalized)) return "azure-service-bus";
+  if (/(event hubs?)/.test(normalized)) return "azure-event-hubs";
+  if (/(key vault)/.test(normalized)) return "azure-key-vault";
+  if (/(azure monitor)/.test(normalized)) return "azure-monitor";
+  if (/(azure firewall)/.test(normalized)) return "azure-firewall";
+  if (/(virtual machine|\bvm\b)/.test(normalized)) return "azure-vm";
+  if (/(gcp project|google cloud project)/.test(normalized)) return "gcp-project";
+  if (/(gcp organization|google cloud organization)/.test(normalized)) return "gcp-organization";
+  if (/(cloud load balancing|gcp load balanc)/.test(normalized)) return "gcp-load-balancing";
+  if (/(compute engine)/.test(normalized)) return "gcp-compute-engine";
+  if (/(managed instance group|\bmig\b)/.test(normalized)) return "gcp-managed-instance-group";
+  if (/(cloud run)/.test(normalized)) return "gcp-cloud-run";
+  if (/(cloud functions?)/.test(normalized)) return "gcp-cloud-functions";
+  if (/(gke)/.test(normalized)) return "gcp-gke";
+  if (/(artifact registry)/.test(normalized)) return "gcp-artifact-registry";
+  if (/(cloud storage)/.test(normalized)) return "gcp-cloud-storage";
+  if (/(persistent disk)/.test(normalized)) return "gcp-persistent-disk";
+  if (/(cloud sql)/.test(normalized)) return "gcp-cloud-sql";
+  if (/(spanner)/.test(normalized)) return "gcp-spanner";
+  if (/(bigquery|big query)/.test(normalized)) return "gcp-bigquery";
+  if (/(memorystore)/.test(normalized)) return "gcp-memorystore";
+  if (/(pub\/sub|pubsub|pub sub)/.test(normalized)) return "gcp-pubsub";
+  if (/(secret manager)/.test(normalized)) return "gcp-secret-manager";
+  if (/(cloud monitoring)/.test(normalized)) return "gcp-cloud-monitoring";
+  if (/(cloud logging)/.test(normalized)) return "gcp-cloud-logging";
+  if (/(cloud armor)/.test(normalized)) return "gcp-cloud-armor";
+  if (/(oci tenancy)/.test(normalized)) return "oci-tenancy";
+  if (/(vcn|virtual cloud network)/.test(normalized)) return "oci-vcn";
+  if (/(autonomous database)/.test(normalized)) return "oci-autonomous-database";
+  if (/(oci database)/.test(normalized)) return "oci-database";
+  if (/(oci streaming)/.test(normalized)) return "oci-streaming";
+  if (/(oci vault)/.test(normalized)) return "oci-vault";
   if (/(docker)/.test(normalized)) return "software-docker";
   if (/(container)/.test(normalized)) return "container";
   if (/(laptop|notebook)/.test(normalized)) return "device-laptop";
@@ -1871,24 +1920,77 @@ const inferKindFromIconMetadata = (iconMetadata: string): ArchitectureNodeKind |
 
 const inferKindFromDrawIoPlatformMetadata = (joined: string): ArchitectureNodeKind | null => {
   if (joined.includes("azure")) {
-    if (joined.includes("functions") || joined.includes("function app")) return "serverless";
-    if (joined.includes("app service") || joined.includes("container apps")) return "service";
-    if (joined.includes("aks") || joined.includes("kubernetes")) return "cluster";
-    if (joined.includes("sql") || joined.includes("database") || joined.includes("cosmos")) return "database";
-    if (joined.includes("storage") || joined.includes("blob")) return "object-storage";
-    if (joined.includes("key vault")) return "secrets";
-    if (joined.includes("load balancer") || joined.includes("application gateway")) return "load-balancer";
-    if (joined.includes("virtual network") || joined.includes("vnet")) return "cloud-vpc";
+    if (joined.includes("resource group")) return "azure-resource-group";
+    if (joined.includes("virtual network") || joined.includes("vnet")) return "azure-virtual-network";
+    if (joined.includes("subnet")) return "azure-subnet";
+    if (joined.includes("application gateway")) return "azure-application-gateway";
+    if (joined.includes("load balancer")) return "azure-load-balancer";
+    if (joined.includes("scale set")) return "azure-vm-scale-set";
+    if (joined.includes("functions") || joined.includes("function app")) return "azure-functions";
+    if (joined.includes("app service")) return "azure-app-service";
+    if (joined.includes("container apps")) return "azure-container-apps";
+    if (joined.includes("aks") || joined.includes("kubernetes")) return "azure-aks";
+    if (joined.includes("container registry")) return "azure-container-registry";
+    if (joined.includes("blob")) return "azure-blob-storage";
+    if (joined.includes("disk")) return "azure-disk-storage";
+    if (joined.includes("files")) return "azure-files";
+    if (joined.includes("sql")) return "azure-sql-database";
+    if (joined.includes("cosmos")) return "azure-cosmos-db";
+    if (joined.includes("redis")) return "azure-cache-redis";
+    if (joined.includes("service bus")) return "azure-service-bus";
+    if (joined.includes("event hubs")) return "azure-event-hubs";
+    if (joined.includes("key vault")) return "azure-key-vault";
+    if (joined.includes("monitor")) return "azure-monitor";
+    if (joined.includes("firewall")) return "azure-firewall";
+    if (joined.includes("virtual machine") || joined.includes("vm")) return "azure-vm";
+    if (joined.includes("region")) return "azure-region";
+    return "azure-account";
   }
 
-  if (joined.includes("google cloud") || joined.includes("gcp")) {
-    if (joined.includes("cloud functions") || joined.includes("cloud run") || joined.includes("app engine")) return "serverless";
-    if (joined.includes("gke") || joined.includes("kubernetes")) return "cluster";
-    if (joined.includes("cloud sql") || joined.includes("spanner") || joined.includes("bigquery")) return "database";
-    if (joined.includes("cloud storage")) return "object-storage";
-    if (joined.includes("pubsub") || joined.includes("pub sub")) return "queue";
-    if (joined.includes("load balancing") || joined.includes("load balancer")) return "load-balancer";
-    if (joined.includes("vpc") || joined.includes("network")) return "cloud-vpc";
+  if (joined.includes("google cloud") || joined.includes("gcp") || joined.includes("gcp2")) {
+    if (joined.includes("organization")) return "gcp-organization";
+    if (joined.includes("project")) return "gcp-project";
+    if (joined.includes("region")) return "gcp-region";
+    if (joined.includes("vpc") || joined.includes("network")) return "gcp-vpc";
+    if (joined.includes("subnet")) return "gcp-subnet";
+    if (joined.includes("load balancing") || joined.includes("load balancer")) return "gcp-load-balancing";
+    if (joined.includes("compute engine")) return "gcp-compute-engine";
+    if (joined.includes("managed instance group")) return "gcp-managed-instance-group";
+    if (joined.includes("cloud run") || joined.includes("app engine")) return "gcp-cloud-run";
+    if (joined.includes("cloud functions")) return "gcp-cloud-functions";
+    if (joined.includes("gke") || joined.includes("kubernetes")) return "gcp-gke";
+    if (joined.includes("artifact registry")) return "gcp-artifact-registry";
+    if (joined.includes("cloud storage")) return "gcp-cloud-storage";
+    if (joined.includes("persistent disk")) return "gcp-persistent-disk";
+    if (joined.includes("cloud sql")) return "gcp-cloud-sql";
+    if (joined.includes("spanner")) return "gcp-spanner";
+    if (joined.includes("bigquery") || joined.includes("big query")) return "gcp-bigquery";
+    if (joined.includes("memorystore")) return "gcp-memorystore";
+    if (joined.includes("pubsub") || joined.includes("pub sub")) return "gcp-pubsub";
+    if (joined.includes("secret manager")) return "gcp-secret-manager";
+    if (joined.includes("cloud monitoring")) return "gcp-cloud-monitoring";
+    if (joined.includes("cloud logging")) return "gcp-cloud-logging";
+    if (joined.includes("cloud armor")) return "gcp-cloud-armor";
+  }
+
+  if (joined.includes("oracle cloud") || joined.includes("oci")) {
+    if (joined.includes("tenancy")) return "oci-tenancy";
+    if (joined.includes("region")) return "oci-region";
+    if (joined.includes("vcn") || joined.includes("virtual cloud network")) return "oci-vcn";
+    if (joined.includes("subnet")) return "oci-subnet";
+    if (joined.includes("load balancer")) return "oci-load-balancer";
+    if (joined.includes("container engine") || joined.includes("oke")) return "oci-container-engine";
+    if (joined.includes("functions")) return "oci-functions";
+    if (joined.includes("object storage")) return "oci-object-storage";
+    if (joined.includes("block volume")) return "oci-block-volume";
+    if (joined.includes("file storage")) return "oci-file-storage";
+    if (joined.includes("autonomous database")) return "oci-autonomous-database";
+    if (joined.includes("database")) return "oci-database";
+    if (joined.includes("streaming")) return "oci-streaming";
+    if (joined.includes("vault")) return "oci-vault";
+    if (joined.includes("monitoring")) return "oci-monitoring";
+    if (joined.includes("waf")) return "oci-waf";
+    if (joined.includes("compute")) return "oci-compute";
   }
 
   return null;
