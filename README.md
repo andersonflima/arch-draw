@@ -59,6 +59,7 @@ Ele combina modelagem visual por drag and drop com interoperabilidade de formato
 - Checkpoint automático de viewport por arquivo (zoom + posição do canvas), retomando no mesmo ponto após recarregar ou reabrir o navegador.
 - Navegação do canvas por gesto de dois dedos no touchpad, mantendo `Ctrl/Command + scroll` para zoom.
 - Pan, zoom e preview de conexão preservam caches de rotas, paths SVG, labels, retângulos, estilos e identidade das listas do canvas, com renderização limitada à área visível e persistência agrupada durante navegação para reduzir travamentos em diagramas densos.
+- Estilos de viewport/camada de arestas e retângulo visível do canvas são cacheados entre frames, evitando novas alocações e leituras de layout repetidas durante navegação.
 - Culling de viewport e redução de detalhes visuais são adaptativos durante navegação/interação (pan, drag, resize e mini map), reduzindo custo de render em boards densos e mantendo o fluxo funcional.
 - Durante navegação contínua em diagramas densos (pan/zoom/minimap), o render de arestas entra em janela curta de alívio e o minimap prioriza containers/seleção para manter fluidez sem perder orientação.
 - Expansão de estruturas aninhadas reutiliza índice de nós, posições absolutas, profundidade de hierarquia e visibilidade de ancestrais para reduzir buscas repetidas em containers grandes.
