@@ -291,7 +291,6 @@ const LEAF_ANCHOR_TOP_OFFSET = 4;
 const NODE_LAYER_CONTAINER_BASE_Z_INDEX = 120;
 const NODE_LAYER_LEAF_BASE_Z_INDEX = 180;
 const NODE_LAYER_DEPTH_STEP = 6;
-const NODE_LAYER_EXPANDED_CONTAINER_BOOST = 0;
 const NODE_LAYER_EXPANDED_LEAF_BOOST = 120;
 const NODE_LAYER_EXPANDED_PRIORITY_GAP = 18;
 const NODE_LAYER_EXPANDED_PRIORITY_CEILING = 900;
@@ -2669,7 +2668,6 @@ export class AppComponent implements OnDestroy {
     this.clearConnectionDragPreviewState();
     if (this.isCodeSnippetCollapsed(node)) {
       this.activateEdgeRouteFastMode(2200);
-      this.suspendEdgeRenderingTemporarily(520);
       this.setCodeSnippetCollapsed(node.id, false);
       this.maximizedNodeId = node.id;
       this.selectedNodeId = node.id;
@@ -2692,7 +2690,6 @@ export class AppComponent implements OnDestroy {
 
     if (this.isContainerCollapsed(node)) {
       this.activateEdgeRouteFastMode(2200);
-      this.suspendEdgeRenderingTemporarily(520);
       this.setContainerCollapsed(node.id, false);
       this.maximizedNodeId = node.id;
       this.selectedNodeId = node.id;
@@ -3886,14 +3883,14 @@ LIMIT 50;`;
       : isBeingDragged
         ? dragZIndexBase
         : baseZIndex;
-    const isExpandedNode =
+    const isExpandedContentNode =
       this.maximizedNodeId === node.id
-      && (this.isCodeSnippetExpanded(node) || (isContainerNodeKind(node.kind) && !this.isContainerCollapsed(node)));
-    const expandedBoost = isExpandedNode
-      ? (rendersAsContainer ? NODE_LAYER_EXPANDED_CONTAINER_BOOST : NODE_LAYER_EXPANDED_LEAF_BOOST)
+      && this.isCodeSnippetExpanded(node);
+    const expandedBoost = isExpandedContentNode
+      ? NODE_LAYER_EXPANDED_LEAF_BOOST
       : 0;
     const expandedZIndex = baseZIndex + expandedBoost;
-    const expandedPriorityZIndex = isExpandedNode
+    const expandedPriorityZIndex = isExpandedContentNode
       ? this.getExpandedNodePriorityZIndex(baseZIndex)
       : 0;
     const collapseToggleZIndexFloor =
