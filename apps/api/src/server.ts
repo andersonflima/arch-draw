@@ -16,6 +16,7 @@ import { createRequestRateLimiter } from "./http/request-rate-limiter";
 import { createRedisClient } from "./infra/redis/redis-client";
 import { parseCookies } from "./http/cookies";
 import { createCollaborationHub } from "./http/realtime/collaboration-hub";
+import { makeAwsCloudInventoryProvider } from "./infra/aws/aws-cloud-inventory-provider";
 
 export const createServer = async (config: AppConfig) => {
   const app = Fastify({
@@ -38,6 +39,7 @@ export const createServer = async (config: AppConfig) => {
   const googleAuth = await createGoogleAuth(config, redisClient);
   const architectureRepository = makeCompressedArchitectureRepository(config.storagePath);
   const collaborationHub = createCollaborationHub();
+  const cloudInventoryProvider = makeAwsCloudInventoryProvider();
 
   await app.register(cors, {
     origin: [...config.webOrigins],
@@ -56,7 +58,8 @@ export const createServer = async (config: AppConfig) => {
     clock: systemClock,
     idGenerator: cryptoIdGenerator,
     forceSecureCookies: config.forceSecureCookies,
-    collaborationHub
+    collaborationHub,
+    cloudInventoryProvider
   });
 
   app.get("/auth/session", async (request) => {
@@ -227,7 +230,7 @@ const getRequestPathname = (value: string): string => {
 };
 
 const isProtectedRoute = (path: string): boolean =>
-  path.startsWith("/architectures");
+  path.startsWith("/architectures") || path.startsWith("/cloud");
 
 const extractMetricsToken = (
   authorization: string | undefined,

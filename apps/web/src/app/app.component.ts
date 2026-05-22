@@ -407,6 +407,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "toolbar.shareReadOnly": "Link somente leitura",
     "toolbar.tutorial": "Tutorial",
     "toolbar.import": "Importar",
+    "toolbar.cloud": "Cloud",
     "toolbar.hideLeftMenu": "Ocultar menu",
     "toolbar.showLeftMenu": "Mostrar menu",
     "toolbar.clear": "Limpar",
@@ -530,6 +531,8 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "status.diagramDeleted": "Diagrama excluído",
     "status.noDiagramFound": "Nenhum diagrama encontrado",
     "status.architectureImported": "Arquitetura importada",
+    "status.cloudDiscoveryImported": "Arquitetura AWS importada",
+    "status.cloudDiscoveryCanceled": "Descoberta AWS cancelada",
     "status.architectureLoaded": "Arquitetura carregada",
     "status.sharedArchitectureLoaded": "Sessão compartilhada conectada",
     "status.shareLinkCreated": "Link de compartilhamento criado",
@@ -563,9 +566,14 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "aria.share": "Compartilhar arquivo atual",
     "aria.tutorials": "Tutoriais guiados",
     "aria.import": "Importar",
+    "aria.cloudDiscovery": "Descobrir arquitetura AWS",
     "aria.clear": "Apagar item selecionado ou limpar board",
     "aria.hideLeftMenu": "Ocultar menu lateral esquerdo",
-    "aria.showLeftMenu": "Mostrar menu lateral esquerdo"
+    "aria.showLeftMenu": "Mostrar menu lateral esquerdo",
+    "cloud.awsRoleArnPrompt": "Role ARN read-only da AWS (opcional se o servidor já tiver credenciais):",
+    "cloud.awsRegionsPrompt": "Regiões AWS separadas por vírgula:",
+    "cloud.awsAccountLabelPrompt": "Nome da conta/ambiente (opcional):",
+    "cloud.awsExternalIdPrompt": "External ID (opcional):"
   },
   "en-US": {
     "toolbar.new": "New",
@@ -577,6 +585,7 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "toolbar.shareReadOnly": "Copy read-only link",
     "toolbar.tutorial": "Tutorial",
     "toolbar.import": "Import",
+    "toolbar.cloud": "Cloud",
     "toolbar.hideLeftMenu": "Hide menu",
     "toolbar.showLeftMenu": "Show menu",
     "toolbar.clear": "Clear",
@@ -700,6 +709,8 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "status.diagramDeleted": "Diagram deleted",
     "status.noDiagramFound": "No diagram found",
     "status.architectureImported": "Architecture imported",
+    "status.cloudDiscoveryImported": "AWS architecture imported",
+    "status.cloudDiscoveryCanceled": "AWS discovery canceled",
     "status.architectureLoaded": "Architecture loaded",
     "status.sharedArchitectureLoaded": "Shared session connected",
     "status.shareLinkCreated": "Share link created",
@@ -733,9 +744,14 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "aria.share": "Share current file",
     "aria.tutorials": "Guided tutorials",
     "aria.import": "Import",
+    "aria.cloudDiscovery": "Discover AWS architecture",
     "aria.clear": "Delete selected item or clear board",
     "aria.hideLeftMenu": "Hide left side menu",
-    "aria.showLeftMenu": "Show left side menu"
+    "aria.showLeftMenu": "Show left side menu",
+    "cloud.awsRoleArnPrompt": "Read-only AWS Role ARN (optional if the server already has credentials):",
+    "cloud.awsRegionsPrompt": "AWS regions separated by commas:",
+    "cloud.awsAccountLabelPrompt": "Account/environment name (optional):",
+    "cloud.awsExternalIdPrompt": "External ID (optional):"
   }
 };
 const CLOUD_PROPERTY_FIELDS: readonly NodePropertyField[] = [
@@ -1533,6 +1549,17 @@ const NODE_PROPERTY_FIELDS_BY_KIND: Partial<Record<ArchitectureNodeKind, readonl
   "aws-security-group": SECURITY_GROUP_FIELDS
 };
 
+const normalizeOptionalPromptValue = (value: string): string | undefined => {
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+};
+
+const normalizeAwsRegionPromptValue = (value: string): readonly string[] =>
+  value
+    .split(",")
+    .map((region) => region.trim().toLowerCase())
+    .filter((region) => region.length > 0);
+
 @Component({
   selector: "app-root",
   standalone: true,
@@ -2307,6 +2334,47 @@ export class AppComponent implements OnDestroy {
       this.status = this.t("status.architectureImported");
     });
     input.value = "";
+  }
+
+  async discoverAwsArchitecture(): Promise<void> {
+    if (!this.canEditArchitecture()) return;
+    const roleArn = window.prompt(this.t("cloud.awsRoleArnPrompt"), "");
+    if (roleArn === null) {
+      this.status = this.t("status.cloudDiscoveryCanceled");
+      this.markViewChanged();
+      return;
+    }
+    const regionsInput = window.prompt(this.t("cloud.awsRegionsPrompt"), "us-east-1");
+    if (regionsInput === null) {
+      this.status = this.t("status.cloudDiscoveryCanceled");
+      this.markViewChanged();
+      return;
+    }
+    const accountLabel = window.prompt(this.t("cloud.awsAccountLabelPrompt"), "");
+    if (accountLabel === null) {
+      this.status = this.t("status.cloudDiscoveryCanceled");
+      this.markViewChanged();
+      return;
+    }
+    const externalId = window.prompt(this.t("cloud.awsExternalIdPrompt"), "");
+    if (externalId === null) {
+      this.status = this.t("status.cloudDiscoveryCanceled");
+      this.markViewChanged();
+      return;
+    }
+    await this.runSafely(async () => {
+      this.cancelAutoSave();
+      this.disconnectCollaborationSession();
+      const imported = await api.discoverAwsArchitecture({
+        roleArn: normalizeOptionalPromptValue(roleArn),
+        externalId: normalizeOptionalPromptValue(externalId),
+        accountLabel: normalizeOptionalPromptValue(accountLabel),
+        regions: normalizeAwsRegionPromptValue(regionsInput)
+      });
+      this.updateCurrent(imported);
+      await this.refreshSummaries();
+      this.status = this.t("status.cloudDiscoveryImported");
+    });
   }
 
   async loadArchitecture(id: string): Promise<void> {
