@@ -254,6 +254,69 @@ describe("diagram import parser", () => {
     ]);
   });
 
+  it("preserves draw.io architecture metadata on imported nodes", async () => {
+    const source = drawIoFile(`<mxGraphModel><root>
+      <mxCell id="0"/>
+      <mxCell id="1" parent="0"/>
+      <mxCell id="lambda" value="Orders Lambda" style="sketch=0;points=[];outlineConnect=0;shape=mxgraph.aws4.lambda;resIcon=mxgraph.aws4.lambda;fillColor=#fef3c7;strokeColor=#f59e0b;" vertex="1" parent="1">
+        <mxGeometry x="180" y="120" width="132" height="78" as="geometry"/>
+      </mxCell>
+    </root></mxGraphModel>`);
+
+    const parsed = await parseImportToSharePackage({
+      fileName: "aws.drawio",
+      text: source,
+      now
+    });
+
+    const node = getNode(parsed, "drawio-lambda");
+    expect(node.kind).toBe("aws-lambda");
+    expect(node.properties).toMatchObject({
+      source: "draw.io",
+      drawioCellId: "lambda",
+      drawioParentId: "1",
+      drawioShape: "mxgraph.aws4.lambda",
+      drawioResIcon: "mxgraph.aws4.lambda",
+      drawioFillColor: "#fef3c7",
+      drawioStrokeColor: "#f59e0b",
+      drawioGeometryX: "180",
+      drawioGeometryY: "120",
+      drawioGeometryWidth: "132",
+      drawioGeometryHeight: "78"
+    });
+    expect(node.properties?.drawioStyle).toContain("resIcon=mxgraph.aws4.lambda");
+  });
+
+  it("maps draw.io cloud and Kubernetes icon metadata to internal architecture types", async () => {
+    const source = drawIoFile(`<mxGraphModel><root>
+      <mxCell id="0"/>
+      <mxCell id="1" parent="0"/>
+      <mxCell id="aks" value="AKS" style="shape=mxgraph.azure.containers.kubernetes_services;" vertex="1" parent="1">
+        <mxGeometry x="60" y="80" width="180" height="100" as="geometry"/>
+      </mxCell>
+      <mxCell id="deployment" value="Deployment" style="shape=mxgraph.kubernetes.deployment;" vertex="1" parent="aks">
+        <mxGeometry x="32" y="58" width="120" height="72" as="geometry"/>
+      </mxCell>
+      <mxCell id="cloudsql" value="Cloud SQL" style="shape=mxgraph.gcp2.database.cloud_sql;" vertex="1" parent="1">
+        <mxGeometry x="360" y="90" width="150" height="90" as="geometry"/>
+      </mxCell>
+    </root></mxGraphModel>`);
+
+    const parsed = await parseImportToSharePackage({
+      fileName: "cloud.drawio",
+      text: source,
+      now
+    });
+
+    expect(getNode(parsed, "drawio-aks").kind).toBe("cluster");
+    expect(getNode(parsed, "drawio-deployment")).toMatchObject({
+      kind: "cluster-deployment",
+      parentId: "drawio-aks",
+      position: { x: 32, y: 58 }
+    });
+    expect(getNode(parsed, "drawio-cloudsql").kind).toBe("database");
+  });
+
   it("keeps draw.io complex container hierarchy with child-relative positions", async () => {
     const source = drawIoFile(`<mxGraphModel><root>
       <mxCell id="0"/>

@@ -45,6 +45,7 @@ Ele combina modelagem visual por drag and drop com interoperabilidade de formato
 - Importação de diagramas em múltiplos formatos (`.archdraw`, JSON, `.drawio`/XML, `.excalidraw`, `.mmd`/`.mermaid`).
 - Descoberta read-only de ambientes AWS reais pela toolbar `Cloud`, convertendo inventário de conta/regiões em arquitetura editável do Arch Draw.
 - Import mantém hierarquia visual e fluxo entre plataformas (draw.io, Excalidraw e Mermaid), convertendo para tipos internos sem desmontar a estrutura original.
+- Import draw.io preserva metadados arquiteturais úteis do arquivo original (cell id, parent, shape, icon, cores e geometria) em `properties` e reconhece mais ícones de AWS, Azure, GCP, Kubernetes e software.
 - Export `.mmd` inclui metadado interno de layout; ao reimportar esse Mermaid no Arch Draw, posições, hierarquia de containers e estilos de conexão são restaurados com fidelidade.
 - Painel de propriedades contextual no ponto do clique, com ajustes globais de fonte de labels, fonte de âncoras e tamanho de ícones.
 - Compartilhamento por arquivo com link dedicado (`?share=...`) e modo de acesso controlado no servidor (`edit` ou `read-only`), sem expor permissão no URL.
@@ -228,7 +229,7 @@ npm run verify
 
 `npm run verify` executa o gate completo de integridade local (`typecheck`, `lint`, `test` e `build`) no mesmo padrão da pipeline CI.
 
-Os testes de importação em `apps/web/src/features/import/diagram-import.test.ts` cobrem regressões de layout para Mermaid, draw.io e Excalidraw, incluindo cenários simples e complexos com coordenadas, hierarquia de containers/frames, portas e conexões.
+Os testes de importação em `apps/web/src/features/import/diagram-import.test.ts` cobrem regressões de layout para Mermaid, draw.io e Excalidraw, incluindo cenários simples e complexos com coordenadas, hierarquia de containers/frames, portas, conexões e preservação de metadados draw.io.
 
 ## Estrutura do monorepo
 
