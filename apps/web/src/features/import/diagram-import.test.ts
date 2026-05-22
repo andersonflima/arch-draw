@@ -308,13 +308,13 @@ describe("diagram import parser", () => {
       now
     });
 
-    expect(getNode(parsed, "drawio-aks").kind).toBe("cluster");
+    expect(getNode(parsed, "drawio-aks").kind).toBe("azure-aks");
     expect(getNode(parsed, "drawio-deployment")).toMatchObject({
       kind: "cluster-deployment",
       parentId: "drawio-aks",
       position: { x: 32, y: 58 }
     });
-    expect(getNode(parsed, "drawio-cloudsql").kind).toBe("database");
+    expect(getNode(parsed, "drawio-cloudsql").kind).toBe("gcp-cloud-sql");
   });
 
   it("keeps draw.io complex container hierarchy with child-relative positions", async () => {
