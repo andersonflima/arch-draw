@@ -45,6 +45,7 @@ Ele combina modelagem visual por drag and drop com interoperabilidade de formato
 - Importação de diagramas em múltiplos formatos (`.archdraw`, JSON, `.drawio`/XML, `.excalidraw`, `.mmd`/`.mermaid`).
 - Descoberta read-only de ambientes AWS reais pela toolbar `Cloud`, convertendo inventário de conta/regiões em arquitetura editável do Arch Draw.
 - Import mantém hierarquia visual e fluxo entre plataformas (draw.io, Excalidraw e Mermaid), convertendo para tipos internos sem desmontar a estrutura original.
+- Import draw.io respeita estado visual de containers: só aplica colapso automático quando há sinal explícito de modo código no nó, evitando ocultar filhos em estruturas importadas.
 - Import draw.io preserva metadados arquiteturais úteis do arquivo original (cell id, parent, shape, icon, cores e geometria) em `properties` e reconhece mais ícones de AWS, Azure, GCP, Kubernetes e software.
 - Catálogo visual inclui famílias de elementos AWS, Azure, GCP e OCI com ícones e siglas específicas para diferenciar serviços de rede, compute, storage, dados, integração, segurança e observabilidade no canvas.
 - Export `.mmd` inclui metadado interno de layout; ao reimportar esse Mermaid no Arch Draw, posições, hierarquia de containers e estilos de conexão são restaurados com fidelidade.
