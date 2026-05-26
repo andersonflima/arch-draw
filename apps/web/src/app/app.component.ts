@@ -106,6 +106,8 @@ import {
   resolveSuccessfulAuthViewState,
   type AuthViewState
 } from "../features/auth/auth-session-state";
+import { shouldPublishCursorPoint } from "../features/collaboration/cursor-publish-policy";
+import { toEdgeMarkerIdFromColor } from "../features/editor/edge-marker";
 
 type DragState = Readonly<{
   pointerOffsets: ReadonlyMap<string, Readonly<{ x: number; y: number }>>;
@@ -211,6 +213,32 @@ type EdgePathData = Readonly<{
   points: readonly EdgePoint[];
   obstacles: readonly EdgeObstacleRect[];
   style: ArchitectureEdgeStyle;
+}>;
+
+type EdgeMarkerDefinition = Readonly<{
+  id: string;
+  color: string;
+}>;
+
+type EdgeRenderViewModel = Readonly<{
+  edge: CanvasEdge;
+  id: string;
+  path: string;
+  color: string;
+  dash: string | null;
+  markerStart: string | null;
+  markerEnd: string | null;
+  isSelected: boolean;
+  isLive: boolean;
+  isBidirectional: boolean;
+  isMuted: boolean;
+  clipContainerIds: readonly string[];
+  shouldRenderLabel: boolean;
+  labelX: number;
+  labelY: number;
+  labelWidth: number;
+  labelColor: string;
+  isEditing: boolean;
 }>;
 
 type CanvasRect = Readonly<{
@@ -375,6 +403,8 @@ const CANVAS_RENDER_VIEWPORT_MARGIN_PX = 520;
 const CANVAS_RENDER_WORLD_MARGIN_MIN = 280;
 const CANVAS_RENDER_WORLD_MARGIN_MAX = 1600;
 const MINI_MAP_DENSE_COMPLEXITY_THRESHOLD = 180;
+const MINI_MAP_EXTREME_DENSE_COMPLEXITY_THRESHOLD = 420;
+const COLLAB_CURSOR_DISTANCE_THRESHOLD_PX = 18;
 const CONTAINER_CHILD_PADDING_LEFT = 16;
 const CONTAINER_CHILD_PADDING_RIGHT = 16;
 const CONTAINER_CHILD_PADDING_TOP = 56;
@@ -1684,6 +1714,7 @@ export class AppComponent implements OnDestroy {
   private lastCollaborationSignature = "";
   private lastCollaborationViewSignature = "";
   private lastCursorPublishedAt = 0;
+  private lastPublishedCursorPoint: Readonly<{ x: number; y: number }> | null = null;
   private lastViewPublishedAt = 0;
   private readonly nodeInlineCodeDrafts = new Map<string, string>();
   private autoSaveInFlight = false;
@@ -1703,12 +1734,18 @@ export class AppComponent implements OnDestroy {
   private lastTrackedMermaidDraft = this.mermaidDraft;
   private lastTrackedNodeIconSize = this.nodeIconSize;
   private viewRenderFrame: number | null = null;
+  private pointerMoveFrame: number | null = null;
+  private pendingPointerMoveEvent: PointerEvent | null = null;
   private readonly nodePropertyFieldsCache = new Map<ArchitectureNodeKind, readonly NodePropertyField[]>();
   private readonly iconColorCache = new Map<string, string>();
   private readonly codeLanguageBadgeCache = new Map<string, CodeLanguageBadgeCacheEntry>();
+  private selectedNodeIdsSetSource: readonly string[] = this.selectedNodeIds;
+  private selectedNodeIdsSetCache = new Set<string>(this.selectedNodeIds);
   private nodeGraphCacheSource: readonly CanvasNode[] | null = null;
   private readonly nodeByIdCache = new Map<string, CanvasNode>();
   private readonly nodeIndexByIdCache = new Map<string, number>();
+  private readonly nodeChildrenByParentIdCache = new Map<string, readonly CanvasNode[]>();
+  private readonly nodeDescendantIdsCache = new Map<string, readonly string[]>();
   private readonly nodeAbsolutePositionCache = new Map<string, Readonly<{ x: number; y: number }>>();
   private readonly nodeHierarchyDepthCache = new Map<string, number>();
   private readonly collapsedContainerAncestorCache = new Map<string, boolean>();
@@ -1748,6 +1785,9 @@ export class AppComponent implements OnDestroy {
   private viewportStyleCache: Record<string, string> | null = null;
   private edgeLayerStyleCacheZIndex: number | null = null;
   private edgeLayerStyleCache: Record<string, string> | null = null;
+  private edgeMarkerDefinitionsCache: readonly EdgeMarkerDefinition[] | null = null;
+  private edgeMarkerDefinitionsSignature = "";
+  private renderableEdgeViewModelsCache: readonly EdgeRenderViewModel[] | null = null;
   private edgeLabelMeasureContext: CanvasRenderingContext2D | null | undefined;
   private tutorialActiveTargetSelector: string | null = null;
   private tutorialActiveTargetElement: HTMLElement | null = null;
@@ -1793,6 +1833,14 @@ export class AppComponent implements OnDestroy {
     return edge.id;
   }
 
+  trackByEdgeViewModelId(_index: number, edgeViewModel: EdgeRenderViewModel): string {
+    return edgeViewModel.id;
+  }
+
+  trackByEdgeMarkerDefinitionId(_index: number, marker: EdgeMarkerDefinition): string {
+    return marker.id;
+  }
+
   trackByRemoteCursorClientId(_index: number, cursor: RemoteCollaboratorCursor): string {
     return cursor.clientId;
   }
@@ -1810,6 +1858,7 @@ export class AppComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.cancelPendingWindowPointerMove();
     if (this.doubleClickHintInterval) {
       clearInterval(this.doubleClickHintInterval);
       this.doubleClickHintInterval = null;
@@ -3665,6 +3714,18 @@ LIMIT 50;`;
 
   @HostListener("window:pointermove", ["$event"])
   onWindowPointerMove(event: PointerEvent): void {
+    this.pendingPointerMoveEvent = event;
+    if (this.pointerMoveFrame !== null) return;
+    this.pointerMoveFrame = requestAnimationFrame(() => {
+      this.pointerMoveFrame = null;
+      const nextEvent = this.pendingPointerMoveEvent;
+      this.pendingPointerMoveEvent = null;
+      if (!nextEvent) return;
+      this.handleWindowPointerMove(nextEvent);
+    });
+  }
+
+  private handleWindowPointerMove(event: PointerEvent): void {
     this.maybePublishCollaborationCursor(event);
 
     if (this.miniMapDragState) {
@@ -3741,8 +3802,16 @@ LIMIT 50;`;
     }
   }
 
+  private cancelPendingWindowPointerMove(): void {
+    this.pendingPointerMoveEvent = null;
+    if (this.pointerMoveFrame === null) return;
+    cancelAnimationFrame(this.pointerMoveFrame);
+    this.pointerMoveFrame = null;
+  }
+
   @HostListener("window:pointerup", ["$event"])
   onWindowPointerUp(event: PointerEvent): void {
+    this.cancelPendingWindowPointerMove();
     const hadMiniMapDragState = this.miniMapDragState !== null;
     const hadPanState = this.panState !== null;
     const hadDragState = this.dragState !== null;
@@ -3814,6 +3883,7 @@ LIMIT 50;`;
 
   @HostListener("window:pointercancel", ["$event"])
   onWindowPointerCancel(_event: PointerEvent): void {
+    this.cancelPendingWindowPointerMove();
     const hadInteraction =
       this.miniMapDragState !== null ||
       this.panState !== null ||
@@ -4055,8 +4125,25 @@ LIMIT 50;`;
     const selectedIds = new Set(this.selectedNodeIds);
     if (this.selectedNodeId) selectedIds.add(this.selectedNodeId);
 
-    this.miniMapRenderableNodesCache = this.nodes.filter((node) =>
-      this.isVisibleNode(node) && (this.rendersAsContainer(node) || selectedIds.has(node.id))
+    if (complexity >= MINI_MAP_EXTREME_DENSE_COMPLEXITY_THRESHOLD) {
+      const visibleRect = this.getVisibleCanvasRect();
+      this.miniMapRenderableNodesCache = this.nodes.filter((node) => {
+        if (!this.isVisibleNode(node)) return false;
+        if (selectedIds.has(node.id)) return true;
+        if (this.rendersAsContainer(node)) return true;
+        const rect = this.getNodeAbsoluteRect(node);
+        return this.rectIntersectsCanvasRect(rect, {
+          x: visibleRect.left,
+          y: visibleRect.top,
+          width: visibleRect.width,
+          height: visibleRect.height
+        });
+      });
+      return this.miniMapRenderableNodesCache;
+    }
+
+    this.miniMapRenderableNodesCache = this.nodes.filter(
+      (node) => this.isVisibleNode(node) && (this.rendersAsContainer(node) || selectedIds.has(node.id))
     );
     return this.miniMapRenderableNodesCache;
   }
@@ -4150,10 +4237,18 @@ LIMIT 50;`;
       isExpandedCodeSnippet ? "architecture-node--code-snippet" : "",
       isCollapsedCodeSnippet ? "architecture-node--code-snippet-collapsed" : "",
       isContainer ? "architecture-node--container" : (isIconOnly || isCollapsedContainer || usesLeafCollapsedCodeStyle) ? "architecture-node--leaf" : "",
-      this.selectedNodeIds.includes(node.id) ? "is-selected" : ""
+      this.isNodeSelected(node.id) ? "is-selected" : ""
     ].filter(Boolean).join(" ");
     this.nodeClassCache.set(node.id, className);
     return className;
+  }
+
+  private isNodeSelected(nodeId: string): boolean {
+    if (this.selectedNodeIdsSetSource !== this.selectedNodeIds) {
+      this.selectedNodeIdsSetSource = this.selectedNodeIds;
+      this.selectedNodeIdsSetCache = new Set(this.selectedNodeIds);
+    }
+    return this.selectedNodeIdsSetCache.has(nodeId);
   }
 
   canResizeNode(nodeId: string): boolean {
@@ -4670,6 +4765,45 @@ LIMIT 50;`;
     return this.renderableEdgesCache;
   }
 
+  getRenderableEdgeViewModels(): readonly EdgeRenderViewModel[] {
+    if (this.renderableEdgeViewModelsCache) return this.renderableEdgeViewModelsCache;
+    const labelBoxHeight = this.getEdgeLabelBoxHeight();
+    this.renderableEdgeViewModelsCache = this.getRenderableEdges().map((edge) => {
+      const path = this.getEdgePath(edge);
+      const color = this.getEdgeColor(edge);
+      const dash = this.getEdgeDash(edge);
+      const markerStart = this.getEdgeStartMarker(edge);
+      const markerEnd = this.getEdgeEndMarker(edge);
+      const isEditing = this.isEditingEdge(edge.id);
+      const shouldRenderLabel = this.shouldRenderEdgeLabel(edge) && !isEditing;
+      const labelPosition = this.getEdgeLabelPosition(edge);
+      const labelWidth = this.getEdgeLabelRenderWidth(edge);
+      return {
+        edge,
+        id: edge.id,
+        path,
+        color,
+        dash,
+        markerStart,
+        markerEnd,
+        isSelected: edge.id === this.selectedEdgeId,
+        isLive: this.isLiveEdge(edge),
+        isBidirectional: this.isBidirectional(edge),
+        isMuted: this.isEdgeTemporarilyMuted(edge),
+        clipContainerIds: this.shouldRenderEdgeContextOverlays()
+          ? this.getEdgeDarkTransitionClipIds(edge)
+          : [],
+        shouldRenderLabel,
+        labelX: this.getEdgeLabelRenderX(edge),
+        labelY: labelPosition.y - labelBoxHeight / 2,
+        labelWidth,
+        labelColor: this.getEdgeLabelColor(edge),
+        isEditing
+      };
+    });
+    return this.renderableEdgeViewModelsCache;
+  }
+
   getMarqueeStyle(): Record<string, string> {
     if (!this.marqueeState) return {};
     const rect = this.normalizeRect(this.marqueeState.start, this.marqueeState.current);
@@ -4871,11 +5005,29 @@ LIMIT 50;`;
   }
 
   getEdgeMarkerId(edge: CanvasEdge): string {
-    return `edge-arrow-${edge.id}`;
+    return toEdgeMarkerIdFromColor(this.getEdgeColor(edge));
   }
 
   private getEdgeMarkerUrl(edge: CanvasEdge): string {
     return `url(#${this.getEdgeMarkerId(edge)})`;
+  }
+
+  getRenderableEdgeMarkerDefinitions(renderableEdgeViewModels: readonly EdgeRenderViewModel[]): readonly EdgeMarkerDefinition[] {
+    const signature = renderableEdgeViewModels.map((model) => `${model.id}:${model.color}`).join("|");
+    if (this.edgeMarkerDefinitionsCache && this.edgeMarkerDefinitionsSignature === signature) {
+      return this.edgeMarkerDefinitionsCache;
+    }
+
+    const definitionsById = new Map<string, EdgeMarkerDefinition>();
+    for (const model of renderableEdgeViewModels) {
+      const color = model.color;
+      const id = toEdgeMarkerIdFromColor(color);
+      if (definitionsById.has(id)) continue;
+      definitionsById.set(id, { id, color });
+    }
+    this.edgeMarkerDefinitionsSignature = signature;
+    this.edgeMarkerDefinitionsCache = [...definitionsById.values()];
+    return this.edgeMarkerDefinitionsCache;
   }
 
   private shouldRenderEdgeEndMarker(edge: CanvasEdge): boolean {
@@ -6802,7 +6954,7 @@ apiKeys:
   }
 
   private ensureNodeVisibleInViewport(nodeId: string): void {
-    const node = this.nodes.find((candidate) => candidate.id === nodeId);
+    const node = this.getNodeById(nodeId);
     if (!node) return;
 
     const visible = this.getVisibleCanvasRect();
@@ -6834,7 +6986,7 @@ apiKeys:
   private getForegroundExpandedNodeId(): string | null {
     const nodeId = this.maximizedNodeId;
     if (!nodeId) return null;
-    const node = this.nodes.find((candidate) => candidate.id === nodeId);
+    const node = this.getNodeById(nodeId);
     if (!node) return null;
     if (this.isCodeSnippetExpanded(node)) return nodeId;
     if (isContainerNodeKind(node.kind) && !this.isContainerCollapsed(node)) return nodeId;
@@ -6899,13 +7051,13 @@ apiKeys:
         representative = current;
       }
       if (!current.parentId) break;
-      current = this.nodes.find((candidate) => candidate.id === current?.parentId) ?? null;
+      current = this.getNodeById(current.parentId);
     }
     return representative;
   }
 
   private getEffectiveEdgeEndpointNode(nodeId: string): CanvasNode | null {
-    const node = this.nodes.find((candidate) => candidate.id === nodeId);
+    const node = this.getNodeById(nodeId);
     if (!node) return null;
     const representative = this.getVisibleCollapsedContainerRepresentative(node);
     if (representative) return representative;
@@ -6926,7 +7078,7 @@ apiKeys:
     let currentParentId = node.parentId;
     while (currentParentId) {
       if (this.dragState.pointerOffsets.has(currentParentId)) return true;
-      const parent = this.nodes.find((candidate) => candidate.id === currentParentId);
+      const parent = this.getNodeById(currentParentId);
       if (!parent) return false;
       currentParentId = parent.parentId;
     }
@@ -6935,11 +7087,10 @@ apiKeys:
 
   private hasSelectedAncestor(node: CanvasNode): boolean {
     if (this.selectedNodeIds.length === 0) return false;
-    const selected = new Set(this.selectedNodeIds);
     let currentParentId = node.parentId;
     while (currentParentId) {
-      if (selected.has(currentParentId)) return true;
-      const parent = this.nodes.find((candidate) => candidate.id === currentParentId);
+      if (this.isNodeSelected(currentParentId)) return true;
+      const parent = this.getNodeById(currentParentId);
       if (!parent) return false;
       currentParentId = parent.parentId;
     }
@@ -8438,8 +8589,23 @@ apiKeys:
   }
 
   private getDescendantIds(nodeId: string): readonly string[] {
-    const directChildren = this.nodes.filter((node) => node.parentId === nodeId);
-    return directChildren.flatMap((child) => [child.id, ...this.getDescendantIds(child.id)]);
+    this.ensureNodeGraphCaches();
+    const cached = this.nodeDescendantIdsCache.get(nodeId);
+    if (cached) return cached;
+
+    const descendants: string[] = [];
+    const stack = [...this.getNodeChildren(nodeId)];
+    while (stack.length > 0) {
+      const current = stack.pop();
+      if (!current) continue;
+      descendants.push(current.id);
+      const children = this.getNodeChildren(current.id);
+      for (const child of children) {
+        stack.push(child);
+      }
+    }
+    this.nodeDescendantIdsCache.set(nodeId, descendants);
+    return descendants;
   }
 
   private nextNodePosition(): Readonly<{ x: number; y: number }> {
@@ -9219,10 +9385,10 @@ apiKeys:
   }
 
   private isAncestorOfNode(ancestorNodeId: string, nodeId: string): boolean {
-    let current = this.nodes.find((node) => node.id === nodeId) ?? null;
+    let current = this.getNodeById(nodeId);
     while (current?.parentId) {
       if (current.parentId === ancestorNodeId) return true;
-      current = this.nodes.find((node) => node.id === current?.parentId) ?? null;
+      current = this.getNodeById(current.parentId);
     }
     return false;
   }
@@ -9235,7 +9401,7 @@ apiKeys:
         lineage.push(current.id);
       }
       current = current.parentId
-        ? this.nodes.find((candidate) => candidate.id === current?.parentId) ?? null
+        ? this.getNodeById(current.parentId)
         : null;
     }
     return lineage;
@@ -9245,7 +9411,7 @@ apiKeys:
     const lineageIds = this.getContainerContextLineage(node);
     const active: string[] = [];
     for (const containerId of lineageIds) {
-      const container = this.nodes.find((candidate) => candidate.id === containerId);
+      const container = this.getNodeById(containerId);
       if (!container) continue;
       if (container.id === node.id || this.isNodeInsideContainerContext(node, container)) {
         active.push(container.id);
@@ -9304,6 +9470,7 @@ apiKeys:
     this.lastCollaborationSignature = "";
     this.lastCollaborationViewSignature = "";
     this.lastCursorPublishedAt = 0;
+    this.lastPublishedCursorPoint = null;
     this.lastViewPublishedAt = 0;
   }
 
@@ -9468,7 +9635,7 @@ apiKeys:
 
   private resolveViewportFocusNodeId(): string | null {
     if (!this.maximizedNodeId) return null;
-    const node = this.nodes.find((candidate) => candidate.id === this.maximizedNodeId);
+    const node = this.getNodeById(this.maximizedNodeId);
     if (!node) return null;
     if (this.isCodeSnippetExpanded(node)) return node.id;
     if (isContainerNodeKind(node.kind) && !this.isContainerCollapsed(node)) return node.id;
@@ -9643,8 +9810,6 @@ apiKeys:
   private maybePublishCollaborationCursor(event: PointerEvent): void {
     const session = this.collaborationSession;
     if (!session) return;
-    const now = Date.now();
-    if (now - this.lastCursorPublishedAt < COLLAB_CURSOR_THROTTLE_MS) return;
     const rect = this.canvasShell?.nativeElement.getBoundingClientRect();
     if (!rect) return;
     const inside =
@@ -9654,8 +9819,21 @@ apiKeys:
       event.clientY <= rect.bottom;
     if (!inside) return;
 
-    this.lastCursorPublishedAt = now;
+    const now = Date.now();
     const point = this.toCanvasPoint(event);
+    if (!shouldPublishCursorPoint({
+      now,
+      lastPublishedAt: this.lastCursorPublishedAt,
+      minIntervalMs: COLLAB_CURSOR_THROTTLE_MS,
+      lastPoint: this.lastPublishedCursorPoint,
+      nextPoint: point,
+      minDistancePx: COLLAB_CURSOR_DISTANCE_THRESHOLD_PX
+    })) {
+      return;
+    }
+
+    this.lastCursorPublishedAt = now;
+    this.lastPublishedCursorPoint = point;
     void api.publishSharedCursor(session.shareId, {
       clientId: session.clientId,
       displayName: session.displayName,
@@ -11254,10 +11432,19 @@ spec:
     this.nodeGraphCacheSource = this.nodes;
     this.nodeByIdCache.clear();
     this.nodeIndexByIdCache.clear();
+    this.nodeChildrenByParentIdCache.clear();
+    const mutableChildrenByParentId = new Map<string, CanvasNode[]>();
     this.clearNodeGraphDerivedCaches();
     for (const [index, node] of this.nodes.entries()) {
       this.nodeByIdCache.set(node.id, node);
       this.nodeIndexByIdCache.set(node.id, index);
+      if (!node.parentId) continue;
+      const currentChildren = mutableChildrenByParentId.get(node.parentId) ?? [];
+      currentChildren.push(node);
+      mutableChildrenByParentId.set(node.parentId, currentChildren);
+    }
+    for (const [parentId, children] of mutableChildrenByParentId.entries()) {
+      this.nodeChildrenByParentIdCache.set(parentId, children);
     }
   }
 
@@ -11265,6 +11452,7 @@ spec:
     this.nodeGraphCacheSource = null;
     this.nodeByIdCache.clear();
     this.nodeIndexByIdCache.clear();
+    this.nodeChildrenByParentIdCache.clear();
     this.clearNodeGraphDerivedCaches();
   }
 
@@ -11279,6 +11467,12 @@ spec:
     this.collapsedContainerAncestorCache.clear();
     this.nearestCollapsedContainerAncestorCache.clear();
     this.openAncestorContainerIdsCache.clear();
+    this.nodeDescendantIdsCache.clear();
+  }
+
+  private getNodeChildren(parentId: string): readonly CanvasNode[] {
+    this.ensureNodeGraphCaches();
+    return this.nodeChildrenByParentIdCache.get(parentId) ?? [];
   }
 
   private isContainerPlusLikeKind(kind: ArchitectureNodeKind): boolean {
@@ -11380,7 +11574,7 @@ spec:
   }
 
   private markInteractionChanged(): void {
-    this.clearCanvasRenderCaches();
+    this.clearInteractionRenderCaches();
     this.scheduleCollaborationViewPublish();
     this.scheduleViewportCheckpointPersist();
     this.requestViewRender();
@@ -11422,6 +11616,9 @@ spec:
     this.viewportStyleCache = null;
     this.edgeLayerStyleCacheZIndex = null;
     this.edgeLayerStyleCache = null;
+    this.edgeMarkerDefinitionsCache = null;
+    this.edgeMarkerDefinitionsSignature = "";
+    this.renderableEdgeViewModelsCache = null;
     this.codeLanguageBadgeCache.clear();
   }
 
@@ -11452,6 +11649,9 @@ spec:
     this.viewportStyleCache = null;
     this.edgeLayerStyleCacheZIndex = null;
     this.edgeLayerStyleCache = null;
+    this.edgeMarkerDefinitionsCache = null;
+    this.edgeMarkerDefinitionsSignature = "";
+    this.renderableEdgeViewModelsCache = null;
   }
 
   private consumeViewChangeState(): Readonly<{ documentChanged: boolean; requiresRouteCacheReset: boolean }> {
@@ -11492,7 +11692,47 @@ spec:
   }
 
   private markTransientUiChanged(): void {
+    this.renderableEdgeViewModelsCache = null;
     this.requestViewRender();
+  }
+
+  private clearInteractionRenderCaches(): void {
+    this.edgeWorkerRouteRevision += 1;
+    this.edgeWorkerRouteCache.clear();
+    this.edgeWorkerRoutePending.clear();
+    this.edgePathDataCache.clear();
+    this.edgePathStringCache.clear();
+    this.edgeBidirectionalFlowPathCache.clear();
+    this.edgeSideLaneOffsetCache.clear();
+    this.edgeLabelDyCache.clear();
+    this.edgeLabelStartOffsetCache.clear();
+    this.edgeLabelPositionCache.clear();
+    this.edgeLabelRenderWidthCache.clear();
+    this.edgeDarkTransitionClipIdsCache.clear();
+    this.nodeAbsoluteRectCache.clear();
+    this.nodeStyleCache.clear();
+    this.miniMapNodeStyleCache.clear();
+    this.miniMapRenderableNodesCache = null;
+    this.renderableNodeIdsCache.clear();
+    this.renderableEdgeIdsCache.clear();
+    this.visibleCanvasRectCache = null;
+    this.renderableCanvasRectCache = null;
+    this.containerRenderableNodesCache = null;
+    this.leafRenderableNodesCache = null;
+    this.renderableEdgesCache = null;
+    this.leafNodeLabelKnockoutRectCache.clear();
+    this.edgeClipContainersCache = null;
+    this.leafLabelKnockoutNodesCache = null;
+    this.visibleNodeLayerCeilingZIndexCache = null;
+    this.visibleContainerLayerCeilingZIndexCache = null;
+    this.containerContextEdgeLayerZIndexCache = null;
+    this.viewportStyleCacheSignature = "";
+    this.viewportStyleCache = null;
+    this.edgeLayerStyleCacheZIndex = null;
+    this.edgeLayerStyleCache = null;
+    this.edgeMarkerDefinitionsCache = null;
+    this.edgeMarkerDefinitionsSignature = "";
+    this.renderableEdgeViewModelsCache = null;
   }
 
   private clearViewportRenderCaches(): void {
@@ -11505,6 +11745,7 @@ spec:
     this.renderableEdgesCache = null;
     this.viewportStyleCacheSignature = "";
     this.viewportStyleCache = null;
+    this.renderableEdgeViewModelsCache = null;
   }
 
   private syncTutorialStepRequirements(): void {
