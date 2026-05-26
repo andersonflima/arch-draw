@@ -248,6 +248,32 @@ type CanvasRect = Readonly<{
   height: number;
 }>;
 
+type VisibleCanvasRect = Readonly<{
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}>;
+
+type MiniMapBounds = Readonly<{
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}>;
+
+type MiniMapLayout = Readonly<{
+  bounds: MiniMapBounds;
+  visibleRect: VisibleCanvasRect;
+  scale: number;
+  viewport: Readonly<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  }>;
+}>;
+
 type ContextPropertiesPanelState = Readonly<{
   x: number;
   y: number;
@@ -1768,9 +1794,13 @@ export class AppComponent implements OnDestroy {
   private readonly nodeClassCache = new Map<string, string>();
   private readonly miniMapNodeStyleCache = new Map<string, Record<string, string>>();
   private miniMapRenderableNodesCache: readonly CanvasNode[] | null = null;
+  private miniMapBoundsCache: MiniMapBounds | null = null;
+  private miniMapLayoutCache: MiniMapLayout | null = null;
+  private miniMapViewportStyleSignature = "";
+  private miniMapViewportStyleCache: Record<string, string> | null = null;
   private readonly renderableNodeIdsCache = new Map<string, boolean>();
   private readonly renderableEdgeIdsCache = new Map<string, boolean>();
-  private visibleCanvasRectCache: Readonly<{ left: number; top: number; width: number; height: number }> | null = null;
+  private visibleCanvasRectCache: VisibleCanvasRect | null = null;
   private renderableCanvasRectCache: CanvasRect | null = null;
   private containerRenderableNodesCache: readonly CanvasNode[] | null = null;
   private leafRenderableNodesCache: readonly CanvasNode[] | null = null;
@@ -4172,13 +4202,24 @@ LIMIT 50;`;
 
   getMiniMapViewportStyle(): Record<string, string> {
     const layout = this.getMiniMapLayout();
+    const signature = [
+      layout.viewport.left,
+      layout.viewport.top,
+      layout.viewport.width,
+      layout.viewport.height
+    ].join(":");
+    if (this.miniMapViewportStyleCache && this.miniMapViewportStyleSignature === signature) {
+      return this.miniMapViewportStyleCache;
+    }
 
-    return {
+    this.miniMapViewportStyleSignature = signature;
+    this.miniMapViewportStyleCache = {
       left: `${layout.viewport.left}px`,
       top: `${layout.viewport.top}px`,
       width: `${layout.viewport.width}px`,
       height: `${layout.viewport.height}px`
     };
+    return this.miniMapViewportStyleCache;
   }
 
   isMiniMapDragging(): boolean {
@@ -5228,7 +5269,7 @@ LIMIT 50;`;
   getConnectionPreviewPath(): string {
     const dragState = this.connectionDragState;
     if (!dragState) return "";
-    const source = this.nodes.find((node) => node.id === dragState.sourceId);
+    const source = this.getNodeById(dragState.sourceId);
     if (!source) return "";
     const rawStart = this.getAnchorTowardPoint(
       source,
@@ -7167,9 +7208,9 @@ apiKeys:
       hasChanged = true;
     }
 
-    if (hasChanged) {
-      this.nodes = nextNodes;
-    }
+    if (!hasChanged) return;
+    this.nodes = nextNodes;
+    this.markEdgeNavigationStressWindow();
     this.markInteractionChanged();
   }
 
@@ -8465,14 +8506,14 @@ apiKeys:
       x: point.x - this.resizeState.startPoint.x,
       y: point.y - this.resizeState.startPoint.y
     };
-    const min = this.nodes.find((node) => node.id === this.resizeState?.nodeId);
-    if (!min) return;
+    const node = this.getNodeById(this.resizeState.nodeId);
+    if (!node) return;
     const codeSnippetMinSize = this.getExpandedCodeSnippetMinimumSize();
-    const minSize = isContainerNodeKind(min.kind)
+    const minSize = isContainerNodeKind(node.kind)
       ? { width: 260, height: 180 }
-      : isCodeSnippetNodeKind(min.kind) && !this.isCodeSnippetCollapsed(min)
+      : isCodeSnippetNodeKind(node.kind) && !this.isCodeSnippetCollapsed(node)
         ? codeSnippetMinSize
-      : isIconOnlyNodeKind(min.kind)
+      : isIconOnlyNodeKind(node.kind)
         ? { width: 120, height: 124 }
         : { width: 170, height: 92 };
     const west = this.resizeState.direction.includes("w");
@@ -8485,8 +8526,7 @@ apiKeys:
       x: this.resizeState.startPosition.x + (west ? this.resizeState.startSize.width - width : 0),
       y: this.resizeState.startPosition.y + (north ? this.resizeState.startSize.height - height : 0)
     };
-    const node = this.nodes.find((candidate) => candidate.id === this.resizeState?.nodeId);
-    const parent = node?.parentId ? this.nodes.find((candidate) => candidate.id === node.parentId) : null;
+    const parent = node.parentId ? this.getNodeById(node.parentId) : null;
     const parentPosition = parent ? this.getAbsolutePosition(parent) : null;
     const nextPosition = parentPosition
       ? { x: absolutePosition.x - parentPosition.x, y: absolutePosition.y - parentPosition.y }
@@ -8494,6 +8534,14 @@ apiKeys:
     const position = parent && this.rendersAsContainer(parent)
       ? this.clampChildPositionWithinContainerHeader(parent, nextPosition)
       : nextPosition;
+    if (
+      node.position.x === position.x &&
+      node.position.y === position.y &&
+      node.size.width === width &&
+      node.size.height === height
+    ) {
+      return;
+    }
     this.nodes = this.nodes.map((candidate) =>
       candidate.id === this.resizeState?.nodeId
         ? { ...candidate, position, size: { width, height } }
@@ -8502,7 +8550,8 @@ apiKeys:
     if (node && this.isGloballySizedLeafNode(node)) {
       this.applyGlobalLeafIconSizeFromResize(width, height);
     }
-    this.fitAncestorContainersForNodes([min.id]);
+    this.fitAncestorContainersForNodes([node.id]);
+    this.markEdgeNavigationStressWindow();
     this.markInteractionChanged();
   }
 
@@ -8632,7 +8681,7 @@ apiKeys:
     };
   }
 
-  private getVisibleCanvasRect(): Readonly<{ left: number; top: number; width: number; height: number }> {
+  private getVisibleCanvasRect(): VisibleCanvasRect {
     if (this.visibleCanvasRectCache) return this.visibleCanvasRectCache;
 
     const rect = this.canvasShell?.nativeElement.getBoundingClientRect();
@@ -8993,48 +9042,48 @@ apiKeys:
     return { ...CODE_SNIPPET_EXPANDED_SIZE };
   }
 
-  private getMiniMapBounds(): Readonly<{ x: number; y: number; width: number; height: number }> {
+  private getMiniMapBounds(): MiniMapBounds {
+    if (this.miniMapBoundsCache) return this.miniMapBoundsCache;
+
     const visibleRect = this.getVisibleCanvasRect();
     const visibleNodes = this.nodes.filter((node) => this.isVisibleNode(node));
     if (visibleNodes.length === 0) {
-      return {
+      this.miniMapBoundsCache = {
         x: visibleRect.left,
         y: visibleRect.top,
         width: Math.max(1, visibleRect.width),
         height: Math.max(1, visibleRect.height)
       };
+      return this.miniMapBoundsCache;
     }
 
-    const boxes = visibleNodes.map((node) => {
-      const position = this.getAbsolutePosition(node);
-      return {
-        left: position.x,
-        top: position.y,
-        right: position.x + node.size.width,
-        bottom: position.y + node.size.height
-      };
-    });
+    let left = Number.POSITIVE_INFINITY;
+    let top = Number.POSITIVE_INFINITY;
+    let right = Number.NEGATIVE_INFINITY;
+    let bottom = Number.NEGATIVE_INFINITY;
 
-    const left = Math.min(...boxes.map((box) => box.left));
-    const top = Math.min(...boxes.map((box) => box.top));
-    const right = Math.max(...boxes.map((box) => box.right));
-    const bottom = Math.max(...boxes.map((box) => box.bottom));
+    for (const node of visibleNodes) {
+      const position = this.getAbsolutePosition(node);
+      left = Math.min(left, position.x);
+      top = Math.min(top, position.y);
+      right = Math.max(right, position.x + node.size.width);
+      bottom = Math.max(bottom, position.y + node.size.height);
+    }
+
     const miniMapPadding = 120;
 
-    return {
+    this.miniMapBoundsCache = {
       x: left - miniMapPadding,
       y: top - miniMapPadding,
       width: Math.max(1, right - left + miniMapPadding * 2),
       height: Math.max(1, bottom - top + miniMapPadding * 2)
     };
+    return this.miniMapBoundsCache;
   }
 
-  private getMiniMapLayout(): Readonly<{
-    bounds: Readonly<{ x: number; y: number; width: number; height: number }>;
-    visibleRect: Readonly<{ left: number; top: number; width: number; height: number }>;
-    scale: number;
-    viewport: Readonly<{ left: number; top: number; width: number; height: number }>;
-  }> {
+  private getMiniMapLayout(): MiniMapLayout {
+    if (this.miniMapLayoutCache) return this.miniMapLayoutCache;
+
     const bounds = this.getMiniMapBounds();
     const visibleRect = this.getVisibleCanvasRect();
     const availableWidth = MINI_MAP_SIZE.width - MINI_MAP_PADDING * 2;
@@ -9056,7 +9105,7 @@ apiKeys:
     const clampedWidth = Math.max(minSize, Math.min(rawWidth, Math.max(minSize, maxWidth)));
     const clampedHeight = Math.max(minSize, Math.min(rawHeight, Math.max(minSize, maxHeight)));
 
-    return {
+    this.miniMapLayoutCache = {
       bounds,
       visibleRect,
       scale,
@@ -9067,6 +9116,7 @@ apiKeys:
         height: clampedHeight
       }
     };
+    return this.miniMapLayoutCache;
   }
 
   private panCanvasFromMiniMapPoint(
@@ -9236,7 +9286,7 @@ apiKeys:
 
     const pointerOffsets = new Map<string, Readonly<{ x: number; y: number }>>();
     for (const draggedId of draggedIds) {
-      const draggedNode = this.nodes.find((candidate) => candidate.id === draggedId);
+      const draggedNode = this.getNodeById(draggedId);
       if (!draggedNode) continue;
       const absolute = this.getAbsolutePosition(draggedNode);
       pointerOffsets.set(draggedId, {
@@ -9275,8 +9325,8 @@ apiKeys:
   ): void {
     if (!this.canEditArchitecture()) return;
     if (from === to) return;
-    const fromNode = this.nodes.find((node) => node.id === from) ?? null;
-    const toNode = this.nodes.find((node) => node.id === to) ?? null;
+    const fromNode = this.getNodeById(from);
+    const toNode = this.getNodeById(to);
     if (!fromNode || !toNode) return;
     if (this.isForbiddenContainerHierarchyConnection(fromNode, toNode)) {
       this.status = this.t("status.linkContainerInternalDenied");
@@ -11599,6 +11649,7 @@ spec:
     this.nodeClassCache.clear();
     this.miniMapNodeStyleCache.clear();
     this.miniMapRenderableNodesCache = null;
+    this.clearMiniMapLayoutCaches();
     this.renderableNodeIdsCache.clear();
     this.renderableEdgeIdsCache.clear();
     this.visibleCanvasRectCache = null;
@@ -11627,6 +11678,7 @@ spec:
     this.nodeClassCache.clear();
     this.miniMapNodeStyleCache.clear();
     this.miniMapRenderableNodesCache = null;
+    this.clearMiniMapLayoutCaches();
     this.renderableNodeIdsCache.clear();
     this.renderableEdgeIdsCache.clear();
     this.visibleCanvasRectCache = null;
@@ -11696,6 +11748,13 @@ spec:
     this.requestViewRender();
   }
 
+  private clearMiniMapLayoutCaches(): void {
+    this.miniMapBoundsCache = null;
+    this.miniMapLayoutCache = null;
+    this.miniMapViewportStyleSignature = "";
+    this.miniMapViewportStyleCache = null;
+  }
+
   private clearInteractionRenderCaches(): void {
     this.edgeWorkerRouteRevision += 1;
     this.edgeWorkerRouteCache.clear();
@@ -11713,6 +11772,7 @@ spec:
     this.nodeStyleCache.clear();
     this.miniMapNodeStyleCache.clear();
     this.miniMapRenderableNodesCache = null;
+    this.clearMiniMapLayoutCaches();
     this.renderableNodeIdsCache.clear();
     this.renderableEdgeIdsCache.clear();
     this.visibleCanvasRectCache = null;
@@ -11743,6 +11803,7 @@ spec:
     this.containerRenderableNodesCache = null;
     this.leafRenderableNodesCache = null;
     this.renderableEdgesCache = null;
+    this.clearMiniMapLayoutCaches();
     this.viewportStyleCacheSignature = "";
     this.viewportStyleCache = null;
     this.renderableEdgeViewModelsCache = null;
