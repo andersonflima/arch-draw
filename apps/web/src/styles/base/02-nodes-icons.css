@@ -8,7 +8,8 @@
   border: 0;
   background: transparent;
   color: var(--node-text-color, #111827);
-  transform: rotate(-0.35deg);
+  --node-transform: rotate(-0.35deg);
+  transform: translate3d(var(--node-x, 0), var(--node-y, 0), 0) var(--node-transform);
   user-select: none;
   touch-action: none;
   isolation: isolate;
@@ -35,7 +36,7 @@
 .architecture-node--container {
   min-width: 260px;
   min-height: 180px;
-  transform: rotate(-0.12deg);
+  --node-transform: rotate(-0.12deg);
 }
 
 .architecture-node--container::before {
@@ -325,7 +326,7 @@
   justify-content: stretch;
   padding: 4px;
   text-align: center;
-  transform: none;
+  --node-transform: rotate(0deg);
 }
 
 .architecture-node[class*="architecture-node--flow-"]:not(.architecture-node--code-snippet) .architecture-node__header {
@@ -458,7 +459,7 @@ app-flow-document-node {
   min-height: 114px;
   padding: 4px 10px;
   --node-port-edge-offset: 22px;
-  transform: none;
+  --node-transform: rotate(0deg);
 }
 
 .architecture-node--leaf::before,
@@ -484,7 +485,7 @@ app-flow-document-node {
 .architecture-node--code-snippet {
   min-width: 560px;
   min-height: 420px;
-  transform: none;
+  --node-transform: rotate(0deg);
   padding-inline: 14px;
   text-align: left;
   display: flex;

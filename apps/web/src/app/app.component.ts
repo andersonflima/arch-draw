@@ -393,6 +393,7 @@ const EDGE_LABEL_HIDE_COMPLEXITY_THRESHOLD = 26;
 const EDGE_LABEL_HIDE_ZOOM_THRESHOLD = 0.7;
 const EDGE_RENDER_SUSPEND_ON_EXPAND_MS = 220;
 const EDGE_RENDER_NAVIGATION_SUSPEND_MS = 140;
+const EDGE_RENDER_DRAG_SUSPEND_COMPLEXITY_THRESHOLD = 4;
 const EDGE_RENDER_NAVIGATION_COMPLEXITY_THRESHOLD = 24;
 const CANVAS_ULTRA_LIGHT_COMPLEXITY_THRESHOLD = 700;
 const EDGE_PROXIMITY_SUPPRESSION_RADIUS = 190;
@@ -4103,10 +4104,12 @@ LIMIT 50;`;
     const nodePortMetrics = computeNodePortMetrics(node.size, NODE_PORT_METRICS_LIMITS);
     const leafNodeIconSize = this.getLeafNodeIconSizeForNode(node);
     const style = {
-      left: `${position.x}px`,
-      top: `${position.y}px`,
+      left: "0px",
+      top: "0px",
       width: `${node.size.width}px`,
       height: `${node.size.height}px`,
+      "--node-x": `${position.x}px`,
+      "--node-y": `${position.y}px`,
       "--node-bg": node.color,
       "--node-text-color": nodeTextColor,
       "--node-label-font-size": `${this.nodeLabelFontSize}px`,
@@ -4125,6 +4128,7 @@ LIMIT 50;`;
       "--node-port-omni-size": `${nodePortMetrics.omniSize}px`,
       "--node-port-omni-offset": `${nodePortMetrics.omniOffset}px`,
       "--node-port-omni-halo-size": `${nodePortMetrics.omniHaloSize}px`,
+      willChange: isBeingDragged || isDescendantOfDragged ? "transform" : "auto",
       zIndex: resolvedZIndex
     };
     this.nodeStyleCache.set(node.id, style);
@@ -7585,6 +7589,18 @@ apiKeys:
     return this.shouldReduceCanvasDetailForPerformance();
   }
 
+  shouldUseInteractionLiteMode(): boolean {
+    if (this.shouldSuspendEdgesForNodeMove(this.getCanvasComplexity())) return true;
+    return this.shouldReduceCanvasDetailForPerformance()
+      && Boolean(
+        this.dragState?.hasMoved
+        || this.resizeState
+        || this.panState
+        || this.marqueeState
+        || this.isMiniMapDragging()
+      );
+  }
+
   private suspendEdgeRenderingTemporarily(durationMs = EDGE_RENDER_SUSPEND_ON_EXPAND_MS): void {
     const now = Date.now();
     this.edgeRenderSuspendUntil = Math.max(this.edgeRenderSuspendUntil, now + durationMs);
@@ -7603,9 +7619,15 @@ apiKeys:
     if (this.renderAllCanvasForExport) return false;
     if (Date.now() < this.edgeRenderSuspendUntil) return true;
     const complexity = this.getCanvasComplexity();
+    if (this.shouldSuspendEdgesForNodeMove(complexity)) return true;
     if (complexity < EDGE_RENDER_NAVIGATION_COMPLEXITY_THRESHOLD) return false;
     if (this.isCanvasInteractionActive()) return true;
     return Date.now() < this.edgeNavigationSuspendUntil;
+  }
+
+  private shouldSuspendEdgesForNodeMove(complexity: number): boolean {
+    return complexity >= EDGE_RENDER_DRAG_SUSPEND_COMPLEXITY_THRESHOLD
+      && Boolean(this.dragState?.hasMoved || this.resizeState);
   }
 
   private markEdgeNavigationStressWindow(durationMs = EDGE_RENDER_NAVIGATION_SUSPEND_MS): void {

@@ -286,7 +286,11 @@
       >
         <i [class]="isLeftPanelsHidden ? 'fa-solid fa-bars' : 'fa-solid fa-chevron-left'" aria-hidden="true"></i>
       </button>
-      <div class="canvas-viewport" [ngStyle]="getViewportStyle()">
+      <div
+        class="canvas-viewport"
+        [class.canvas-viewport--interaction-lite]="shouldUseInteractionLiteMode()"
+        [ngStyle]="getViewportStyle()"
+      >
         <ng-container *ngIf="getContainerRenderableNodes() as containerRenderableNodes">
           <ng-container *ngFor="let node of containerRenderableNodes; trackBy: trackByNodeId">
             <ng-container

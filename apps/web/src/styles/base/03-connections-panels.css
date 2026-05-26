@@ -70,6 +70,17 @@
   background: rgba(245, 158, 11, 0.45);
 }
 
+.canvas-viewport--interaction-lite .node-port:not(.is-connection-target) {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.canvas-viewport--interaction-lite .node-port:not(.is-connection-target)::before,
+.canvas-viewport--interaction-lite .node-port:not(.is-connection-target)::after {
+  content: none;
+}
+
 .architecture-node--code-snippet .node-port,
 .architecture-node--code-snippet .node-port::before {
   visibility: visible;
