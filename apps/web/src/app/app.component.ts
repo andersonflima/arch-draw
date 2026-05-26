@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, ViewChild } from "@angular/core";
+import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, ViewChild } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import {
   architectureFromMermaid,
@@ -387,6 +387,7 @@ const EDGE_LABEL_HIDE_ZOOM_THRESHOLD = 0.7;
 const EDGE_RENDER_SUSPEND_ON_EXPAND_MS = 220;
 const EDGE_RENDER_NAVIGATION_SUSPEND_MS = 140;
 const EDGE_RENDER_NAVIGATION_COMPLEXITY_THRESHOLD = 24;
+const CANVAS_ULTRA_LIGHT_COMPLEXITY_THRESHOLD = 700;
 const EDGE_PROXIMITY_SUPPRESSION_RADIUS = 190;
 const EDGE_ROUTE_MAX_PASSES = 10;
 const EDGE_SIDE_LANE_GAP = 14;
@@ -428,8 +429,11 @@ const DEFAULT_INITIAL_CANVAS_ZOOM = 0.27;
 const CANVAS_RENDER_VIEWPORT_MARGIN_PX = 520;
 const CANVAS_RENDER_WORLD_MARGIN_MIN = 280;
 const CANVAS_RENDER_WORLD_MARGIN_MAX = 1600;
+const CANVAS_INTERACTION_RENDER_MARGIN_FACTOR = 0.45;
+const CANVAS_ULTRA_LIGHT_RENDER_MARGIN_FACTOR = 0.18;
 const MINI_MAP_DENSE_COMPLEXITY_THRESHOLD = 180;
 const MINI_MAP_EXTREME_DENSE_COMPLEXITY_THRESHOLD = 420;
+const MINI_MAP_STATIC_DETAIL_COMPLEXITY_THRESHOLD = 700;
 const COLLAB_CURSOR_DISTANCE_THRESHOLD_PX = 18;
 const CONTAINER_CHILD_PADDING_LEFT = 16;
 const CONTAINER_CHILD_PADDING_RIGHT = 16;
@@ -1637,7 +1641,7 @@ const normalizeAwsRegionPromptValue = (value: string): readonly string[] =>
   templateUrl: "./app.component.html",
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class AppComponent implements OnDestroy {
+export class AppComponent implements AfterViewInit, OnDestroy {
   @ViewChild("canvasShell") private readonly canvasShell?: ElementRef<HTMLElement>;
   @ViewChild("miniMap") private readonly miniMap?: ElementRef<HTMLElement>;
   @ViewChild("importInput") private readonly importInput?: ElementRef<HTMLInputElement>;
@@ -1885,6 +1889,11 @@ export class AppComponent implements OnDestroy {
 
   trackByString(_index: number, value: string): string {
     return value;
+  }
+
+  ngAfterViewInit(): void {
+    this.changeDetectorRef.detach();
+    this.requestViewRender();
   }
 
   ngOnDestroy(): void {
@@ -3811,6 +3820,7 @@ LIMIT 50;`;
     }
 
     if (this.connectionDragState) {
+      this.markEdgeNavigationStressWindow();
       this.connectionDragState = {
         ...this.connectionDragState,
         current: this.toCanvasPoint(event)
@@ -3824,6 +3834,7 @@ LIMIT 50;`;
     }
 
     if (this.marqueeState) {
+      this.markEdgeNavigationStressWindow();
       this.marqueeState = {
         ...this.marqueeState,
         current: this.toCanvasPoint(event)
@@ -4146,7 +4157,7 @@ LIMIT 50;`;
   getMiniMapRenderableNodes(): readonly CanvasNode[] {
     if (this.miniMapRenderableNodesCache) return this.miniMapRenderableNodesCache;
 
-    const complexity = this.nodes.length + this.edges.length;
+    const complexity = this.getCanvasComplexity();
     if (complexity < MINI_MAP_DENSE_COMPLEXITY_THRESHOLD) {
       this.miniMapRenderableNodesCache = this.nodes.filter((node) => this.isVisibleNode(node));
       return this.miniMapRenderableNodesCache;
@@ -4156,6 +4167,15 @@ LIMIT 50;`;
     if (this.selectedNodeId) selectedIds.add(this.selectedNodeId);
 
     if (complexity >= MINI_MAP_EXTREME_DENSE_COMPLEXITY_THRESHOLD) {
+      const shouldRenderViewportLeaves =
+        complexity < MINI_MAP_STATIC_DETAIL_COMPLEXITY_THRESHOLD && !this.isCanvasInteractionActive();
+      if (!shouldRenderViewportLeaves) {
+        this.miniMapRenderableNodesCache = this.nodes.filter((node) =>
+          this.isVisibleNode(node) && (this.rendersAsContainer(node) || selectedIds.has(node.id))
+        );
+        return this.miniMapRenderableNodesCache;
+      }
+
       const visibleRect = this.getVisibleCanvasRect();
       this.miniMapRenderableNodesCache = this.nodes.filter((node) => {
         if (!this.isVisibleNode(node)) return false;
@@ -4371,7 +4391,9 @@ LIMIT 50;`;
     const interactionLayerZIndex = this.isEdgeLayerElevated()
       ? EDGE_LAYER_INTERACTION_Z_INDEX
       : EDGE_LAYER_BASE_Z_INDEX;
-    const containerContextLayerZIndex = this.getContainerContextEdgeLayerZIndex();
+    const containerContextLayerZIndex = this.isEdgeRenderingSuspended() || this.shouldReduceCanvasDetailForPerformance()
+      ? 0
+      : this.getContainerContextEdgeLayerZIndex();
     const containerLayerCeiling = this.getVisibleContainerLayerCeilingZIndex();
     return Math.max(
       interactionLayerZIndex,
@@ -4802,6 +4824,10 @@ LIMIT 50;`;
 
   getRenderableEdges(): readonly CanvasEdge[] {
     if (this.renderableEdgesCache) return this.renderableEdgesCache;
+    if (this.isEdgeRenderingSuspended()) {
+      this.renderableEdgesCache = [];
+      return this.renderableEdgesCache;
+    }
     this.renderableEdgesCache = this.edges.filter((edge) => this.isRenderableEdge(edge));
     return this.renderableEdgesCache;
   }
@@ -5207,7 +5233,7 @@ LIMIT 50;`;
 
   getEdgeClipContainers(): readonly CanvasNode[] {
     if (this.edgeClipContainersCache) return this.edgeClipContainersCache;
-    if (!this.isDarkMode || this.shouldReduceCanvasDetailForPerformance()) {
+    if (!this.isDarkMode || this.isEdgeRenderingSuspended() || this.shouldReduceCanvasDetailForPerformance()) {
       this.edgeClipContainersCache = [];
       return this.edgeClipContainersCache;
     }
@@ -7510,19 +7536,34 @@ apiKeys:
   }
 
   private shouldUseSimplifiedEdgeObstacles(): boolean {
-    return (this.nodes.length + this.edges.length) >= EDGE_SIMPLIFIED_OBSTACLE_COMPLEXITY_THRESHOLD;
+    return this.getCanvasComplexity() >= EDGE_SIMPLIFIED_OBSTACLE_COMPLEXITY_THRESHOLD;
   }
 
-  private shouldReduceCanvasDetailForPerformance(): boolean {
-    if (this.renderAllCanvasForExport) return false;
-    const complexity = this.nodes.length + this.edges.length;
-    const isInteracting = Boolean(
+  private getCanvasComplexity(): number {
+    return this.nodes.length + this.edges.length;
+  }
+
+  private isCanvasInteractionActive(): boolean {
+    return Boolean(
       this.panState
       || this.dragState?.hasMoved
       || this.connectionDragState
       || this.resizeState
+      || this.marqueeState
       || this.isMiniMapDragging()
     );
+  }
+
+  private isUltraLightCanvasMode(): boolean {
+    return !this.renderAllCanvasForExport
+      && this.getCanvasComplexity() >= CANVAS_ULTRA_LIGHT_COMPLEXITY_THRESHOLD;
+  }
+
+  private shouldReduceCanvasDetailForPerformance(): boolean {
+    if (this.renderAllCanvasForExport) return false;
+    if (this.isUltraLightCanvasMode()) return true;
+    const complexity = this.getCanvasComplexity();
+    const isInteracting = this.isCanvasInteractionActive();
 
     if (isInteracting && complexity >= Math.floor(EDGE_LABEL_HIDE_COMPLEXITY_THRESHOLD * 0.65)) {
       return true;
@@ -7551,9 +7592,11 @@ apiKeys:
   }
 
   private isEdgeRenderingSuspended(): boolean {
+    if (this.renderAllCanvasForExport) return false;
     if (Date.now() < this.edgeRenderSuspendUntil) return true;
-    const complexity = this.nodes.length + this.edges.length;
+    const complexity = this.getCanvasComplexity();
     if (complexity < EDGE_RENDER_NAVIGATION_COMPLEXITY_THRESHOLD) return false;
+    if (this.isCanvasInteractionActive()) return true;
     return Date.now() < this.edgeNavigationSuspendUntil;
   }
 
@@ -8701,19 +8744,18 @@ apiKeys:
 
     const visible = this.getVisibleCanvasRect();
     const baseMargin = CANVAS_RENDER_VIEWPORT_MARGIN_PX / Math.max(this.canvasZoom, 0.001);
-    const isInteracting = Boolean(
-      this.panState
-      || this.dragState?.hasMoved
-      || this.connectionDragState
-      || this.resizeState
-      || this.isMiniMapDragging()
-    );
+    const isInteracting = this.isCanvasInteractionActive();
     const clampedMargin = Math.min(
       CANVAS_RENDER_WORLD_MARGIN_MAX,
       Math.max(CANVAS_RENDER_WORLD_MARGIN_MIN, baseMargin)
     );
     const margin = isInteracting
-      ? Math.max(CANVAS_RENDER_WORLD_MARGIN_MIN, clampedMargin * 0.75)
+      ? Math.max(
+        CANVAS_RENDER_WORLD_MARGIN_MIN,
+        clampedMargin * (this.isUltraLightCanvasMode()
+          ? CANVAS_ULTRA_LIGHT_RENDER_MARGIN_FACTOR
+          : CANVAS_INTERACTION_RENDER_MARGIN_FACTOR)
+      )
       : clampedMargin;
     const rect = {
       x: visible.left - margin,
@@ -11649,7 +11691,7 @@ spec:
     this.nodeClassCache.clear();
     this.miniMapNodeStyleCache.clear();
     this.miniMapRenderableNodesCache = null;
-    this.clearMiniMapLayoutCaches();
+    this.clearMiniMapGeometryCaches();
     this.renderableNodeIdsCache.clear();
     this.renderableEdgeIdsCache.clear();
     this.visibleCanvasRectCache = null;
@@ -11678,7 +11720,7 @@ spec:
     this.nodeClassCache.clear();
     this.miniMapNodeStyleCache.clear();
     this.miniMapRenderableNodesCache = null;
-    this.clearMiniMapLayoutCaches();
+    this.clearMiniMapGeometryCaches();
     this.renderableNodeIdsCache.clear();
     this.renderableEdgeIdsCache.clear();
     this.visibleCanvasRectCache = null;
@@ -11749,10 +11791,14 @@ spec:
   }
 
   private clearMiniMapLayoutCaches(): void {
-    this.miniMapBoundsCache = null;
     this.miniMapLayoutCache = null;
     this.miniMapViewportStyleSignature = "";
     this.miniMapViewportStyleCache = null;
+  }
+
+  private clearMiniMapGeometryCaches(): void {
+    this.miniMapBoundsCache = null;
+    this.clearMiniMapLayoutCaches();
   }
 
   private clearInteractionRenderCaches(): void {
@@ -11772,7 +11818,7 @@ spec:
     this.nodeStyleCache.clear();
     this.miniMapNodeStyleCache.clear();
     this.miniMapRenderableNodesCache = null;
-    this.clearMiniMapLayoutCaches();
+    this.clearMiniMapGeometryCaches();
     this.renderableNodeIdsCache.clear();
     this.renderableEdgeIdsCache.clear();
     this.visibleCanvasRectCache = null;
@@ -11798,6 +11844,7 @@ spec:
   private clearViewportRenderCaches(): void {
     this.renderableNodeIdsCache.clear();
     this.renderableEdgeIdsCache.clear();
+    this.miniMapRenderableNodesCache = null;
     this.visibleCanvasRectCache = null;
     this.renderableCanvasRectCache = null;
     this.containerRenderableNodesCache = null;
