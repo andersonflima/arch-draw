@@ -278,6 +278,9 @@ type ConnectionTargetCandidate = ConnectionTarget & Readonly<{
   distance: number;
 }>;
 
+const EMPTY_CANVAS_EDGES: readonly CanvasEdge[] = [];
+const EMPTY_EDGE_RENDER_VIEW_MODELS: readonly EdgeRenderViewModel[] = [];
+
 type ContextPropertiesPanelState = Readonly<{
   x: number;
   y: number;
@@ -4827,16 +4830,14 @@ LIMIT 50;`;
   }
 
   getRenderableEdges(): readonly CanvasEdge[] {
+    if (this.isEdgeRenderingSuspended()) return EMPTY_CANVAS_EDGES;
     if (this.renderableEdgesCache) return this.renderableEdgesCache;
-    if (this.isEdgeRenderingSuspended()) {
-      this.renderableEdgesCache = [];
-      return this.renderableEdgesCache;
-    }
     this.renderableEdgesCache = this.edges.filter((edge) => this.isRenderableEdge(edge));
     return this.renderableEdgesCache;
   }
 
   getRenderableEdgeViewModels(): readonly EdgeRenderViewModel[] {
+    if (this.isEdgeRenderingSuspended()) return EMPTY_EDGE_RENDER_VIEW_MODELS;
     if (this.renderableEdgeViewModelsCache) return this.renderableEdgeViewModelsCache;
     const labelBoxHeight = this.getEdgeLabelBoxHeight();
     this.renderableEdgeViewModelsCache = this.getRenderableEdges().map((edge) => {
@@ -7242,6 +7243,7 @@ apiKeys:
 
     if (!hasChanged) return;
     this.nodes = nextNodes;
+    this.syncNodeGraphCachesAfterNodeReplacements(nextNodes, changedNodeIds);
     this.markEdgeNavigationStressWindow();
     this.markNodeMoveInteractionChanged(changedNodeIds);
   }
@@ -11573,6 +11575,25 @@ spec:
     }
   }
 
+  private syncNodeGraphCachesAfterNodeReplacements(
+    nextNodes: readonly CanvasNode[],
+    changedNodeIds: readonly string[]
+  ): void {
+    if (this.nodeGraphCacheSource === null || this.nodeIndexByIdCache.size === 0) {
+      this.clearNodeGraphCaches();
+      return;
+    }
+
+    this.nodeGraphCacheSource = nextNodes;
+    for (const nodeId of changedNodeIds) {
+      const index = this.nodeIndexByIdCache.get(nodeId);
+      if (index === undefined) continue;
+      const node = nextNodes[index];
+      if (!node) continue;
+      this.nodeByIdCache.set(nodeId, node);
+    }
+  }
+
   private clearNodeGraphCaches(): void {
     this.nodeGraphCacheSource = null;
     this.nodeByIdCache.clear();
@@ -11843,32 +11864,8 @@ spec:
 
   private clearNodeMoveInteractionRenderCaches(changedNodeIds: readonly string[]): void {
     this.edgeWorkerRouteRevision += 1;
-    this.edgeWorkerRouteCache.clear();
-    this.edgeWorkerRoutePending.clear();
-    this.edgePathDataCache.clear();
-    this.edgePathStringCache.clear();
-    this.edgeBidirectionalFlowPathCache.clear();
-    this.edgeSideLaneOffsetCache.clear();
-    this.edgeLabelDyCache.clear();
-    this.edgeLabelStartOffsetCache.clear();
-    this.edgeLabelPositionCache.clear();
-    this.edgeLabelRenderWidthCache.clear();
-    this.edgeDarkTransitionClipIdsCache.clear();
+    this.updateCachedNodeReferences(changedNodeIds);
     this.clearMovedNodeRenderCaches(changedNodeIds);
-    this.renderableNodeIdsCache.clear();
-    this.renderableEdgeIdsCache.clear();
-    this.renderableCanvasRectCache = null;
-    this.containerRenderableNodesCache = null;
-    this.leafRenderableNodesCache = null;
-    this.renderableEdgesCache = null;
-    this.edgeClipContainersCache = null;
-    this.leafLabelKnockoutNodesCache = null;
-    this.containerContextEdgeLayerZIndexCache = null;
-    this.edgeLayerStyleCacheZIndex = null;
-    this.edgeLayerStyleCache = null;
-    this.edgeMarkerDefinitionsCache = null;
-    this.edgeMarkerDefinitionsSignature = "";
-    this.renderableEdgeViewModelsCache = null;
   }
 
   private clearMovedNodeRenderCaches(changedNodeIds: readonly string[]): void {
@@ -11887,6 +11884,52 @@ spec:
       this.miniMapNodeStyleCache.delete(nodeId);
       this.leafNodeLabelKnockoutRectCache.delete(nodeId);
     }
+  }
+
+  private updateCachedNodeReferences(changedNodeIds: readonly string[]): void {
+    if (changedNodeIds.length === 0) return;
+    const replacements = new Map<string, CanvasNode>();
+    for (const nodeId of changedNodeIds) {
+      const node = this.nodeByIdCache.get(nodeId);
+      if (node) replacements.set(nodeId, node);
+    }
+    if (replacements.size === 0) return;
+
+    this.containerRenderableNodesCache = this.replaceCachedNodeReferences(
+      this.containerRenderableNodesCache,
+      replacements
+    );
+    this.leafRenderableNodesCache = this.replaceCachedNodeReferences(
+      this.leafRenderableNodesCache,
+      replacements
+    );
+    this.miniMapRenderableNodesCache = this.replaceCachedNodeReferences(
+      this.miniMapRenderableNodesCache,
+      replacements
+    );
+    this.leafLabelKnockoutNodesCache = this.replaceCachedNodeReferences(
+      this.leafLabelKnockoutNodesCache,
+      replacements
+    );
+    this.edgeClipContainersCache = this.replaceCachedNodeReferences(
+      this.edgeClipContainersCache,
+      replacements
+    );
+  }
+
+  private replaceCachedNodeReferences(
+    nodes: readonly CanvasNode[] | null,
+    replacements: ReadonlyMap<string, CanvasNode>
+  ): readonly CanvasNode[] | null {
+    if (!nodes) return nodes;
+    let changed = false;
+    const nextNodes = nodes.map((node) => {
+      const replacement = replacements.get(node.id);
+      if (!replacement) return node;
+      changed = true;
+      return replacement;
+    });
+    return changed ? nextNodes : nodes;
   }
 
   private clearInteractionRenderCaches(): void {
