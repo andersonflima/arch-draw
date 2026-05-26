@@ -287,182 +287,192 @@
         <i [class]="isLeftPanelsHidden ? 'fa-solid fa-bars' : 'fa-solid fa-chevron-left'" aria-hidden="true"></i>
       </button>
       <div class="canvas-viewport" [ngStyle]="getViewportStyle()">
-        <ng-container *ngFor="let node of getContainerRenderableNodes(); trackBy: trackByNodeId">
-          <ng-container
-            *ngTemplateOutlet="canvasNodeTemplate; context: { $implicit: node }"
-          ></ng-container>
+        <ng-container *ngIf="getContainerRenderableNodes() as containerRenderableNodes">
+          <ng-container *ngFor="let node of containerRenderableNodes; trackBy: trackByNodeId">
+            <ng-container
+              *ngTemplateOutlet="canvasNodeTemplate; context: { $implicit: node }"
+            ></ng-container>
+          </ng-container>
         </ng-container>
 
-        <svg
-          class="canvas-edge-layer"
-          [class.canvas-edge-layer--elevated]="isEdgeLayerElevated()"
-          [ngStyle]="getEdgeLayerStyle()"
-        >
-          <defs>
-            <marker
-              id="edge-preview-arrow-right"
-              markerWidth="9"
-              markerHeight="9"
-              viewBox="0 0 9 9"
-              refX="0"
-              refY="4.5"
-              orient="0"
-              markerUnits="userSpaceOnUse"
-            >
-              <path d="M 0 0 L 9 4.5 L 0 9 z" fill="#2563eb"></path>
-            </marker>
-            <marker
-              id="edge-preview-arrow-left"
-              markerWidth="9"
-              markerHeight="9"
-              viewBox="0 0 9 9"
-              refX="9"
-              refY="4.5"
-              orient="0"
-              markerUnits="userSpaceOnUse"
-            >
-              <path d="M 9 0 L 0 4.5 L 9 9 z" fill="#2563eb"></path>
-            </marker>
-            <ng-container *ngFor="let edge of getRenderableEdges(); trackBy: trackByEdgeId">
+        <ng-container *ngIf="getRenderableEdgeViewModels() as renderableEdgeViewModels">
+          <svg
+            class="canvas-edge-layer"
+            [class.canvas-edge-layer--elevated]="isEdgeLayerElevated()"
+            [ngStyle]="getEdgeLayerStyle()"
+          >
+            <defs>
               <marker
-                [attr.id]="getEdgeMarkerId(edge)"
+                id="edge-preview-arrow-right"
                 markerWidth="9"
                 markerHeight="9"
                 viewBox="0 0 9 9"
-                refX="1"
+                refX="0"
                 refY="4.5"
-                orient="auto-start-reverse"
+                orient="0"
                 markerUnits="userSpaceOnUse"
               >
-                <path d="M 0 0 L 9 4.5 L 0 9 z" [attr.fill]="getEdgeColor(edge)"></path>
+                <path d="M 0 0 L 9 4.5 L 0 9 z" fill="#2563eb"></path>
               </marker>
-            </ng-container>
-            <clipPath
-              *ngFor="let containerNode of getEdgeClipContainers(); trackBy: trackByNodeId"
-              [attr.id]="getEdgeContainerClipPathId(containerNode.id)"
-            >
-            <ng-container *ngIf="getNodeAbsoluteRect(containerNode) as containerRect">
-              <rect
-                [attr.x]="containerRect.x"
-                [attr.y]="containerRect.y"
-                [attr.width]="containerRect.width"
-                [attr.height]="containerRect.height"
-              ></rect>
-            </ng-container>
-            </clipPath>
-          </defs>
-          <ng-container *ngFor="let edge of getRenderableEdges(); trackBy: trackByEdgeId">
-            <g
-              [class.canvas-edge-group--muted]="isEdgeTemporarilyMuted(edge)"
-            >
-              <path
-                class="canvas-edge-hit"
-                [attr.d]="getEdgePath(edge)"
-                (pointerenter)="onEdgePointerEnter(edge.id)"
-                (pointerleave)="onEdgePointerLeave(edge.id)"
-                (click)="onEdgeClick(edge.id, $event)"
-                (dblclick)="onEdgeDoubleClick(edge.id, $event)"
-                (contextmenu)="onEdgeContextMenu(edge.id, $event)"
-              />
-              <path
-                class="canvas-edge"
-                [class.is-selected]="edge.id === selectedEdgeId"
-                [class.is-live]="isLiveEdge(edge) && !isBidirectional(edge)"
-                [class.is-bidirectional]="isBidirectional(edge)"
-                [attr.id]="'edge-path-' + edge.id"
-                [attr.d]="getEdgePath(edge)"
-                [attr.stroke]="getEdgeColor(edge)"
-                [attr.stroke-dasharray]="getEdgeDash(edge)"
-                [attr.marker-start]="getEdgeStartMarker(edge)"
-                [attr.marker-end]="getEdgeEndMarker(edge)"
-                (click)="onEdgeClick(edge.id, $event)"
-                (dblclick)="onEdgeDoubleClick(edge.id, $event)"
-                (contextmenu)="onEdgeContextMenu(edge.id, $event)"
-              />
-              <ng-container *ngIf="shouldRenderEdgeContextOverlays()">
+              <marker
+                id="edge-preview-arrow-left"
+                markerWidth="9"
+                markerHeight="9"
+                viewBox="0 0 9 9"
+                refX="9"
+                refY="4.5"
+                orient="0"
+                markerUnits="userSpaceOnUse"
+              >
+                <path d="M 9 0 L 0 4.5 L 9 9 z" fill="#2563eb"></path>
+              </marker>
+              <ng-container *ngFor="let markerDef of getRenderableEdgeMarkerDefinitions(renderableEdgeViewModels); trackBy: trackByEdgeMarkerDefinitionId">
+                <marker
+                  [attr.id]="markerDef.id"
+                  markerWidth="9"
+                  markerHeight="9"
+                  viewBox="0 0 9 9"
+                  refX="1"
+                  refY="4.5"
+                  orient="auto-start-reverse"
+                  markerUnits="userSpaceOnUse"
+                >
+                  <path d="M 0 0 L 9 4.5 L 0 9 z" [attr.fill]="markerDef.color"></path>
+                </marker>
+              </ng-container>
+              <ng-container *ngIf="getEdgeClipContainers() as edgeClipContainers">
+                <clipPath
+                  *ngFor="let containerNode of edgeClipContainers; trackBy: trackByNodeId"
+                  [attr.id]="getEdgeContainerClipPathId(containerNode.id)"
+                >
+                <ng-container *ngIf="getNodeAbsoluteRect(containerNode) as containerRect">
+                  <rect
+                    [attr.x]="containerRect.x"
+                    [attr.y]="containerRect.y"
+                    [attr.width]="containerRect.width"
+                    [attr.height]="containerRect.height"
+                  ></rect>
+                </ng-container>
+                </clipPath>
+              </ng-container>
+            </defs>
+            <ng-container *ngFor="let edgeViewModel of renderableEdgeViewModels; trackBy: trackByEdgeViewModelId">
+              <g
+                [class.canvas-edge-group--muted]="edgeViewModel.isMuted"
+              >
                 <path
-                  *ngFor="let clipContainerId of getEdgeDarkTransitionClipIds(edge); trackBy: trackByString"
-                  class="canvas-edge canvas-edge-context-overlay"
-                  [class.is-live]="isLiveEdge(edge) && !isBidirectional(edge)"
-                  [class.is-bidirectional]="isBidirectional(edge)"
-                  [attr.d]="getEdgePath(edge)"
-                  [attr.stroke]="getEdgeContextOverlayColor()"
-                  [attr.stroke-dasharray]="getEdgeDash(edge)"
-                  [attr.clip-path]="'url(#' + getEdgeContainerClipPathId(clipContainerId) + ')'"
+                  class="canvas-edge-hit"
+                  [attr.d]="edgeViewModel.path"
+                  (pointerenter)="onEdgePointerEnter(edgeViewModel.id)"
+                  (pointerleave)="onEdgePointerLeave(edgeViewModel.id)"
+                  (click)="onEdgeClick(edgeViewModel.id, $event)"
+                  (dblclick)="onEdgeDoubleClick(edgeViewModel.id, $event)"
+                  (contextmenu)="onEdgeContextMenu(edgeViewModel.id, $event)"
+                />
+                <path
+                  class="canvas-edge"
+                  [class.is-selected]="edgeViewModel.isSelected"
+                  [class.is-live]="edgeViewModel.isLive && !edgeViewModel.isBidirectional"
+                  [class.is-bidirectional]="edgeViewModel.isBidirectional"
+                  [attr.id]="'edge-path-' + edgeViewModel.id"
+                  [attr.d]="edgeViewModel.path"
+                  [attr.stroke]="edgeViewModel.color"
+                  [attr.stroke-dasharray]="edgeViewModel.dash"
+                  [attr.marker-start]="edgeViewModel.markerStart"
+                  [attr.marker-end]="edgeViewModel.markerEnd"
+                  (click)="onEdgeClick(edgeViewModel.id, $event)"
+                  (dblclick)="onEdgeDoubleClick(edgeViewModel.id, $event)"
+                  (contextmenu)="onEdgeContextMenu(edgeViewModel.id, $event)"
+                />
+                <ng-container *ngIf="edgeViewModel.clipContainerIds.length > 0">
+                  <path
+                    *ngFor="let clipContainerId of edgeViewModel.clipContainerIds; trackBy: trackByString"
+                    class="canvas-edge canvas-edge-context-overlay"
+                    [class.is-live]="edgeViewModel.isLive && !edgeViewModel.isBidirectional"
+                    [class.is-bidirectional]="edgeViewModel.isBidirectional"
+                    [attr.d]="edgeViewModel.path"
+                    [attr.stroke]="getEdgeContextOverlayColor()"
+                    [attr.stroke-dasharray]="edgeViewModel.dash"
+                    [attr.clip-path]="'url(#' + getEdgeContainerClipPathId(clipContainerId) + ')'"
+                  />
+                </ng-container>
+                <rect
+                  *ngIf="edgeViewModel.shouldRenderLabel"
+                  class="canvas-edge-label-knockout"
+                  [attr.x]="edgeViewModel.labelX"
+                  [attr.y]="edgeViewModel.labelY"
+                  [attr.width]="edgeViewModel.labelWidth"
+                  [attr.height]="getEdgeLabelBoxHeight()"
+                  rx="6"
+                />
+                <foreignObject
+                  *ngIf="edgeViewModel.shouldRenderLabel"
+                  class="canvas-edge-label"
+                  [attr.x]="edgeViewModel.labelX"
+                  [attr.y]="edgeViewModel.labelY"
+                  [attr.width]="edgeViewModel.labelWidth"
+                  [attr.height]="getEdgeLabelBoxHeight()"
+                >
+                  <div
+                    xmlns="http://www.w3.org/1999/xhtml"
+                    class="canvas-edge-label-box"
+                    [style.font-size.px]="edgeLabelFontSize"
+                    [style.color]="edgeViewModel.labelColor"
+                  >
+                    {{ edgeViewModel.edge.label }}
+                  </div>
+                </foreignObject>
+                <foreignObject
+                  *ngIf="edgeViewModel.isEditing"
+                  class="canvas-edge-label-editor"
+                  [attr.x]="getEdgeLabelPosition(edgeViewModel.edge).x - 90"
+                  [attr.y]="getEdgeLabelPosition(edgeViewModel.edge).y - 16"
+                  width="180"
+                  height="32"
+                >
+                  <textarea
+                    [attr.data-edge-editor-id]="edgeViewModel.id"
+                    [ngModel]="editingEdgeLabelDraft"
+                    (ngModelChange)="editingEdgeLabelDraft = $event"
+                    [style.font-size.px]="edgeLabelFontSize"
+                    (blur)="commitEdgeLabelEditing(edgeViewModel.id)"
+                    (click)="$event.stopPropagation()"
+                    (pointerdown)="$event.stopPropagation()"
+                    (keydown)="onEdgeLabelEditorKeyDown($event, edgeViewModel.id)"
+                  ></textarea>
+                </foreignObject>
+              </g>
+            </ng-container>
+            <path
+              *ngIf="getConnectionPreviewPath() as previewPath"
+              class="canvas-edge canvas-edge-preview"
+              [attr.d]="previewPath"
+              [attr.marker-end]="getConnectionPreviewMarkerEnd()"
+            />
+            <ng-container *ngIf="getLeafLabelKnockoutNodes() as leafLabelKnockoutNodes">
+              <ng-container *ngFor="let node of leafLabelKnockoutNodes; trackBy: trackByNodeId">
+                <rect
+                  *ngIf="getLeafNodeLabelKnockoutRect(node) as labelRect"
+                  class="canvas-node-label-knockout"
+                  [attr.x]="labelRect.x"
+                  [attr.y]="labelRect.y"
+                  [attr.width]="labelRect.width"
+                  [attr.height]="labelRect.height"
+                  rx="6"
+                  [attr.fill]="getLeafNodeLabelKnockoutColor(node, labelRect)"
                 />
               </ng-container>
-              <rect
-                *ngIf="shouldRenderEdgeLabel(edge) && !isEditingEdge(edge.id)"
-                class="canvas-edge-label-knockout"
-                [attr.x]="getEdgeLabelRenderX(edge)"
-                [attr.y]="getEdgeLabelPosition(edge).y - getEdgeLabelBoxHeight() / 2"
-                [attr.width]="getEdgeLabelRenderWidth(edge)"
-                [attr.height]="getEdgeLabelBoxHeight()"
-                rx="6"
-              />
-              <foreignObject
-                *ngIf="shouldRenderEdgeLabel(edge) && !isEditingEdge(edge.id)"
-                class="canvas-edge-label"
-                [attr.x]="getEdgeLabelRenderX(edge)"
-                [attr.y]="getEdgeLabelPosition(edge).y - getEdgeLabelBoxHeight() / 2"
-                [attr.width]="getEdgeLabelRenderWidth(edge)"
-                [attr.height]="getEdgeLabelBoxHeight()"
-              >
-                <div
-                  xmlns="http://www.w3.org/1999/xhtml"
-                  class="canvas-edge-label-box"
-                  [style.font-size.px]="edgeLabelFontSize"
-                  [style.color]="getEdgeLabelColor(edge)"
-                >
-                  {{ edge.label }}
-                </div>
-              </foreignObject>
-              <foreignObject
-                *ngIf="isEditingEdge(edge.id)"
-                class="canvas-edge-label-editor"
-                [attr.x]="getEdgeLabelPosition(edge).x - 90"
-                [attr.y]="getEdgeLabelPosition(edge).y - 16"
-                width="180"
-                height="32"
-              >
-                <textarea
-                  [attr.data-edge-editor-id]="edge.id"
-                  [ngModel]="editingEdgeLabelDraft"
-                  (ngModelChange)="editingEdgeLabelDraft = $event"
-                  [style.font-size.px]="edgeLabelFontSize"
-                  (blur)="commitEdgeLabelEditing(edge.id)"
-                  (click)="$event.stopPropagation()"
-                  (pointerdown)="$event.stopPropagation()"
-                  (keydown)="onEdgeLabelEditorKeyDown($event, edge.id)"
-                ></textarea>
-              </foreignObject>
-            </g>
-          </ng-container>
-          <path
-            *ngIf="getConnectionPreviewPath() as previewPath"
-            class="canvas-edge canvas-edge-preview"
-            [attr.d]="previewPath"
-            [attr.marker-end]="getConnectionPreviewMarkerEnd()"
-          />
-          <ng-container *ngFor="let node of getLeafLabelKnockoutNodes(); trackBy: trackByNodeId">
-            <rect
-              *ngIf="getLeafNodeLabelKnockoutRect(node) as labelRect"
-              class="canvas-node-label-knockout"
-              [attr.x]="labelRect.x"
-              [attr.y]="labelRect.y"
-              [attr.width]="labelRect.width"
-              [attr.height]="labelRect.height"
-              rx="6"
-              [attr.fill]="getLeafNodeLabelKnockoutColor(node, labelRect)"
-            />
-          </ng-container>
-        </svg>
+            </ng-container>
+          </svg>
+        </ng-container>
 
-        <ng-container *ngFor="let cursor of getVisibleRemoteCollaboratorCursors(); trackBy: trackByRemoteCursorClientId">
-          <div class="remote-cursor" [ngStyle]="getRemoteCursorStyle(cursor)">
-            <span class="remote-cursor__pointer"></span>
-            <span class="remote-cursor__label">{{ cursor.displayName }}</span>
-          </div>
+        <ng-container *ngIf="getVisibleRemoteCollaboratorCursors() as visibleRemoteCursors">
+          <ng-container *ngFor="let cursor of visibleRemoteCursors; trackBy: trackByRemoteCursorClientId">
+            <div class="remote-cursor" [ngStyle]="getRemoteCursorStyle(cursor)">
+              <span class="remote-cursor__pointer"></span>
+              <span class="remote-cursor__label">{{ cursor.displayName }}</span>
+            </div>
+          </ng-container>
         </ng-container>
 
         <div
@@ -472,10 +482,12 @@
           aria-hidden="true"
         ></div>
 
-        <ng-container *ngFor="let node of getLeafRenderableNodes(); trackBy: trackByNodeId">
-          <ng-container
-            *ngTemplateOutlet="canvasNodeTemplate; context: { $implicit: node }"
-          ></ng-container>
+        <ng-container *ngIf="getLeafRenderableNodes() as leafRenderableNodes">
+          <ng-container *ngFor="let node of leafRenderableNodes; trackBy: trackByNodeId">
+            <ng-container
+              *ngTemplateOutlet="canvasNodeTemplate; context: { $implicit: node }"
+            ></ng-container>
+          </ng-container>
         </ng-container>
 
         <div *ngIf="marqueeState" class="canvas-marquee" [ngStyle]="getMarqueeStyle()"></div>
