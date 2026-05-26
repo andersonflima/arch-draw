@@ -274,6 +274,10 @@ type MiniMapLayout = Readonly<{
   }>;
 }>;
 
+type ConnectionTargetCandidate = ConnectionTarget & Readonly<{
+  distance: number;
+}>;
+
 type ContextPropertiesPanelState = Readonly<{
   x: number;
   y: number;
@@ -9424,39 +9428,73 @@ apiKeys:
     event: PointerEvent,
     sourceNodeId: string
   ): ConnectionTarget | null {
-    const isImplicitlyInvalidTarget = (targetNodeId: string): boolean =>
-      targetNodeId === sourceNodeId ||
-      this.isAncestorOfNode(targetNodeId, sourceNodeId) ||
-      this.isAncestorOfNode(sourceNodeId, targetNodeId);
-    return document
-      .elementsFromPoint(event.clientX, event.clientY)
-      .map((hoveredElement) =>
-        (hoveredElement as HTMLElement).closest<HTMLElement>("[data-target-port-node-id]")
-      )
-      .filter((targetPortElement): targetPortElement is HTMLElement => Boolean(targetPortElement))
-      .map((targetPortElement) => this.toConnectionTargetCandidate(targetPortElement, event))
-      .filter((candidate): candidate is ConnectionTarget & Readonly<{ distance: number }> => Boolean(candidate))
-      .filter((candidate) => !isImplicitlyInvalidTarget(candidate.nodeId))
-      .sort((first, second) => first.distance - second.distance)
-      .map(({ nodeId, targetPort }) => ({ nodeId, targetPort }))
-      .at(0) ?? null;
+    return this.getConnectionTargetFromCanvasPoint(this.toCanvasPoint(event), sourceNodeId);
   }
 
-  private toConnectionTargetCandidate(
-    targetPortElement: HTMLElement,
-    event: PointerEvent
-  ): (ConnectionTarget & Readonly<{ distance: number }>) | null {
-    const nodeId = targetPortElement.dataset["targetPortNodeId"] ?? null;
-    const targetPort = this.parseEdgePortSide(targetPortElement.dataset["portSide"]);
-    if (!nodeId || !targetPort) return null;
-    const rect = targetPortElement.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-    return {
-      nodeId,
-      targetPort,
-      distance: Math.hypot(event.clientX - centerX, event.clientY - centerY)
-    };
+  private getConnectionTargetFromCanvasPoint(
+    point: Readonly<{ x: number; y: number }>,
+    sourceNodeId: string
+  ): ConnectionTarget | null {
+    let best: ConnectionTargetCandidate | null = null;
+    best = this.findConnectionTargetInNodes(this.getLeafRenderableNodes(), point, sourceNodeId, best);
+    best = this.findConnectionTargetInNodes(this.getContainerRenderableNodes(), point, sourceNodeId, best);
+    return best ? { nodeId: best.nodeId, targetPort: best.targetPort } : null;
+  }
+
+  private findConnectionTargetInNodes(
+    nodes: readonly CanvasNode[],
+    point: Readonly<{ x: number; y: number }>,
+    sourceNodeId: string,
+    best: ConnectionTargetCandidate | null
+  ): ConnectionTargetCandidate | null {
+    let currentBest = best;
+    for (const node of nodes) {
+      if (this.isImplicitlyInvalidConnectionTarget(node.id, sourceNodeId)) continue;
+      const candidate = this.getConnectionTargetCandidateForNode(node, point);
+      if (!candidate) continue;
+      if (!currentBest || candidate.distance < currentBest.distance) {
+        currentBest = candidate;
+      }
+    }
+    return currentBest;
+  }
+
+  private isImplicitlyInvalidConnectionTarget(targetNodeId: string, sourceNodeId: string): boolean {
+    return targetNodeId === sourceNodeId
+      || this.isAncestorOfNode(targetNodeId, sourceNodeId)
+      || this.isAncestorOfNode(sourceNodeId, targetNodeId);
+  }
+
+  private getConnectionTargetCandidateForNode(
+    node: CanvasNode,
+    point: Readonly<{ x: number; y: number }>
+  ): ConnectionTargetCandidate | null {
+    const hitRadius = this.getConnectionTargetHitRadius(node);
+    let best: ConnectionTargetCandidate | null = null;
+    for (const targetPort of this.getConnectionTargetSides(node)) {
+      const anchor = this.getNodePortAnchor(node, targetPort, 0);
+      const distance = Math.hypot(point.x - anchor.x, point.y - anchor.y);
+      if (distance > hitRadius) continue;
+      if (!best || distance < best.distance) {
+        best = { nodeId: node.id, targetPort, distance };
+      }
+    }
+    return best;
+  }
+
+  private getConnectionTargetSides(node: CanvasNode): readonly ArchitectureEdgePortSide[] {
+    return this.hasOmniConnectionPorts(node)
+      ? ["top", "right", "bottom", "left"]
+      : ["left"];
+  }
+
+  private getConnectionTargetHitRadius(node: CanvasNode): number {
+    const metrics = computeNodePortMetrics(node.size, NODE_PORT_METRICS_LIMITS);
+    const screenMinimum = 28 / Math.max(this.canvasZoom, 0.2);
+    const portRadius = this.hasOmniConnectionPorts(node)
+      ? Math.max(metrics.omniSize, metrics.hitWidth)
+      : metrics.hitWidth;
+    return Math.min(96, Math.max(screenMinimum, portRadius));
   }
 
   private isSameConnectionTarget(first: ConnectionTarget | null, second: ConnectionTarget | null): boolean {
@@ -9467,13 +9505,6 @@ apiKeys:
     return this.connectionDragState !== null
       && this.connectionDragTarget?.nodeId === nodeId
       && this.connectionDragTarget.targetPort === targetPort;
-  }
-
-  private parseEdgePortSide(value: string | undefined): ArchitectureEdgePortSide | null {
-    if (!value) return null;
-    return value === "left" || value === "right" || value === "top" || value === "bottom"
-      ? value
-      : null;
   }
 
   private isAncestorOfNode(ancestorNodeId: string, nodeId: string): boolean {
