@@ -85,6 +85,36 @@ import {
   panCanvasFromWheel,
   type WheelDeltaMode
 } from "../features/editor/canvas-navigation";
+import {
+  getVisibleWorldRect,
+  screenToWorld,
+  zoomCameraAtScreenPoint
+} from "../engine/camera/camera";
+import { rectsIntersect } from "../engine/spatial/geometry";
+import { createSpatialIndex, type UniformGridSpatialIndex } from "../engine/spatial/spatial-index";
+import { selectIdsInRect } from "../engine/selection/selection-system";
+import { createSceneGraph, type SceneGraph } from "../engine/scene/scene-graph";
+import {
+  applyDocumentPatch,
+  createHistoryEntry,
+  pushHistoryEntry,
+  type PatchHistoryEntry
+} from "../engine/history/patch-history";
+import { createEdgeGraph, type EdgeGraph } from "../engine/scene/edge-graph";
+import { RenderScheduler } from "../engine/render/render-scheduler";
+import { buildRenderModel, type RenderModel } from "../engine/render/render-model";
+import {
+  getDragTargetPositions,
+  hasExceededDragThreshold,
+  panFromPointer
+} from "../engine/interaction/interaction-engine";
+import {
+  getConnectionTargetHitRadius as getConnectionTargetHitRadiusCore,
+  getConnectionTargetSides as getConnectionTargetSidesCore,
+  getLaneOffset,
+  getNearestConnectionTargetCandidate,
+  resolveConnectionSide
+} from "../engine/connector/connector-engine";
 import { getBidirectionalPairPrimaryEdge } from "../features/editor/edge-bidirectional";
 import {
   computeLeafLabelCharacterLimit,
@@ -164,6 +194,8 @@ type EditorSnapshot = Readonly<{
   edges: readonly CanvasEdge[];
   mermaidSource: string;
 }>;
+
+type EditorHistoryEntry = PatchHistoryEntry<CanvasNode, CanvasEdge>;
 
 type EdgeDirection = "left-to-right" | "right-to-left" | "both";
 type NodePropertyField = Readonly<{
@@ -1761,9 +1793,9 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   private lastViewportCheckpointSignature = "";
   private lastPersistedSignature = "";
   private lastCanvasTopologySignature = "";
-  private history: EditorSnapshot[] = [];
-  private historySignatures: string[] = [];
+  private history: EditorHistoryEntry[] = [];
   private historyIndex = -1;
+  private lastHistorySnapshot: EditorSnapshot | null = null;
   private applyingHistory = false;
   private lastTrackedNodesRef: readonly CanvasNode[] = this.nodes;
   private lastTrackedEdgesRef: readonly CanvasEdge[] = this.edges;
@@ -1771,7 +1803,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   private lastTrackedArchitectureDescription = "";
   private lastTrackedMermaidDraft = this.mermaidDraft;
   private lastTrackedNodeIconSize = this.nodeIconSize;
-  private viewRenderFrame: number | null = null;
+  private readonly viewRenderScheduler: RenderScheduler;
   private pointerMoveFrame: number | null = null;
   private pendingPointerMoveEvent: PointerEvent | null = null;
   private readonly nodePropertyFieldsCache = new Map<ArchitectureNodeKind, readonly NodePropertyField[]>();
@@ -1779,16 +1811,10 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   private readonly codeLanguageBadgeCache = new Map<string, CodeLanguageBadgeCacheEntry>();
   private selectedNodeIdsSetSource: readonly string[] = this.selectedNodeIds;
   private selectedNodeIdsSetCache = new Set<string>(this.selectedNodeIds);
-  private nodeGraphCacheSource: readonly CanvasNode[] | null = null;
-  private readonly nodeByIdCache = new Map<string, CanvasNode>();
-  private readonly nodeIndexByIdCache = new Map<string, number>();
-  private readonly nodeChildrenByParentIdCache = new Map<string, readonly CanvasNode[]>();
-  private readonly nodeDescendantIdsCache = new Map<string, readonly string[]>();
-  private readonly nodeAbsolutePositionCache = new Map<string, Readonly<{ x: number; y: number }>>();
-  private readonly nodeHierarchyDepthCache = new Map<string, number>();
-  private readonly collapsedContainerAncestorCache = new Map<string, boolean>();
-  private readonly nearestCollapsedContainerAncestorCache = new Map<string, CanvasNode | null>();
-  private readonly openAncestorContainerIdsCache = new Map<string, readonly string[]>();
+  private sceneGraphSource: readonly CanvasNode[] | null = null;
+  private sceneGraph: SceneGraph<CanvasNode> | null = null;
+  private edgeGraphSource: readonly CanvasEdge[] | null = null;
+  private edgeGraph: EdgeGraph<CanvasEdge> | null = null;
   private readonly edgePathDataCache = new Map<string, EdgePathData | null>();
   private readonly edgePathStringCache = new Map<string, string>();
   private readonly edgeBidirectionalFlowPathCache = new Map<string, string>();
@@ -1802,6 +1828,8 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   private readonly edgeWorkerRoutePending = new Set<string>();
   private edgeWorkerRouteRevision = 0;
   private readonly nodeAbsoluteRectCache = new Map<string, CanvasRect>();
+  private spatialNodeIndexSource: readonly CanvasNode[] | null = null;
+  private spatialNodeIndex: UniformGridSpatialIndex<CanvasNode> | null = null;
   private readonly nodeStyleCache = new Map<string, Record<string, string | number>>();
   private readonly nodeClassCache = new Map<string, string>();
   private readonly miniMapNodeStyleCache = new Map<string, Record<string, string>>();
@@ -1814,6 +1842,9 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   private readonly renderableEdgeIdsCache = new Map<string, boolean>();
   private visibleCanvasRectCache: VisibleCanvasRect | null = null;
   private renderableCanvasRectCache: CanvasRect | null = null;
+  private renderModelSourceNodes: readonly CanvasNode[] | null = null;
+  private renderModelSourceEdges: readonly CanvasEdge[] | null = null;
+  private renderModelCache: RenderModel<CanvasNode, CanvasEdge> | null = null;
   private containerRenderableNodesCache: readonly CanvasNode[] | null = null;
   private leafRenderableNodesCache: readonly CanvasNode[] | null = null;
   private renderableEdgesCache: readonly CanvasEdge[] | null = null;
@@ -1837,6 +1868,9 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   constructor(
     private readonly changeDetectorRef: ChangeDetectorRef
   ) {
+    this.viewRenderScheduler = new RenderScheduler(() => {
+      this.changeDetectorRef.detectChanges();
+    });
     this.loadUiLanguagePreference();
     this.loadUiThemePreference();
     this.loadLeftPanelsVisibilityPreference();
@@ -1906,6 +1940,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.cancelPendingWindowPointerMove();
+    this.viewRenderScheduler.cancel();
     if (this.doubleClickHintInterval) {
       clearInterval(this.doubleClickHintInterval);
       this.doubleClickHintInterval = null;
@@ -1940,13 +1975,13 @@ export class AppComponent implements AfterViewInit, OnDestroy {
 
   get selectedNode(): CanvasNode | null {
     if (!this.selectedNodeId) return null;
-    const node = this.nodes.find((candidate) => candidate.id === this.selectedNodeId) ?? null;
+    const node = this.getNodeById(this.selectedNodeId);
     if (!node) return null;
     return this.isVisibleNode(node) ? node : null;
   }
 
   get selectedEdge(): CanvasEdge | null {
-    return this.edges.find((edge) => edge.id === this.selectedEdgeId) ?? null;
+    return this.getEdgeGraph().getEdge(this.selectedEdgeId);
   }
 
   get isDarkMode(): boolean {
@@ -3788,12 +3823,7 @@ LIMIT 50;`;
     }
 
     if (this.panState) {
-      const deltaX = event.clientX - this.panState.startPointer.x;
-      const deltaY = event.clientY - this.panState.startPointer.y;
-      this.canvasPan = {
-        x: this.panState.startPan.x + deltaX,
-        y: this.panState.startPan.y + deltaY
-      };
+      this.canvasPan = panFromPointer(this.panState, { x: event.clientX, y: event.clientY });
       this.markViewportNavigated();
       return;
     }
@@ -4136,20 +4166,7 @@ LIMIT 50;`;
   }
 
   private getNodeHierarchyDepth(node: CanvasNode): number {
-    this.ensureNodeGraphCaches();
-    const cached = this.nodeHierarchyDepthCache.get(node.id);
-    if (cached !== undefined) return cached;
-
-    let depth = 0;
-    let currentParentId = node.parentId;
-    while (currentParentId) {
-      const parent = this.getNodeById(currentParentId);
-      if (!parent) break;
-      depth += 1;
-      currentParentId = parent.parentId;
-    }
-    this.nodeHierarchyDepthCache.set(node.id, depth);
-    return depth;
+    return this.getSceneGraph().getHierarchyDepth(node);
   }
 
   getViewportStyle(): Record<string, string> {
@@ -4188,18 +4205,19 @@ LIMIT 50;`;
       }
 
       const visibleRect = this.getVisibleCanvasRect();
-      this.miniMapRenderableNodesCache = this.nodes.filter((node) => {
-        if (!this.isVisibleNode(node)) return false;
-        if (selectedIds.has(node.id)) return true;
-        if (this.rendersAsContainer(node)) return true;
-        const rect = this.getNodeAbsoluteRect(node);
-        return this.rectIntersectsCanvasRect(rect, {
-          x: visibleRect.left,
-          y: visibleRect.top,
-          width: visibleRect.width,
-          height: visibleRect.height
-        });
-      });
+      const viewportRect = {
+        x: visibleRect.left,
+        y: visibleRect.top,
+        width: visibleRect.width,
+        height: visibleRect.height
+      };
+      const viewportNodeIds = new Set(
+        this.getVisibleNodeSpatialIndex().query(viewportRect).map((entry) => entry.id)
+      );
+      this.miniMapRenderableNodesCache = this.nodes.filter((node) =>
+        this.isVisibleNode(node)
+        && (selectedIds.has(node.id) || this.rendersAsContainer(node) || viewportNodeIds.has(node.id))
+      );
       return this.miniMapRenderableNodesCache;
     }
 
@@ -4819,24 +4837,20 @@ LIMIT 50;`;
 
   getContainerRenderableNodes(): readonly CanvasNode[] {
     if (this.containerRenderableNodesCache) return this.containerRenderableNodesCache;
-    this.containerRenderableNodesCache = this.nodes.filter((node) =>
-      this.isContainerLayerNode(node) && this.isRenderableNode(node)
-    );
+    this.containerRenderableNodesCache = this.getRenderModel().containerNodes;
     return this.containerRenderableNodesCache;
   }
 
   getLeafRenderableNodes(): readonly CanvasNode[] {
     if (this.leafRenderableNodesCache) return this.leafRenderableNodesCache;
-    this.leafRenderableNodesCache = this.nodes.filter((node) =>
-      this.isLeafLayerNode(node) && this.isRenderableNode(node)
-    );
+    this.leafRenderableNodesCache = this.getRenderModel().leafNodes;
     return this.leafRenderableNodesCache;
   }
 
   getRenderableEdges(): readonly CanvasEdge[] {
     if (this.isEdgeRenderingSuspended()) return EMPTY_CANVAS_EDGES;
     if (this.renderableEdgesCache) return this.renderableEdgesCache;
-    this.renderableEdgesCache = this.edges.filter((edge) => this.isRenderableEdge(edge));
+    this.renderableEdgesCache = this.getRenderModel().edges;
     return this.renderableEdgesCache;
   }
 
@@ -5299,6 +5313,59 @@ LIMIT 50;`;
     };
     this.nodeAbsoluteRectCache.set(node.id, rect);
     return rect;
+  }
+
+  private getVisibleNodeSpatialIndex(): UniformGridSpatialIndex<CanvasNode> {
+    if (this.spatialNodeIndex && this.spatialNodeIndexSource === this.nodes) {
+      return this.spatialNodeIndex;
+    }
+
+    const entries = this.nodes
+      .filter((node) => this.isVisibleNode(node))
+      .map((node) => ({
+        id: node.id,
+        rect: this.getNodeAbsoluteRect(node),
+        value: node
+      }));
+
+    this.spatialNodeIndexSource = this.nodes;
+    this.spatialNodeIndex = createSpatialIndex(entries);
+    return this.spatialNodeIndex;
+  }
+
+  private getRenderableSpatialNodes(): readonly CanvasNode[] {
+    if (this.renderAllCanvasForExport) {
+      return this.nodes.filter((node) => this.isVisibleNode(node));
+    }
+
+    const queriedNodes = this.getVisibleNodeSpatialIndex()
+      .query(this.getRenderableCanvasRect())
+      .map((entry) => entry.value);
+
+    return queriedNodes.sort(
+      (a, b) => this.getNodeIndexById(a.id) - this.getNodeIndexById(b.id)
+    );
+  }
+
+  private getRenderModel(): RenderModel<CanvasNode, CanvasEdge> {
+    if (
+      this.renderModelCache
+      && this.renderModelSourceNodes === this.nodes
+      && this.renderModelSourceEdges === this.edges
+    ) {
+      return this.renderModelCache;
+    }
+
+    this.renderModelSourceNodes = this.nodes;
+    this.renderModelSourceEdges = this.edges;
+    this.renderModelCache = buildRenderModel(
+      this.getRenderableSpatialNodes(),
+      this.isEdgeRenderingSuspended()
+        ? EMPTY_CANVAS_EDGES
+        : this.edges.filter((edge) => this.isRenderableEdge(edge)),
+      (node) => this.isContainerLayerNode(node)
+    );
+    return this.renderModelCache;
   }
 
   getConnectionPreviewPath(): string {
@@ -7075,48 +7142,11 @@ apiKeys:
   }
 
   private hasCollapsedContainerAncestor(node: CanvasNode): boolean {
-    this.ensureNodeGraphCaches();
-    const cached = this.collapsedContainerAncestorCache.get(node.id);
-    if (cached !== undefined) return cached;
-
-    let currentParentId = node.parentId;
-    while (currentParentId) {
-      const parent = this.getNodeById(currentParentId);
-      if (!parent) {
-        this.collapsedContainerAncestorCache.set(node.id, false);
-        return false;
-      }
-      if (this.isContainerCollapsed(parent)) {
-        this.collapsedContainerAncestorCache.set(node.id, true);
-        return true;
-      }
-      currentParentId = parent.parentId;
-    }
-    this.collapsedContainerAncestorCache.set(node.id, false);
-    return false;
+    return this.getSceneGraph().hasCollapsedContainerAncestor(node);
   }
 
   private getNearestCollapsedContainerAncestor(node: CanvasNode): CanvasNode | null {
-    this.ensureNodeGraphCaches();
-    if (this.nearestCollapsedContainerAncestorCache.has(node.id)) {
-      return this.nearestCollapsedContainerAncestorCache.get(node.id) ?? null;
-    }
-
-    let currentParentId = node.parentId;
-    while (currentParentId) {
-      const parent = this.getNodeById(currentParentId);
-      if (!parent) {
-        this.nearestCollapsedContainerAncestorCache.set(node.id, null);
-        return null;
-      }
-      if (this.isContainerCollapsed(parent)) {
-        this.nearestCollapsedContainerAncestorCache.set(node.id, parent);
-        return parent;
-      }
-      currentParentId = parent.parentId;
-    }
-    this.nearestCollapsedContainerAncestorCache.set(node.id, null);
-    return null;
+    return this.getSceneGraph().getNearestCollapsedContainerAncestor(node);
   }
 
   private getVisibleCollapsedContainerRepresentative(node: CanvasNode): CanvasNode | null {
@@ -7211,13 +7241,10 @@ apiKeys:
 
   private moveSelectedNodes(pointerPoint: Readonly<{ x: number; y: number }>): void {
     if (!this.dragState) return;
-    const targetById = new Map<string, Readonly<{ x: number; y: number }>>();
-    for (const [nodeId, offset] of this.dragState.pointerOffsets) {
-      targetById.set(nodeId, {
-        x: pointerPoint.x - offset.x,
-        y: pointerPoint.y - offset.y
-      });
-    }
+    const targetById = getDragTargetPositions(
+      pointerPoint,
+      Array.from(this.dragState.pointerOffsets, ([nodeId, offset]) => ({ nodeId, offset }))
+    );
 
     const nextNodes = [...this.nodes];
     let hasChanged = false;
@@ -7256,9 +7283,7 @@ apiKeys:
     startPoint: Readonly<{ x: number; y: number }>,
     point: Readonly<{ x: number; y: number }>
   ): boolean {
-    const deltaX = point.x - startPoint.x;
-    const deltaY = point.y - startPoint.y;
-    return Math.hypot(deltaX, deltaY) >= DRAG_START_THRESHOLD;
+    return hasExceededDragThreshold(startPoint, point, DRAG_START_THRESHOLD);
   }
 
   private getEdgeGeometry(
@@ -7974,27 +7999,16 @@ apiKeys:
   }
 
   private getOpenAncestorContainerIds(nodeId: string): readonly string[] {
-    this.ensureNodeGraphCaches();
-    const cached = this.openAncestorContainerIdsCache.get(nodeId);
-    if (cached) return cached;
-
-    const ids: string[] = [];
-    let currentParentId = this.getNodeById(nodeId)?.parentId;
-    while (currentParentId) {
-      const parent = this.getNodeById(currentParentId);
-      if (!parent) break;
-      if (this.rendersAsContainer(parent)) ids.push(parent.id);
-      currentParentId = parent.parentId;
-    }
-    this.openAncestorContainerIdsCache.set(nodeId, ids);
-    return ids;
+    return this.getSceneGraph().getOpenAncestorContainerIds(nodeId);
   }
 
   private getDeepestVisibleContainerAtPoint(
     point: Readonly<{ x: number; y: number }>
   ): CanvasNode | null {
-    const candidates = this.nodes
-      .filter((node) => this.rendersAsContainer(node) && this.isVisibleNode(node))
+    const candidates = this.getVisibleNodeSpatialIndex()
+      .queryPoint(point)
+      .map((entry) => entry.value)
+      .filter((node) => this.rendersAsContainer(node))
       .filter((node) => this.containsPoint(node, point))
       .sort((left, right) => {
         const depthDiff = this.getNodeHierarchyDepth(right) - this.getNodeHierarchyDepth(left);
@@ -8546,8 +8560,11 @@ apiKeys:
       y: position.y + size.height / 2
     };
 
-    return nodes
-      .filter((node) => this.isVisibleNode(node) && this.rendersAsContainer(node))
+    const allowedIds = new Set(nodes.map((node) => node.id));
+    return this.getVisibleNodeSpatialIndex()
+      .queryPoint(center)
+      .map((entry) => entry.value)
+      .filter((node) => allowedIds.has(node.id) && this.rendersAsContainer(node))
       .filter((node) => this.containsPoint(node, center))
       .sort((a, b) => this.area(a.size) - this.area(b.size))[0] ?? null;
   }
@@ -8556,8 +8573,11 @@ apiKeys:
     point: Readonly<{ x: number; y: number }>,
     nodes: readonly CanvasNode[]
   ): CanvasNode | null {
-    return nodes
-      .filter((node) => this.isVisibleNode(node) && this.rendersAsContainer(node))
+    const allowedIds = new Set(nodes.map((node) => node.id));
+    return this.getVisibleNodeSpatialIndex()
+      .queryPoint(point)
+      .map((entry) => entry.value)
+      .filter((node) => allowedIds.has(node.id) && this.rendersAsContainer(node))
       .filter((node) => this.containsPoint(node, point))
       .sort((a, b) => this.area(a.size) - this.area(b.size))[0] ?? null;
   }
@@ -8679,27 +8699,7 @@ apiKeys:
   }
 
   private getAbsolutePosition(node: CanvasNode): Readonly<{ x: number; y: number }> {
-    this.ensureNodeGraphCaches();
-    const cached = this.nodeAbsolutePositionCache.get(node.id);
-    if (cached) return cached;
-
-    if (!node.parentId) {
-      this.nodeAbsolutePositionCache.set(node.id, node.position);
-      return node.position;
-    }
-
-    const parent = this.getNodeById(node.parentId);
-    if (!parent) {
-      this.nodeAbsolutePositionCache.set(node.id, node.position);
-      return node.position;
-    }
-    const parentPosition = this.getAbsolutePosition(parent);
-    const position = {
-      x: parentPosition.x + node.position.x,
-      y: parentPosition.y + node.position.y
-    };
-    this.nodeAbsolutePositionCache.set(node.id, position);
-    return position;
+    return this.getSceneGraph().getAbsolutePosition(node);
   }
 
   private getNodeCenter(node: CanvasNode): Readonly<{ x: number; y: number }> {
@@ -8711,23 +8711,7 @@ apiKeys:
   }
 
   private getDescendantIds(nodeId: string): readonly string[] {
-    this.ensureNodeGraphCaches();
-    const cached = this.nodeDescendantIdsCache.get(nodeId);
-    if (cached) return cached;
-
-    const descendants: string[] = [];
-    const stack = [...this.getNodeChildren(nodeId)];
-    while (stack.length > 0) {
-      const current = stack.pop();
-      if (!current) continue;
-      descendants.push(current.id);
-      const children = this.getNodeChildren(current.id);
-      for (const child of children) {
-        stack.push(child);
-      }
-    }
-    this.nodeDescendantIdsCache.set(nodeId, descendants);
-    return descendants;
+    return this.getSceneGraph().getDescendantIds(nodeId);
   }
 
   private nextNodePosition(): Readonly<{ x: number; y: number }> {
@@ -8748,23 +8732,27 @@ apiKeys:
 
   private toCanvasPoint(event: Pick<MouseEvent, "clientX" | "clientY">): Readonly<{ x: number; y: number }> {
     const rect = this.canvasShell?.nativeElement.getBoundingClientRect();
-    return {
-      x: (event.clientX - (rect?.left ?? 0) - this.canvasPan.x) / this.canvasZoom,
-      y: (event.clientY - (rect?.top ?? 0) - this.canvasPan.y) / this.canvasZoom
-    };
+    return screenToWorld(
+      { zoom: this.canvasZoom, pan: this.canvasPan },
+      { x: rect?.left ?? 0, y: rect?.top ?? 0 },
+      { x: event.clientX, y: event.clientY }
+    );
   }
 
   private getVisibleCanvasRect(): VisibleCanvasRect {
     if (this.visibleCanvasRectCache) return this.visibleCanvasRectCache;
 
     const rect = this.canvasShell?.nativeElement.getBoundingClientRect();
-    const width = Math.max(320, (rect?.width ?? 960) / this.canvasZoom);
-    const height = Math.max(220, (rect?.height ?? 640) / this.canvasZoom);
+    const visible = getVisibleWorldRect(
+      { zoom: this.canvasZoom, pan: this.canvasPan },
+      { width: rect?.width ?? 960, height: rect?.height ?? 640 },
+      { width: 320, height: 220 }
+    );
     this.visibleCanvasRectCache = {
-      left: -this.canvasPan.x / this.canvasZoom,
-      top: -this.canvasPan.y / this.canvasZoom,
-      width,
-      height
+      left: visible.x,
+      top: visible.y,
+      width: visible.width,
+      height: visible.height
     };
     return this.visibleCanvasRectCache;
   }
@@ -8867,12 +8855,14 @@ apiKeys:
       return;
     }
 
-    const canvasPoint = this.toCanvasPoint(viewportPoint);
-    this.canvasZoom = nextZoom;
-    this.canvasPan = {
-      x: viewportPoint.clientX - rect.left - canvasPoint.x * nextZoom,
-      y: viewportPoint.clientY - rect.top - canvasPoint.y * nextZoom
-    };
+    const nextCamera = zoomCameraAtScreenPoint(
+      { zoom: this.canvasZoom, pan: this.canvasPan },
+      nextZoom,
+      { x: rect.left, y: rect.top },
+      { x: viewportPoint.clientX, y: viewportPoint.clientY }
+    );
+    this.canvasZoom = nextCamera.zoom;
+    this.canvasPan = nextCamera.pan;
     this.markViewportNavigated();
   }
 
@@ -8933,23 +8923,7 @@ apiKeys:
     target: Readonly<{ x: number; y: number }>,
     role: "source" | "target"
   ): "left" | "right" | "top" | "bottom" {
-    const center = this.getNodeCenter(node);
-    const dx = target.x - center.x;
-    const dy = target.y - center.y;
-
-    // Default canvas flow is LR: non-omni nodes connect only through left/right.
-    if (!this.hasOmniConnectionPorts(node)) {
-      if (Math.abs(dx) < 0.001) return role === "source" ? "right" : "left";
-      return dx >= 0 ? "right" : "left";
-    }
-
-    if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) {
-      return role === "source" ? "right" : "left";
-    }
-    if (Math.abs(dx) >= Math.abs(dy)) {
-      return dx >= 0 ? "right" : "left";
-    }
-    return dy >= 0 ? "bottom" : "top";
+    return resolveConnectionSide(this.toConnectorNode(node), target, role);
   }
 
   private getConnectionSide(
@@ -8958,18 +8932,19 @@ apiKeys:
     role: "source" | "target",
     preferredSide?: ArchitectureEdgePortSide
   ): ArchitectureEdgePortSide {
-    if (preferredSide) {
-      if (!this.hasOmniConnectionPorts(node) && (preferredSide === "top" || preferredSide === "bottom")) {
-        return role === "source" ? "right" : "left";
-      }
-      return preferredSide;
-    }
+    return resolveConnectionSide(this.toConnectorNode(node), target, role, preferredSide);
+  }
 
-    const inferred = this.getNodeConnectionSideTowardPoint(node, target, role);
-    if (!this.hasOmniConnectionPorts(node) && (inferred === "top" || inferred === "bottom")) {
-      return role === "source" ? "right" : "left";
-    }
-    return inferred;
+  private toConnectorNode(node: CanvasNode): Readonly<{
+    id: string;
+    center: Readonly<{ x: number; y: number }>;
+    hasOmniPorts: boolean;
+  }> {
+    return {
+      id: node.id,
+      center: this.getNodeCenter(node),
+      hasOmniPorts: this.hasOmniConnectionPorts(node)
+    };
   }
 
   private getEdgeSideLaneOffset(
@@ -8990,17 +8965,11 @@ apiKeys:
       return 0;
     }
 
-    const laneGap = STRICT_PORT_ANCHORING
-      ? EDGE_SHARED_ANCHOR_MIN_GAP
-      : EDGE_SIDE_LANE_GAP;
-    const laneMaxOffset = STRICT_PORT_ANCHORING
-      ? Math.max(EDGE_SIDE_LANE_MAX_OFFSET, ((ids.length - 1) * laneGap) / 2)
-      : EDGE_SIDE_LANE_MAX_OFFSET;
-    const centeredIndex = currentIndex - (ids.length - 1) / 2;
-    const offset = Math.max(
-      -laneMaxOffset,
-      Math.min(laneMaxOffset, centeredIndex * laneGap)
-    );
+    const offset = getLaneOffset(ids, edge.id, {
+      laneGap: STRICT_PORT_ANCHORING ? EDGE_SHARED_ANCHOR_MIN_GAP : EDGE_SIDE_LANE_GAP,
+      laneMaxOffset: EDGE_SIDE_LANE_MAX_OFFSET,
+      strictPortAnchoring: STRICT_PORT_ANCHORING
+    });
     this.edgeSideLaneOffsetCache.set(cacheKey, offset);
     return offset;
   }
@@ -9224,17 +9193,7 @@ apiKeys:
 
   private getNodeIdsInMarquee(marquee: MarqueeState): readonly string[] {
     const selectionRect = this.normalizeRect(marquee.start, marquee.current);
-    if (selectionRect.width < 2 && selectionRect.height < 2) return [];
-
-    return this.nodes
-      .filter((node) => {
-        const position = this.getAbsolutePosition(node);
-        return this.rectsIntersect(
-          selectionRect,
-          { x: position.x, y: position.y, width: node.size.width, height: node.size.height }
-        );
-      })
-      .map((node) => node.id);
+    return selectIdsInRect(this.getVisibleNodeSpatialIndex(), selectionRect);
   }
 
   private normalizeRect(
@@ -9255,12 +9214,7 @@ apiKeys:
     left: Readonly<{ x: number; y: number; width: number; height: number }>,
     right: Readonly<{ x: number; y: number; width: number; height: number }>
   ): boolean {
-    return (
-      left.x < right.x + right.width &&
-      left.x + left.width > right.x &&
-      left.y < right.y + right.height &&
-      left.y + left.height > right.y
-    );
+    return rectsIntersect(left, right);
   }
 
   private normalizeMermaidError(cause: unknown): string {
@@ -9409,10 +9363,7 @@ apiKeys:
       return;
     }
 
-    const pairEdges = this.edges.filter((edge) =>
-      (edge.from === from && edge.to === to)
-      || (edge.from === to && edge.to === from)
-    );
+    const pairEdges = this.getEdgeGraph().getPairEdges(from, to);
     if (pairEdges.length > 0) {
       const pairPrimaryEdge = getBidirectionalPairPrimaryEdge(pairEdges, from, to);
       if (pairPrimaryEdge) {
@@ -9462,8 +9413,21 @@ apiKeys:
     sourceNodeId: string
   ): ConnectionTarget | null {
     let best: ConnectionTargetCandidate | null = null;
-    best = this.findConnectionTargetInNodes(this.getLeafRenderableNodes(), point, sourceNodeId, best);
-    best = this.findConnectionTargetInNodes(this.getContainerRenderableNodes(), point, sourceNodeId, best);
+    const hitSearchRadius = 120;
+    const candidates = this.getVisibleNodeSpatialIndex()
+      .query({
+        x: point.x - hitSearchRadius,
+        y: point.y - hitSearchRadius,
+        width: hitSearchRadius * 2,
+        height: hitSearchRadius * 2
+      })
+      .map((entry) => entry.value)
+      .sort((a, b) => {
+        const layerDiff = Number(this.rendersAsContainer(a)) - Number(this.rendersAsContainer(b));
+        if (layerDiff !== 0) return layerDiff;
+        return this.getNodeIndexById(a.id) - this.getNodeIndexById(b.id);
+      });
+    best = this.findConnectionTargetInNodes(candidates, point, sourceNodeId, best);
     return best ? { nodeId: best.nodeId, targetPort: best.targetPort } : null;
   }
 
@@ -9495,32 +9459,25 @@ apiKeys:
     node: CanvasNode,
     point: Readonly<{ x: number; y: number }>
   ): ConnectionTargetCandidate | null {
-    const hitRadius = this.getConnectionTargetHitRadius(node);
-    let best: ConnectionTargetCandidate | null = null;
-    for (const targetPort of this.getConnectionTargetSides(node)) {
-      const anchor = this.getNodePortAnchor(node, targetPort, 0);
-      const distance = Math.hypot(point.x - anchor.x, point.y - anchor.y);
-      if (distance > hitRadius) continue;
-      if (!best || distance < best.distance) {
-        best = { nodeId: node.id, targetPort, distance };
-      }
-    }
-    return best;
+    return getNearestConnectionTargetCandidate(
+      node.id,
+      point,
+      this.getConnectionTargetSides(node),
+      this.getConnectionTargetHitRadius(node),
+      (targetPort) => this.getNodePortAnchor(node, targetPort, 0)
+    );
   }
 
   private getConnectionTargetSides(node: CanvasNode): readonly ArchitectureEdgePortSide[] {
-    return this.hasOmniConnectionPorts(node)
-      ? ["top", "right", "bottom", "left"]
-      : ["left"];
+    return getConnectionTargetSidesCore(this.hasOmniConnectionPorts(node));
   }
 
   private getConnectionTargetHitRadius(node: CanvasNode): number {
     const metrics = computeNodePortMetrics(node.size, NODE_PORT_METRICS_LIMITS);
-    const screenMinimum = 28 / Math.max(this.canvasZoom, 0.2);
     const portRadius = this.hasOmniConnectionPorts(node)
       ? Math.max(metrics.omniSize, metrics.hitWidth)
       : metrics.hitWidth;
-    return Math.min(96, Math.max(screenMinimum, portRadius));
+    return getConnectionTargetHitRadiusCore(portRadius, this.canvasZoom);
   }
 
   private isSameConnectionTarget(first: ConnectionTarget | null, second: ConnectionTarget | null): boolean {
@@ -9596,7 +9553,9 @@ apiKeys:
   }
 
   private isPointInsideAnyVisibleContainer(point: Readonly<{ x: number; y: number }>): boolean {
-    return this.nodes.some((node) => this.rendersAsContainer(node) && this.isVisibleNode(node) && this.containsPoint(node, point));
+    return this.getVisibleNodeSpatialIndex()
+      .queryPoint(point)
+      .some((entry) => this.rendersAsContainer(entry.value) && this.containsPoint(entry.value, point));
   }
 
   private isForbiddenContainerHierarchyConnection(fromNode: CanvasNode, toNode: CanvasNode): boolean {
@@ -10094,9 +10053,19 @@ apiKeys:
   private resetHistory(): void {
     const snapshot = this.captureSnapshot();
     const signature = this.snapshotSignature(snapshot);
-    this.history = [snapshot];
-    this.historySignatures = [signature];
+    this.history = [{
+      forward: {
+        nodes: { upsert: [], remove: [], order: snapshot.nodes.map((node) => node.id) },
+        edges: { upsert: [], remove: [], order: snapshot.edges.map((edge) => edge.id) }
+      },
+      backward: {
+        nodes: { upsert: [], remove: [], order: snapshot.nodes.map((node) => node.id) },
+        edges: { upsert: [], remove: [], order: snapshot.edges.map((edge) => edge.id) }
+      },
+      signature
+    }];
     this.historyIndex = 0;
+    this.lastHistorySnapshot = snapshot;
   }
 
   private captureSnapshot(): EditorSnapshot {
@@ -10116,34 +10085,52 @@ apiKeys:
     return JSON.stringify(snapshot);
   }
 
+  private nodeHistorySignature(node: CanvasNode): string {
+    return JSON.stringify(node);
+  }
+
+  private edgeHistorySignature(edge: CanvasEdge): string {
+    return JSON.stringify(edge);
+  }
+
   private recordHistory(): void {
     if (!this.architecture || this.applyingHistory) return;
+    const previousSnapshot = this.lastHistorySnapshot;
+    if (!previousSnapshot) {
+      this.resetHistory();
+      return;
+    }
     const snapshot = this.captureSnapshot();
     const signature = this.snapshotSignature(snapshot);
-    const currentSignature = this.historySignatures[this.historyIndex];
+    const currentSignature = this.history[this.historyIndex]?.signature;
     if (currentSignature === signature) return;
 
-    if (this.historyIndex < this.history.length - 1) {
-      this.history = this.history.slice(0, this.historyIndex + 1);
-      this.historySignatures = this.historySignatures.slice(0, this.historyIndex + 1);
-    }
-
-    this.history = [...this.history, snapshot];
-    this.historySignatures = [...this.historySignatures, signature];
-    if (this.history.length > MAX_UNDO_HISTORY) {
-      const trimStart = this.history.length - MAX_UNDO_HISTORY;
-      this.history = this.history.slice(trimStart);
-      this.historySignatures = this.historySignatures.slice(trimStart);
-    }
-    this.historyIndex = this.history.length - 1;
+    const entry = createHistoryEntry(
+      previousSnapshot,
+      snapshot,
+      signature,
+      (node) => this.nodeHistorySignature(node),
+      (edge) => this.edgeHistorySignature(edge)
+    );
+    const nextHistory = pushHistoryEntry(
+      { entries: this.history, index: this.historyIndex },
+      entry,
+      MAX_UNDO_HISTORY
+    );
+    this.history = [...nextHistory.entries];
+    this.historyIndex = nextHistory.index;
+    this.lastHistorySnapshot = snapshot;
   }
 
   private undoLastChange(): void {
     if (!this.architecture || this.historyIndex <= 0) return;
-    const previous = this.history[this.historyIndex - 1];
-    if (!previous) return;
+    const currentEntry = this.history[this.historyIndex];
+    const currentSnapshot = this.lastHistorySnapshot;
+    if (!currentEntry || !currentSnapshot) return;
+    const previous = applyDocumentPatch(currentSnapshot, currentEntry.backward);
 
     this.historyIndex -= 1;
+    this.lastHistorySnapshot = previous;
     this.applyingHistory = true;
     try {
       this.architecture = {
@@ -11568,79 +11555,60 @@ spec:
   }
 
   private getNodeById(nodeId: string): CanvasNode | null {
-    this.ensureNodeGraphCaches();
-    return this.nodeByIdCache.get(nodeId) ?? null;
+    return this.getSceneGraph().getNode(nodeId);
+  }
+
+  private getSceneGraph(): SceneGraph<CanvasNode> {
+    if (this.sceneGraph && this.sceneGraphSource === this.nodes) {
+      return this.sceneGraph;
+    }
+
+    this.sceneGraphSource = this.nodes;
+    this.sceneGraph = createSceneGraph(this.nodes, {
+      isCollapsedContainer: (node) => this.isContainerCollapsed(node),
+      rendersAsContainer: (node) => this.rendersAsContainer(node)
+    });
+    return this.sceneGraph;
+  }
+
+  private getEdgeGraph(): EdgeGraph<CanvasEdge> {
+    if (this.edgeGraph && this.edgeGraphSource === this.edges) {
+      return this.edgeGraph;
+    }
+
+    this.edgeGraphSource = this.edges;
+    this.edgeGraph = createEdgeGraph(this.edges);
+    return this.edgeGraph;
   }
 
   private ensureNodeGraphCaches(): void {
-    if (this.nodeGraphCacheSource === this.nodes) return;
-    this.rebuildNodeGraphCaches();
-  }
-
-  private rebuildNodeGraphCaches(): void {
-    this.nodeGraphCacheSource = this.nodes;
-    this.nodeByIdCache.clear();
-    this.nodeIndexByIdCache.clear();
-    this.nodeChildrenByParentIdCache.clear();
-    const mutableChildrenByParentId = new Map<string, CanvasNode[]>();
-    this.clearNodeGraphDerivedCaches();
-    for (const [index, node] of this.nodes.entries()) {
-      this.nodeByIdCache.set(node.id, node);
-      this.nodeIndexByIdCache.set(node.id, index);
-      if (!node.parentId) continue;
-      const currentChildren = mutableChildrenByParentId.get(node.parentId) ?? [];
-      currentChildren.push(node);
-      mutableChildrenByParentId.set(node.parentId, currentChildren);
-    }
-    for (const [parentId, children] of mutableChildrenByParentId.entries()) {
-      this.nodeChildrenByParentIdCache.set(parentId, children);
-    }
+    this.getSceneGraph();
   }
 
   private syncNodeGraphCachesAfterNodeReplacements(
-    nextNodes: readonly CanvasNode[],
-    changedNodeIds: readonly string[]
+    nextNodes: CanvasNode[],
+    _changedNodeIds: readonly string[]
   ): void {
-    if (this.nodeGraphCacheSource === null || this.nodeIndexByIdCache.size === 0) {
-      this.clearNodeGraphCaches();
-      return;
-    }
-
-    this.nodeGraphCacheSource = nextNodes;
-    for (const nodeId of changedNodeIds) {
-      const index = this.nodeIndexByIdCache.get(nodeId);
-      if (index === undefined) continue;
-      const node = nextNodes[index];
-      if (!node) continue;
-      this.nodeByIdCache.set(nodeId, node);
-    }
+    this.sceneGraphSource = null;
+    this.sceneGraph = null;
+    this.nodes = nextNodes;
   }
 
   private clearNodeGraphCaches(): void {
-    this.nodeGraphCacheSource = null;
-    this.nodeByIdCache.clear();
-    this.nodeIndexByIdCache.clear();
-    this.nodeChildrenByParentIdCache.clear();
-    this.clearNodeGraphDerivedCaches();
+    this.sceneGraphSource = null;
+    this.sceneGraph = null;
   }
 
   private getNodeIndexById(nodeId: string): number {
-    this.ensureNodeGraphCaches();
-    return this.nodeIndexByIdCache.get(nodeId) ?? -1;
+    return this.getSceneGraph().getIndex(nodeId);
   }
 
   private clearNodeGraphDerivedCaches(): void {
-    this.nodeAbsolutePositionCache.clear();
-    this.nodeHierarchyDepthCache.clear();
-    this.collapsedContainerAncestorCache.clear();
-    this.nearestCollapsedContainerAncestorCache.clear();
-    this.openAncestorContainerIdsCache.clear();
-    this.nodeDescendantIdsCache.clear();
+    this.clearNodeGraphCaches();
   }
 
   private getNodeChildren(parentId: string): readonly CanvasNode[] {
-    this.ensureNodeGraphCaches();
-    return this.nodeChildrenByParentIdCache.get(parentId) ?? [];
+    return this.getSceneGraph().getChildren(parentId);
   }
 
   private isContainerPlusLikeKind(kind: ArchitectureNodeKind): boolean {
@@ -11779,6 +11747,7 @@ spec:
     this.renderableEdgeIdsCache.clear();
     this.visibleCanvasRectCache = null;
     this.renderableCanvasRectCache = null;
+    this.renderModelCache = null;
     this.containerRenderableNodesCache = null;
     this.leafRenderableNodesCache = null;
     this.renderableEdgesCache = null;
@@ -11808,6 +11777,7 @@ spec:
     this.renderableEdgeIdsCache.clear();
     this.visibleCanvasRectCache = null;
     this.renderableCanvasRectCache = null;
+    this.renderModelCache = null;
     this.containerRenderableNodesCache = null;
     this.leafRenderableNodesCache = null;
     this.renderableEdgesCache = null;
@@ -11891,6 +11861,7 @@ spec:
   }
 
   private clearMovedNodeRenderCaches(changedNodeIds: readonly string[]): void {
+    this.renderModelCache = null;
     const affectedNodeIds = new Set<string>();
     for (const nodeId of changedNodeIds) {
       affectedNodeIds.add(nodeId);
@@ -11900,7 +11871,6 @@ spec:
     }
 
     for (const nodeId of affectedNodeIds) {
-      this.nodeAbsolutePositionCache.delete(nodeId);
       this.nodeAbsoluteRectCache.delete(nodeId);
       this.nodeStyleCache.delete(nodeId);
       this.miniMapNodeStyleCache.delete(nodeId);
@@ -11912,7 +11882,7 @@ spec:
     if (changedNodeIds.length === 0) return;
     const replacements = new Map<string, CanvasNode>();
     for (const nodeId of changedNodeIds) {
-      const node = this.nodeByIdCache.get(nodeId);
+      const node = this.getNodeById(nodeId);
       if (node) replacements.set(nodeId, node);
     }
     if (replacements.size === 0) return;
@@ -11976,6 +11946,7 @@ spec:
     this.renderableEdgeIdsCache.clear();
     this.visibleCanvasRectCache = null;
     this.renderableCanvasRectCache = null;
+    this.renderModelCache = null;
     this.containerRenderableNodesCache = null;
     this.leafRenderableNodesCache = null;
     this.renderableEdgesCache = null;
@@ -12000,6 +11971,7 @@ spec:
     this.miniMapRenderableNodesCache = null;
     this.visibleCanvasRectCache = null;
     this.renderableCanvasRectCache = null;
+    this.renderModelCache = null;
     this.containerRenderableNodesCache = null;
     this.leafRenderableNodesCache = null;
     this.renderableEdgesCache = null;
@@ -12130,10 +12102,6 @@ spec:
   }
 
   private requestViewRender(): void {
-    if (this.viewRenderFrame !== null) return;
-    this.viewRenderFrame = requestAnimationFrame(() => {
-      this.viewRenderFrame = null;
-      this.changeDetectorRef.detectChanges();
-    });
+    this.viewRenderScheduler.request();
   }
 }

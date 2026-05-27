@@ -60,6 +60,7 @@ Ele combina modelagem visual por drag and drop com interoperabilidade de formato
 - Checkpoint automático de viewport por arquivo (zoom + posição do canvas), retomando no mesmo ponto após recarregar ou reabrir o navegador.
 - Navegação do canvas por gesto de dois dedos no touchpad, mantendo `Ctrl/Command + scroll` para zoom.
 - Pan, zoom e preview de conexão preservam caches de rotas, paths SVG, labels, retângulos, estilos e identidade das listas do canvas, com renderização limitada à área visível e persistência agrupada durante navegação para reduzir travamentos em diagramas densos.
+- A engine do editor possui módulos puros para câmera, interaction engine, connector engine, render model, scene graph, geometria espacial, seleção, edge graph, agendamento de render e histórico por patches; culling de nós, seleção por marquee, alvo de conexão e consultas locais usam índices dedicados para evitar varreduras completas do board em interações críticas.
 - Estilos de viewport/camada de arestas e retângulo visível do canvas são cacheados entre frames, evitando novas alocações e leituras de layout repetidas durante navegação.
 - Culling de viewport e redução de detalhes visuais são adaptativos durante navegação/interação (pan, drag, resize e mini map), reduzindo custo de render em boards densos e mantendo o fluxo funcional.
 - Durante navegação contínua em diagramas densos (pan/zoom/minimap), o render de arestas entra em janela curta de alívio e o minimap prioriza containers/seleção para manter fluidez sem perder orientação.
@@ -131,12 +132,24 @@ A ordem dos módulos preserva o cascade anterior.
 
 ## Estrutura de código (editor)
 
-Para reduzir complexidade do frontend, a lógica do editor vem sendo extraída para módulos puros em `apps/web/src/features/editor/`.
+Para reduzir complexidade do frontend, a lógica do editor vem sendo extraída para módulos puros em `apps/web/src/features/editor/` e boundaries de engine em `apps/web/src/engine/`.
 
 Exemplo recente:
 
 - `node-layout.ts`: concentra cálculos puros de layout (métricas de portas, tamanho dinâmico de ícone minimizado e truncamento de labels minimizadas).
 - `node-layout.test.ts`: cobre os comportamentos principais dessa lógica para proteger contra regressão.
+- `engine/camera/camera.ts`: concentra transformações de câmera, conversão tela-mundo e zoom ancorado no cursor.
+- `engine/scene/scene-graph.ts`: concentra hierarquia, filhos, descendentes, posição absoluta, profundidade e ancestrais colapsados/abertos.
+- `engine/scene/edge-graph.ts`: indexa arestas por id e por par de nós para reduzir buscas em operações de conexão.
+- `engine/interaction/interaction-engine.ts`: concentra cálculos puros de pan, threshold de drag e posições alvo durante movimentação.
+- `engine/connector/connector-engine.ts`: concentra resolução de lado de conexão, hit radius, alvo de porta e lane offset.
+- `engine/render/render-model.ts`: separa o modelo renderizável em camadas de containers, folhas e arestas, preparando a transição para Canvas 2D em modo denso.
+- `engine/spatial/spatial-index.ts`: indexa retângulos de nós visíveis para consultas de viewport, ponto e área sem percorrer todos os elementos.
+- `engine/selection/selection-system.ts`: seleciona nós por retângulo usando o índice espacial, preservando o comportamento de marquee existente.
+- `engine/render/render-scheduler.ts`: concentra o loop `requestAnimationFrame` da view e coalesce múltiplos pedidos de render em um frame.
+- `engine/history/patch-history.ts`: registra undo com patches forward/backward em vez de manter snapshots completos em cada entrada do histórico.
+
+O roadmap incremental da engine fica em `docs/engine-roadmap.md`.
 
 URLs padrão:
 
