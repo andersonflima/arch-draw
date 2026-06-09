@@ -5,10 +5,6 @@
 @import "./base/04-theme-dark.css";
 @import "./base/05-responsive.css";
 
-.node-port {
-  z-index: 6;
-}
-
 .architecture-node--leaf {
   grid-template-columns: minmax(0, 1fr);
 }

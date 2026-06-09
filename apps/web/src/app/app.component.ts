@@ -1759,6 +1759,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   private miniMapDragState: MiniMapDragState | null = null;
   private resizeState: ResizeState | null = null;
   marqueeState: MarqueeState | null = null;
+  private pendingMarqueeStart: Readonly<{ x: number; y: number }> | null = null;
   private suppressCanvasClickClear = false;
   private resizeEnabledNodeId: string | null = null;
   private connectionDragState: ConnectionDragState | null = null;
@@ -3721,17 +3722,11 @@ LIMIT 50;`;
     if (event.button !== 0) return;
     if (isInteractiveTarget) return;
 
-    const point = this.toCanvasPoint(event);
-    this.marqueeState = { start: point, current: point };
-    this.selectedNodeId = null;
-    this.selectedNodeIds = [];
-    this.maximizedNodeId = null;
-    this.selectedEdgeId = null;
+    this.pendingMarqueeStart = this.toCanvasPoint(event);
     this.connectionSourceId = null;
     this.connectionSourcePort = null;
     this.connectionDragTarget = null;
     this.pendingPortGestureState = null;
-    this.resizeEnabledNodeId = null;
     this.markViewChanged();
   }
 
@@ -3853,6 +3848,23 @@ LIMIT 50;`;
       return;
     }
 
+    if (this.pendingMarqueeStart) {
+      const point = this.toCanvasPoint(event);
+      if (!this.hasExceededDragStartThreshold(this.pendingMarqueeStart, point)) return;
+      this.marqueeState = {
+        start: this.pendingMarqueeStart,
+        current: point
+      };
+      this.pendingMarqueeStart = null;
+      this.selectedNodeId = null;
+      this.selectedNodeIds = [];
+      this.maximizedNodeId = null;
+      this.selectedEdgeId = null;
+      this.resizeEnabledNodeId = null;
+      this.markViewportChanged();
+      return;
+    }
+
     if (this.marqueeState) {
       this.markEdgeNavigationStressWindow();
       this.marqueeState = {
@@ -3879,6 +3891,7 @@ LIMIT 50;`;
     const hadResizeState = this.resizeState !== null;
     const hadConnectionDragState = this.connectionDragState !== null;
     const hadPendingPortGestureState = this.pendingPortGestureState !== null;
+    const hadPendingMarqueeStart = this.pendingMarqueeStart !== null;
     if (this.dragState?.hasMoved) {
       const selectedIds = new Set(this.dragState.pointerOffsets.keys());
       const dropPoint = this.toCanvasPoint(event);
@@ -3930,7 +3943,8 @@ LIMIT 50;`;
     this.panState = null;
     this.dragState = null;
     this.resizeState = null;
-    if (hadMiniMapDragState || hadPanState || hadDragState || hadResizeState || hadConnectionDragState || hadPendingPortGestureState) {
+    this.pendingMarqueeStart = null;
+    if (hadMiniMapDragState || hadPanState || hadDragState || hadResizeState || hadConnectionDragState || hadPendingPortGestureState || hadPendingMarqueeStart) {
       this.hoveredEdgeId = null;
     }
 
@@ -3952,6 +3966,7 @@ LIMIT 50;`;
       this.resizeState !== null ||
       this.connectionDragState !== null ||
       this.pendingPortGestureState !== null ||
+      this.pendingMarqueeStart !== null ||
       this.marqueeState !== null;
     this.miniMapDragState = null;
     this.panState = null;
@@ -3960,6 +3975,7 @@ LIMIT 50;`;
     this.connectionDragState = null;
     this.connectionDragTarget = null;
     this.pendingPortGestureState = null;
+    this.pendingMarqueeStart = null;
     this.marqueeState = null;
     this.hoveredEdgeId = null;
     if (hadInteraction) this.markViewportChanged();
