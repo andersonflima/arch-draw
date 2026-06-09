@@ -384,6 +384,8 @@ const LEAF_ANCHOR_TOP_OFFSET = 4;
 const NODE_LAYER_CONTAINER_BASE_Z_INDEX = 120;
 const NODE_LAYER_LEAF_BASE_Z_INDEX = 180;
 const NODE_LAYER_DEPTH_STEP = 6;
+const NODE_LAYER_SELECTED_PRIORITY_GAP = 12;
+const NODE_LAYER_SELECTED_PRIORITY_CEILING = 880;
 const NODE_LAYER_EXPANDED_LEAF_BOOST = 120;
 const NODE_LAYER_EXPANDED_PRIORITY_GAP = 18;
 const NODE_LAYER_EXPANDED_PRIORITY_CEILING = 900;
@@ -4113,12 +4115,16 @@ LIMIT 50;`;
     const expandedPriorityZIndex = isExpandedContentNode
       ? this.getExpandedNodePriorityZIndex(baseZIndex)
       : 0;
+    const selectedPriorityZIndex = this.isNodeSelected(node.id)
+      ? this.getSelectedNodePriorityZIndex(baseZIndex)
+      : 0;
     const collapseToggleZIndexFloor =
       !rendersAsContainer && this.shouldRenderNodeCollapseToggle(node) ? 175 : 0;
     const resolvedZIndex = Math.max(
       baseZIndex,
       expandedZIndex,
       expandedPriorityZIndex,
+      selectedPriorityZIndex,
       dragZIndex,
       collapseToggleZIndexFloor
     );
@@ -4471,6 +4477,12 @@ LIMIT 50;`;
     const visibleNodeCeiling = this.getVisibleNodeLayerCeilingZIndex();
     const elevated = Math.max(baseZIndex, visibleNodeCeiling + NODE_LAYER_EXPANDED_PRIORITY_GAP);
     return Math.min(NODE_LAYER_EXPANDED_PRIORITY_CEILING, elevated);
+  }
+
+  private getSelectedNodePriorityZIndex(baseZIndex: number): number {
+    const visibleNodeCeiling = this.getVisibleNodeLayerCeilingZIndex();
+    const elevated = Math.max(baseZIndex, visibleNodeCeiling + NODE_LAYER_SELECTED_PRIORITY_GAP);
+    return Math.min(NODE_LAYER_SELECTED_PRIORITY_CEILING, elevated);
   }
 
   private getContainerContextEdgeLayerZIndex(): number {
