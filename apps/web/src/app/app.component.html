@@ -269,11 +269,11 @@
       class="canvas-shell"
       data-tour="canvas-shell"
       [class.canvas-shell--grabbing]="isPointerDragging()"
-      (click)="onCanvasClick($event)"
-      (pointerdown)="onCanvasPointerDown($event)"
+      (click)="markCanvasUsage(); onCanvasClick($event)"
+      (pointerdown)="markCanvasUsage(); onCanvasPointerDown($event)"
       (dragover)="$event.preventDefault()"
-      (drop)="onCanvasDrop($event)"
-      (wheel)="onCanvasWheel($event)"
+      (drop)="markCanvasUsage(); onCanvasDrop($event)"
+      (wheel)="markCanvasUsage(); onCanvasWheel($event)"
       (contextmenu)="onCanvasContextMenu($event)"
     >
       <button
@@ -600,13 +600,6 @@
                     : 'fa-solid fa-expand'" aria-hidden="true"></i>
               </button>
             </div>
-            <div
-              *ngIf="showDoubleClickHint && (isContainerCollapsed(node) || isCodeSnippetCollapsed(node))"
-              class="node-maximize-hint"
-              aria-hidden="true"
-            >
-              <span>{{ t("node.doubleClickHint") }}</span>
-            </div>
             <ng-container *ngIf="!isEditingNode(node.id); else nodeLabelEditor">
               <ng-container *ngIf="isCodeSnippetExpanded(node); else nodeDisplay">
                 <div class="code-snippet-content">
@@ -894,6 +887,22 @@
     <button class="toast-close" type="button" [attr.aria-label]="t('toast.closeError')" (click)="dismissError()">
       <i class="fa-solid fa-xmark" aria-hidden="true"></i>
     </button>
+  </div>
+
+  <div
+    class="canvas-usage-hint"
+    *ngIf="showCanvasUsageHint"
+    role="dialog"
+    aria-modal="false"
+    [attr.aria-label]="t('canvas.hintTitle')"
+  >
+    <div class="canvas-usage-hint__content">
+      <strong>{{ t("canvas.hintTitle") }}</strong>
+      <p>{{ t("canvas.hintText") }}</p>
+      <button class="secondary-action" type="button" (click)="dismissCanvasUsageHint()">
+        {{ t("canvas.hintClose") }}
+      </button>
+    </div>
   </div>
 
 </div>

@@ -28,7 +28,7 @@
   box-shadow: 3px 3px 0 #111827;
 }
 
-.architecture-node > :not(.resize-control):not(.node-port):not(.node-maximize-hint) {
+.architecture-node > :not(.resize-control):not(.node-port) {
   position: relative;
   z-index: 1;
 }

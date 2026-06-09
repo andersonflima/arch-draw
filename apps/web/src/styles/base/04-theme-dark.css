@@ -334,26 +334,9 @@
   color: #86efac;
 }
 
-.app-shell.theme-dark .hint-balloon {
+.app-shell.theme-dark .canvas-usage-hint__content {
   border-color: #4b5563;
   background: #1f2937;
   color: #e5e7eb;
   box-shadow: 3px 3px 0 #0b1220;
-}
-
-.app-shell.theme-dark .hint-balloon::after {
-  border-color: #4b5563;
-  background: #1f2937;
-}
-
-.app-shell.theme-dark .node-maximize-hint {
-  border-color: #4b5563;
-  background: #fde047;
-  color: #111827;
-  box-shadow: 2px 2px 0 #0b1220;
-}
-
-.app-shell.theme-dark .node-maximize-hint::after {
-  border-color: #4b5563;
-  background: #fde047;
 }

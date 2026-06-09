@@ -369,8 +369,8 @@ const COLLAB_SYNC_DEBOUNCE_MS = 220;
 const COLLAB_CURSOR_THROTTLE_MS = 80;
 const COLLAB_VIEW_THROTTLE_MS = 120;
 const COLLAB_CURSOR_STALE_MS = 12_000;
-const DOUBLE_CLICK_HINT_INTERVAL_MS = 24000;
-const DOUBLE_CLICK_HINT_VISIBLE_MS = 5000;
+const CANVAS_USAGE_HINT_SESSION_KEY = "arch-draw.canvas-usage-hint-shown";
+const CANVAS_USAGE_HINT_IDLE_MS = 18_000;
 const CODE_SNIPPET_COLLAPSED_SIZE = { width: 172, height: 176 } as const;
 const CODE_SNIPPET_EXPANDED_SIZE = { width: 560, height: 420 } as const;
 const CONTAINER_COLLAPSED_SIZE = { width: 136, height: 140 } as const;
@@ -421,13 +421,13 @@ const EDGE_ROUTE_FAST_PATH_OBSTACLE_THRESHOLD = 36;
 const EDGE_ROUTE_FAST_MODE_WINDOW_MS = 900;
 const EDGE_ROUTE_FORCE_FAST_COMPLEXITY_THRESHOLD = 30;
 const EDGE_SIMPLIFIED_OBSTACLE_COMPLEXITY_THRESHOLD = 30;
-const EDGE_LABEL_HIDE_COMPLEXITY_THRESHOLD = 26;
+const EDGE_LABEL_HIDE_COMPLEXITY_THRESHOLD = 18;
 const EDGE_LABEL_HIDE_ZOOM_THRESHOLD = 0.7;
 const EDGE_RENDER_SUSPEND_ON_EXPAND_MS = 220;
 const EDGE_RENDER_NAVIGATION_SUSPEND_MS = 140;
 const EDGE_RENDER_DRAG_SUSPEND_COMPLEXITY_THRESHOLD = 4;
-const EDGE_RENDER_NAVIGATION_COMPLEXITY_THRESHOLD = 24;
-const CANVAS_ULTRA_LIGHT_COMPLEXITY_THRESHOLD = 700;
+const EDGE_RENDER_NAVIGATION_COMPLEXITY_THRESHOLD = 18;
+const CANVAS_ULTRA_LIGHT_COMPLEXITY_THRESHOLD = 420;
 const EDGE_PROXIMITY_SUPPRESSION_RADIUS = 190;
 const EDGE_ROUTE_MAX_PASSES = 10;
 const EDGE_SIDE_LANE_GAP = 14;
@@ -466,11 +466,11 @@ const VIEWPORT_CHECKPOINT_STORAGE_PREFIX = "arch-draw.viewport";
 const VIEWPORT_CHECKPOINT_DEBOUNCE_MS = 260;
 const VIEWPORT_NAVIGATION_PERSIST_DEBOUNCE_MS = 180;
 const DEFAULT_INITIAL_CANVAS_ZOOM = 0.27;
-const CANVAS_RENDER_VIEWPORT_MARGIN_PX = 520;
-const CANVAS_RENDER_WORLD_MARGIN_MIN = 280;
-const CANVAS_RENDER_WORLD_MARGIN_MAX = 1600;
-const CANVAS_INTERACTION_RENDER_MARGIN_FACTOR = 0.45;
-const CANVAS_ULTRA_LIGHT_RENDER_MARGIN_FACTOR = 0.18;
+const CANVAS_RENDER_VIEWPORT_MARGIN_PX = 380;
+const CANVAS_RENDER_WORLD_MARGIN_MIN = 180;
+const CANVAS_RENDER_WORLD_MARGIN_MAX = 1000;
+const CANVAS_INTERACTION_RENDER_MARGIN_FACTOR = 0.35;
+const CANVAS_ULTRA_LIGHT_RENDER_MARGIN_FACTOR = 0.12;
 const MINI_MAP_DENSE_COMPLEXITY_THRESHOLD = 180;
 const MINI_MAP_EXTREME_DENSE_COMPLEXITY_THRESHOLD = 420;
 const MINI_MAP_STATIC_DETAIL_COMPLEXITY_THRESHOLD = 700;
@@ -591,7 +591,9 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "node.expandContainer": "Expandir container",
     "node.maximizeContainer": "Maximizar container",
     "node.minimizeToIcon": "Minimizar para ícone",
-    "node.doubleClickHint": "Dê 2 cliques para ampliar",
+    "canvas.hintTitle": "Dica rápida",
+    "canvas.hintText": "Use o scroll para aproximar, arraste o canvas para navegar e dê dois cliques em blocos minimizados para expandir.",
+    "canvas.hintClose": "Entendi",
     "map.aria": "Mapa do canvas",
     "map.currentView": "Visão atual",
     "map.zoomOut": "Diminuir zoom",
@@ -769,7 +771,9 @@ const UI_TRANSLATIONS: Readonly<Record<UiLanguage, Readonly<Record<string, strin
     "node.expandContainer": "Expand container",
     "node.maximizeContainer": "Maximize container",
     "node.minimizeToIcon": "Minimize to icon",
-    "node.doubleClickHint": "Double-click to expand",
+    "canvas.hintTitle": "Quick tip",
+    "canvas.hintText": "Use scroll to zoom, drag the canvas to navigate, and double-click minimized blocks to expand them.",
+    "canvas.hintClose": "Got it",
     "map.aria": "Canvas map",
     "map.currentView": "Current view",
     "map.zoomOut": "Zoom out",
@@ -1732,7 +1736,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   authActionInFlight = false;
   loginError = "";
   googleLoginUrl = "";
-  showDoubleClickHint = false;
+  showCanvasUsageHint = false;
   uiTheme: "light" | "dark" = "light";
   uiLanguage: UiLanguage = "pt-BR";
   isLeftPanelsHidden = false;
@@ -1765,9 +1769,8 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   private viewportNavigationPersistTimer: ReturnType<typeof setTimeout> | null = null;
   private errorToastTimer: ReturnType<typeof setTimeout> | null = null;
   private successToastTimer: ReturnType<typeof setTimeout> | null = null;
-  private doubleClickHintBootTimer: ReturnType<typeof setTimeout> | null = null;
-  private doubleClickHintInterval: ReturnType<typeof setInterval> | null = null;
-  private doubleClickHintTimer: ReturnType<typeof setTimeout> | null = null;
+  private canvasUsageHintTimer: ReturnType<typeof setTimeout> | null = null;
+  private canvasUsageHintShownInSession = false;
   private collaborationStream: EventSource | null = null;
   private collaborationSyncTimer: ReturnType<typeof setTimeout> | null = null;
   private collaborationViewTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1877,7 +1880,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     this.status = this.t("status.initializing");
     this.refreshGoogleLoginUrl();
     this.rebuildPaletteGroups();
-    this.startDoubleClickHintLoop();
+    this.scheduleCanvasUsageHint();
     void this.boot();
   }
 
@@ -1941,17 +1944,9 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.cancelPendingWindowPointerMove();
     this.viewRenderScheduler.cancel();
-    if (this.doubleClickHintInterval) {
-      clearInterval(this.doubleClickHintInterval);
-      this.doubleClickHintInterval = null;
-    }
-    if (this.doubleClickHintBootTimer) {
-      clearTimeout(this.doubleClickHintBootTimer);
-      this.doubleClickHintBootTimer = null;
-    }
-    if (this.doubleClickHintTimer) {
-      clearTimeout(this.doubleClickHintTimer);
-      this.doubleClickHintTimer = null;
+    if (this.canvasUsageHintTimer) {
+      clearTimeout(this.canvasUsageHintTimer);
+      this.canvasUsageHintTimer = null;
     }
     if (this.successToastTimer) {
       clearTimeout(this.successToastTimer);
@@ -2626,9 +2621,6 @@ export class AppComponent implements AfterViewInit, OnDestroy {
 
     this.nodes = this.sortNodes([...this.nodes, node]);
     this.markViewChanged();
-    if (this.shouldPulseDoubleClickHintOnNodeAdded(node)) {
-      this.scheduleDoubleClickHintAfterNodeAdded();
-    }
   }
 
   private clampNodeCreationPointToVisibleCanvas(
@@ -2883,11 +2875,6 @@ export class AppComponent implements AfterViewInit, OnDestroy {
       this.marqueeState = null;
       this.resizeEnabledNodeId = node.id;
       this.contextPropertiesPanel = null;
-      this.showDoubleClickHint = false;
-      if (this.doubleClickHintTimer) {
-        clearTimeout(this.doubleClickHintTimer);
-        this.doubleClickHintTimer = null;
-      }
       this.markCollapseToggleChanged();
       return;
     }
@@ -2905,11 +2892,6 @@ export class AppComponent implements AfterViewInit, OnDestroy {
       this.marqueeState = null;
       this.resizeEnabledNodeId = node.id;
       this.contextPropertiesPanel = null;
-      this.showDoubleClickHint = false;
-      if (this.doubleClickHintTimer) {
-        clearTimeout(this.doubleClickHintTimer);
-        this.doubleClickHintTimer = null;
-      }
       this.markCollapseToggleChanged();
       return;
     }
@@ -11655,19 +11637,6 @@ spec:
     } else {
       this.clearVisualRenderCaches();
     }
-    if (!this.hasCollapsedNodeForDoubleClickHint()) {
-      if (this.showDoubleClickHint) {
-        this.showDoubleClickHint = false;
-      }
-      if (this.doubleClickHintTimer) {
-        clearTimeout(this.doubleClickHintTimer);
-        this.doubleClickHintTimer = null;
-      }
-      if (this.doubleClickHintBootTimer) {
-        clearTimeout(this.doubleClickHintBootTimer);
-        this.doubleClickHintBootTimer = null;
-      }
-    }
     if (changeState.documentChanged) {
       this.syncMermaidFromCanvasIfNeeded();
       this.recordHistory();
@@ -11686,19 +11655,6 @@ spec:
 
   private markCollapseToggleChanged(): void {
     this.clearCanvasRenderCaches();
-    if (!this.hasCollapsedNodeForDoubleClickHint()) {
-      if (this.showDoubleClickHint) {
-        this.showDoubleClickHint = false;
-      }
-      if (this.doubleClickHintTimer) {
-        clearTimeout(this.doubleClickHintTimer);
-        this.doubleClickHintTimer = null;
-      }
-      if (this.doubleClickHintBootTimer) {
-        clearTimeout(this.doubleClickHintBootTimer);
-        this.doubleClickHintBootTimer = null;
-      }
-    }
     if (this.collaborationSession) {
       this.scheduleCollaborationSync();
       this.scheduleCollaborationViewPublish();
@@ -12039,29 +11995,9 @@ spec:
     this.error = "";
   }
 
-  private startDoubleClickHintLoop(): void {
-    if (this.doubleClickHintInterval) return;
-    this.doubleClickHintInterval = setInterval(() => {
-      this.pulseDoubleClickHint();
-    }, DOUBLE_CLICK_HINT_INTERVAL_MS);
-  }
-
-  private hasCollapsedNodeForDoubleClickHint(): boolean {
-    return this.nodes.some((node) => this.isContainerCollapsed(node) || this.isCodeSnippetCollapsed(node));
-  }
-
-  private shouldPulseDoubleClickHintOnNodeAdded(node: CanvasNode): boolean {
-    return this.isCodeSnippetCollapsed(node) || this.isContainerCollapsed(node);
-  }
-
-  private scheduleDoubleClickHintAfterNodeAdded(): void {
-    if (this.doubleClickHintBootTimer) {
-      clearTimeout(this.doubleClickHintBootTimer);
-    }
-    this.doubleClickHintBootTimer = setTimeout(() => {
-      this.doubleClickHintBootTimer = null;
-      this.pulseDoubleClickHint();
-    }, 6000);
+  markCanvasUsage(): void {
+    if (this.showCanvasUsageHint) return;
+    this.scheduleCanvasUsageHint();
   }
 
   private getPreferredCodeLanguageForKind(kind: ArchitectureNodeKind): CodeLanguage {
@@ -12086,19 +12022,46 @@ spec:
     return "typescript";
   }
 
-  private pulseDoubleClickHint(): void {
-    if (this.showDoubleClickHint) return;
-    if (!this.hasCollapsedNodeForDoubleClickHint()) return;
-    this.showDoubleClickHint = true;
+  dismissCanvasUsageHint(): void {
+    this.showCanvasUsageHint = false;
     this.requestViewRender();
-    if (this.doubleClickHintTimer) {
-      clearTimeout(this.doubleClickHintTimer);
+  }
+
+  private scheduleCanvasUsageHint(): void {
+    if (this.hasCanvasUsageHintBeenShownInSession()) return;
+    if (this.canvasUsageHintTimer) {
+      clearTimeout(this.canvasUsageHintTimer);
     }
-    this.doubleClickHintTimer = setTimeout(() => {
-      this.doubleClickHintTimer = null;
-      this.showDoubleClickHint = false;
-      this.requestViewRender();
-    }, DOUBLE_CLICK_HINT_VISIBLE_MS);
+    this.canvasUsageHintTimer = setTimeout(() => {
+      this.canvasUsageHintTimer = null;
+      this.showCanvasUsageHintOnce();
+    }, CANVAS_USAGE_HINT_IDLE_MS);
+  }
+
+  private showCanvasUsageHintOnce(): void {
+    if (this.hasCanvasUsageHintBeenShownInSession()) return;
+    this.markCanvasUsageHintShownInSession();
+    this.showCanvasUsageHint = true;
+    this.requestViewRender();
+  }
+
+  private hasCanvasUsageHintBeenShownInSession(): boolean {
+    if (this.canvasUsageHintShownInSession) return true;
+    try {
+      this.canvasUsageHintShownInSession = sessionStorage.getItem(CANVAS_USAGE_HINT_SESSION_KEY) === "true";
+      return this.canvasUsageHintShownInSession;
+    } catch {
+      return false;
+    }
+  }
+
+  private markCanvasUsageHintShownInSession(): void {
+    this.canvasUsageHintShownInSession = true;
+    try {
+      sessionStorage.setItem(CANVAS_USAGE_HINT_SESSION_KEY, "true");
+    } catch {
+      return;
+    }
   }
 
   private requestViewRender(): void {
