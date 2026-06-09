@@ -388,8 +388,8 @@ const NODE_LAYER_EXPANDED_LEAF_BOOST = 120;
 const NODE_LAYER_EXPANDED_PRIORITY_GAP = 18;
 const NODE_LAYER_EXPANDED_PRIORITY_CEILING = 900;
 const NODE_LAYER_DRAG_Z_INDEX_BASE = 1000;
-const EDGE_LAYER_BASE_Z_INDEX = 150;
-const EDGE_LAYER_INTERACTION_Z_INDEX = 160;
+const EDGE_LAYER_BASE_Z_INDEX = 90;
+const EDGE_LAYER_INTERACTION_Z_INDEX = 170;
 const EDGE_LAYER_CONTAINER_CONTEXT_BASE_Z_INDEX = 188;
 const DEFAULT_EDGE_LABEL_FONT_SIZE = 28;
 const MIN_EDGE_LABEL_FONT_SIZE = 10;
@@ -4382,8 +4382,7 @@ LIMIT 50;`;
 
   isEdgeLayerElevated(): boolean {
     return Boolean(
-      this.dragState?.hasMoved
-      || this.connectionDragState
+      this.connectionDragState
       || this.selectedEdgeId
       || this.editingEdgeId
       || this.hoveredEdgeId
@@ -4399,12 +4398,14 @@ LIMIT 50;`;
   }
 
   private getEdgeLayerZIndex(): number {
+    if (this.isEdgeRenderingSuspended() || this.shouldReduceCanvasDetailForPerformance()) {
+      return EDGE_LAYER_BASE_Z_INDEX;
+    }
+
     const interactionLayerZIndex = this.isEdgeLayerElevated()
       ? EDGE_LAYER_INTERACTION_Z_INDEX
       : EDGE_LAYER_BASE_Z_INDEX;
-    const containerContextLayerZIndex = this.isEdgeRenderingSuspended() || this.shouldReduceCanvasDetailForPerformance()
-      ? 0
-      : this.getContainerContextEdgeLayerZIndex();
+    const containerContextLayerZIndex = this.getContainerContextEdgeLayerZIndex();
     const containerLayerCeiling = this.getVisibleContainerLayerCeilingZIndex();
     return Math.max(
       interactionLayerZIndex,

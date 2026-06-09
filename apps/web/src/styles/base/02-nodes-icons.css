@@ -33,6 +33,18 @@
   z-index: 1;
 }
 
+.app-shell--perf-lite .architecture-node::before {
+  box-shadow: none;
+}
+
+.app-shell--perf-lite .architecture-node--container::before {
+  background-image: none;
+}
+
+.app-shell--perf-lite .architecture-node--container::after {
+  display: none;
+}
+
 .architecture-node--container {
   min-width: 260px;
   min-height: 180px;
