@@ -11,29 +11,87 @@ import {
   SimpleChanges,
   ViewChild
 } from "@angular/core";
-import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from "@codemirror/autocomplete";
-import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
-import { bracketMatching, foldGutter, indentOnInput } from "@codemirror/language";
-import { Compartment, type Extension } from "@codemirror/state";
-import { oneDark } from "@codemirror/theme-one-dark";
-import { vim } from "@replit/codemirror-vim";
-import {
-  drawSelection,
-  EditorView,
-  highlightActiveLine,
-  highlightActiveLineGutter,
-  keymap,
-  lineNumbers
-} from "@codemirror/view";
-import { go } from "@codemirror/lang-go";
-import { java } from "@codemirror/lang-java";
-import { javascript } from "@codemirror/lang-javascript";
-import { markdown } from "@codemirror/lang-markdown";
-import { python } from "@codemirror/lang-python";
-import { rust } from "@codemirror/lang-rust";
-import { sql } from "@codemirror/lang-sql";
-import { yaml } from "@codemirror/lang-yaml";
-import { elixir } from "codemirror-lang-elixir";
+import type { Compartment, Extension } from "@codemirror/state";
+import type { EditorView } from "@codemirror/view";
+
+// CodeMirror (core + language packs) is the heaviest dependency in the web app.
+// It is only needed when a code block is actually expanded, so the whole engine
+// is split into a lazily-loaded chunk and pulled in on first editor creation
+// instead of inflating the initial bundle and startup parse cost.
+type CodeMirrorCore = Awaited<ReturnType<typeof loadCodeMirrorCore>>;
+type LanguageLoader = () => Promise<Extension>;
+
+let codeMirrorCorePromise: Promise<CodeMirrorCore> | null = null;
+
+async function loadCodeMirrorCore() {
+  const [
+    autocomplete,
+    commands,
+    language,
+    state,
+    themeOneDark,
+    vimMode,
+    view
+  ] = await Promise.all([
+    import("@codemirror/autocomplete"),
+    import("@codemirror/commands"),
+    import("@codemirror/language"),
+    import("@codemirror/state"),
+    import("@codemirror/theme-one-dark"),
+    import("@replit/codemirror-vim"),
+    import("@codemirror/view")
+  ]);
+
+  return {
+    autocompletion: autocomplete.autocompletion,
+    closeBrackets: autocomplete.closeBrackets,
+    closeBracketsKeymap: autocomplete.closeBracketsKeymap,
+    completionKeymap: autocomplete.completionKeymap,
+    defaultKeymap: commands.defaultKeymap,
+    history: commands.history,
+    historyKeymap: commands.historyKeymap,
+    indentWithTab: commands.indentWithTab,
+    bracketMatching: language.bracketMatching,
+    foldGutter: language.foldGutter,
+    indentOnInput: language.indentOnInput,
+    Compartment: state.Compartment,
+    oneDark: themeOneDark.oneDark,
+    vim: vimMode.vim,
+    drawSelection: view.drawSelection,
+    EditorView: view.EditorView,
+    highlightActiveLineGutter: view.highlightActiveLineGutter,
+    keymap: view.keymap,
+    lineNumbers: view.lineNumbers
+  };
+}
+
+function loadCodeMirrorCoreOnce(): Promise<CodeMirrorCore> {
+  codeMirrorCorePromise ??= loadCodeMirrorCore();
+  return codeMirrorCorePromise;
+}
+
+const loadTypeScriptLanguage: LanguageLoader = async () =>
+  (await import("@codemirror/lang-javascript")).javascript({ typescript: true });
+
+const LANGUAGE_LOADERS: Readonly<Record<string, LanguageLoader>> = {
+  python: async () => (await import("@codemirror/lang-python")).python(),
+  javascript: async () => (await import("@codemirror/lang-javascript")).javascript({ typescript: false }),
+  typescript: loadTypeScriptLanguage,
+  nodejs: loadTypeScriptLanguage,
+  sql: async () => (await import("@codemirror/lang-sql")).sql(),
+  markdown: async () => (await import("@codemirror/lang-markdown")).markdown(),
+  mermaid: async () => (await import("@codemirror/lang-markdown")).markdown(),
+  yaml: async () => (await import("@codemirror/lang-yaml")).yaml(),
+  go: async () => (await import("@codemirror/lang-go")).go(),
+  rust: async () => (await import("@codemirror/lang-rust")).rust(),
+  java: async () => (await import("@codemirror/lang-java")).java(),
+  elixir: async () => (await import("codemirror-lang-elixir")).elixir()
+};
+
+function loadLanguageExtension(language: string): Promise<Extension> {
+  const loader = LANGUAGE_LOADERS[language.toLowerCase()] ?? loadTypeScriptLanguage;
+  return loader();
+}
 
 @Component({
   selector: "app-code-editor",
@@ -52,19 +110,37 @@ export class CodeEditorComponent implements AfterViewInit, OnChanges, OnDestroy 
   @Output() editorBlur = new EventEmitter<void>();
 
   private editorView: EditorView | null = null;
-  private readonly languageCompartment = new Compartment();
-  private readonly readOnlyCompartment = new Compartment();
+  private core: CodeMirrorCore | null = null;
+  private languageCompartment: Compartment | null = null;
+  private readOnlyCompartment: Compartment | null = null;
   private isApplyingExternalValue = false;
+  private isDestroyed = false;
+  private appliedLanguage = "";
 
   ngAfterViewInit(): void {
+    void this.setupEditor();
+  }
+
+  private async setupEditor(): Promise<void> {
+    const [core, languageExtension] = await Promise.all([
+      loadCodeMirrorCoreOnce(),
+      loadLanguageExtension(this.language)
+    ]);
+    if (this.isDestroyed) return;
+
+    this.core = core;
+    this.appliedLanguage = this.language;
+    this.languageCompartment = new core.Compartment();
+    this.readOnlyCompartment = new core.Compartment();
+
     const extensions: Extension[] = [
-      oneDark,
-      lineNumbers(),
-      highlightActiveLineGutter(),
-      drawSelection(),
-      vim(),
-      EditorView.lineWrapping,
-      EditorView.theme({
+      core.oneDark,
+      core.lineNumbers(),
+      core.highlightActiveLineGutter(),
+      core.drawSelection(),
+      core.vim(),
+      core.EditorView.lineWrapping,
+      core.EditorView.theme({
         "&": {
           height: "100%"
         },
@@ -78,33 +154,33 @@ export class CodeEditorComponent implements AfterViewInit, OnChanges, OnDestroy 
           padding: "8px 10px"
         }
       }),
-      history(),
-      foldGutter(),
-      indentOnInput(),
-      bracketMatching(),
-      closeBrackets(),
-      autocompletion(),
-      keymap.of([
-        indentWithTab,
-        ...defaultKeymap,
-        ...historyKeymap,
-        ...closeBracketsKeymap,
-        ...completionKeymap
+      core.history(),
+      core.foldGutter(),
+      core.indentOnInput(),
+      core.bracketMatching(),
+      core.closeBrackets(),
+      core.autocompletion(),
+      core.keymap.of([
+        core.indentWithTab,
+        ...core.defaultKeymap,
+        ...core.historyKeymap,
+        ...core.closeBracketsKeymap,
+        ...core.completionKeymap
       ]),
-      this.languageCompartment.of(this.getLanguageExtension(this.language)),
-      this.readOnlyCompartment.of(EditorView.editable.of(!this.readOnly)),
-      EditorView.updateListener.of((update) => {
+      this.languageCompartment.of(languageExtension),
+      this.readOnlyCompartment.of(core.EditorView.editable.of(!this.readOnly)),
+      core.EditorView.updateListener.of((update) => {
         if (!update.docChanged || this.isApplyingExternalValue) return;
         this.valueChange.emit(update.state.doc.toString());
       }),
-      EditorView.domEventHandlers({
+      core.EditorView.domEventHandlers({
         blur: () => {
           this.editorBlur.emit();
         }
       })
     ];
 
-    this.editorView = new EditorView({
+    this.editorView = new core.EditorView({
       doc: this.value,
       extensions,
       parent: this.hostRef.nativeElement
@@ -112,25 +188,25 @@ export class CodeEditorComponent implements AfterViewInit, OnChanges, OnDestroy 
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (!this.editorView) return;
+    const view = this.editorView;
+    const core = this.core;
+    if (!view || !core) return;
 
     if (changes["language"]) {
-      this.editorView.dispatch({
-        effects: this.languageCompartment.reconfigure(this.getLanguageExtension(this.language))
-      });
+      void this.applyLanguage(this.language);
     }
 
-    if (changes["readOnly"]) {
-      this.editorView.dispatch({
-        effects: this.readOnlyCompartment.reconfigure(EditorView.editable.of(!this.readOnly))
+    if (changes["readOnly"] && this.readOnlyCompartment) {
+      view.dispatch({
+        effects: this.readOnlyCompartment.reconfigure(core.EditorView.editable.of(!this.readOnly))
       });
     }
 
     if (changes["value"] && typeof this.value === "string") {
-      const current = this.editorView.state.doc.toString();
+      const current = view.state.doc.toString();
       if (current !== this.value) {
         this.isApplyingExternalValue = true;
-        this.editorView.dispatch({
+        view.dispatch({
           changes: { from: 0, to: current.length, insert: this.value }
         });
         this.isApplyingExternalValue = false;
@@ -138,37 +214,26 @@ export class CodeEditorComponent implements AfterViewInit, OnChanges, OnDestroy 
     }
   }
 
-  ngOnDestroy(): void {
-    this.editorView?.destroy();
-    this.editorView = null;
+  private async applyLanguage(language: string): Promise<void> {
+    if (language === this.appliedLanguage) return;
+    const extension = await loadLanguageExtension(language);
+    const view = this.editorView;
+    const compartment = this.languageCompartment;
+    if (this.isDestroyed || !view || !compartment) return;
+    // A newer language change may have superseded this one while loading.
+    if (this.language !== language) return;
+    this.appliedLanguage = language;
+    view.dispatch({
+      effects: compartment.reconfigure(extension)
+    });
   }
 
-  private getLanguageExtension(language: string): Extension {
-    switch (language.toLowerCase()) {
-      case "python":
-        return python();
-      case "javascript":
-        return javascript({ typescript: false });
-      case "nodejs":
-      case "typescript":
-        return javascript({ typescript: true });
-      case "sql":
-        return sql();
-      case "mermaid":
-      case "markdown":
-        return markdown();
-      case "yaml":
-        return yaml();
-      case "go":
-        return go();
-      case "rust":
-        return rust();
-      case "java":
-        return java();
-      case "elixir":
-        return elixir();
-      default:
-        return javascript({ typescript: true });
-    }
+  ngOnDestroy(): void {
+    this.isDestroyed = true;
+    this.editorView?.destroy();
+    this.editorView = null;
+    this.core = null;
+    this.languageCompartment = null;
+    this.readOnlyCompartment = null;
   }
 }

@@ -348,6 +348,30 @@
   }
 }
 
+/*
+ * The flow-dash and ping-pong animations repaint their SVG paths every frame
+ * forever. On dense diagrams (perf-lite) and while the user is actively
+ * panning/dragging/zooming (interaction-lite) that continuous repaint competes
+ * with the interaction for the main thread, so the animation is paused there
+ * and resumes once the canvas is idle again. Users who opt out of motion never
+ * pay the cost.
+ */
+.canvas-viewport--interaction-lite .canvas-edge.is-live,
+.canvas-viewport--interaction-lite .canvas-edge.is-bidirectional,
+.app-shell--perf-lite .canvas-edge.is-live,
+.app-shell--perf-lite .canvas-edge.is-bidirectional {
+  animation: none;
+  stroke-dashoffset: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .canvas-edge-preview,
+  .canvas-edge.is-live,
+  .canvas-edge.is-bidirectional {
+    animation: none;
+  }
+}
+
 .resize-control {
   display: none;
   position: absolute;
