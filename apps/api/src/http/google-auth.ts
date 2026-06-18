@@ -296,7 +296,10 @@ export const sanitizeReturnPath = (config: Pick<GoogleAuthConfig, "allowedReturn
     // Relative paths are accepted below for same-origin proxy deployments.
   }
   if (!trimmed.startsWith("/")) return "/";
-  if (trimmed.startsWith("//")) return "/";
+  // Reject protocol-relative ("//host") and backslash ("/\\host") variants: browsers
+  // normalise the backslash form into "//host", so accepting it would turn this into
+  // an open redirect when the value is later used as a Location header.
+  if (trimmed.startsWith("//") || trimmed.includes("\\")) return "/";
   return trimmed;
 };
 
