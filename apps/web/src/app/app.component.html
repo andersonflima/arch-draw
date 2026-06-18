@@ -218,51 +218,18 @@
       </footer>
     </nav>
 
-    <aside class="palette" data-tour="palette" [attr.aria-label]="t('palette.aria')">
-      <div class="panel-heading">
-        <div>
-          <span>{{ t("palette.title") }}</span>
-          <small>{{ t("palette.subtitle") }}</small>
-        </div>
-      </div>
-      <label class="palette-search">
-        <input
-          type="search"
-          [placeholder]="t('palette.searchPlaceholder')"
-          [ngModel]="blockSearch"
-          (ngModelChange)="onBlockSearchChange($event)"
-        />
-      </label>
-      <div class="palette-list">
-        <ng-container *ngFor="let group of displayedPaletteGroups; trackBy: trackByPaletteCategory">
-          <section class="palette-group">
-          <h3>{{ group.category }}</h3>
-          <button
-            class="palette-item"
-            draggable="true"
-            type="button"
-            *ngFor="let template of group.templates; trackBy: trackByNodeTemplateKind"
-            (click)="addNode(template)"
-            (dragstart)="onPaletteDragStart($event, template)"
-          >
-            <span
-              [class]="'node-icon palette-item__icon node-icon--' + template.kind"
-              [style.--icon-color]="getIconColor(template.color)"
-              [attr.title]="getNodeIcon(template.kind)"
-            >
-              <i [class]="getNodeIconClass(template.kind)" aria-hidden="true"></i>
-              <span class="node-icon__label">{{ getNodeIcon(template.kind) }}</span>
-            </span>
-            <span class="palette-item__label" [title]="template.label">{{ template.label }}</span>
-            <b>+</b>
-          </button>
-          </section>
-        </ng-container>
-      </div>
-      <p class="muted-copy" *ngIf="blockSearch && displayedPaletteGroups.length === 0">
-        {{ t("palette.empty") }}
-      </p>
-    </aside>
+    <app-palette
+      [groups]="displayedPaletteGroups"
+      [search]="blockSearch"
+      [title]="t('palette.title')"
+      [subtitle]="t('palette.subtitle')"
+      [searchPlaceholder]="t('palette.searchPlaceholder')"
+      [emptyText]="t('palette.empty')"
+      [ariaLabel]="t('palette.aria')"
+      (searchChange)="onBlockSearchChange($event)"
+      (addTemplate)="addNode($event)"
+      (dragStartTemplate)="onPaletteDragStart($event.event, $event.template)"
+    ></app-palette>
 
     <main
       #canvasShell
