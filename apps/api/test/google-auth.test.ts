@@ -35,6 +35,19 @@ describe("google auth redirects", () => {
     expect(sanitizeReturnPath(config, "https://example.com/steal")).toBe("/");
   });
 
+  it("rejects open-redirect bypasses (protocol-relative, backslash, non-http schemes)", () => {
+    const config = { allowedReturnOrigins: ["http://127.0.0.1:5173"] };
+
+    expect(sanitizeReturnPath(config, "//evil.com")).toBe("/");
+    expect(sanitizeReturnPath(config, "/\\evil.com")).toBe("/");
+    expect(sanitizeReturnPath(config, "\\/evil.com")).toBe("/");
+    expect(sanitizeReturnPath(config, "/path\\to\\evil")).toBe("/");
+    expect(sanitizeReturnPath(config, "javascript:alert(1)")).toBe("/");
+    // Legitimate same-origin relative paths still pass through untouched.
+    expect(sanitizeReturnPath(config, "/?share=abc")).toBe("/?share=abc");
+    expect(sanitizeReturnPath(config, "/my-diagram")).toBe("/my-diagram");
+  });
+
   it("preserves existing query parameters when appending auth errors", () => {
     expect(appendAuthError("http://127.0.0.1:5173/?share=abc", "oauth_failure")).toBe(
       "http://127.0.0.1:5173/?share=abc&auth_error=oauth_failure"
