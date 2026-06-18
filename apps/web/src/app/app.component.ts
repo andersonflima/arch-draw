@@ -4866,7 +4866,17 @@ LIMIT 50;`;
   }
 
   getRenderableEdgeViewModels(): readonly EdgeRenderViewModel[] {
-    if (this.isEdgeRenderingSuspended()) return EMPTY_EDGE_RENDER_VIEW_MODELS;
+    if (this.isEdgeRenderingSuspended()) {
+      // While a node is being dragged/resized the full obstacle-aware routing is
+      // suspended for performance. Instead of dropping every connection (which
+      // makes the links visibly vanish during the gesture), keep them on screen
+      // with cheap straight paths that follow the moving nodes; the real routing
+      // is restored on drop.
+      if (this.dragState?.hasMoved || this.resizeState) {
+        return this.getMovingEdgeViewModels();
+      }
+      return EMPTY_EDGE_RENDER_VIEW_MODELS;
+    }
     if (this.renderableEdgeViewModelsCache) return this.renderableEdgeViewModelsCache;
     const labelBoxHeight = this.getEdgeLabelBoxHeight();
     this.renderableEdgeViewModelsCache = this.getRenderableEdges().map((edge) => {
@@ -4903,6 +4913,67 @@ LIMIT 50;`;
       };
     });
     return this.renderableEdgeViewModelsCache;
+  }
+
+  private getMovingEdgeViewModels(): readonly EdgeRenderViewModel[] {
+    const movingNodeIds = this.getActiveInteractionNodeIds();
+    const result: EdgeRenderViewModel[] = [];
+    // Every edge-culling helper is gated off while routing is suspended, so resolve
+    // visible edges directly to keep the connections on screen during the move.
+    for (const edge of this.edges) {
+      const effective = this.getEffectiveEdgeEndpoints(edge);
+      if (!effective) continue;
+      const { fromNode, toNode } = effective;
+      if (fromNode.id === toNode.id) continue;
+      if (!this.isVisibleNode(fromNode) || !this.isVisibleNode(toNode)) continue;
+      const bounds = this.getRectUnion([this.getNodeAbsoluteRect(fromNode), this.getNodeAbsoluteRect(toNode)]);
+      if (!this.rectIntersectsCanvasRect(bounds, this.getRenderableCanvasRect())) continue;
+      const followsMove = movingNodeIds.has(fromNode.id) || movingNodeIds.has(toNode.id);
+      const path = followsMove
+        ? this.straightEdgePathBetween(fromNode, toNode, edge)
+        : this.getEdgePath(edge);
+      if (!path) continue;
+      result.push({
+        edge,
+        id: edge.id,
+        path,
+        color: this.getEdgeColor(edge),
+        dash: this.getEdgeDash(edge),
+        markerStart: this.getEdgeStartMarker(edge),
+        markerEnd: this.getEdgeEndMarker(edge),
+        isSelected: edge.id === this.selectedEdgeId,
+        isLive: this.isLiveEdge(edge),
+        isBidirectional: this.isBidirectional(edge),
+        isMuted: this.isEdgeTemporarilyMuted(edge),
+        clipContainerIds: [],
+        shouldRenderLabel: false,
+        labelX: 0,
+        labelY: 0,
+        labelWidth: 0,
+        labelColor: this.getEdgeLabelColor(edge),
+        isEditing: false
+      });
+    }
+    return result;
+  }
+
+  private getActiveInteractionNodeIds(): ReadonlySet<string> {
+    const ids = new Set<string>();
+    const addWithDescendants = (nodeId: string): void => {
+      ids.add(nodeId);
+      for (const descendantId of this.getDescendantIds(nodeId)) ids.add(descendantId);
+    };
+    if (this.dragState) {
+      for (const nodeId of this.dragState.pointerOffsets.keys()) addWithDescendants(nodeId);
+    }
+    if (this.resizeState) addWithDescendants(this.resizeState.nodeId);
+    return ids;
+  }
+
+  private straightEdgePathBetween(fromNode: CanvasNode, toNode: CanvasNode, edge: CanvasEdge): string {
+    const start = this.getAnchorTowardPoint(fromNode, this.getNodeCenter(toNode), EDGE_NODE_GAP, "source", undefined, edge, false);
+    const end = this.getAnchorTowardPoint(toNode, this.getNodeCenter(fromNode), EDGE_NODE_GAP, "target", undefined, edge, false);
+    return `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} L ${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
   }
 
   getMarqueeStyle(): Record<string, string> {
