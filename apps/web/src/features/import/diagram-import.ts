@@ -657,19 +657,23 @@ const normalizeImportedColor = (value: unknown, kind: ArchitectureNodeKind): str
   return getNodeKindColor(kind);
 };
 
+const FORBIDDEN_PROPERTY_KEYS: ReadonlySet<string> = new Set(["__proto__", "constructor", "prototype"]);
+
 const normalizeImportedProperties = (
   value: unknown
 ): Readonly<Record<string, string>> | undefined => {
   if (!isObjectRecord(value)) return undefined;
   const entries = Object.entries(value)
     .map(([key, content]) => [key.trim(), typeof content === "string" ? content : null] as const)
-    .filter(([key, content]) => key.length > 0 && content !== null);
+    .filter(([key, content]) => key.length > 0 && content !== null && !FORBIDDEN_PROPERTY_KEYS.has(key));
   if (entries.length === 0) return undefined;
+  // Use a null-prototype accumulator so imported keys can never reach the object
+  // prototype chain (defence-in-depth against prototype pollution from untrusted files).
   return entries.reduce<Record<string, string>>((acc, [key, content]) => {
     if (content === null) return acc;
     acc[key] = content;
     return acc;
-  }, {});
+  }, Object.create(null) as Record<string, string>);
 };
 
 const normalizeImportedEdgeStyle = (value: unknown): ArchitectureEdgeStyle | undefined => {
