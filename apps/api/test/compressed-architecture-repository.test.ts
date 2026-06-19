@@ -86,6 +86,41 @@ describe("compressed architecture repository", () => {
     expect(await repository.findById("diagram-a", sessionA)).toBeNull();
     expect(await repository.findShareById("share-edit")).toBeNull();
   });
+
+  it("skips rewriting unchanged packs and keeps the store consistent on update/delete", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "arch-draw-compressed-repository-"));
+    const storagePath = join(tempDir, "architectures.store");
+    const repository = makeCompressedArchitectureRepository(storagePath);
+    const session = "s";
+    const make = (id: string, now: string): ArchitectureDocument =>
+      createEmptyArchitecture({ id, title: `T-${id}`, now });
+
+    const a = make("a", "2026-05-18T10:00:00.000Z");
+    const b = make("b", "2026-05-18T10:00:00.000Z");
+    const c = make("c", "2026-05-18T10:00:00.000Z");
+    await repository.save(a, session);
+    await repository.save(b, session);
+    await repository.save(c, session);
+
+    const packPath = join(storagePath, "pack-0001.adpk");
+    const beforeNoop = readFileSync(packPath);
+    // Re-saving an identical record must not rewrite the (byte-identical) pack.
+    await repository.save(c, session);
+    expect(readFileSync(packPath).equals(beforeNoop)).toBe(true);
+
+    // A real update must persist and leave every other record intact.
+    const updatedC = withUpdatedAt(c, "2026-05-18T11:00:00.000Z");
+    await repository.save(updatedC, session);
+    expect(await repository.findById("a", session)).toEqual(a);
+    expect(await repository.findById("b", session)).toEqual(b);
+    expect(await repository.findById("c", session)).toEqual(updatedC);
+
+    // Deleting one record keeps the others readable.
+    expect(await repository.deleteById("b", session)).toBe(true);
+    expect(await repository.findById("a", session)).toEqual(a);
+    expect(await repository.findById("b", session)).toBeNull();
+    expect(await repository.findById("c", session)).toEqual(updatedC);
+  });
 });
 
 const withUpdatedAt = (

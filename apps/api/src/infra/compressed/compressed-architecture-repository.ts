@@ -1,5 +1,6 @@
 import type { ArchitectureDocument } from "@arch-draw/domain";
-import { mkdirSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync } from "node:fs";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type {
@@ -42,6 +43,10 @@ type PackIndexEntry = Readonly<{
   shareIds: readonly string[];
   sessionTokens: readonly string[];
   tokenBloomB64: string;
+  // Hash of the pack's serialized content; lets writes skip re-compressing and
+  // rewriting packs whose records did not change. Optional for older manifests.
+  contentHash?: string;
+  compressedBytes?: number;
 }>;
 
 type StorageManifest = Readonly<{
@@ -300,26 +305,63 @@ const createCompressedStore = (storagePath: string) => {
     ensureDirectory();
     const chunks = chunkRows(sortRecords(records), packRecordLimit);
     const currentManifest = await readManifest();
-    for (const entry of currentManifest?.packIndex ?? []) {
-      await rm(join(directory, entry.fileName), { force: true });
-    }
+    const existingByFile = new Map(
+      (currentManifest?.packIndex ?? []).map((entry) => [entry.fileName, entry] as const)
+    );
 
     let inputBytes = 0;
     let outputBytes = 0;
     const packIndex: PackIndexEntry[] = [];
+    const retainedFiles = new Set<string>();
 
     for (const [index, chunk] of chunks.entries()) {
       const fileName = `pack-${String(index + 1).padStart(4, "0")}.adpk`;
+      retainedFiles.add(fileName);
       const serialized = `${chunk.map((record) => JSON.stringify(record)).join("\n")}\n`;
+      const serializedBytes = Buffer.byteLength(serialized, "utf8");
+      const contentHash = createHash("sha256").update(serialized).digest("hex");
+      const existing = existingByFile.get(fileName);
+
+      // Reuse a pack untouched on disk when its serialized records are byte-identical:
+      // the dominant cost (zstd compression + the disk write) is skipped entirely.
+      if (
+        existing?.contentHash === contentHash
+        && existing.compressedBytes !== undefined
+        && existsSync(join(directory, fileName))
+      ) {
+        // Identical serialized records => identical metadata; reuse the index entry.
+        packIndex.push(existing);
+        inputBytes += serializedBytes;
+        outputBytes += existing.compressedBytes;
+        packRecordsCache.set(fileName, chunk);
+        continue;
+      }
+
       const compressed = encodeCompressedPack(Buffer.from(serialized, "utf8"), {
         compressionLevel,
         useDictionary: true
       });
 
       await writeFile(join(directory, fileName), compressed);
-      inputBytes += Buffer.byteLength(serialized, "utf8");
+      inputBytes += serializedBytes;
       outputBytes += compressed.byteLength;
-      packIndex.push(toPackIndexEntry(fileName, chunk));
+      packIndex.push({ ...toPackIndexEntry(fileName, chunk), contentHash, compressedBytes: compressed.byteLength });
+      packRecordsCache.set(fileName, chunk);
+    }
+
+    // Drop pack files that are no longer part of the store.
+    for (const entry of currentManifest?.packIndex ?? []) {
+      if (!retainedFiles.has(entry.fileName)) {
+        await rm(join(directory, entry.fileName), { force: true });
+        packRecordsCache.delete(entry.fileName);
+      }
+    }
+
+    // Keep the pack cache bounded after directly seeding it above.
+    while (packRecordsCache.size > maxCachedPacks) {
+      const oldestKey = packRecordsCache.keys().next().value;
+      if (typeof oldestKey !== "string") break;
+      packRecordsCache.delete(oldestKey);
     }
 
     const now = new Date().toISOString();
@@ -341,7 +383,8 @@ const createCompressedStore = (storagePath: string) => {
 
     await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
     manifestCache = manifest;
-    packRecordsCache.clear();
+    // The pack cache was kept in sync above (changed packs reseeded, removed packs
+    // evicted), so a follow-up read no longer has to re-decompress the whole store.
     return manifest;
   };
 
@@ -544,7 +587,9 @@ const parsePackIndexEntry = (value: unknown): readonly PackIndexEntry[] => {
       architectureIds: stringArray(entry.architectureIds),
       shareIds: stringArray(entry.shareIds),
       sessionTokens: stringArray(entry.sessionTokens),
-      tokenBloomB64: typeof entry.tokenBloomB64 === "string" ? entry.tokenBloomB64 : bloomToBase64(createBloom())
+      tokenBloomB64: typeof entry.tokenBloomB64 === "string" ? entry.tokenBloomB64 : bloomToBase64(createBloom()),
+      ...(typeof entry.contentHash === "string" ? { contentHash: entry.contentHash } : {}),
+      ...(typeof entry.compressedBytes === "number" ? { compressedBytes: entry.compressedBytes } : {})
     }
   ];
 };
