@@ -1855,3 +1855,14 @@ app-flow-document-node {
   border-radius: 999px;
   background: currentColor;
 }
+
+/*
+ * Overlap layering: when tile-like items (leaf nodes, collapsed containers and
+ * collapsed code snippets) overlap, the one under the cursor is lifted above its
+ * neighbours so its anchors, label and content are never covered by the item next
+ * to or on top of it. Scoped to leaf tiles so it never lifts an expanded container
+ * above its own children, and disabled mid-drag so it cannot fight the drag layer.
+ */
+.canvas-shell:not(.canvas-shell--grabbing) .architecture-node--leaf:hover {
+  z-index: 940 !important;
+}
