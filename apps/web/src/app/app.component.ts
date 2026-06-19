@@ -19,12 +19,9 @@ import {
   type ShareAccessMode,
   type SharedRealtimeEvent
 } from "../api/client";
-import { parseImportToSharePackage } from "../features/import/diagram-import";
-import {
-  exportArchitectureToDrawIo,
-  exportArchitectureToExcalidraw,
-  exportArchitectureToMermaid
-} from "../features/export/diagram-export";
+// diagram-import (~2k lines of draw.io/Excalidraw/Mermaid parsers) and diagram-export
+// are only needed on an explicit import/export action, so they are pulled in via
+// dynamic import() at the call sites to keep them out of the initial bundle.
 import { CodeEditorComponent } from "./code-editor.component";
 import { PaletteComponent } from "./palette.component";
 import { resolveIconColor } from "../features/editor/icon-color";
@@ -2416,6 +2413,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     await this.runSafely(async () => {
       const architecture = this.getCurrentArchitectureForExport();
       if (!architecture) return;
+      const { exportArchitectureToDrawIo } = await import("../features/export/diagram-export");
       const xml = exportArchitectureToDrawIo(architecture);
       this.downloadTextFile(xml, `${this.getExportFileBaseName()}.drawio`, "application/xml");
       this.status = this.t("status.exportedDrawIo");
@@ -2427,6 +2425,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     await this.runSafely(async () => {
       const architecture = this.getCurrentArchitectureForExport();
       if (!architecture) return;
+      const { exportArchitectureToExcalidraw } = await import("../features/export/diagram-export");
       const payload = exportArchitectureToExcalidraw(architecture);
       this.downloadTextFile(payload, `${this.getExportFileBaseName()}.excalidraw`, "application/json");
       this.status = this.t("status.exportedExcalidraw");
@@ -2438,6 +2437,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     await this.runSafely(async () => {
       const architecture = this.getCurrentArchitectureForExport();
       if (!architecture) return;
+      const { exportArchitectureToMermaid } = await import("../features/export/diagram-export");
       const source = exportArchitectureToMermaid(architecture);
       this.downloadTextFile(source, `${this.getExportFileBaseName()}.mmd`, "text/plain;charset=utf-8");
       this.status = this.t("status.exportedMermaid");
@@ -2459,6 +2459,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
       this.cancelAutoSave();
       this.disconnectCollaborationSession();
       const text = await file.text();
+      const { parseImportToSharePackage } = await import("../features/import/diagram-import");
       const sharePackage = await parseImportToSharePackage({
         fileName: file.name,
         text,
