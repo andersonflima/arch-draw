@@ -354,10 +354,16 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .canvas-edge-preview,
-  .canvas-edge.is-live,
-  .canvas-edge.is-bidirectional {
-    animation: none;
+  /* Honour the OS "reduce motion" setting across the whole app: collapse every
+   * animation and transition (edge flow, tutorial spotlight, hints, hovers) to a
+   * near-instant end state instead of looping/moving. */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
