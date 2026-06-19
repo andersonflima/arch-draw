@@ -22,19 +22,9 @@ import {
 // diagram-import (~2k lines of draw.io/Excalidraw/Mermaid parsers) and diagram-export
 // are only needed on an explicit import/export action, so they are pulled in via
 // dynamic import() at the call sites to keep them out of the initial bundle.
-import { CodeEditorComponent } from "./code-editor.component";
+import { CanvasNodeComponent } from "./canvas-node.component";
 import { PaletteComponent } from "./palette.component";
 import { resolveIconColor } from "../features/editor/icon-color";
-import { FlowDataNodeComponent } from "./flow-shapes/flow-data-node.component";
-import { FlowDecisionNodeComponent } from "./flow-shapes/flow-decision-node.component";
-import { FlowDocumentNodeComponent } from "./flow-shapes/flow-document-node.component";
-import { FlowEndNodeComponent } from "./flow-shapes/flow-end-node.component";
-import { FlowInputNodeComponent } from "./flow-shapes/flow-input-node.component";
-import { FlowLoopNodeComponent } from "./flow-shapes/flow-loop-node.component";
-import { FlowOutputNodeComponent } from "./flow-shapes/flow-output-node.component";
-import { FlowProcessNodeComponent } from "./flow-shapes/flow-process-node.component";
-import { FlowStartNodeComponent } from "./flow-shapes/flow-start-node.component";
-import { FlowSubroutineNodeComponent } from "./flow-shapes/flow-subroutine-node.component";
 import {
   normalizeEdgeStyle,
   toArchitectureDocument,
@@ -1671,18 +1661,8 @@ const normalizeAwsRegionPromptValue = (value: string): readonly string[] =>
   imports: [
     CommonModule,
     FormsModule,
-    CodeEditorComponent,
-    PaletteComponent,
-    FlowStartNodeComponent,
-    FlowEndNodeComponent,
-    FlowProcessNodeComponent,
-    FlowDecisionNodeComponent,
-    FlowInputNodeComponent,
-    FlowOutputNodeComponent,
-    FlowLoopNodeComponent,
-    FlowSubroutineNodeComponent,
-    FlowDataNodeComponent,
-    FlowDocumentNodeComponent
+    CanvasNodeComponent,
+    PaletteComponent
   ],
   templateUrl: "./app.component.html",
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -9560,6 +9540,17 @@ apiKeys:
     return this.connectionDragState !== null
       && this.connectionDragTarget?.nodeId === nodeId
       && this.connectionDragTarget.targetPort === targetPort;
+  }
+
+  // OnPush trigger for the node view: changes whenever this node's connection-target
+  // highlight changes, so the canvas-node component re-renders the highlighted port.
+  connectionTargetKeyFor(nodeId: string): string {
+    if (this.connectionDragState === null || this.connectionDragTarget?.nodeId !== nodeId) return "";
+    return this.connectionDragTarget.targetPort ?? "x";
+  }
+
+  get maximizedNodeIdValue(): string | null {
+    return this.maximizedNodeId;
   }
 
   private isAncestorOfNode(ancestorNodeId: string, nodeId: string): boolean {
