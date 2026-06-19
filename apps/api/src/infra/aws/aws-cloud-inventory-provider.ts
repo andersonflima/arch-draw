@@ -436,26 +436,31 @@ const mapTargetRelationships = async (
   region: string
 ): Promise<readonly CloudRelationship[]> => {
   const lbByArn = new Map(loadBalancers.map((lb) => [lb.LoadBalancerArn, lb] as const));
-  const relationships: CloudRelationship[] = [];
-  for (const targetGroup of targetGroups) {
-    const lbArn = targetGroup.LoadBalancerArns?.[0];
-    const lb = lbArn ? lbByArn.get(lbArn) : null;
-    if (!targetGroup.TargetGroupArn || !lb?.LoadBalancerArn) continue;
-    const targetHealth = await client.send(new DescribeTargetHealthCommand({
-      TargetGroupArn: targetGroup.TargetGroupArn
-    }));
-    for (const description of targetHealth.TargetHealthDescriptions ?? []) {
-      const targetId = description.Target?.Id;
-      if (!targetId || targetGroup.TargetType !== "instance") continue;
-      relationships.push({
-        id: `${lb.LoadBalancerArn}-${targetId}`,
-        fromExternalId: loadBalancerExternalId(accountId, region, lb.LoadBalancerArn),
-        toExternalId: instanceExternalId(accountId, region, targetId),
-        label: targetGroup.Protocol ? targetGroup.Protocol.toLowerCase() : "routes"
-      });
-    }
-  }
-  return relationships;
+  // Resolve each target group's health concurrently instead of serially, so cloud
+  // discovery no longer scales linearly with the number of target groups.
+  const perGroup = await Promise.all(
+    targetGroups.map(async (targetGroup): Promise<readonly CloudRelationship[]> => {
+      const lbArn = targetGroup.LoadBalancerArns?.[0];
+      const lb = lbArn ? lbByArn.get(lbArn) : null;
+      if (!targetGroup.TargetGroupArn || !lb?.LoadBalancerArn) return [];
+      const targetHealth = await client.send(new DescribeTargetHealthCommand({
+        TargetGroupArn: targetGroup.TargetGroupArn
+      }));
+      const relationships: CloudRelationship[] = [];
+      for (const description of targetHealth.TargetHealthDescriptions ?? []) {
+        const targetId = description.Target?.Id;
+        if (!targetId || targetGroup.TargetType !== "instance") continue;
+        relationships.push({
+          id: `${lb.LoadBalancerArn}-${targetId}`,
+          fromExternalId: loadBalancerExternalId(accountId, region, lb.LoadBalancerArn),
+          toExternalId: instanceExternalId(accountId, region, targetId),
+          label: targetGroup.Protocol ? targetGroup.Protocol.toLowerCase() : "routes"
+        });
+      }
+      return relationships;
+    })
+  );
+  return perGroup.flat();
 };
 
 const regionExternalId = (accountId: string, region: string): string =>
