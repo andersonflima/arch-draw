@@ -27,6 +27,15 @@ import { PaletteComponent } from "./palette.component";
 import { SelectionStore } from "../features/editor/selection-store";
 import { EditingStore } from "../features/editor/editing-store";
 import { CameraStore } from "../features/editor/camera-store";
+import { InteractionStore } from "../features/editor/interaction-store";
+import type {
+  ConnectionDragState,
+  DragState,
+  MarqueeState,
+  PanState,
+  ResizeDirection,
+  ResizeState
+} from "../features/editor/interaction-types";
 import { resolveIconColor } from "../features/editor/icon-color";
 import {
   normalizeEdgeStyle,
@@ -131,34 +140,6 @@ import {
 import { shouldPublishCursorPoint } from "../features/collaboration/cursor-publish-policy";
 import { toEdgeMarkerIdFromColor } from "../features/editor/edge-marker";
 
-type DragState = Readonly<{
-  pointerOffsets: ReadonlyMap<string, Readonly<{ x: number; y: number }>>;
-  startPoint: Readonly<{ x: number; y: number }>;
-  hasMoved: boolean;
-}>;
-
-type ResizeDirection = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
-
-type ResizeState = Readonly<{
-  nodeId: string;
-  direction: ResizeDirection;
-  startPoint: Readonly<{ x: number; y: number }>;
-  startPosition: Readonly<{ x: number; y: number }>;
-  startSize: Readonly<{ width: number; height: number }>;
-}>;
-
-type MarqueeState = Readonly<{
-  start: Readonly<{ x: number; y: number }>;
-  current: Readonly<{ x: number; y: number }>;
-}>;
-
-type ConnectionDragState = Readonly<{
-  sourceId: string;
-  sourcePort: ArchitectureEdgePortSide | null;
-  start: Readonly<{ x: number; y: number }>;
-  current: Readonly<{ x: number; y: number }>;
-}>;
-
 type PendingPortGestureState = Readonly<{
   nodeId: string;
   sourcePort: ArchitectureEdgePortSide | null;
@@ -168,11 +149,6 @@ type PendingPortGestureState = Readonly<{
 type ConnectionTarget = Readonly<{
   nodeId: string;
   targetPort: ArchitectureEdgePortSide | null;
-}>;
-
-type PanState = Readonly<{
-  startPointer: Readonly<{ x: number; y: number }>;
-  startPan: Readonly<{ x: number; y: number }>;
 }>;
 
 type MiniMapDragState = Readonly<{
@@ -1785,15 +1761,48 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   collaborationSession: CollaborationSessionState | null = null;
   remoteCollaboratorCursors: readonly RemoteCollaboratorCursor[] = [];
 
-  private dragState: DragState | null = null;
-  private panState: PanState | null = null;
+  // Transient pointer-gesture state is owned by InteractionStore (signals); these
+  // accessors keep the component's existing read/write call sites (and the marquee
+  // template binding) working while the state lives outside.
+  private get dragState(): DragState | null {
+    return this.interaction.dragState();
+  }
+  private set dragState(state: DragState | null) {
+    this.interaction.setDragState(state);
+  }
+  private get panState(): PanState | null {
+    return this.interaction.panState();
+  }
+  private set panState(state: PanState | null) {
+    this.interaction.setPanState(state);
+  }
   private miniMapDragState: MiniMapDragState | null = null;
-  private resizeState: ResizeState | null = null;
-  marqueeState: MarqueeState | null = null;
+  private get resizeState(): ResizeState | null {
+    return this.interaction.resizeState();
+  }
+  private set resizeState(state: ResizeState | null) {
+    this.interaction.setResizeState(state);
+  }
+  get marqueeState(): MarqueeState | null {
+    return this.interaction.marqueeState();
+  }
+  set marqueeState(state: MarqueeState | null) {
+    this.interaction.setMarqueeState(state);
+  }
   private pendingMarqueeStart: Readonly<{ x: number; y: number }> | null = null;
   private suppressCanvasClickClear = false;
-  private resizeEnabledNodeId: string | null = null;
-  private connectionDragState: ConnectionDragState | null = null;
+  private get resizeEnabledNodeId(): string | null {
+    return this.interaction.resizeEnabledNodeId();
+  }
+  private set resizeEnabledNodeId(nodeId: string | null) {
+    this.interaction.setResizeEnabledNodeId(nodeId);
+  }
+  private get connectionDragState(): ConnectionDragState | null {
+    return this.interaction.connectionDragState();
+  }
+  private set connectionDragState(state: ConnectionDragState | null) {
+    this.interaction.setConnectionDragState(state);
+  }
   private connectionDragTarget: ConnectionTarget | null = null;
   private pendingPortGestureState: PendingPortGestureState | null = null;
   private autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1901,7 +1910,8 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     private readonly changeDetectorRef: ChangeDetectorRef,
     private readonly selection: SelectionStore,
     private readonly editing: EditingStore,
-    private readonly camera: CameraStore
+    private readonly camera: CameraStore,
+    private readonly interaction: InteractionStore
   ) {
     this.viewRenderScheduler = new RenderScheduler(() => {
       this.changeDetectorRef.detectChanges();
