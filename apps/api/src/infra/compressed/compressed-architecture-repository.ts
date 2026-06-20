@@ -1,7 +1,7 @@
 import type { ArchitectureDocument } from "@arch-draw/domain";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
-import { readFile, rm, writeFile } from "node:fs/promises";
+import { readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type {
   ArchitectureRepository,
@@ -248,16 +248,44 @@ const createCompressedStore = (storagePath: string) => {
     mkdirSync(directory, { recursive: true });
   };
 
+  // Crash-safe write: stream into a sibling temp file, then atomically rename it
+  // over the target. On POSIX rename within the same directory is atomic, so a
+  // reader never observes a half-written pack or a truncated manifest.
+  const writeFileAtomic = async (filePath: string, data: string | Buffer): Promise<void> => {
+    const tempPath = `${filePath}.tmp-${randomUUID()}`;
+    try {
+      await writeFile(tempPath, data);
+      await rename(tempPath, filePath);
+    } catch (error) {
+      await rm(tempPath, { force: true });
+      throw error;
+    }
+  };
+
   const readManifest = async (): Promise<StorageManifest | null> => {
     if (manifestCache) return manifestCache;
-    let parsed: StorageManifest | null;
+    let rawManifest: string;
     try {
-      const rawManifest = await readFile(manifestPath, "utf8");
+      rawManifest = await readFile(manifestPath, "utf8");
+    } catch (error) {
+      // A genuinely absent manifest means an empty store; any other I/O failure
+      // must surface rather than be mistaken for "no data".
+      if (isFileNotFound(error)) return null;
+      throw error;
+    }
+
+    let parsed: StorageManifest | null = null;
+    try {
       parsed = parseManifest(JSON.parse(rawManifest) as unknown);
     } catch {
-      return null;
+      parsed = null;
     }
-    if (!parsed) return null;
+    // A present-but-unreadable manifest is corruption, not emptiness. Refuse to
+    // proceed so the caller never resets a populated store to an empty one.
+    if (!parsed) {
+      throw new Error(`Refusing to treat a corrupt manifest as an empty store: ${manifestPath}`);
+    }
+
     manifestCache = parsed;
     return migrateDictionaryPacksIfNeeded(parsed);
   };
@@ -377,19 +405,11 @@ const createCompressedStore = (storagePath: string) => {
         useDictionary: false
       });
 
-      await writeFile(join(directory, fileName), compressed);
+      await writeFileAtomic(join(directory, fileName), compressed);
       inputBytes += serializedBytes;
       outputBytes += compressed.byteLength;
       packIndex.push({ ...toPackIndexEntry(fileName, chunk), contentHash, compressedBytes: compressed.byteLength });
       packRecordsCache.set(fileName, chunk);
-    }
-
-    // Drop pack files that are no longer part of the store.
-    for (const entry of currentManifest?.packIndex ?? []) {
-      if (!retainedFiles.has(entry.fileName)) {
-        await rm(join(directory, entry.fileName), { force: true });
-        packRecordsCache.delete(entry.fileName);
-      }
     }
 
     // Keep the pack cache bounded after directly seeding it above.
@@ -417,8 +437,21 @@ const createCompressedStore = (storagePath: string) => {
       }
     };
 
-    await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+    // Commit point: write the manifest last and atomically. Until this succeeds
+    // the previous manifest still describes a fully consistent store.
+    await writeFileAtomic(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
     manifestCache = manifest;
+
+    // Only after the new manifest is committed do we drop packs it no longer
+    // references. A crash here leaves unreferenced files behind (harmless garbage,
+    // reclaimed on the next write), never a manifest pointing at a missing pack.
+    for (const entry of currentManifest?.packIndex ?? []) {
+      if (!retainedFiles.has(entry.fileName)) {
+        await rm(join(directory, entry.fileName), { force: true });
+        packRecordsCache.delete(entry.fileName);
+      }
+    }
+
     // The pack cache was kept in sync above (changed packs reseeded, removed packs
     // evicted), so a follow-up read no longer has to re-decompress the whole store.
     return manifest;
@@ -587,6 +620,9 @@ const isArchitectureDocument = (value: unknown): value is ArchitectureDocument =
     && Array.isArray(document.edges)
   );
 };
+
+const isFileNotFound = (error: unknown): boolean =>
+  typeof error === "object" && error !== null && (error as { code?: unknown }).code === "ENOENT";
 
 const parseManifest = (value: unknown): StorageManifest | null => {
   if (!value || typeof value !== "object") return null;
