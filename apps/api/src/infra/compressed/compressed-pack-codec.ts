@@ -52,13 +52,18 @@ const brotliOptions = (settings: PackCompressionSettings): Record<string, unknow
   return options;
 };
 
+// Packs are written WITHOUT the custom brotli dictionary: a dictionary-compressed
+// brotli stream is not portable across Node major versions (a pack written under
+// node 22 fails to decompress under node 26), which would make saved diagrams
+// unreadable after a runtime upgrade. The decoder still honours the dictionary flag
+// so packs written by older builds keep decoding until they are rewritten.
 export const encodeCompressedPack = (
   content: Buffer,
   settings: Partial<PackCompressionSettings> = {}
 ): Buffer => {
   const resolvedSettings = {
     compressionLevel: toCompressionLevel(settings.compressionLevel),
-    useDictionary: settings.useDictionary ?? true
+    useDictionary: settings.useDictionary ?? false
   };
   const compressed = brotliCompressSync(content, brotliOptions(resolvedSettings) as never);
 
@@ -67,6 +72,14 @@ export const encodeCompressedPack = (
     Buffer.from([currentVersion, encodeCompressionSettings(resolvedSettings)]),
     compressed
   ]);
+};
+
+// Whether a stored pack was written with the (non-portable) custom dictionary.
+// Used to drive a one-time migration to the portable, dictionary-free format.
+export const packUsesDictionary = (payload: Buffer): boolean => {
+  if (payload.length < magic.length + 2) return false;
+  if (!payload.subarray(0, magic.length).equals(magic)) return false;
+  return parseCompressionSettings(payload[magic.length + 1]).useDictionary;
 };
 
 export const decodeCompressedPack = (payload: Buffer): Buffer => {
