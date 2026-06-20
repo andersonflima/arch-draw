@@ -8,7 +8,7 @@ import type {
   ArchitectureShare,
   ArchitectureSummary
 } from "../../application/contracts/architecture-repository";
-import { decodeCompressedPack, encodeCompressedPack } from "./compressed-pack-codec";
+import { decodeCompressedPack, encodeCompressedPack, packUsesDictionary } from "./compressed-pack-codec";
 import { middleOutIndices } from "./middle-out";
 
 type ArchitectureStorageRecord = Readonly<{
@@ -57,6 +57,9 @@ type StorageManifest = Readonly<{
   recordCount: number;
   format: "arch-draw-compressed-v1";
   packIndex: readonly PackIndexEntry[];
+  // True once every pack was written in the portable (dictionary-free) format.
+  // Absent/false on stores written by older builds, which triggers a one-time migration.
+  dictionaryFree?: boolean;
   compression: Readonly<{
     inputBytes: number;
     outputBytes: number;
@@ -239,6 +242,7 @@ const createCompressedStore = (storagePath: string) => {
   let manifestCache: StorageManifest | null = null;
   const packRecordsCache = new Map<string, readonly StorageRecord[]>();
   const maxCachedPacks = 24;
+  let dictionaryMigrationChecked = false;
 
   const ensureDirectory = (): void => {
     mkdirSync(directory, { recursive: true });
@@ -246,14 +250,44 @@ const createCompressedStore = (storagePath: string) => {
 
   const readManifest = async (): Promise<StorageManifest | null> => {
     if (manifestCache) return manifestCache;
+    let parsed: StorageManifest | null;
     try {
       const rawManifest = await readFile(manifestPath, "utf8");
-      const parsed = parseManifest(JSON.parse(rawManifest) as unknown);
-      manifestCache = parsed;
-      return parsed;
+      parsed = parseManifest(JSON.parse(rawManifest) as unknown);
     } catch {
       return null;
     }
+    if (!parsed) return null;
+    manifestCache = parsed;
+    return migrateDictionaryPacksIfNeeded(parsed);
+  };
+
+  // One-time migration: a store written by an older build may hold packs in the
+  // non-portable dictionary format. The running Node version can still decode them,
+  // so rewrite the store in the portable, dictionary-free format while it still can —
+  // before a future Node upgrade could make those diagrams unreadable. Guarded so it
+  // runs at most once per process and is a no-op for already-portable stores.
+  const migrateDictionaryPacksIfNeeded = async (
+    manifest: StorageManifest
+  ): Promise<StorageManifest> => {
+    if (manifest.dictionaryFree || dictionaryMigrationChecked) return manifest;
+    dictionaryMigrationChecked = true;
+    if (!(await anyPackUsesDictionary(manifest))) return manifest;
+    const packRecords = await Promise.all(
+      manifest.packIndex.map((entry) => readPackRecords(entry.fileName))
+    );
+    return writeRecords(packRecords.flat());
+  };
+
+  const anyPackUsesDictionary = async (manifest: StorageManifest): Promise<boolean> => {
+    for (const entry of manifest.packIndex) {
+      try {
+        if (packUsesDictionary(await readFile(join(directory, entry.fileName)))) return true;
+      } catch {
+        // Unreadable pack: leave it for the normal read path to surface.
+      }
+    }
+    return false;
   };
 
   const readPackRecords = async (fileName: string): Promise<readonly StorageRecord[]> => {
@@ -337,9 +371,10 @@ const createCompressedStore = (storagePath: string) => {
         continue;
       }
 
+      // Portable, dictionary-free encoding (see compressed-pack-codec).
       const compressed = encodeCompressedPack(Buffer.from(serialized, "utf8"), {
         compressionLevel,
-        useDictionary: true
+        useDictionary: false
       });
 
       await writeFile(join(directory, fileName), compressed);
@@ -373,6 +408,7 @@ const createCompressedStore = (storagePath: string) => {
       recordCount: records.length,
       format: "arch-draw-compressed-v1",
       packIndex,
+      dictionaryFree: true,
       compression: {
         inputBytes,
         outputBytes,
@@ -566,6 +602,7 @@ const parseManifest = (value: unknown): StorageManifest | null => {
     recordCount: typeof manifest.recordCount === "number" ? manifest.recordCount : 0,
     format: "arch-draw-compressed-v1",
     packIndex: manifest.packIndex.flatMap(parsePackIndexEntry),
+    ...(manifest.dictionaryFree === true ? { dictionaryFree: true } : {}),
     compression: {
       inputBytes: manifest.compression?.inputBytes ?? 0,
       outputBytes: manifest.compression?.outputBytes ?? 0,
