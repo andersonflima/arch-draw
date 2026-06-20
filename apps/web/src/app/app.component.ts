@@ -24,6 +24,7 @@ import {
 // dynamic import() at the call sites to keep them out of the initial bundle.
 import { CanvasNodeComponent } from "./canvas-node.component";
 import { PaletteComponent } from "./palette.component";
+import { SelectionStore } from "../features/editor/selection-store";
 import { resolveIconColor } from "../features/editor/icon-color";
 import {
   normalizeEdgeStyle,
@@ -1693,8 +1694,20 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   architecture: ArchitectureDocument | null = null;
   nodes: CanvasNode[] = [];
   edges: CanvasEdge[] = [];
-  selectedNodeId: string | null = null;
-  selectedNodeIds: readonly string[] = [];
+  // Selection state is owned by SelectionStore (signals); these accessors keep the
+  // component's existing read/write call sites working while the state lives outside.
+  get selectedNodeId(): string | null {
+    return this.selection.primaryId();
+  }
+  set selectedNodeId(id: string | null) {
+    this.selection.setPrimaryId(id);
+  }
+  get selectedNodeIds(): readonly string[] {
+    return this.selection.ids();
+  }
+  set selectedNodeIds(ids: readonly string[]) {
+    this.selection.setIds(ids);
+  }
   private maximizedNodeId: string | null = null;
   selectedEdgeId: string | null = null;
   private hoveredEdgeId: string | null = null;
@@ -1794,8 +1807,6 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   private pendingPointerMoveEvent: PointerEvent | null = null;
   private readonly nodePropertyFieldsCache = new Map<ArchitectureNodeKind, readonly NodePropertyField[]>();
   private readonly codeLanguageBadgeCache = new Map<string, CodeLanguageBadgeCacheEntry>();
-  private selectedNodeIdsSetSource: readonly string[] = this.selectedNodeIds;
-  private selectedNodeIdsSetCache = new Set<string>(this.selectedNodeIds);
   private sceneGraphSource: readonly CanvasNode[] | null = null;
   private sceneGraph: SceneGraph<CanvasNode> | null = null;
   private edgeGraphSource: readonly CanvasEdge[] | null = null;
@@ -1851,7 +1862,8 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   private tutorialActiveTargetElement: HTMLElement | null = null;
 
   constructor(
-    private readonly changeDetectorRef: ChangeDetectorRef
+    private readonly changeDetectorRef: ChangeDetectorRef,
+    private readonly selection: SelectionStore
   ) {
     this.viewRenderScheduler = new RenderScheduler(() => {
       this.changeDetectorRef.detectChanges();
@@ -4322,11 +4334,7 @@ LIMIT 50;`;
   }
 
   private isNodeSelected(nodeId: string): boolean {
-    if (this.selectedNodeIdsSetSource !== this.selectedNodeIds) {
-      this.selectedNodeIdsSetSource = this.selectedNodeIds;
-      this.selectedNodeIdsSetCache = new Set(this.selectedNodeIds);
-    }
-    return this.selectedNodeIdsSetCache.has(nodeId);
+    return this.selection.has(nodeId);
   }
 
   canResizeNode(nodeId: string): boolean {
