@@ -7,3 +7,5 @@ coverage
 apps/api/data
 apps/web/.angular
 apps/web/.vite
+apps/web/playwright-report
+apps/web/test-results
