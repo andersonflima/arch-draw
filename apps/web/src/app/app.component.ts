@@ -25,6 +25,7 @@ import {
 import { CanvasNodeComponent } from "./canvas-node.component";
 import { PaletteComponent } from "./palette.component";
 import { SelectionStore } from "../features/editor/selection-store";
+import { EditingStore } from "../features/editor/editing-store";
 import { resolveIconColor } from "../features/editor/icon-color";
 import {
   normalizeEdgeStyle,
@@ -1713,10 +1714,32 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   private hoveredEdgeId: string | null = null;
   connectionSourceId: string | null = null;
   private connectionSourcePort: ArchitectureEdgePortSide | null = null;
-  editingNodeId: string | null = null;
-  editingNodeLabelDraft = "";
-  editingEdgeId: string | null = null;
-  editingEdgeLabelDraft = "";
+  // Inline label-editing state is owned by EditingStore (signals); these accessors
+  // keep the component's existing read/write call sites and template bindings working.
+  get editingNodeId(): string | null {
+    return this.editing.nodeId();
+  }
+  set editingNodeId(id: string | null) {
+    this.editing.setNodeId(id);
+  }
+  get editingNodeLabelDraft(): string {
+    return this.editing.nodeLabelDraft();
+  }
+  set editingNodeLabelDraft(value: string) {
+    this.editing.setNodeLabelDraft(value);
+  }
+  get editingEdgeId(): string | null {
+    return this.editing.edgeId();
+  }
+  set editingEdgeId(id: string | null) {
+    this.editing.setEdgeId(id);
+  }
+  get editingEdgeLabelDraft(): string {
+    return this.editing.edgeLabelDraft();
+  }
+  set editingEdgeLabelDraft(value: string) {
+    this.editing.setEdgeLabelDraft(value);
+  }
   mermaidDraft = "";
   mermaidSvg = "";
   mermaidError = "";
@@ -1863,7 +1886,8 @@ export class AppComponent implements AfterViewInit, OnDestroy {
 
   constructor(
     private readonly changeDetectorRef: ChangeDetectorRef,
-    private readonly selection: SelectionStore
+    private readonly selection: SelectionStore,
+    private readonly editing: EditingStore
   ) {
     this.viewRenderScheduler = new RenderScheduler(() => {
       this.changeDetectorRef.detectChanges();
