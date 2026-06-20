@@ -26,6 +26,7 @@ import { CanvasNodeComponent } from "./canvas-node.component";
 import { PaletteComponent } from "./palette.component";
 import { SelectionStore } from "../features/editor/selection-store";
 import { EditingStore } from "../features/editor/editing-store";
+import { CameraStore } from "../features/editor/camera-store";
 import { resolveIconColor } from "../features/editor/icon-color";
 import {
   normalizeEdgeStyle,
@@ -1761,8 +1762,20 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   blockSearch = "";
   displayedPaletteGroups: readonly PaletteCategoryGroup[] = [];
   contextPropertiesPanel: ContextPropertiesPanelState | null = null;
-  canvasZoom = 1;
-  canvasPan: Readonly<{ x: number; y: number }> = DEFAULT_CANVAS_PAN;
+  // Camera (zoom + pan) is owned by CameraStore (signals); these accessors keep the
+  // component's existing read/write call sites working while the state lives outside.
+  get canvasZoom(): number {
+    return this.camera.zoom();
+  }
+  set canvasZoom(zoom: number) {
+    this.camera.setZoom(zoom);
+  }
+  get canvasPan(): Readonly<{ x: number; y: number }> {
+    return this.camera.pan();
+  }
+  set canvasPan(pan: Readonly<{ x: number; y: number }>) {
+    this.camera.setPan(pan);
+  }
   edgeLabelFontSize = DEFAULT_EDGE_LABEL_FONT_SIZE;
   nodeLabelFontSize = DEFAULT_NODE_LABEL_FONT_SIZE;
   nodeIconSize = DEFAULT_NODE_ICON_SIZE;
@@ -1887,7 +1900,8 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   constructor(
     private readonly changeDetectorRef: ChangeDetectorRef,
     private readonly selection: SelectionStore,
-    private readonly editing: EditingStore
+    private readonly editing: EditingStore,
+    private readonly camera: CameraStore
   ) {
     this.viewRenderScheduler = new RenderScheduler(() => {
       this.changeDetectorRef.detectChanges();
