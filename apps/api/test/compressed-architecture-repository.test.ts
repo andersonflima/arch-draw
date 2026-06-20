@@ -127,6 +127,40 @@ describe("compressed architecture repository", () => {
     expect(await repository.findById("b", session)).toBeNull();
     expect(await repository.findById("c", session)).toEqual(updatedC);
   });
+  it("commits writes atomically and leaves no temporary files behind", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "arch-draw-compressed-repository-"));
+    const storagePath = join(tempDir, "architectures.store");
+    const repository = makeCompressedArchitectureRepository(storagePath);
+    const session = "s";
+
+    await repository.save(createEmptyArchitecture({ id: "a", title: "A", now: "2026-05-18T10:00:00.000Z" }), session);
+    await repository.save(createEmptyArchitecture({ id: "b", title: "B", now: "2026-05-18T10:01:00.000Z" }), session);
+    await repository.deleteById("a", session);
+
+    const leftovers = readdirSync(storagePath).filter((fileName) => fileName.includes(".tmp-"));
+    expect(leftovers).toEqual([]);
+    expect(await repository.findById("b", session)).not.toBeNull();
+  });
+
+  it("refuses to treat a corrupt manifest as an empty store", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "arch-draw-compressed-repository-"));
+    const storagePath = join(tempDir, "architectures.store");
+    const session = "s";
+    const architecture = createEmptyArchitecture({ id: "keep", title: "Keep", now: "2026-05-18T10:00:00.000Z" });
+
+    await makeCompressedArchitectureRepository(storagePath).save(architecture, session);
+    const packsBefore = readdirSync(storagePath).filter((fileName) => fileName.endsWith(".adpk"));
+    expect(packsBefore.length).toBeGreaterThan(0);
+
+    // Simulate a manifest left corrupt by a crash mid-write.
+    writeFileSync(join(storagePath, "manifest.json"), "{ not valid json");
+
+    const repository = makeCompressedArchitectureRepository(storagePath);
+    await expect(repository.findAll(session)).rejects.toThrow();
+    // The data must still be on disk: corruption must never wipe the packs.
+    expect(readdirSync(storagePath).filter((fileName) => fileName.endsWith(".adpk"))).toEqual(packsBefore);
+  });
+
   it("migrates a legacy dictionary store to the portable format on first read", async () => {
     tempDir = mkdtempSync(join(tmpdir(), "arch-draw-compressed-repository-"));
     const storagePath = join(tempDir, "architectures.store");
