@@ -100,6 +100,26 @@ test("select-all marks every node selected", async ({ page }) => {
   await expect(page.locator('[data-node-id="n2"]')).toHaveClass(/is-selected/);
 });
 
+test("marquee drag over the canvas selects enclosed nodes", async ({ page }) => {
+  const shell = (await page.locator(".canvas-shell").boundingBox())!;
+  const startX = shell.x + 8;
+  const startY = shell.y + 8;
+
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + 40, startY + 40);
+  await page.waitForTimeout(40);
+  // The marquee rectangle only exists while marqueeState is set on the store.
+  await expect(page.locator(".canvas-marquee")).toBeVisible();
+
+  await page.mouse.move(shell.x + shell.width - 20, shell.y + shell.height - 20, { steps: 8 });
+  await page.waitForTimeout(60);
+  await page.mouse.up();
+  await page.waitForTimeout(120);
+
+  expect(await page.locator(".architecture-node.is-selected").count()).toBeGreaterThan(0);
+});
+
 test("ctrl+wheel zoom enlarges nodes on screen", async ({ page }) => {
   const n1 = page.locator('[data-node-id="n1"]');
   const widthBefore = (await n1.boundingBox())!.width;
