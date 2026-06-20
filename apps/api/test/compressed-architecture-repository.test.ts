@@ -2,8 +2,14 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
+import { writeFileSync } from "node:fs";
 import { createEmptyArchitecture, type ArchitectureDocument } from "@arch-draw/domain";
 import { makeCompressedArchitectureRepository } from "../src/infra/compressed/compressed-architecture-repository";
+import {
+  decodeCompressedPack,
+  encodeCompressedPack,
+  packUsesDictionary
+} from "../src/infra/compressed/compressed-pack-codec";
 
 describe("compressed architecture repository", () => {
   let tempDir: string | null = null;
@@ -120,6 +126,45 @@ describe("compressed architecture repository", () => {
     expect(await repository.findById("a", session)).toEqual(a);
     expect(await repository.findById("b", session)).toBeNull();
     expect(await repository.findById("c", session)).toEqual(updatedC);
+  });
+  it("migrates a legacy dictionary store to the portable format on first read", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "arch-draw-compressed-repository-"));
+    const storagePath = join(tempDir, "architectures.store");
+    const session = "s";
+    const architecture = createEmptyArchitecture({
+      id: "legacy",
+      title: "Legacy dictionary diagram",
+      now: "2026-05-18T10:00:00.000Z"
+    });
+
+    await makeCompressedArchitectureRepository(storagePath).save(architecture, session);
+
+    // Simulate a store produced by an older build: re-encode the pack with the
+    // non-portable custom dictionary and drop the `dictionaryFree` manifest flag.
+    const packPath = join(storagePath, "pack-0001.adpk");
+    const content = decodeCompressedPack(readFileSync(packPath));
+    writeFileSync(packPath, encodeCompressedPack(content, { useDictionary: true }));
+    const manifestPath = join(storagePath, "manifest.json");
+    const legacyManifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
+      dictionaryFree?: boolean;
+      packIndex: Array<Record<string, unknown>>;
+    };
+    // Older manifests predate both the portable flag and the per-pack content hash.
+    delete legacyManifest.dictionaryFree;
+    for (const entry of legacyManifest.packIndex) delete entry.contentHash;
+    writeFileSync(manifestPath, JSON.stringify(legacyManifest));
+    expect(packUsesDictionary(readFileSync(packPath))).toBe(true);
+
+    // Opening the store reads the legacy pack and rewrites it dictionary-free.
+    const repository = makeCompressedArchitectureRepository(storagePath);
+    expect(await repository.findById("legacy", session)).toEqual(architecture);
+
+    expect(packUsesDictionary(readFileSync(packPath))).toBe(false);
+    const migratedManifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
+      dictionaryFree?: boolean;
+    };
+    expect(migratedManifest.dictionaryFree).toBe(true);
+    expect(await repository.findById("legacy", session)).toEqual(architecture);
   });
 });
 
