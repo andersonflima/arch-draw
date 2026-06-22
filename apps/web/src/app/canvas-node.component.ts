@@ -56,7 +56,7 @@ import type { AppComponent } from "./app.component";
       (dblclick)="host.onNodeDoubleClick(node, $event)"
       (contextmenu)="host.onNodeContextMenu(node.id, $event)"
     >
-      <ng-container *ngIf="host.hasOmniConnectionPorts(node); else defaultNodePorts">
+      @if (host.hasOmniConnectionPorts(node)) {
         <button
           class="node-port node-port--omni node-port--omni-top"
           type="button"
@@ -97,8 +97,7 @@ import type { AppComponent } from "./app.component";
           (pointerdown)="host.onTargetPortPointerDown($event, node.id, 'left')"
           (click)="host.onTargetPortClick($event, node.id, 'left')"
         ></button>
-      </ng-container>
-      <ng-template #defaultNodePorts>
+      } @else {
         <button
           class="node-port node-port--target"
           type="button"
@@ -109,9 +108,9 @@ import type { AppComponent } from "./app.component";
           (pointerdown)="host.onTargetPortPointerDown($event, node.id, 'left')"
           (click)="host.onTargetPortClick($event, node.id, 'left')"
         ></button>
-      </ng-template>
+      }
       <div class="architecture-node__header">
-        <ng-container *ngIf="host.getNodeIconKind(node) as iconKind">
+        @if (host.getNodeIconKind(node); as iconKind) {
           <span
             [class]="'node-icon node-icon--' + iconKind"
             [style.--icon-color]="host.getIconColor(node.color)"
@@ -119,7 +118,7 @@ import type { AppComponent } from "./app.component";
           >
             <i [class]="host.getNodeIconClass(iconKind)" aria-hidden="true"></i>
             <span class="node-icon__label">{{ host.getNodeIcon(iconKind) }}</span>
-            <ng-container *ngIf="host.shouldShowNodeCodeLanguageBadge(node) && host.getNodeCodeLanguageBadge(node) as codeBadge">
+            @if (host.shouldShowNodeCodeLanguageBadge(node) && host.getNodeCodeLanguageBadge(node); as codeBadge) {
               <span
                 class="node-code-language-badge"
                 [ngStyle]="host.getNodeCodeLanguageBadgeStyle(node)"
@@ -129,29 +128,30 @@ import type { AppComponent } from "./app.component";
                 <i [class]="codeBadge.iconClass" aria-hidden="true"></i>
                 <span class="node-code-language-badge__text">{{ codeBadge.shortLabel }}</span>
               </span>
-            </ng-container>
+            }
           </span>
-        </ng-container>
+        }
         <span class="architecture-node__kind-label">{{ host.getNodeLabel(node.kind) }}</span>
-        <button
-          *ngIf="(host.isCollapsibleContainerNode(node) && !host.isContainerCollapsed(node)) || (host.isCollapsibleCodeSnippetNode(node) && !host.isCodeSnippetCollapsed(node))"
-          class="node-collapse-toggle"
-          type="button"
-          [title]="host.isCollapsibleCodeSnippetNode(node)
-            ? (host.isCodeSnippetCollapsed(node) ? host.t('node.maximizeCode') : host.t('node.minimizeCode'))
-            : (host.isContainerCollapsed(node) ? host.t('node.expandContainer') : host.t('node.minimizeToIcon'))"
-          (pointerdown)="$event.stopPropagation()"
-          (click)="host.onNodeCollapseToggle(node, $event)"
-        >
-          <i [class]="(host.isCollapsibleCodeSnippetNode(node)
-            ? host.isCodeSnippetCollapsed(node)
-            : host.isContainerCollapsed(node))
-              ? 'fa-solid fa-compress'
-              : 'fa-solid fa-expand'" aria-hidden="true"></i>
-        </button>
+        @if ((host.isCollapsibleContainerNode(node) && !host.isContainerCollapsed(node)) || (host.isCollapsibleCodeSnippetNode(node) && !host.isCodeSnippetCollapsed(node))) {
+          <button
+            class="node-collapse-toggle"
+            type="button"
+            [title]="host.isCollapsibleCodeSnippetNode(node)
+              ? (host.isCodeSnippetCollapsed(node) ? host.t('node.maximizeCode') : host.t('node.minimizeCode'))
+              : (host.isContainerCollapsed(node) ? host.t('node.expandContainer') : host.t('node.minimizeToIcon'))"
+            (pointerdown)="$event.stopPropagation()"
+            (click)="host.onNodeCollapseToggle(node, $event)"
+          >
+            <i [class]="(host.isCollapsibleCodeSnippetNode(node)
+              ? host.isCodeSnippetCollapsed(node)
+              : host.isContainerCollapsed(node))
+                ? 'fa-solid fa-compress'
+                : 'fa-solid fa-expand'" aria-hidden="true"></i>
+          </button>
+        }
       </div>
-      <ng-container *ngIf="!host.isEditingNode(node.id); else nodeLabelEditor">
-        <ng-container *ngIf="host.isCodeSnippetExpanded(node); else nodeDisplay">
+      @if (!host.isEditingNode(node.id)) {
+        @if (host.isCodeSnippetExpanded(node)) {
           <div class="code-snippet-content">
             <div class="code-snippet-content__meta">
               <strong>{{ node.label }}</strong>
@@ -166,29 +166,26 @@ import type { AppComponent } from "./app.component";
               (pointerdown)="$event.stopPropagation()"
             ></app-code-editor>
           </div>
-        </ng-container>
-        <ng-template #nodeDisplay>
-          <ng-container *ngIf="host.isFlowNodeKind(node.kind); else defaultTextLabel">
-            <ng-container [ngSwitch]="node.kind">
-              <app-flow-start-node *ngSwitchCase="'flow-start'" [label]="node.label"></app-flow-start-node>
-              <app-flow-end-node *ngSwitchCase="'flow-end'" [label]="node.label"></app-flow-end-node>
-              <app-flow-process-node *ngSwitchCase="'flow-process'" [label]="node.label"></app-flow-process-node>
-              <app-flow-decision-node *ngSwitchCase="'flow-decision'" [label]="node.label"></app-flow-decision-node>
-              <app-flow-input-node *ngSwitchCase="'flow-input'" [label]="node.label"></app-flow-input-node>
-              <app-flow-output-node *ngSwitchCase="'flow-output'" [label]="node.label"></app-flow-output-node>
-              <app-flow-loop-node *ngSwitchCase="'flow-loop'" [label]="node.label"></app-flow-loop-node>
-              <app-flow-subroutine-node *ngSwitchCase="'flow-subroutine'" [label]="node.label"></app-flow-subroutine-node>
-              <app-flow-data-node *ngSwitchCase="'flow-data'" [label]="node.label"></app-flow-data-node>
-              <app-flow-document-node *ngSwitchCase="'flow-document'" [label]="node.label"></app-flow-document-node>
-              <strong *ngSwitchDefault>{{ host.getNodeDisplayLabel(node) }}</strong>
-            </ng-container>
-          </ng-container>
-          <ng-template #defaultTextLabel>
+        } @else {
+          @if (host.isFlowNodeKind(node.kind)) {
+            @switch (node.kind) {
+              @case ('flow-start') { <app-flow-start-node [label]="node.label"></app-flow-start-node> }
+              @case ('flow-end') { <app-flow-end-node [label]="node.label"></app-flow-end-node> }
+              @case ('flow-process') { <app-flow-process-node [label]="node.label"></app-flow-process-node> }
+              @case ('flow-decision') { <app-flow-decision-node [label]="node.label"></app-flow-decision-node> }
+              @case ('flow-input') { <app-flow-input-node [label]="node.label"></app-flow-input-node> }
+              @case ('flow-output') { <app-flow-output-node [label]="node.label"></app-flow-output-node> }
+              @case ('flow-loop') { <app-flow-loop-node [label]="node.label"></app-flow-loop-node> }
+              @case ('flow-subroutine') { <app-flow-subroutine-node [label]="node.label"></app-flow-subroutine-node> }
+              @case ('flow-data') { <app-flow-data-node [label]="node.label"></app-flow-data-node> }
+              @case ('flow-document') { <app-flow-document-node [label]="node.label"></app-flow-document-node> }
+              @default { <strong>{{ host.getNodeDisplayLabel(node) }}</strong> }
+            }
+          } @else {
             <strong>{{ host.getNodeDisplayLabel(node) }}</strong>
-          </ng-template>
-        </ng-template>
-      </ng-container>
-      <ng-template #nodeLabelEditor>
+          }
+        }
+      } @else {
         <textarea
           class="node-inline-label-input"
           [attr.data-node-editor-id]="node.id"
@@ -199,18 +196,19 @@ import type { AppComponent } from "./app.component";
           (pointerdown)="$event.stopPropagation()"
           (keydown)="host.onNodeLabelEditorKeyDown($event, node.id)"
         ></textarea>
-      </ng-template>
-      <button
-        *ngIf="!host.hasOmniConnectionPorts(node)"
-        class="node-port node-port--source"
-        type="button"
-        [title]="host.t('node.createConnection')"
-        [attr.data-target-port-node-id]="node.id"
-        data-port-side="right"
-        (pointerdown)="host.onSourcePortPointerDown($event, node.id, 'right')"
-        (click)="host.onSourcePortClick($event, node.id, 'right')"
-      ></button>
-      <ng-container *ngIf="host.canResizeNode(node.id)">
+      }
+      @if (!host.hasOmniConnectionPorts(node)) {
+        <button
+          class="node-port node-port--source"
+          type="button"
+          [title]="host.t('node.createConnection')"
+          [attr.data-target-port-node-id]="node.id"
+          data-port-side="right"
+          (pointerdown)="host.onSourcePortPointerDown($event, node.id, 'right')"
+          (click)="host.onSourcePortClick($event, node.id, 'right')"
+        ></button>
+      }
+      @if (host.canResizeNode(node.id)) {
         <button class="resize-control resize-control--n" type="button" aria-hidden="true" tabindex="-1" (pointerdown)="host.onResizePointerDown($event, node, 'n')"></button>
         <button class="resize-control resize-control--s" type="button" aria-hidden="true" tabindex="-1" (pointerdown)="host.onResizePointerDown($event, node, 's')"></button>
         <button class="resize-control resize-control--e" type="button" aria-hidden="true" tabindex="-1" (pointerdown)="host.onResizePointerDown($event, node, 'e')"></button>
@@ -219,7 +217,7 @@ import type { AppComponent } from "./app.component";
         <button class="resize-control resize-control--nw" type="button" aria-hidden="true" tabindex="-1" (pointerdown)="host.onResizePointerDown($event, node, 'nw')"></button>
         <button class="resize-control resize-control--se" type="button" aria-hidden="true" tabindex="-1" (pointerdown)="host.onResizePointerDown($event, node, 'se')"></button>
         <button class="resize-control resize-control--sw" type="button" aria-hidden="true" tabindex="-1" (pointerdown)="host.onResizePointerDown($event, node, 'sw')"></button>
-      </ng-container>
+      }
     </div>
   `
 })
