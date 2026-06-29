@@ -7,6 +7,9 @@ export type PackCompressionSettings = Readonly<{
 
 const magic = Buffer.from("ADPK1", "ascii");
 const currentVersion = 1;
+// Hard ceiling on decompressed pack size to defuse decompression bombs: a tiny,
+// highly compressible pack must not be able to inflate into unbounded memory.
+const maxDecompressedBytes = 64 * 1024 * 1024;
 const compressionLevelMask = 0x0f;
 const compressionDictionaryMask = 0x10;
 const defaultCompressionLevel = 5;
@@ -94,5 +97,8 @@ export const decodeCompressedPack = (payload: Buffer): Buffer => {
   }
 
   const settings = parseCompressionSettings(payload[magic.length + 1]);
-  return brotliDecompressSync(payload.subarray(magic.length + 2), brotliOptions(settings) as never);
+  return brotliDecompressSync(
+    payload.subarray(magic.length + 2),
+    { ...brotliOptions(settings), maxOutputLength: maxDecompressedBytes } as never
+  );
 };

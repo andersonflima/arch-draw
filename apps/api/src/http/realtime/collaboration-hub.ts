@@ -67,6 +67,13 @@ type RoomState = {
   currentView: CollaborationViewEvent | null;
 };
 
+// Presence is bounded so that callers who only POST cursor/view updates (and never
+// open an SSE stream that would eventually call leave()) cannot grow a room's
+// participant map without limit. Stale participants are evicted by idle TTL and
+// each room is hard-capped.
+const MAX_PARTICIPANTS_PER_ROOM = 200;
+const PRESENCE_TTL_MS = 60_000;
+
 export const createCollaborationHub = (): CollaborationHub => {
   const rooms = new Map<string, RoomState>();
 
@@ -80,6 +87,32 @@ export const createCollaborationHub = (): CollaborationHub => {
     };
     rooms.set(shareId, created);
     return created;
+  };
+
+  const prunePresence = (room: RoomState): void => {
+    const nowMs = Date.now();
+    for (const [id, participant] of room.participants) {
+      const lastSeen = Date.parse(participant.lastSeenAt);
+      if (Number.isFinite(lastSeen) && nowMs - lastSeen > PRESENCE_TTL_MS) {
+        room.participants.delete(id);
+      }
+    }
+  };
+
+  const dropRoomIfEmpty = (shareId: string, room: RoomState): void => {
+    if (room.participants.size === 0 && room.listeners.size === 0) {
+      rooms.delete(shareId);
+    }
+  };
+
+  // Returns false when a new participant cannot be admitted because the room is at
+  // capacity; existing participants are always allowed to refresh their presence.
+  const admitParticipant = (room: RoomState, participant: PresenceParticipant): boolean => {
+    if (!room.participants.has(participant.clientId) && room.participants.size >= MAX_PARTICIPANTS_PER_ROOM) {
+      return false;
+    }
+    room.participants.set(participant.clientId, participant);
+    return true;
   };
 
   const emit = (shareId: string, event: CollaborationHubEvent): void => {
@@ -102,8 +135,9 @@ export const createCollaborationHub = (): CollaborationHub => {
   return {
     join: ({ shareId, clientId, displayName, color }) => {
       const room = getOrCreateRoom(shareId);
+      prunePresence(room);
       const now = new Date().toISOString();
-      room.participants.set(clientId, {
+      admitParticipant(room, {
         clientId,
         displayName,
         color,
@@ -136,14 +170,21 @@ export const createCollaborationHub = (): CollaborationHub => {
     },
     publishCursor: ({ shareId, clientId, displayName, color, x, y, visible, at }) => {
       const room = getOrCreateRoom(shareId);
+      prunePresence(room);
       const current = room.participants.get(clientId);
-      room.participants.set(clientId, {
+      const admitted = admitParticipant(room, {
         clientId,
         displayName,
         color,
         joinedAt: current?.joinedAt ?? at,
         lastSeenAt: at
       });
+      // Drop the update entirely when the room is full so a flood of distinct
+      // clientIds can neither grow the map nor amplify presence broadcasts.
+      if (!admitted) {
+        dropRoomIfEmpty(shareId, room);
+        return;
+      }
       emit(shareId, {
         type: "cursor",
         clientId,
@@ -164,6 +205,7 @@ export const createCollaborationHub = (): CollaborationHub => {
     },
     publishView: ({ shareId, clientId, zoom, panX, panY, maximizedNodeId, at }) => {
       const room = getOrCreateRoom(shareId);
+      prunePresence(room);
       const event: CollaborationViewEvent = {
         type: "view",
         clientId,

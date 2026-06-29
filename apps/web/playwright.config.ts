@@ -7,6 +7,10 @@ const PORT = 4318;
 
 export default defineConfig({
   testDir: "./e2e",
+  // The performance probes (e2e/perf/*.perf.ts) are an on-demand benchmarking
+  // harness, not part of the smoke gate. They are excluded here so CI and the
+  // default `npm run e2e` stay fast and stable; run them via `npm run e2e:perf`.
+  testIgnore: "**/perf/**",
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
