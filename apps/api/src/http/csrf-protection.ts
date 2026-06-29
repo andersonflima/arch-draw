@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import { appendSetCookie, parseCookies, serializeCookie } from "./cookies";
 
 export type CsrfConfig = Readonly<{
@@ -57,7 +57,7 @@ export const validateCsrfRequest = (
   if (!isValidToken(cookieToken) || !isValidToken(headerToken)) {
     return { ok: false, reason: "Missing CSRF token" };
   }
-  if (cookieToken !== headerToken) {
+  if (!timingSafeEqualStrings(cookieToken, headerToken)) {
     return { ok: false, reason: "Mismatched CSRF token" };
   }
 
@@ -129,6 +129,13 @@ const originFromUrl = (value: string): string | null => {
 
 const isValidToken = (value: string | undefined): value is string =>
   typeof value === "string" && value.trim().length >= 16;
+
+const timingSafeEqualStrings = (a: string, b: string): boolean => {
+  const bufferA = Buffer.from(a, "utf8");
+  const bufferB = Buffer.from(b, "utf8");
+  if (bufferA.length !== bufferB.length) return false;
+  return timingSafeEqual(bufferA, bufferB);
+};
 
 const shouldUseSecureCookies = (request: RequestLike, forceSecureCookies: boolean): boolean =>
   forceSecureCookies || request.protocol === "https";

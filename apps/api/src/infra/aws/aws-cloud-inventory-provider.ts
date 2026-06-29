@@ -133,8 +133,13 @@ const makeClients = (
 
 const resolveCredentials = (
   request: CloudDiscoveryRequest
-): AwsCredentialIdentityProvider | undefined => {
-  if (!request.roleArn) return undefined;
+): AwsCredentialIdentityProvider => {
+  // Never fall back to the host's ambient credential chain: discovery must assume
+  // the caller-supplied role, otherwise it would enumerate the server's own AWS
+  // account and return that topology to any caller (confused-deputy).
+  if (!request.roleArn) {
+    throw new Error("A valid IAM role ARN is required for cloud discovery");
+  }
   return fromTemporaryCredentials({
     params: {
       RoleArn: request.roleArn,

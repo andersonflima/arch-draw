@@ -15,7 +15,7 @@ services:
       TRUST_PROXY_HOPS: "1"
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
       FORCE_SECURE_COOKIES: ${FORCE_SECURE_COOKIES:-false}
-      REDIS_URL: redis://:${REDIS_PASSWORD:-local-dev-only-change-me}@redis:6379/0
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set}@redis:6379/0
       SECURITY_METRICS_TOKEN: ${SECURITY_METRICS_TOKEN:-}
       CSRF_COOKIE_NAME: ${CSRF_COOKIE_NAME:-archdraw_csrf}
       CSRF_HEADER_NAME: ${CSRF_HEADER_NAME:-x-csrf-token}
@@ -98,7 +98,7 @@ services:
         --maxmemory-policy allkeys-lru
         --requirepass "$$REDIS_PASSWORD"
     environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-local-dev-only-change-me}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
     expose:
       - "6379"
     networks:

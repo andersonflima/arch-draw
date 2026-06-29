@@ -14,7 +14,6 @@ import {
 } from "./http/csrf-protection";
 import { createRequestRateLimiter } from "./http/request-rate-limiter";
 import { createRedisClient } from "./infra/redis/redis-client";
-import { parseCookies } from "./http/cookies";
 import { createCollaborationHub } from "./http/realtime/collaboration-hub";
 import { makeAwsCloudInventoryProvider } from "./infra/aws/aws-cloud-inventory-provider";
 
@@ -58,6 +57,7 @@ export const createServer = async (config: AppConfig) => {
     clock: systemClock,
     idGenerator: cryptoIdGenerator,
     forceSecureCookies: config.forceSecureCookies,
+    sessionTokenSecret: config.sessionTokenSecret,
     collaborationHub,
     cloudInventoryProvider
   });
@@ -157,17 +157,16 @@ export const createServer = async (config: AppConfig) => {
       return;
     }
 
+    // Rate-limit buckets are keyed on the trusted client IP only. Client-supplied
+    // cookies (archdraw_session / archdraw_auth) must never compose the key: they
+    // are unauthenticated and rotating them per request would mint a fresh bucket
+    // every time, defeating the limiter entirely.
     const ip = request.ip || "unknown";
-    const cookies = parseCookies(readSingleHeader(request.headers.cookie));
-    const sessionIdentity = cookies.get("archdraw_session")
-      ?? cookies.get("archdraw_auth")
-      ?? "anonymous";
-    const rateKey = `${sessionIdentity}|${ip}`;
-    const rate = await rateLimiter.consume(rateKey);
+    const rate = await rateLimiter.consume(ip);
     if (rate.allowed) return;
     recordSecurityEvent("rate_limited");
     request.log.warn(
-      { event: "rate_limited", ip, sessionIdentity, count: rate.count, windowMs: config.rateLimitWindowMs },
+      { event: "rate_limited", ip, count: rate.count, windowMs: config.rateLimitWindowMs },
       "Rate limit exceeded"
     );
     await reply.code(429).send({ errors: ["Too many requests, retry later"] });
@@ -244,11 +243,6 @@ const extractMetricsToken = (
   if (!authorization) return undefined;
   const match = /^Bearer\s+(.+)$/i.exec(authorization.trim());
   return match?.[1]?.trim() || undefined;
-};
-
-const readSingleHeader = (value: string | string[] | undefined): string | undefined => {
-  if (Array.isArray(value)) return value[0];
-  return value;
 };
 
 const isAllowedHost = (

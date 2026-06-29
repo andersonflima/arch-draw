@@ -6,6 +6,7 @@ export type AppConfig = Readonly<{
   trustProxy: boolean | number | string | string[];
   trustProxyHops?: number;
   forceSecureCookies: boolean;
+  sessionTokenSecret?: string;
   securityMetricsToken?: string;
   redisUrl?: string;
   googleOAuthClientId?: string;
@@ -32,6 +33,7 @@ export const loadConfig = (env: NodeJS.ProcessEnv = process.env): AppConfig => {
     trustProxy: trustProxyRaw,
     trustProxyHops: parseOptionalPositiveInteger(env.TRUST_PROXY_HOPS),
     forceSecureCookies: parseBoolean(env.FORCE_SECURE_COOKIES, (env.NODE_ENV ?? "").trim() === "production"),
+    sessionTokenSecret: parseOptionalNonEmptyValue(env.SESSION_TOKEN_SECRET),
     securityMetricsToken: parseOptionalNonEmptyValue(env.SECURITY_METRICS_TOKEN),
     redisUrl: parseOptionalNonEmptyValue(env.REDIS_URL),
     googleOAuthClientId: parseOptionalNonEmptyValue(env.GOOGLE_OAUTH_CLIENT_ID),
