@@ -4,6 +4,7 @@
 @import "./base/03-connections-panels.css";
 @import "./base/04-theme-dark.css";
 @import "./base/05-responsive.css";
+@import "./base/06-mobile.css";
 
 .architecture-node--leaf {
   grid-template-columns: minmax(0, 1fr);
