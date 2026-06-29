@@ -16,4 +16,12 @@ ENV WEB_ORIGINS=http://localhost:8080,http://127.0.0.1:8080
 
 EXPOSE 3333
 
-CMD ["npm", "run", "start", "--workspace", "@arch-draw/api"]
+RUN mkdir -p /app/data \
+  && chown -R node:node /app/data /app
+
+USER node
+
+# Run node directly (not via npm): the container uses a read-only root filesystem,
+# and npm would need a writable HOME for its cache/logs. Executing the built entry
+# point avoids that and reduces the runtime surface.
+CMD ["node", "apps/api/dist/main.js"]
