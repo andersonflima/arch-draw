@@ -22,7 +22,7 @@
       (ngModelChange)="updateTitle($event)"
     />
 
-    <div class="toolbar">
+    <div class="toolbar" [class.toolbar--mobile-open]="isMobileToolbarOpen" (click)="onMobileToolbarActionClick($event)">
       <button class="toolbar-action" data-tour="toolbar-new" type="button" [title]="t('aria.newArchitecture')" [attr.aria-label]="t('aria.newArchitecture')" (click)="createArchitecture()">{{ t("toolbar.new") }}</button>
       <details class="toolbar-dropdown" data-tour="toolbar-example">
         <summary class="toolbar-action toolbar-dropdown__trigger" [title]="t('aria.examples')" [attr.aria-label]="t('aria.examples')">
@@ -124,6 +124,17 @@
       </button>
     </div>
 
+    <button
+      class="topbar-actions-toggle"
+      type="button"
+      [title]="t('aria.toolbarMenu')"
+      [attr.aria-label]="t('aria.toolbarMenu')"
+      [class.is-active]="isMobileToolbarOpen"
+      (click)="toggleMobileToolbar()"
+    >
+      <i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>
+    </button>
+
     <input
       #importInput
       hidden
@@ -132,6 +143,13 @@
       (change)="importArchitecture($event)"
     />
   </header>
+
+  <div
+    class="mobile-scrim"
+    [class.mobile-scrim--active]="isMobileToolbarOpen || !isLeftPanelsHidden"
+    (click)="closeMobileOverlays()"
+    aria-hidden="true"
+  ></div>
 
   <aside *ngIf="getActiveTutorialGuide() as activeTutorial" class="tutorial-panel" aria-live="polite">
     <div class="tutorial-panel__header">
@@ -180,6 +198,7 @@
   ></div>
 
   <div class="workspace" [class.workspace--left-panels-hidden]="isLeftPanelsHidden">
+    <div class="left-drawer">
     <nav class="sidebar">
       <div class="panel-heading">
         <div>
@@ -230,6 +249,7 @@
       (addTemplate)="addNode($event)"
       (dragStartTemplate)="onPaletteDragStart($event.event, $event.template)"
     ></app-palette>
+    </div>
 
     <main
       #canvasShell

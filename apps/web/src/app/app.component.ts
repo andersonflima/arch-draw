@@ -563,6 +563,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   uiTheme: "light" | "dark" = "light";
   uiLanguage: UiLanguage = "pt-BR";
   isLeftPanelsHidden = false;
+  isMobileToolbarOpen = false;
   blockSearch = "";
   displayedPaletteGroups: readonly PaletteCategoryGroup[] = [];
   contextPropertiesPanel: ContextPropertiesPanelState | null = null;
@@ -892,8 +893,49 @@ export class AppComponent implements AfterViewInit, OnDestroy {
 
   toggleLeftPanelsVisibility(): void {
     this.isLeftPanelsHidden = !this.isLeftPanelsHidden;
+    if (!this.isLeftPanelsHidden) this.isMobileToolbarOpen = false;
     this.persistLeftPanelsVisibilityPreference();
     this.markViewportChanged();
+  }
+
+  // Phone-sized viewport: the canvas runs full-screen and the side panels and
+  // toolbar collapse into drawers/overlays. Kept in sync with the CSS breakpoint.
+  isMobileViewport(): boolean {
+    return typeof window !== "undefined" && window.innerWidth <= 768;
+  }
+
+  toggleMobileToolbar(): void {
+    this.isMobileToolbarOpen = !this.isMobileToolbarOpen;
+    if (this.isMobileToolbarOpen && !this.isLeftPanelsHidden) {
+      this.isLeftPanelsHidden = true;
+      this.persistLeftPanelsVisibilityPreference();
+    }
+  }
+
+  // Close the overflow menu after a real action, but keep it open while the user
+  // is toggling a nested dropdown (the <summary> triggers).
+  onMobileToolbarActionClick(event: Event): void {
+    if (!this.isMobileToolbarOpen) return;
+    const target = event.target as HTMLElement | null;
+    if (!target || target.closest("summary")) return;
+    if (target.closest("button")) this.isMobileToolbarOpen = false;
+  }
+
+  closeMobileOverlays(): void {
+    this.isMobileToolbarOpen = false;
+    if (this.isMobileViewport() && !this.isLeftPanelsHidden) {
+      this.isLeftPanelsHidden = true;
+      this.persistLeftPanelsVisibilityPreference();
+      this.markViewportChanged();
+    }
+  }
+
+  private closeLeftDrawerOnMobile(): void {
+    if (this.isMobileViewport() && !this.isLeftPanelsHidden) {
+      this.isLeftPanelsHidden = true;
+      this.persistLeftPanelsVisibilityPreference();
+      this.markViewportChanged();
+    }
   }
 
   async logoutFromSession(): Promise<void> {
@@ -1390,6 +1432,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     this.updateCurrent(loaded);
     this.status = this.t("status.architectureLoaded");
     this.markViewChanged();
+    this.closeLeftDrawerOnMobile();
   }
 
   async createShareLink(accessMode: ShareAccessMode = "edit"): Promise<void> {
@@ -1496,6 +1539,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
 
     this.nodes = this.sortNodes([...this.nodes, node]);
     this.markViewChanged();
+    this.closeLeftDrawerOnMobile();
   }
 
   private clampNodeCreationPointToVisibleCanvas(
@@ -9424,9 +9468,12 @@ apiKeys:
 
   private loadLeftPanelsVisibilityPreference(): void {
     try {
-      this.isLeftPanelsHidden = localStorage.getItem(LEFT_PANELS_VISIBILITY_STORAGE_KEY) === "true";
+      const stored = localStorage.getItem(LEFT_PANELS_VISIBILITY_STORAGE_KEY);
+      // With no stored preference, default to a hidden drawer on phones so the
+      // canvas starts full-screen; desktops keep the panels open.
+      this.isLeftPanelsHidden = stored === null ? this.isMobileViewport() : stored === "true";
     } catch {
-      this.isLeftPanelsHidden = false;
+      this.isLeftPanelsHidden = this.isMobileViewport();
     }
   }
 
