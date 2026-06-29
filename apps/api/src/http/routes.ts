@@ -26,6 +26,7 @@ type RouteDependencies = Readonly<{
   clock: Clock;
   idGenerator: IdGenerator;
   forceSecureCookies: boolean;
+  sessionTokenSecret?: string;
   collaborationHub: CollaborationHub;
   cloudInventoryProvider: CloudInventoryProvider;
 }>;
@@ -35,6 +36,7 @@ type IdParams = Readonly<{
 }>;
 
 const ARCHITECTURE_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
+const ROLE_ARN_PATTERN = /^arn:aws:iam::\d{12}:role\/[\w+=,.@/-]{1,512}$/;
 const MAX_TITLE_LENGTH = 180;
 const MAX_DESCRIPTION_LENGTH = 4000;
 const SHARE_ID_PATTERN = /^[a-zA-Z0-9_-]{12,160}$/;
@@ -89,6 +91,14 @@ export const registerRoutes = async (
       request.log.warn({ event: "invalid_body", route: "/cloud/aws/discover" }, "Rejected invalid cloud discovery payload");
       return reply.code(400).send({ errors: ["Invalid AWS discovery payload"] });
     }
+    // An IAM role ARN is mandatory: discovery must always assume the caller's role
+    // and never fall back to the server's own ambient credentials, which would leak
+    // the host account's infrastructure to any caller (confused-deputy).
+    if (!roleArn || !ROLE_ARN_PATTERN.test(roleArn)) {
+      recordSecurityEvent("invalid_body");
+      request.log.warn({ event: "invalid_body", route: "/cloud/aws/discover", field: "roleArn" }, "Rejected invalid IAM role ARN");
+      return reply.code(400).send({ errors: ["A valid IAM role ARN is required"] });
+    }
 
     const result = await discoverCloudArchitecture({
       provider: "aws",
@@ -101,7 +111,7 @@ export const registerRoutes = async (
 
     const saved = await saveArchitecture(
       result.architecture,
-      resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies)
+      resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies, dependencies.sessionTokenSecret)
     );
     return saved.ok
       ? reply.code(201).send(saved.architecture)
@@ -109,7 +119,7 @@ export const registerRoutes = async (
   });
 
   app.get("/architectures", async (request, reply) =>
-    listArchitectures(resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies))
+    listArchitectures(resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies, dependencies.sessionTokenSecret))
   );
 
   app.post<{ Body: unknown }>(
@@ -134,7 +144,7 @@ export const registerRoutes = async (
         return reply.code(400).send({ errors: [`Description must be a string with up to ${MAX_DESCRIPTION_LENGTH} characters`] });
       }
 
-      const sessionToken = resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies);
+      const sessionToken = resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies, dependencies.sessionTokenSecret);
       const architecture = await createArchitecture({
         sessionToken,
         title: title ?? "Untitled architecture",
@@ -153,7 +163,7 @@ export const registerRoutes = async (
     }
     const architecture = await readArchitecture(
       request.params.id,
-      resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies)
+      resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies, dependencies.sessionTokenSecret)
     );
     return architecture ?? reply.code(404).send({ error: "Architecture not found" });
   });
@@ -188,7 +198,7 @@ export const registerRoutes = async (
 
       const result = await saveArchitecture(
         request.body as ArchitectureDocument,
-        resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies)
+        resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies, dependencies.sessionTokenSecret)
       );
       return result.ok
         ? result.architecture
@@ -204,7 +214,7 @@ export const registerRoutes = async (
     }
     const deleted = await deleteArchitecture(
       request.params.id,
-      resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies)
+      resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies, dependencies.sessionTokenSecret)
     );
     return deleted ? reply.code(204).send() : reply.code(404).send();
   });
@@ -223,7 +233,7 @@ export const registerRoutes = async (
     const body = isObject(request.body) ? request.body : {};
     const accessMode = sanitizeShareAccessMode(body["accessMode"]) ?? "edit";
 
-    const sessionToken = resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies);
+    const sessionToken = resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies, dependencies.sessionTokenSecret);
     const existingArchitecture = await readArchitecture(request.params.id, sessionToken);
     if (!existingArchitecture) return reply.code(404).send({ error: "Architecture not found" });
 
@@ -479,7 +489,7 @@ export const registerRoutes = async (
     }
     const sharePackage = await exportArchitecture(
       request.params.id,
-      resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies)
+      resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies, dependencies.sessionTokenSecret)
     );
 
     if (!sharePackage) {
@@ -500,7 +510,7 @@ export const registerRoutes = async (
     }
     const result = await importArchitecture(
       request.body as ArchitectureSharePackage,
-      resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies)
+      resolveRequestSessionToken(request, reply, dependencies.forceSecureCookies, dependencies.sessionTokenSecret)
     );
 
     return result.ok
@@ -602,6 +612,7 @@ const sanitizeShareAccessMode = (value: unknown): ShareAccessMode | null => {
 const resolveRequestSessionToken = (
   request: Parameters<typeof resolveSessionToken>[0],
   reply: Parameters<typeof resolveSessionToken>[1],
-  forceSecureCookies: boolean
+  forceSecureCookies: boolean,
+  sessionTokenSecret?: string
 ): string =>
-  resolveSessionToken(request, reply, { forceSecureCookies });
+  resolveSessionToken(request, reply, { forceSecureCookies, secret: sessionTokenSecret });

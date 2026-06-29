@@ -651,7 +651,9 @@ const parseManifest = (value: unknown): StorageManifest | null => {
 const parsePackIndexEntry = (value: unknown): readonly PackIndexEntry[] => {
   if (!value || typeof value !== "object") return [];
   const entry = value as Partial<PackIndexEntry>;
-  if (typeof entry.fileName !== "string") return [];
+  // Constrain the manifest-supplied file name to the generated naming scheme so a
+  // tampered manifest cannot drive arbitrary-path reads or deletes (path traversal).
+  if (typeof entry.fileName !== "string" || !/^pack-\d{4,}\.adpk$/.test(entry.fileName)) return [];
 
   return [
     {

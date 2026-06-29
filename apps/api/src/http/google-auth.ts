@@ -1,15 +1,17 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import type { AppConfig } from "../config/env";
 import { appendSetCookie, parseCookies, serializeCookie } from "./cookies";
 import type { AppRedisClient } from "../infra/redis/redis-client";
 
 const AUTH_COOKIE_NAME = "archdraw_auth";
 const AUTH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 12;
+const OAUTH_STATE_COOKIE_NAME = "archdraw_oauth_state";
 const OAUTH_STATE_TTL_MS = 10 * 60_000;
 
 type GoogleUserInfoResponse = Readonly<{
   sub?: string;
   email?: string;
+  email_verified?: boolean;
   name?: string;
   picture?: string;
 }>;
@@ -131,6 +133,22 @@ export const createGoogleAuth = async (
       returnTo
     });
 
+    // Bind the OAuth state to this browser via an HttpOnly cookie. The callback
+    // requires the cookie value to match the `state` query parameter, so a state
+    // captured from the attacker's own login cannot be replayed into a victim's
+    // browser (login CSRF / session fixation).
+    appendSetCookie(
+      reply,
+      serializeCookie({
+        name: OAUTH_STATE_COOKIE_NAME,
+        value: state,
+        maxAgeSeconds: Math.floor(OAUTH_STATE_TTL_MS / 1000),
+        secure: config.forceSecureCookies || request.protocol === "https",
+        httpOnly: true,
+        sameSite: "Lax"
+      })
+    );
+
     const params = new URLSearchParams({
       client_id: googleConfig.clientId,
       redirect_uri: googleConfig.redirectUri,
@@ -154,6 +172,21 @@ export const createGoogleAuth = async (
     const query = request.query as Readonly<{ code?: string; state?: string }>;
     const code = typeof query.code === "string" ? query.code : undefined;
     const state = typeof query.state === "string" ? query.state : undefined;
+
+    // Consume the browser-bound state cookie regardless of the outcome.
+    const stateCookie = parseCookies(readSingleHeader(request.headers.cookie)).get(OAUTH_STATE_COOKIE_NAME);
+    appendSetCookie(
+      reply,
+      serializeCookie({
+        name: OAUTH_STATE_COOKIE_NAME,
+        value: "",
+        maxAgeSeconds: 0,
+        secure: config.forceSecureCookies || request.protocol === "https",
+        httpOnly: true,
+        sameSite: "Lax"
+      })
+    );
+
     if (!code || !state) {
       await reply.redirect(appendAuthError(googleConfig.postLoginRedirect, "missing_code_or_state"));
       return;
@@ -161,7 +194,12 @@ export const createGoogleAuth = async (
 
     const stateEntry = oauthStates.get(state);
     oauthStates.delete(state);
-    if (!stateEntry || stateEntry.expiresAt <= Date.now()) {
+    if (
+      !stateEntry
+      || stateEntry.expiresAt <= Date.now()
+      || !stateCookie
+      || !timingSafeEqualStrings(stateCookie, state)
+    ) {
       await reply.redirect(appendAuthError(googleConfig.postLoginRedirect, "invalid_state"));
       return;
     }
@@ -275,6 +313,9 @@ const fetchGoogleUserInfo = async (accessToken: string): Promise<AuthenticatedUs
   if (!parsed.sub || !parsed.email || !parsed.name) {
     throw new Error("Google userinfo response is missing required fields");
   }
+  if (parsed.email_verified !== true) {
+    throw new Error("Google account email is not verified");
+  }
 
   return {
     id: parsed.sub,
@@ -319,6 +360,13 @@ export const appendAuthError = (redirectTarget: string, code: string): string =>
 const readSingleHeader = (value: string | string[] | undefined): string | undefined => {
   if (Array.isArray(value)) return value[0];
   return value;
+};
+
+const timingSafeEqualStrings = (a: string, b: string): boolean => {
+  const bufferA = Buffer.from(a, "utf8");
+  const bufferB = Buffer.from(b, "utf8");
+  if (bufferA.length !== bufferB.length) return false;
+  return timingSafeEqual(bufferA, bufferB);
 };
 
 const createAuthSessionStore = (redisClient: AppRedisClient | null): AuthSessionStore => {
