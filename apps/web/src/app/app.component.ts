@@ -653,6 +653,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   private edgeRenderSuspendUntil = 0;
   private edgeRenderSuspendTimer: ReturnType<typeof setTimeout> | null = null;
   private edgeNavigationSuspendUntil = 0;
+  private edgeNavigationSuspendTimer: ReturnType<typeof setTimeout> | null = null;
   private renderAllCanvasForExport = false;
   private lastCollaborationSignature = "";
   private lastCollaborationViewSignature = "";
@@ -830,6 +831,10 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     if (this.edgeRenderSuspendTimer) {
       clearTimeout(this.edgeRenderSuspendTimer);
       this.edgeRenderSuspendTimer = null;
+    }
+    if (this.edgeNavigationSuspendTimer) {
+      clearTimeout(this.edgeNavigationSuspendTimer);
+      this.edgeNavigationSuspendTimer = null;
     }
     this.disconnectCollaborationStream();
     this.cancelCollaborationSync();
@@ -3341,11 +3346,18 @@ LIMIT 50;`;
       : EDGE_LAYER_BASE_Z_INDEX;
     const containerContextLayerZIndex = this.getContainerContextEdgeLayerZIndex();
     const containerLayerCeiling = this.getVisibleContainerLayerCeilingZIndex();
-    return Math.max(
+    const raw = Math.max(
       interactionLayerZIndex,
       containerContextLayerZIndex,
       containerLayerCeiling + 1
     );
+    // Invariant: the single edge SVG layer must never paint above leaf nodes —
+    // nodes sit on top of their wires. Because this is ONE global z for all edges,
+    // any container-context elevation (>= leaf base) would otherwise push every
+    // edge above every leaf node at once (the z-order inversion). Clamp below the
+    // leaf base so edges stay above container fills but under leaf nodes.
+    // Stopgap until the engine rewrite gives edges per-element layering.
+    return Math.min(raw, NODE_LAYER_LEAF_BASE_Z_INDEX - 1);
   }
 
   private getVisibleContainerLayerCeilingZIndex(): number {
@@ -6638,6 +6650,18 @@ apiKeys:
   private markEdgeNavigationStressWindow(durationMs = EDGE_RENDER_NAVIGATION_SUSPEND_MS): void {
     const now = Date.now();
     this.edgeNavigationSuspendUntil = Math.max(this.edgeNavigationSuspendUntil, now + durationMs);
+    // Schedule a recovery render once the suspend window elapses. Without this,
+    // edges suspended during wheel zoom/pan stay hidden until an unrelated change
+    // triggers change detection (connectors appearing to vanish after navigation).
+    const remaining = this.edgeNavigationSuspendUntil - now;
+    if (this.edgeNavigationSuspendTimer) {
+      clearTimeout(this.edgeNavigationSuspendTimer);
+      this.edgeNavigationSuspendTimer = null;
+    }
+    this.edgeNavigationSuspendTimer = setTimeout(() => {
+      this.edgeNavigationSuspendTimer = null;
+      this.requestViewRender();
+    }, remaining + 16);
   }
 
   private shouldRerouteConstrainedEdgePath(
