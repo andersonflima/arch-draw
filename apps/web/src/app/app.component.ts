@@ -36,6 +36,7 @@ import {
   type RenderableEdgeLabel,
   type SceneModel
 } from "../canvas-engine";
+import { Editor2Component } from "../editor2";
 import { SelectionStore } from "../features/editor/selection-store";
 import { EditingStore } from "../features/editor/editing-store";
 import { CameraStore } from "../features/editor/camera-store";
@@ -481,7 +482,8 @@ const normalizeAwsRegionPromptValue = (value: string): readonly string[] =>
     CommonModule,
     FormsModule,
     CanvasNodeComponent,
-    PaletteComponent
+    PaletteComponent,
+    Editor2Component
   ],
   templateUrl: "./app.component.html",
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -519,6 +521,10 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   // is now the default; v1 (legacy DOM+SVG edges) stays reachable via
   // `?engine=v1` as an escape hatch while the old path is retired.
   readonly canvasEngineVersion: EngineVersion = resolveActiveEngineVersion();
+  // Greenfield editor (Foblex Flow), opt-in via ?editor=v2. Read-only render in
+  // this slice; it overlays the current canvas so we can build it incrementally.
+  readonly editor2Enabled =
+    typeof location !== "undefined" && new URLSearchParams(location.search).get("editor") === "v2";
   // Selection state is owned by SelectionStore (signals); these accessors keep the
   // component's existing read/write call sites working while the state lives outside.
   get selectedNodeId(): string | null {
