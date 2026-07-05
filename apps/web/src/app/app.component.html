@@ -262,6 +262,7 @@
       (drop)="markCanvasUsage(); onCanvasDrop($event)"
       (wheel)="markCanvasUsage(); onCanvasWheel($event)"
       (contextmenu)="onCanvasContextMenu($event)"
+      (dblclick)="onCanvasDoubleClick($event)"
     >
       <button
         class="workspace-menu-toggle"
@@ -279,6 +280,20 @@
         class="canvas-edge-engine"
         aria-hidden="true"
       ></canvas>
+      <textarea
+        *ngIf="isCanvasEngineV2() && editingEdgeId as editorId"
+        class="canvas-edge-label-editor canvas-edge-label-editor--engine"
+        [ngStyle]="getEngineEdgeEditorStyle()"
+        [attr.data-edge-editor-id]="editorId"
+        [ngModel]="editingEdgeLabelDraft"
+        (ngModelChange)="editingEdgeLabelDraft = $event"
+        [style.font-size.px]="edgeLabelFontSize * canvasZoom"
+        (blur)="commitEdgeLabelEditing(editorId)"
+        (click)="$event.stopPropagation()"
+        (pointerdown)="$event.stopPropagation()"
+        (dblclick)="$event.stopPropagation()"
+        (keydown)="onEdgeLabelEditorKeyDown($event, editorId)"
+      ></textarea>
       <div
         class="canvas-viewport"
         [class.canvas-viewport--interaction-lite]="shouldUseInteractionLiteMode()"

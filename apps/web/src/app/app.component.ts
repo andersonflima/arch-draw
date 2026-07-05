@@ -32,6 +32,7 @@ import {
   type Camera,
   type EngineVersion,
   type RenderableEdge,
+  type RenderableEdgeLabel,
   type SceneModel
 } from "../canvas-engine";
 import { SelectionStore } from "../features/editor/selection-store";
@@ -3852,7 +3853,8 @@ LIMIT 50;`;
         arrowStart: this.getEdgeStartMarker(edge) !== null,
         arrowEnd: this.getEdgeEndMarker(edge) !== null,
         cornerRadius: 20,
-        opacity: this.isEdgeTemporarilyMuted(edge) ? 0.35 : 1
+        opacity: this.isEdgeTemporarilyMuted(edge) ? 0.35 : 1,
+        label: this.getEngineEdgeLabel(edge)
       });
     }
     return result;
@@ -3881,6 +3883,42 @@ LIMIT 50;`;
     if (next === this.hoveredEdgeId) return false;
     this.hoveredEdgeId = next;
     return true;
+  }
+
+  /** Build the canvas label for an edge, or undefined when it should not show
+   * (no label, hidden by detail reduction, or being edited in the DOM overlay). */
+  private getEngineEdgeLabel(edge: CanvasEdge): RenderableEdgeLabel | undefined {
+    if (edge.id === this.editingEdgeId) return undefined;
+    if (!edge.label || !this.shouldRenderEdgeLabel(edge)) return undefined;
+    const position = this.getEdgeLabelPosition(edge);
+    return {
+      text: edge.label,
+      x: position.x,
+      y: position.y,
+      fontSize: this.edgeLabelFontSize,
+      color: this.getEdgeLabelColor(edge),
+      background: this.isDarkMode ? "#111827" : "#ffffff"
+    };
+  }
+
+  /** Screen-space position of the v2 edge-label editor overlay. */
+  getEngineEdgeEditorStyle(): Record<string, string> {
+    const edge = this.edges.find((candidate) => candidate.id === this.editingEdgeId);
+    if (!edge) return { display: "none" };
+    const position = this.getEdgeLabelPosition(edge);
+    return {
+      left: `${this.canvasPan.x + position.x * this.canvasZoom}px`,
+      top: `${this.canvasPan.y + position.y * this.canvasZoom}px`
+    };
+  }
+
+  /** Double-click on the v2 canvas: start editing the edge under the pointer. */
+  onCanvasDoubleClick(event: MouseEvent): void {
+    if (!this.isCanvasEngineV2()) return;
+    const target = event.target as HTMLElement;
+    if (target.closest(".architecture-node, .node-port, .resize-control, .canvas-map")) return;
+    const edgeId = this.hitTestEngineEdge(event);
+    if (edgeId) this.onEdgeDoubleClick(edgeId, event);
   }
 
   /** Draw the v2 edge canvas for the current frame. No-op on the v1 path. */

@@ -193,6 +193,19 @@
   pointer-events: none;
 }
 
+/* DOM overlay editor for v2 edge labels, positioned in screen space and centred
+   on the label anchor (canvas cannot edit text). */
+.canvas-edge-label-editor--engine {
+  position: absolute;
+  z-index: 200;
+  width: 180px;
+  height: 34px;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  resize: none;
+  text-align: center;
+}
+
 .canvas-edge-layer--elevated {
   z-index: 160;
 }

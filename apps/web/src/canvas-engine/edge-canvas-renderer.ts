@@ -1,5 +1,5 @@
 import type { Camera, ScenePoint } from "./renderer.js";
-import type { RenderableEdge } from "./edge-render-model.js";
+import type { RenderableEdge, RenderableEdgeLabel } from "./edge-render-model.js";
 import { isDrawableEdge } from "./edge-render-model.js";
 import { computeArrowHead, edgeArrowAnchors, type ArrowHead } from "./edge-canvas-geometry.js";
 
@@ -53,6 +53,10 @@ export class EdgeCanvasRenderer {
 
     for (const edge of frame.edges) {
       if (isDrawableEdge(edge)) this.drawEdge(ctx, edge);
+    }
+    // Labels paint last so they sit above every wire.
+    for (const edge of frame.edges) {
+      if (edge.label) this.drawLabel(ctx, edge.label);
     }
   }
 
@@ -113,6 +117,32 @@ export class EdgeCanvasRenderer {
       const head = computeArrowHead(anchors.startTip, anchors.startFrom, ARROW_SIZE);
       if (head) this.fillTriangle(ctx, head);
     }
+  }
+
+  private drawLabel(ctx: CanvasRenderingContext2D, label: RenderableEdgeLabel): void {
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.font = `${label.fontSize}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    const paddingX = label.fontSize * 0.45;
+    const paddingY = label.fontSize * 0.3;
+    const width = ctx.measureText(label.text).width + paddingX * 2;
+    const height = label.fontSize + paddingY * 2;
+    const radius = Math.min(8, height / 2);
+
+    ctx.fillStyle = label.background;
+    ctx.strokeStyle = label.color;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.roundRect(label.x - width / 2, label.y - height / 2, width, height, radius);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = label.color;
+    ctx.fillText(label.text, label.x, label.y);
+    ctx.restore();
   }
 
   private fillTriangle(ctx: CanvasRenderingContext2D, head: ArrowHead): void {

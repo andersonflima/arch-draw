@@ -1,5 +1,16 @@
 import type { ScenePoint } from "./renderer.js";
 
+/** A centred edge label drawn as a rounded box with text, on top of the wires. */
+export interface RenderableEdgeLabel {
+  readonly text: string;
+  /** World-space centre of the label. */
+  readonly x: number;
+  readonly y: number;
+  readonly fontSize: number;
+  readonly color: string;
+  readonly background: string;
+}
+
 /**
  * A fully-styled edge ready to be drawn by the canvas edge renderer. The editor
  * resolves routing/colour/markers (reusing its existing geometry) and hands the
@@ -20,6 +31,8 @@ export interface RenderableEdge {
   readonly cornerRadius: number;
   /** 0..1 multiplier for muted/de-emphasised edges. */
   readonly opacity: number;
+  /** Optional label drawn on top of all wires. */
+  readonly label?: RenderableEdgeLabel;
 }
 
 export const isDrawableEdge = (edge: RenderableEdge): boolean => edge.points.length >= 2;
