@@ -515,10 +515,9 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   architecture: ArchitectureDocument | null = null;
   nodes: CanvasNode[] = [];
   edges: CanvasEdge[] = [];
-  // Canvas engine selection (strangler migration). v1 is the current DOM+SVG
-  // renderer and the default; v2 is opt-in via `?engine=v2` and built
-  // incrementally. Nothing switches rendering on this yet — it is the entry
-  // point the new renderers (Slice 2+) hang off of.
+  // Canvas engine selection (strangler migration). v2 (edges on a canvas layer)
+  // is now the default; v1 (legacy DOM+SVG edges) stays reachable via
+  // `?engine=v1` as an escape hatch while the old path is retired.
   readonly canvasEngineVersion: EngineVersion = resolveActiveEngineVersion();
   // Selection state is owned by SelectionStore (signals); these accessors keep the
   // component's existing read/write call sites working while the state lives outside.

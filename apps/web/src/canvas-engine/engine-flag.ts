@@ -1,10 +1,10 @@
 /**
- * Feature flag that selects the canvas rendering engine. The new engine (`v2`)
- * is built incrementally behind this flag (strangler migration); `v1` is the
- * current DOM+SVG renderer and stays the default until the migration completes.
+ * Feature flag that selects the canvas rendering engine. `v2` (edges on a
+ * canvas layer) is now the default; `v1` (the legacy DOM+SVG edge renderer) is
+ * kept as an escape hatch via `?engine=v1` while the old path is retired.
  *
  * Resolution order: `?engine=` query param (one-off override) → persisted
- * preference in localStorage → default `v1`.
+ * preference in localStorage → default `v2`.
  */
 
 export type EngineVersion = "v1" | "v2";
@@ -22,7 +22,7 @@ export const resolveEngineVersion = (
 ): EngineVersion => {
   const fromQuery = asEngineVersion(new URLSearchParams(search ?? "").get(ENGINE_QUERY_PARAM));
   if (fromQuery) return fromQuery;
-  return asEngineVersion(storageValue) ?? "v1";
+  return asEngineVersion(storageValue) ?? "v2";
 };
 
 export const isEngineV2 = (version: EngineVersion): boolean => version === "v2";
