@@ -6,7 +6,7 @@ export type { RenderableEdge, RenderableEdgeLabel } from "./edge-render-model.js
 export { isDrawableEdge } from "./edge-render-model.js";
 export type { EdgeCanvasFrame } from "./edge-canvas-renderer.js";
 export { EdgeCanvasRenderer } from "./edge-canvas-renderer.js";
-export { computeArrowHead, edgeArrowAnchors, type ArrowHead } from "./edge-canvas-geometry.js";
+export { computeArrowHead, edgeArrowAnchors, sampleCubicBezier, type ArrowHead } from "./edge-canvas-geometry.js";
 export { hitTestEdges, distanceToSegment } from "./edge-hit-test.js";
 export type { EngineVersion } from "./engine-flag.js";
 export {
