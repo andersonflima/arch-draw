@@ -3088,7 +3088,10 @@ LIMIT 50;`;
     const expandedPriorityZIndex = isExpandedContentNode
       ? this.getExpandedNodePriorityZIndex(baseZIndex)
       : 0;
-    const selectedPriorityZIndex = this.isNodeSelected(node.id)
+    // Only leaf nodes get the selection z-boost. Elevating a selected CONTAINER
+    // above the leaf layer would paint its fill/header over its own children,
+    // making them disappear on click; the selection outline shows regardless.
+    const selectedPriorityZIndex = this.isNodeSelected(node.id) && !rendersAsContainer
       ? this.getSelectedNodePriorityZIndex(baseZIndex)
       : 0;
     const collapseToggleZIndexFloor =
@@ -10987,6 +10990,15 @@ spec:
 
   private clearMovedNodeRenderCaches(changedNodeIds: readonly string[]): void {
     this.renderModelCache = null;
+    // The render-model partition is cached independently of renderModelCache, so
+    // nulling only renderModelCache leaves the rendered node lists frozen during a
+    // drag — children can drop out (or fail to reappear) until a later full clear.
+    // Invalidate the membership and viewport-rect caches so the lists rebuild.
+    this.containerRenderableNodesCache = null;
+    this.leafRenderableNodesCache = null;
+    this.renderableNodeIdsCache.clear();
+    this.renderableCanvasRectCache = null;
+    this.visibleCanvasRectCache = null;
     const affectedNodeIds = new Set<string>();
     for (const nodeId of changedNodeIds) {
       affectedNodeIds.add(nodeId);
