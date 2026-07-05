@@ -27,6 +27,7 @@ import { PaletteComponent } from "./palette.component";
 import {
   buildSceneModel,
   EdgeCanvasRenderer,
+  hitTestEdges,
   resolveActiveEngineVersion,
   type Camera,
   type EngineVersion,
@@ -2664,6 +2665,17 @@ LIMIT 50;`;
     if (event.button !== 0) return;
     if (isInteractiveTarget) return;
 
+    // v2 draws edges on a canvas (no per-edge DOM), so an edge click falls through
+    // to here; hit-test and select the edge before starting a marquee.
+    if (this.isCanvasEngineV2()) {
+      const edgeId = this.hitTestEngineEdge(event);
+      if (edgeId) {
+        this.selectEdge(edgeId, event);
+        this.suppressCanvasClickClear = true;
+        return;
+      }
+    }
+
     this.pendingMarqueeStart = this.toCanvasPoint(event);
     this.connectionSourceId = null;
     this.connectionSourcePort = null;
@@ -2728,6 +2740,18 @@ LIMIT 50;`;
 
   private handleWindowPointerMove(event: PointerEvent): void {
     this.maybePublishCollaborationCursor(event);
+
+    // v2 edge hover: with no per-edge DOM, resolve the hovered edge by hit-testing
+    // the canvas layer while idle (no active or pending gesture).
+    if (
+      this.isCanvasEngineV2()
+      && !this.isCanvasInteractionActive()
+      && !this.dragState
+      && !this.pendingMarqueeStart
+      && !this.pendingPortGestureState
+    ) {
+      if (this.updateEngineEdgeHover(event)) this.requestViewRender();
+    }
 
     if (this.miniMapDragState) {
       const miniMapElement = this.miniMap?.nativeElement;
@@ -3817,11 +3841,13 @@ LIMIT 50;`;
       if (!this.isVisibleEdge(edge)) continue;
       const data = this.getEdgePathData(edge);
       if (!data || data.points.length < 2) continue;
+      const isSelected = edge.id === this.selectedEdgeId;
+      const isHovered = edge.id === this.hoveredEdgeId;
       result.push({
         id: edge.id,
         points: data.points.map((point) => ({ x: point.x, y: point.y })),
         stroke: this.getEdgeColor(edge),
-        lineWidth: 2.4,
+        lineWidth: isSelected ? 4 : isHovered ? 3 : 2.4,
         dash: this.parseEdgeDash(this.getEdgeDash(edge)),
         arrowStart: this.getEdgeStartMarker(edge) !== null,
         arrowEnd: this.getEdgeEndMarker(edge) !== null,
@@ -3838,6 +3864,23 @@ LIMIT 50;`;
       .split(/[\s,]+/)
       .map((token) => Number(token))
       .filter((token) => Number.isFinite(token) && token > 0);
+  }
+
+  /** Resolve the edge under a pointer event on the v2 canvas, or null. The
+   * threshold is a fixed screen distance converted to world units. */
+  private hitTestEngineEdge(event: Pick<MouseEvent, "clientX" | "clientY">): string | null {
+    const world = this.toCanvasPoint(event);
+    const threshold = 10 / Math.max(this.canvasZoom, 0.05);
+    return hitTestEdges(this.getEngineRenderableEdges(), world, threshold);
+  }
+
+  /** Update the hovered edge from a pointer position on the v2 canvas. Returns
+   * true when the hovered edge changed (so the caller can repaint). */
+  private updateEngineEdgeHover(event: Pick<MouseEvent, "clientX" | "clientY">): boolean {
+    const next = this.hitTestEngineEdge(event);
+    if (next === this.hoveredEdgeId) return false;
+    this.hoveredEdgeId = next;
+    return true;
   }
 
   /** Draw the v2 edge canvas for the current frame. No-op on the v1 path. */
