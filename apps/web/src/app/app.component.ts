@@ -6530,7 +6530,18 @@ apiKeys:
         ? this.clampChildPositionWithinContainerHeader(parentNode, relativePosition)
         : relativePosition;
 
-      if (node.position.x === clampedPosition.x && node.position.y === clampedPosition.y) continue;
+      if (node.position.x === clampedPosition.x && node.position.y === clampedPosition.y) {
+        // Relative position unchanged. If the node's parent is also being dragged
+        // (a container drag), the child's ABSOLUTE position still moved, so emit a
+        // fresh object reference: its OnPush view re-checks and re-reads its
+        // transform, keeping children in sync with the container during the drag
+        // instead of snapping to place only on release.
+        if (!node.parentId || !targetById.has(node.parentId)) continue;
+        nextNodes[nodeIndex] = { ...node };
+        changedNodeIds.push(nodeId);
+        hasChanged = true;
+        continue;
+      }
       nextNodes[nodeIndex] = { ...node, position: clampedPosition };
       changedNodeIds.push(nodeId);
       hasChanged = true;
