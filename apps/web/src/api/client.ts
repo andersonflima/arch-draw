@@ -44,8 +44,9 @@ export type SharedArchitecturePayload = Readonly<{
 }>;
 
 export type AwsDiscoveryInput = Readonly<{
-  roleArn?: string;
-  externalId?: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  sessionToken?: string;
   accountLabel?: string;
   regions: readonly string[];
 }>;

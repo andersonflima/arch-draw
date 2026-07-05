@@ -36,8 +36,7 @@ import {
   S3Client,
   type Bucket
 } from "@aws-sdk/client-s3";
-import { fromTemporaryCredentials } from "@aws-sdk/credential-providers";
-import type { AwsCredentialIdentityProvider } from "@smithy/types";
+import type { AwsCredentialIdentity } from "@smithy/types";
 import type {
   CloudDiscoveryRequest,
   CloudInventoryProvider,
@@ -88,7 +87,7 @@ export const makeAwsCloudInventoryProvider = (): CloudInventoryProvider => ({
 const discoverRegion = async (
   region: string,
   accountId: string,
-  credentials: AwsCredentialIdentityProvider | undefined
+  credentials: AwsCredentialIdentity | undefined
 ): Promise<RegionDiscovery> => {
   const clients = makeClients(region, credentials);
   const [vpcs, subnets, instances, securityGroups, loadBalancers, targetGroups, dbInstances, functions] = await Promise.all([
@@ -123,7 +122,7 @@ const discoverRegion = async (
 
 const makeClients = (
   region: string,
-  credentials: AwsCredentialIdentityProvider | undefined
+  credentials: AwsCredentialIdentity | undefined
 ): AwsClients => ({
   ec2: new EC2Client({ region, credentials }),
   elbv2: new ElasticLoadBalancingV2Client({ region, credentials }),
@@ -133,20 +132,22 @@ const makeClients = (
 
 const resolveCredentials = (
   request: CloudDiscoveryRequest
-): AwsCredentialIdentityProvider => {
-  // Never fall back to the host's ambient credential chain: discovery must assume
-  // the caller-supplied role, otherwise it would enumerate the server's own AWS
-  // account and return that topology to any caller (confused-deputy).
-  if (!request.roleArn) {
-    throw new Error("A valid IAM role ARN is required for cloud discovery");
+): AwsCredentialIdentity => {
+  // Use the caller-supplied credentials directly and transiently for this request
+  // only — never the host's ambient credential chain (which would enumerate the
+  // server's own AWS account and return it to any caller: confused-deputy). These
+  // credentials live only in memory for the duration of the request and are never
+  // persisted or logged.
+  const accessKeyId = request.accessKeyId?.trim();
+  const secretAccessKey = request.secretAccessKey?.trim();
+  if (!accessKeyId || !secretAccessKey) {
+    throw new Error("AWS access key id and secret access key are required for cloud discovery");
   }
-  return fromTemporaryCredentials({
-    params: {
-      RoleArn: request.roleArn,
-      RoleSessionName: "arch-draw-cloud-discovery",
-      ExternalId: request.externalId?.trim() || undefined
-    }
-  });
+  return {
+    accessKeyId,
+    secretAccessKey,
+    sessionToken: request.sessionToken?.trim() || undefined
+  };
 };
 
 const listVpcs = async (client: EC2Client): Promise<readonly Vpc[]> => {
@@ -240,7 +241,7 @@ const listFunctions = async (client: LambdaClient): Promise<readonly FunctionCon
 const discoverBuckets = async (
   accountId: string,
   region: string,
-  credentials: AwsCredentialIdentityProvider | undefined
+  credentials: AwsCredentialIdentity | undefined
 ): Promise<Readonly<{ resources: readonly CloudResource[] }>> => {
   const client = new S3Client({ region, credentials });
   const response = await readOrNull(() => client.send(new ListBucketsCommand({})));

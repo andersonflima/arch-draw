@@ -1409,45 +1409,99 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     input.value = "";
   }
 
-  async discoverAwsArchitecture(): Promise<void> {
+  isCloudModalOpen = false;
+  cloudDiscovering = false;
+  cloudError = "";
+  cloudPolicyCopied = false;
+  cloudForm = { accessKeyId: "", secretAccessKey: "", sessionToken: "", regions: "us-east-1", accountLabel: "" };
+  readonly cloudDiscoveryPolicy = `{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ArchDrawDiscoveryReadOnly",
+      "Effect": "Allow",
+      "Action": [
+        "sts:GetCallerIdentity",
+        "ec2:DescribeVpcs",
+        "ec2:DescribeSubnets",
+        "ec2:DescribeInstances",
+        "ec2:DescribeSecurityGroups",
+        "elasticloadbalancing:DescribeLoadBalancers",
+        "elasticloadbalancing:DescribeTargetGroups",
+        "elasticloadbalancing:DescribeTargetHealth",
+        "rds:DescribeDBInstances",
+        "lambda:ListFunctions",
+        "s3:ListAllMyBuckets"
+      ],
+      "Resource": "*"
+    }
+  ]
+}`;
+
+  discoverAwsArchitecture(): void {
     if (!this.canEditArchitecture()) return;
-    const roleArn = window.prompt(this.t("cloud.awsRoleArnPrompt"), "");
-    if (roleArn === null) {
-      this.status = this.t("status.cloudDiscoveryCanceled");
-      this.markViewChanged();
+    this.cloudError = "";
+    this.cloudPolicyCopied = false;
+    this.isCloudModalOpen = true;
+    this.markTransientUiChanged();
+  }
+
+  closeCloudModal(): void {
+    this.isCloudModalOpen = false;
+    this.cloudDiscovering = false;
+    this.cloudError = "";
+    this.clearCloudCredentials();
+    this.markTransientUiChanged();
+  }
+
+  /** Wipe the sensitive credential fields from memory as soon as we are done. */
+  private clearCloudCredentials(): void {
+    this.cloudForm = { ...this.cloudForm, accessKeyId: "", secretAccessKey: "", sessionToken: "" };
+  }
+
+  async submitCloudDiscovery(): Promise<void> {
+    if (this.cloudDiscovering) return;
+    const accessKeyId = this.cloudForm.accessKeyId.trim();
+    const secretAccessKey = this.cloudForm.secretAccessKey.trim();
+    const regions = normalizeAwsRegionPromptValue(this.cloudForm.regions);
+    if (!accessKeyId || !secretAccessKey || regions.length === 0) {
+      this.cloudError = this.t("cloud.errorMissingFields");
+      this.markTransientUiChanged();
       return;
     }
-    const regionsInput = window.prompt(this.t("cloud.awsRegionsPrompt"), "us-east-1");
-    if (regionsInput === null) {
-      this.status = this.t("status.cloudDiscoveryCanceled");
-      this.markViewChanged();
-      return;
-    }
-    const accountLabel = window.prompt(this.t("cloud.awsAccountLabelPrompt"), "");
-    if (accountLabel === null) {
-      this.status = this.t("status.cloudDiscoveryCanceled");
-      this.markViewChanged();
-      return;
-    }
-    const externalId = window.prompt(this.t("cloud.awsExternalIdPrompt"), "");
-    if (externalId === null) {
-      this.status = this.t("status.cloudDiscoveryCanceled");
-      this.markViewChanged();
-      return;
-    }
-    await this.runSafely(async () => {
+    this.cloudDiscovering = true;
+    this.cloudError = "";
+    this.markTransientUiChanged();
+    try {
       this.cancelAutoSave();
       this.disconnectCollaborationSession();
       const imported = await api.discoverAwsArchitecture({
-        roleArn: normalizeOptionalPromptValue(roleArn),
-        externalId: normalizeOptionalPromptValue(externalId),
-        accountLabel: normalizeOptionalPromptValue(accountLabel),
-        regions: normalizeAwsRegionPromptValue(regionsInput)
+        accessKeyId,
+        secretAccessKey,
+        sessionToken: normalizeOptionalPromptValue(this.cloudForm.sessionToken),
+        accountLabel: normalizeOptionalPromptValue(this.cloudForm.accountLabel),
+        regions
       });
       this.updateCurrent(imported);
       await this.refreshSummaries();
       this.status = this.t("status.cloudDiscoveryImported");
-    });
+      this.closeCloudModal();
+    } catch (error) {
+      this.cloudError = error instanceof Error ? error.message : this.t("cloud.errorGeneric");
+    } finally {
+      this.cloudDiscovering = false;
+      this.markTransientUiChanged();
+    }
+  }
+
+  async copyCloudPolicy(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(this.cloudDiscoveryPolicy);
+      this.cloudPolicyCopied = true;
+      this.markTransientUiChanged();
+    } catch {
+      // Clipboard may be unavailable/blocked; the user can still copy manually.
+    }
   }
 
   async loadArchitecture(id: string): Promise<void> {
