@@ -53,6 +53,16 @@
   contain: layout style;
 }
 
+/* Greenfield editor (Foblex) overlay, opt-in via ?editor=v2. Covers the current
+   canvas area while it is built incrementally. */
+.e2-host {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: block;
+  overflow: hidden;
+}
+
 .canvas-marquee {
   position: absolute;
   border: 2px dashed #2563eb;
