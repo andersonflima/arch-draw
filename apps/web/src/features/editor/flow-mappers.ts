@@ -4,6 +4,7 @@ import type {
   ArchitectureEdgeStyle,
   ArchitectureNode
 } from "@arch-draw/domain";
+import { ARCHITECTURE_DOCUMENT_VERSION } from "@arch-draw/domain";
 
 export type CanvasNode = ArchitectureNode;
 
@@ -27,6 +28,7 @@ export const toArchitectureDocument = (
   edges: readonly CanvasEdge[]
 ): ArchitectureDocument => ({
   ...architecture,
+  version: ARCHITECTURE_DOCUMENT_VERSION,
   nodes: nodes.map((node) => ({ ...node })),
   edges: edges.map(toArchitectureEdge)
 });

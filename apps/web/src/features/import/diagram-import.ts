@@ -1617,9 +1617,10 @@ const isMermaidFile = (fileName: string, text: string): boolean =>
 const isSharePackage = (value: unknown): value is ArchitectureSharePackage => {
   if (typeof value !== "object" || value === null) return false;
   const candidate = value as Partial<ArchitectureSharePackage>;
+  const version = candidate.version as number | undefined;
   return (
     candidate.schema === "arch-draw.share" &&
-    candidate.version === 1 &&
+    (version === 1 || version === 2) &&
     typeof candidate.exportedAt === "string" &&
     typeof candidate.architecture === "object" &&
     candidate.architecture !== null
@@ -1630,7 +1631,9 @@ const isArchitectureDocument = (value: unknown): value is ArchitectureDocument =
   if (typeof value !== "object" || value === null) return false;
   const candidate = value as Partial<ArchitectureDocument>;
   return (
-    candidate.version === ARCHITECTURE_DOCUMENT_VERSION &&
+    typeof candidate.version === "number" &&
+    candidate.version >= 1 &&
+    candidate.version <= ARCHITECTURE_DOCUMENT_VERSION &&
     typeof candidate.id === "string" &&
     typeof candidate.title === "string" &&
     Array.isArray(candidate.nodes) &&

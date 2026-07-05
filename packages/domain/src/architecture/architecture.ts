@@ -1,4 +1,4 @@
-export const ARCHITECTURE_DOCUMENT_VERSION = 1;
+export const ARCHITECTURE_DOCUMENT_VERSION = 2;
 const MAX_ARCHITECTURE_TITLE_LENGTH = 180;
 const MAX_ARCHITECTURE_DESCRIPTION_LENGTH = 4000;
 const MAX_MERMAID_SOURCE_LENGTH = 200000;
@@ -270,6 +270,13 @@ export type ArchitectureNode = Readonly<{
   collapsedIconKind?: ArchitectureNodeKind;
   expandedSize?: Size;
   mermaidSource?: string;
+  /**
+   * Explicit stacking order (paint order) of the node. Higher values render on
+   * top. Optional for backward compatibility with v1 documents; when absent the
+   * render layer falls back to the derived hierarchy order. Introduced in
+   * document version 2 to support persisted "bring to front / send to back".
+   */
+  zOrder?: number;
 }>;
 
 export type ArchitectureEdge = Readonly<{
@@ -369,16 +376,45 @@ export const validateArchitecture = (
   return errors.length === 0 ? { ok: true } : { ok: false, errors };
 };
 
+/**
+ * Upgrade a document to the current schema version. Idempotent: a document that
+ * is already current is returned unchanged. The v1 → v2 step assigns an explicit
+ * `zOrder` derived from the node's array index — the prior implicit stacking
+ * tiebreak — so migrated documents keep their existing paint order. Runs at every
+ * boundary that documents enter through `normalizeArchitecture`.
+ */
+export const migrateArchitectureDocument = (
+  architecture: ArchitectureDocument
+): ArchitectureDocument => {
+  const version = (architecture as { version: number }).version;
+  if (version >= ARCHITECTURE_DOCUMENT_VERSION) {
+    return version === ARCHITECTURE_DOCUMENT_VERSION
+      ? architecture
+      : { ...architecture, version: ARCHITECTURE_DOCUMENT_VERSION };
+  }
+
+  return {
+    ...architecture,
+    version: ARCHITECTURE_DOCUMENT_VERSION,
+    nodes: architecture.nodes.map((node, index) =>
+      node.zOrder === undefined ? { ...node, zOrder: index } : node
+    )
+  };
+};
+
 export const normalizeArchitecture = (
   architecture: ArchitectureDocument
-): ArchitectureDocument => ({
-  ...architecture,
-  title: normalizeTitle(architecture.title),
-  description: sanitizeMultilineText(architecture.description, MAX_ARCHITECTURE_DESCRIPTION_LENGTH),
-  mermaidSource: sanitizeMultilineText(architecture.mermaidSource, MAX_MERMAID_SOURCE_LENGTH),
-  nodes: architecture.nodes.map(normalizeNode),
-  edges: architecture.edges.map(normalizeEdge)
-});
+): ArchitectureDocument => {
+  const migrated = migrateArchitectureDocument(architecture);
+  return {
+    ...migrated,
+    title: normalizeTitle(migrated.title),
+    description: sanitizeMultilineText(migrated.description, MAX_ARCHITECTURE_DESCRIPTION_LENGTH),
+    mermaidSource: sanitizeMultilineText(migrated.mermaidSource, MAX_MERMAID_SOURCE_LENGTH),
+    nodes: migrated.nodes.map(normalizeNode),
+    edges: migrated.edges.map(normalizeEdge)
+  };
+};
 
 const normalizeNode = (node: ArchitectureNode): ArchitectureNode => ({
   ...node,
@@ -395,11 +431,15 @@ const normalizeNode = (node: ArchitectureNode): ArchitectureNode => ({
         height: Math.max(72, node.expandedSize.height)
       }
     : undefined,
+  zOrder: normalizeZOrder(node.zOrder),
   size: {
     width: Math.max(120, node.size.width),
     height: Math.max(72, node.size.height)
   }
 });
+
+const normalizeZOrder = (value: number | undefined): number | undefined =>
+  typeof value === "number" && Number.isFinite(value) ? Math.trunc(value) : undefined;
 
 const normalizeNodeProperties = (
   properties: Readonly<Record<string, string>> | undefined

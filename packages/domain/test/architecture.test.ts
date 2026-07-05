@@ -1,12 +1,32 @@
 import { describe, expect, it } from "vitest";
 import {
+  ARCHITECTURE_DOCUMENT_VERSION,
   architectureFromMermaid,
   architectureToMermaid,
   createEmptyArchitecture,
   createSharePackage,
+  migrateArchitectureDocument,
+  normalizeArchitecture,
   parseSharePackage,
-  validateArchitecture
+  validateArchitecture,
+  type ArchitectureDocument
 } from "../src";
+
+const legacyV1Document = (): ArchitectureDocument =>
+  ({
+    version: 1,
+    id: "arch-v1",
+    title: "Legacy",
+    description: "",
+    mermaidSource: "",
+    createdAt: "2026-05-15T10:00:00.000Z",
+    updatedAt: "2026-05-15T10:00:00.000Z",
+    nodes: [
+      { id: "a", kind: "service", label: "A", position: { x: 0, y: 0 }, size: { width: 160, height: 96 }, color: "#fff" },
+      { id: "b", kind: "database", label: "B", position: { x: 200, y: 0 }, size: { width: 160, height: 96 }, color: "#fff" }
+    ],
+    edges: []
+  }) as unknown as ArchitectureDocument;
 
 describe("architecture domain", () => {
   it("creates a valid architecture from Mermaid source", () => {
@@ -230,5 +250,56 @@ describe("architecture domain", () => {
     expect(parsed.ok).toBe(false);
     if (parsed.ok) return;
     expect(parsed.errors).toContain("Architecture exceeds maximum node count (1500)");
+  });
+
+  it("migrates a v1 document to the current version and derives zOrder from array order", () => {
+    const migrated = migrateArchitectureDocument(legacyV1Document());
+
+    expect(migrated.version).toBe(ARCHITECTURE_DOCUMENT_VERSION);
+    expect(migrated.nodes.map((node) => node.zOrder)).toEqual([0, 1]);
+    expect(validateArchitecture(migrated)).toEqual({ ok: true });
+  });
+
+  it("is idempotent for an already-current document", () => {
+    const once = migrateArchitectureDocument(legacyV1Document());
+    const twice = migrateArchitectureDocument(once);
+
+    expect(twice).toBe(once); // no-op returns the same reference
+    expect(twice.nodes.map((node) => node.zOrder)).toEqual([0, 1]);
+  });
+
+  it("preserves an explicitly set zOrder while filling the gaps", () => {
+    const source = legacyV1Document();
+    const withOrder = {
+      ...source,
+      nodes: [{ ...source.nodes[0]!, zOrder: 42 }, source.nodes[1]!]
+    } as ArchitectureDocument;
+
+    const migrated = migrateArchitectureDocument(withOrder);
+
+    expect(migrated.nodes.map((node) => node.zOrder)).toEqual([42, 1]);
+  });
+
+  it("normalizeArchitecture upgrades a v1 document", () => {
+    const normalized = normalizeArchitecture(legacyV1Document());
+
+    expect(normalized.version).toBe(ARCHITECTURE_DOCUMENT_VERSION);
+    expect(normalized.nodes.every((node) => typeof node.zOrder === "number")).toBe(true);
+  });
+
+  it("imports a legacy v1 share package (envelope version 1)", () => {
+    const legacyPackage = {
+      schema: "arch-draw.share",
+      version: 1,
+      exportedAt: "2026-05-15T10:02:00.000Z",
+      architecture: legacyV1Document()
+    };
+
+    const result = parseSharePackage(legacyPackage);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.architecture.version).toBe(ARCHITECTURE_DOCUMENT_VERSION);
+    expect(result.architecture.nodes.map((node) => node.zOrder)).toEqual([0, 1]);
   });
 });

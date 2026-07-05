@@ -1,4 +1,4 @@
-import { createEmptyArchitecture, createSharePackage } from "@arch-draw/domain";
+import { ARCHITECTURE_DOCUMENT_VERSION, createEmptyArchitecture, createSharePackage } from "@arch-draw/domain";
 import { DOMParser as XmlDomParser } from "@xmldom/xmldom";
 import { describe, expect, it } from "vitest";
 import { appendMermaidLayoutMetadata } from "../interchange/mermaid-layout-metadata";
@@ -65,7 +65,7 @@ describe("diagram import parser", () => {
 
     expect(parsed.schema).toBe("arch-draw.share");
     expect(parsed.architecture.id).toBe("arch-2");
-    expect(parsed.architecture.version).toBe(1);
+    expect(parsed.architecture.version).toBe(ARCHITECTURE_DOCUMENT_VERSION);
   });
 
   it("imports Mermaid source and builds nodes and edges", async () => {
