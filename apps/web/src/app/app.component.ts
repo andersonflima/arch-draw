@@ -29,6 +29,7 @@ import {
   EdgeCanvasRenderer,
   hitTestEdges,
   resolveActiveEngineVersion,
+  sampleCubicBezier,
   type Camera,
   type EngineVersion,
   type RenderableEdge,
@@ -1759,6 +1760,14 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     event.preventDefault();
     const target = event.target as HTMLElement;
     if (target.closest(".architecture-node, .canvas-edge, .canvas-edge-hit")) return;
+    // v2 has no per-edge DOM, so resolve the edge under the pointer by hit-testing.
+    if (this.isCanvasEngineV2()) {
+      const edgeId = this.hitTestEngineEdge(event);
+      if (edgeId) {
+        this.onEdgeContextMenu(edgeId, event);
+        return;
+      }
+    }
     this.contextPropertiesPanel = null;
     this.markTransientUiChanged();
   }
@@ -3912,6 +3921,34 @@ LIMIT 50;`;
     };
   }
 
+  /** The transient connection-drag preview as a canvas draw command, or null. */
+  private getEnginePreviewEdge(): RenderableEdge | null {
+    const dragState = this.connectionDragState;
+    if (!dragState) return null;
+    const source = this.getNodeById(dragState.sourceId);
+    if (!source) return null;
+    const rawStart = this.getAnchorTowardPoint(
+      source,
+      dragState.current,
+      EDGE_NODE_GAP,
+      "source",
+      dragState.sourcePort ?? undefined
+    );
+    const { start, end } = this.offsetSegmentEndpoints(rawStart, dragState.current, 0, EDGE_MARKER_CLEARANCE);
+    const midX = (start.x + end.x) / 2;
+    return {
+      id: "__connection_preview__",
+      points: sampleCubicBezier(start, { x: midX, y: start.y }, { x: midX, y: end.y }, end, 18),
+      stroke: this.isDarkMode ? "#e5e7eb" : "#111827",
+      lineWidth: 2.4,
+      dash: [8, 6],
+      arrowStart: false,
+      arrowEnd: true,
+      cornerRadius: 0,
+      opacity: 0.75
+    };
+  }
+
   /** Double-click on the v2 canvas: start editing the edge under the pointer. */
   onCanvasDoubleClick(event: MouseEvent): void {
     if (!this.isCanvasEngineV2()) return;
@@ -3931,8 +3968,10 @@ LIMIT 50;`;
       this.edgeCanvasMounted = true;
     }
     const rect = canvas.getBoundingClientRect();
+    const preview = this.getEnginePreviewEdge();
+    const edges = this.getEngineRenderableEdges();
     this.edgeCanvasRenderer.render({
-      edges: this.getEngineRenderableEdges(),
+      edges: preview ? [...edges, preview] : edges,
       camera: this.getEngineCamera(),
       cssWidth: rect.width,
       cssHeight: rect.height,

@@ -314,7 +314,7 @@
           ></app-canvas-node>
         </ng-container>
 
-        <ng-container *ngIf="getRenderableEdgeViewModels() as renderableEdgeViewModels">
+        <ng-container *ngIf="!isCanvasEngineV2() && getRenderableEdgeViewModels() as renderableEdgeViewModels">
           <svg
             class="canvas-edge-layer"
             [class.canvas-edge-layer--elevated]="isEdgeLayerElevated()"
