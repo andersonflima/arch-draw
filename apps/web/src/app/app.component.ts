@@ -6628,6 +6628,10 @@ apiKeys:
     this.edgeRenderSuspendTimer = setTimeout(() => {
       this.edgeRenderSuspendTimer = null;
       this.edgeRenderSuspendUntil = 0;
+      // Same stale-cache guard as the navigation recovery: the render model built
+      // while edges were suspended caches an empty edge list keyed only on array
+      // identity, so drop the render caches before repainting.
+      this.clearViewportRenderCaches();
       this.requestViewRender();
     }, durationMs + 16);
   }
@@ -6650,9 +6654,13 @@ apiKeys:
   private markEdgeNavigationStressWindow(durationMs = EDGE_RENDER_NAVIGATION_SUSPEND_MS): void {
     const now = Date.now();
     this.edgeNavigationSuspendUntil = Math.max(this.edgeNavigationSuspendUntil, now + durationMs);
-    // Schedule a recovery render once the suspend window elapses. Without this,
-    // edges suspended during wheel zoom/pan stay hidden until an unrelated change
+    // Schedule a recovery once the suspend window elapses. Without this, edges
+    // suspended during wheel zoom/pan stay hidden until an unrelated change
     // triggers change detection (connectors appearing to vanish after navigation).
+    // A plain re-render is not enough: getRenderModel() caches an edge list that
+    // bakes in the suspended state under a key that only tracks node/edge array
+    // identity, so the empty-edge model built during the window survives it. Clear
+    // the render caches so the recovery render rebuilds the edges.
     const remaining = this.edgeNavigationSuspendUntil - now;
     if (this.edgeNavigationSuspendTimer) {
       clearTimeout(this.edgeNavigationSuspendTimer);
@@ -6660,6 +6668,7 @@ apiKeys:
     }
     this.edgeNavigationSuspendTimer = setTimeout(() => {
       this.edgeNavigationSuspendTimer = null;
+      this.clearViewportRenderCaches();
       this.requestViewRender();
     }, remaining + 16);
   }
