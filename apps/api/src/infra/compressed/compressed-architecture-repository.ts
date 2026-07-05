@@ -1,4 +1,5 @@
 import type { ArchitectureDocument } from "@arch-draw/domain";
+import { migrateArchitectureDocument } from "@arch-draw/domain";
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import { readFile, rename, rm, writeFile } from "node:fs/promises";
@@ -584,7 +585,9 @@ const parseStorageRecord = (value: string): readonly StorageRecord[] => {
           updatedAt: parsed.updatedAt ?? parsed.document.updatedAt,
           nodeCount: typeof parsed.nodeCount === "number" ? parsed.nodeCount : parsed.document.nodes.length,
           edgeCount: typeof parsed.edgeCount === "number" ? parsed.edgeCount : parsed.document.edges.length,
-          document: parsed.document
+          // Migrate stored documents to the current schema on read so older v1
+          // records are returned to clients (and re-persisted) as the current version.
+          document: migrateArchitectureDocument(parsed.document)
         }
       ];
     }

@@ -31,6 +31,25 @@ Já foram isolados os seguintes boundaries:
 - Pan, drag threshold, alvo de drag, portas de conexão e lane offset saíram do componente para engines puras.
 - O componente passou a consumir um `RenderModel`, mantendo DOM/SVG atual como backend visual compatível.
 
+## Motor canvas v2 (arestas) — entregue
+
+O módulo isolado `apps/web/src/canvas-engine/` implementa a camada de renderização
+nova das arestas, ativada por `engine=v2` e **agora o padrão**:
+
+- `SceneModel`/`scene-builder`: cena ordenada por `zOrder` (persistido no domínio
+  desde a versão 2 do documento), com posição absoluta e partição container/folha.
+- `EdgeCanvasRenderer`: arestas desenhadas num `<canvas>` em espaço de tela abaixo
+  dos nós (polylines arredondadas, dash, cor, arrowheads, labels e preview de
+  conexão). z-order correto por construção (nó sempre acima do fio).
+- Interação por hit-testing (hover, seleção, menu de contexto, duplo-clique para
+  editar label) integrada aos handlers de ponteiro existentes.
+- **Cutover**: `resolveEngineVersion` usa `v2` por padrão; `?engine=v1` mantém o
+  renderer DOM/SVG legado como escape hatch enquanto o caminho antigo é aposentado.
+
+Pendências conhecidas: overlays cosméticos de transição de container no dark-mode
+não foram portados para o canvas; remoção total do caminho SVG legado é limpeza
+futura.
+
 ## Próximas etapas
 
 1. Expandir `InteractionEngine` para concentrar resize, marquee state, pending port gesture e connection drag state fora do componente Angular.

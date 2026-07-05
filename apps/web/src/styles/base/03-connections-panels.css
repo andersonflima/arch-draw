@@ -182,6 +182,30 @@
   overflow: visible;
 }
 
+/* Canvas engine (v2) edge layer: a screen-space canvas painted below the node
+   layer. Read-only in this slice, so it never intercepts pointer events. */
+.canvas-edge-engine {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* DOM overlay editor for v2 edge labels, positioned in screen space and centred
+   on the label anchor (canvas cannot edit text). */
+.canvas-edge-label-editor--engine {
+  position: absolute;
+  z-index: 200;
+  width: 180px;
+  height: 34px;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  resize: none;
+  text-align: center;
+}
+
 .canvas-edge-layer--elevated {
   z-index: 160;
 }

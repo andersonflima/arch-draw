@@ -24,6 +24,18 @@ import {
 // dynamic import() at the call sites to keep them out of the initial bundle.
 import { CanvasNodeComponent } from "./canvas-node.component";
 import { PaletteComponent } from "./palette.component";
+import {
+  buildSceneModel,
+  EdgeCanvasRenderer,
+  hitTestEdges,
+  resolveActiveEngineVersion,
+  sampleCubicBezier,
+  type Camera,
+  type EngineVersion,
+  type RenderableEdge,
+  type RenderableEdgeLabel,
+  type SceneModel
+} from "../canvas-engine";
 import { SelectionStore } from "../features/editor/selection-store";
 import { EditingStore } from "../features/editor/editing-store";
 import { CameraStore } from "../features/editor/camera-store";
@@ -476,6 +488,9 @@ const normalizeAwsRegionPromptValue = (value: string): readonly string[] =>
 })
 export class AppComponent implements AfterViewInit, OnDestroy {
   @ViewChild("canvasShell") private readonly canvasShell?: ElementRef<HTMLElement>;
+  @ViewChild("edgeEngineCanvas") private readonly edgeEngineCanvas?: ElementRef<HTMLCanvasElement>;
+  private readonly edgeCanvasRenderer = new EdgeCanvasRenderer();
+  private edgeCanvasMounted = false;
   @ViewChild("miniMap") private readonly miniMap?: ElementRef<HTMLElement>;
   @ViewChild("importInput") private readonly importInput?: ElementRef<HTMLInputElement>;
   @ViewChild("mermaidTextarea") private readonly mermaidTextarea?: ElementRef<HTMLTextAreaElement>;
@@ -500,6 +515,10 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   architecture: ArchitectureDocument | null = null;
   nodes: CanvasNode[] = [];
   edges: CanvasEdge[] = [];
+  // Canvas engine selection (strangler migration). v2 (edges on a canvas layer)
+  // is now the default; v1 (legacy DOM+SVG edges) stays reachable via
+  // `?engine=v1` as an escape hatch while the old path is retired.
+  readonly canvasEngineVersion: EngineVersion = resolveActiveEngineVersion();
   // Selection state is owned by SelectionStore (signals); these accessors keep the
   // component's existing read/write call sites working while the state lives outside.
   get selectedNodeId(): string | null {
@@ -653,6 +672,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   private edgeRenderSuspendUntil = 0;
   private edgeRenderSuspendTimer: ReturnType<typeof setTimeout> | null = null;
   private edgeNavigationSuspendUntil = 0;
+  private edgeNavigationSuspendTimer: ReturnType<typeof setTimeout> | null = null;
   private renderAllCanvasForExport = false;
   private lastCollaborationSignature = "";
   private lastCollaborationViewSignature = "";
@@ -744,6 +764,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   ) {
     this.viewRenderScheduler = new RenderScheduler(() => {
       this.changeDetectorRef.detectChanges();
+      this.renderEngineEdgesIfActive();
     });
     this.loadUiLanguagePreference();
     this.loadUiThemePreference();
@@ -815,6 +836,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.cancelPendingWindowPointerMove();
     this.viewRenderScheduler.cancel();
+    this.edgeCanvasRenderer.dispose();
     if (this.canvasUsageHintTimer) {
       clearTimeout(this.canvasUsageHintTimer);
       this.canvasUsageHintTimer = null;
@@ -830,6 +852,10 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     if (this.edgeRenderSuspendTimer) {
       clearTimeout(this.edgeRenderSuspendTimer);
       this.edgeRenderSuspendTimer = null;
+    }
+    if (this.edgeNavigationSuspendTimer) {
+      clearTimeout(this.edgeNavigationSuspendTimer);
+      this.edgeNavigationSuspendTimer = null;
     }
     this.disconnectCollaborationStream();
     this.cancelCollaborationSync();
@@ -1733,6 +1759,14 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     event.preventDefault();
     const target = event.target as HTMLElement;
     if (target.closest(".architecture-node, .canvas-edge, .canvas-edge-hit")) return;
+    // v2 has no per-edge DOM, so resolve the edge under the pointer by hit-testing.
+    if (this.isCanvasEngineV2()) {
+      const edgeId = this.hitTestEngineEdge(event);
+      if (edgeId) {
+        this.onEdgeContextMenu(edgeId, event);
+        return;
+      }
+    }
     this.contextPropertiesPanel = null;
     this.markTransientUiChanged();
   }
@@ -2640,6 +2674,17 @@ LIMIT 50;`;
     if (event.button !== 0) return;
     if (isInteractiveTarget) return;
 
+    // v2 draws edges on a canvas (no per-edge DOM), so an edge click falls through
+    // to here; hit-test and select the edge before starting a marquee.
+    if (this.isCanvasEngineV2()) {
+      const edgeId = this.hitTestEngineEdge(event);
+      if (edgeId) {
+        this.selectEdge(edgeId, event);
+        this.suppressCanvasClickClear = true;
+        return;
+      }
+    }
+
     this.pendingMarqueeStart = this.toCanvasPoint(event);
     this.connectionSourceId = null;
     this.connectionSourcePort = null;
@@ -2704,6 +2749,18 @@ LIMIT 50;`;
 
   private handleWindowPointerMove(event: PointerEvent): void {
     this.maybePublishCollaborationCursor(event);
+
+    // v2 edge hover: with no per-edge DOM, resolve the hovered edge by hit-testing
+    // the canvas layer while idle (no active or pending gesture).
+    if (
+      this.isCanvasEngineV2()
+      && !this.isCanvasInteractionActive()
+      && !this.dragState
+      && !this.pendingMarqueeStart
+      && !this.pendingPortGestureState
+    ) {
+      if (this.updateEngineEdgeHover(event)) this.requestViewRender();
+    }
 
     if (this.miniMapDragState) {
       const miniMapElement = this.miniMap?.nativeElement;
@@ -3031,7 +3088,10 @@ LIMIT 50;`;
     const expandedPriorityZIndex = isExpandedContentNode
       ? this.getExpandedNodePriorityZIndex(baseZIndex)
       : 0;
-    const selectedPriorityZIndex = this.isNodeSelected(node.id)
+    // Only leaf nodes get the selection z-boost. Elevating a selected CONTAINER
+    // above the leaf layer would paint its fill/header over its own children,
+    // making them disappear on click; the selection outline shows regardless.
+    const selectedPriorityZIndex = this.isNodeSelected(node.id) && !rendersAsContainer
       ? this.getSelectedNodePriorityZIndex(baseZIndex)
       : 0;
     const collapseToggleZIndexFloor =
@@ -3341,11 +3401,18 @@ LIMIT 50;`;
       : EDGE_LAYER_BASE_Z_INDEX;
     const containerContextLayerZIndex = this.getContainerContextEdgeLayerZIndex();
     const containerLayerCeiling = this.getVisibleContainerLayerCeilingZIndex();
-    return Math.max(
+    const raw = Math.max(
       interactionLayerZIndex,
       containerContextLayerZIndex,
       containerLayerCeiling + 1
     );
+    // Invariant: the single edge SVG layer must never paint above leaf nodes —
+    // nodes sit on top of their wires. Because this is ONE global z for all edges,
+    // any container-context elevation (>= leaf base) would otherwise push every
+    // edge above every leaf node at once (the z-order inversion). Clamp below the
+    // leaf base so edges stay above container fills but under leaf nodes.
+    // Stopgap until the engine rewrite gives edges per-element layering.
+    return Math.min(raw, NODE_LAYER_LEAF_BASE_Z_INDEX - 1);
   }
 
   private getVisibleContainerLayerCeilingZIndex(): number {
@@ -3754,6 +3821,166 @@ LIMIT 50;`;
     return this.isVisibleNode(node) && this.rendersAsContainer(node);
   }
 
+  isCanvasEngineV2(): boolean {
+    return this.canvasEngineVersion === "v2";
+  }
+
+  /**
+   * Bridge to the new canvas engine: builds the framework-agnostic, paint-ordered
+   * scene from the current editor state. This is the seam the v2 renderers
+   * (Slice 2+) consume; the v1 render path does not call it.
+   */
+  buildEngineScene(): SceneModel {
+    return buildSceneModel({
+      nodes: this.nodes,
+      edges: this.edges,
+      isContainer: (node) => this.isContainerLayerNode(node)
+    });
+  }
+
+  /** Current world-to-screen transform in the engine's camera shape. */
+  getEngineCamera(): Camera {
+    return { zoom: this.canvasZoom, panX: this.canvasPan.x, panY: this.canvasPan.y };
+  }
+
+  /**
+   * Map the visible edges to flat draw commands for the canvas edge renderer,
+   * reusing the existing routing/colour/marker geometry. Only used on the v2 path.
+   */
+  getEngineRenderableEdges(): readonly RenderableEdge[] {
+    const result: RenderableEdge[] = [];
+    for (const edge of this.edges) {
+      if (!this.isVisibleEdge(edge)) continue;
+      const data = this.getEdgePathData(edge);
+      if (!data || data.points.length < 2) continue;
+      const isSelected = edge.id === this.selectedEdgeId;
+      const isHovered = edge.id === this.hoveredEdgeId;
+      result.push({
+        id: edge.id,
+        points: data.points.map((point) => ({ x: point.x, y: point.y })),
+        stroke: this.getEdgeColor(edge),
+        lineWidth: isSelected ? 4 : isHovered ? 3 : 2.4,
+        dash: this.parseEdgeDash(this.getEdgeDash(edge)),
+        arrowStart: this.getEdgeStartMarker(edge) !== null,
+        arrowEnd: this.getEdgeEndMarker(edge) !== null,
+        cornerRadius: 20,
+        opacity: this.isEdgeTemporarilyMuted(edge) ? 0.35 : 1,
+        label: this.getEngineEdgeLabel(edge)
+      });
+    }
+    return result;
+  }
+
+  private parseEdgeDash(value: string | null): number[] {
+    if (!value) return [];
+    return value
+      .split(/[\s,]+/)
+      .map((token) => Number(token))
+      .filter((token) => Number.isFinite(token) && token > 0);
+  }
+
+  /** Resolve the edge under a pointer event on the v2 canvas, or null. The
+   * threshold is a fixed screen distance converted to world units. */
+  private hitTestEngineEdge(event: Pick<MouseEvent, "clientX" | "clientY">): string | null {
+    const world = this.toCanvasPoint(event);
+    const threshold = 10 / Math.max(this.canvasZoom, 0.05);
+    return hitTestEdges(this.getEngineRenderableEdges(), world, threshold);
+  }
+
+  /** Update the hovered edge from a pointer position on the v2 canvas. Returns
+   * true when the hovered edge changed (so the caller can repaint). */
+  private updateEngineEdgeHover(event: Pick<MouseEvent, "clientX" | "clientY">): boolean {
+    const next = this.hitTestEngineEdge(event);
+    if (next === this.hoveredEdgeId) return false;
+    this.hoveredEdgeId = next;
+    return true;
+  }
+
+  /** Build the canvas label for an edge, or undefined when it should not show
+   * (no label, hidden by detail reduction, or being edited in the DOM overlay). */
+  private getEngineEdgeLabel(edge: CanvasEdge): RenderableEdgeLabel | undefined {
+    if (edge.id === this.editingEdgeId) return undefined;
+    if (!edge.label || !this.shouldRenderEdgeLabel(edge)) return undefined;
+    const position = this.getEdgeLabelPosition(edge);
+    return {
+      text: edge.label,
+      x: position.x,
+      y: position.y,
+      fontSize: this.edgeLabelFontSize,
+      color: this.getEdgeLabelColor(edge),
+      background: this.isDarkMode ? "#111827" : "#ffffff"
+    };
+  }
+
+  /** Screen-space position of the v2 edge-label editor overlay. */
+  getEngineEdgeEditorStyle(): Record<string, string> {
+    const edge = this.edges.find((candidate) => candidate.id === this.editingEdgeId);
+    if (!edge) return { display: "none" };
+    const position = this.getEdgeLabelPosition(edge);
+    return {
+      left: `${this.canvasPan.x + position.x * this.canvasZoom}px`,
+      top: `${this.canvasPan.y + position.y * this.canvasZoom}px`
+    };
+  }
+
+  /** The transient connection-drag preview as a canvas draw command, or null. */
+  private getEnginePreviewEdge(): RenderableEdge | null {
+    const dragState = this.connectionDragState;
+    if (!dragState) return null;
+    const source = this.getNodeById(dragState.sourceId);
+    if (!source) return null;
+    const rawStart = this.getAnchorTowardPoint(
+      source,
+      dragState.current,
+      EDGE_NODE_GAP,
+      "source",
+      dragState.sourcePort ?? undefined
+    );
+    const { start, end } = this.offsetSegmentEndpoints(rawStart, dragState.current, 0, EDGE_MARKER_CLEARANCE);
+    const midX = (start.x + end.x) / 2;
+    return {
+      id: "__connection_preview__",
+      points: sampleCubicBezier(start, { x: midX, y: start.y }, { x: midX, y: end.y }, end, 18),
+      stroke: this.isDarkMode ? "#e5e7eb" : "#111827",
+      lineWidth: 2.4,
+      dash: [8, 6],
+      arrowStart: false,
+      arrowEnd: true,
+      cornerRadius: 0,
+      opacity: 0.75
+    };
+  }
+
+  /** Double-click on the v2 canvas: start editing the edge under the pointer. */
+  onCanvasDoubleClick(event: MouseEvent): void {
+    if (!this.isCanvasEngineV2()) return;
+    const target = event.target as HTMLElement;
+    if (target.closest(".architecture-node, .node-port, .resize-control, .canvas-map")) return;
+    const edgeId = this.hitTestEngineEdge(event);
+    if (edgeId) this.onEdgeDoubleClick(edgeId, event);
+  }
+
+  /** Draw the v2 edge canvas for the current frame. No-op on the v1 path. */
+  private renderEngineEdgesIfActive(): void {
+    if (!this.isCanvasEngineV2()) return;
+    const canvas = this.edgeEngineCanvas?.nativeElement;
+    if (!canvas) return;
+    if (!this.edgeCanvasMounted) {
+      this.edgeCanvasRenderer.mount(canvas);
+      this.edgeCanvasMounted = true;
+    }
+    const rect = canvas.getBoundingClientRect();
+    const preview = this.getEnginePreviewEdge();
+    const edges = this.getEngineRenderableEdges();
+    this.edgeCanvasRenderer.render({
+      edges: preview ? [...edges, preview] : edges,
+      camera: this.getEngineCamera(),
+      cssWidth: rect.width,
+      cssHeight: rect.height,
+      devicePixelRatio: typeof window === "undefined" ? 1 : window.devicePixelRatio
+    });
+  }
+
   isLeafLayerNode(node: CanvasNode): boolean {
     return this.isVisibleNode(node) && !this.rendersAsContainer(node);
   }
@@ -3778,6 +4005,9 @@ LIMIT 50;`;
   }
 
   getRenderableEdgeViewModels(): readonly EdgeRenderViewModel[] {
+    // Canvas engine (v2) draws edges on its own <canvas> layer, so the SVG edge
+    // layer renders nothing.
+    if (this.isCanvasEngineV2()) return EMPTY_EDGE_RENDER_VIEW_MODELS;
     if (this.isEdgeRenderingSuspended()) {
       // While a node is being dragged/resized the full obstacle-aware routing is
       // suspended for performance. Instead of dropping every connection (which
@@ -6616,6 +6846,10 @@ apiKeys:
     this.edgeRenderSuspendTimer = setTimeout(() => {
       this.edgeRenderSuspendTimer = null;
       this.edgeRenderSuspendUntil = 0;
+      // Same stale-cache guard as the navigation recovery: the render model built
+      // while edges were suspended caches an empty edge list keyed only on array
+      // identity, so drop the render caches before repainting.
+      this.clearViewportRenderCaches();
       this.requestViewRender();
     }, durationMs + 16);
   }
@@ -6638,6 +6872,23 @@ apiKeys:
   private markEdgeNavigationStressWindow(durationMs = EDGE_RENDER_NAVIGATION_SUSPEND_MS): void {
     const now = Date.now();
     this.edgeNavigationSuspendUntil = Math.max(this.edgeNavigationSuspendUntil, now + durationMs);
+    // Schedule a recovery once the suspend window elapses. Without this, edges
+    // suspended during wheel zoom/pan stay hidden until an unrelated change
+    // triggers change detection (connectors appearing to vanish after navigation).
+    // A plain re-render is not enough: getRenderModel() caches an edge list that
+    // bakes in the suspended state under a key that only tracks node/edge array
+    // identity, so the empty-edge model built during the window survives it. Clear
+    // the render caches so the recovery render rebuilds the edges.
+    const remaining = this.edgeNavigationSuspendUntil - now;
+    if (this.edgeNavigationSuspendTimer) {
+      clearTimeout(this.edgeNavigationSuspendTimer);
+      this.edgeNavigationSuspendTimer = null;
+    }
+    this.edgeNavigationSuspendTimer = setTimeout(() => {
+      this.edgeNavigationSuspendTimer = null;
+      this.clearViewportRenderCaches();
+      this.requestViewRender();
+    }, remaining + 16);
   }
 
   private shouldRerouteConstrainedEdgePath(
@@ -10739,6 +10990,15 @@ spec:
 
   private clearMovedNodeRenderCaches(changedNodeIds: readonly string[]): void {
     this.renderModelCache = null;
+    // The render-model partition is cached independently of renderModelCache, so
+    // nulling only renderModelCache leaves the rendered node lists frozen during a
+    // drag — children can drop out (or fail to reappear) until a later full clear.
+    // Invalidate the membership and viewport-rect caches so the lists rebuild.
+    this.containerRenderableNodesCache = null;
+    this.leafRenderableNodesCache = null;
+    this.renderableNodeIdsCache.clear();
+    this.renderableCanvasRectCache = null;
+    this.visibleCanvasRectCache = null;
     const affectedNodeIds = new Set<string>();
     for (const nodeId of changedNodeIds) {
       affectedNodeIds.add(nodeId);
