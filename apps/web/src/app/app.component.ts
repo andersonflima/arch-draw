@@ -24,6 +24,13 @@ import {
 // dynamic import() at the call sites to keep them out of the initial bundle.
 import { CanvasNodeComponent } from "./canvas-node.component";
 import { PaletteComponent } from "./palette.component";
+import {
+  buildSceneModel,
+  resolveActiveEngineVersion,
+  type Camera,
+  type EngineVersion,
+  type SceneModel
+} from "../canvas-engine";
 import { SelectionStore } from "../features/editor/selection-store";
 import { EditingStore } from "../features/editor/editing-store";
 import { CameraStore } from "../features/editor/camera-store";
@@ -500,6 +507,11 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   architecture: ArchitectureDocument | null = null;
   nodes: CanvasNode[] = [];
   edges: CanvasEdge[] = [];
+  // Canvas engine selection (strangler migration). v1 is the current DOM+SVG
+  // renderer and the default; v2 is opt-in via `?engine=v2` and built
+  // incrementally. Nothing switches rendering on this yet — it is the entry
+  // point the new renderers (Slice 2+) hang off of.
+  readonly canvasEngineVersion: EngineVersion = resolveActiveEngineVersion();
   // Selection state is owned by SelectionStore (signals); these accessors keep the
   // component's existing read/write call sites working while the state lives outside.
   get selectedNodeId(): string | null {
@@ -3764,6 +3776,28 @@ LIMIT 50;`;
 
   isContainerLayerNode(node: CanvasNode): boolean {
     return this.isVisibleNode(node) && this.rendersAsContainer(node);
+  }
+
+  isCanvasEngineV2(): boolean {
+    return this.canvasEngineVersion === "v2";
+  }
+
+  /**
+   * Bridge to the new canvas engine: builds the framework-agnostic, paint-ordered
+   * scene from the current editor state. This is the seam the v2 renderers
+   * (Slice 2+) consume; the v1 render path does not call it.
+   */
+  buildEngineScene(): SceneModel {
+    return buildSceneModel({
+      nodes: this.nodes,
+      edges: this.edges,
+      isContainer: (node) => this.isContainerLayerNode(node)
+    });
+  }
+
+  /** Current world-to-screen transform in the engine's camera shape. */
+  getEngineCamera(): Camera {
+    return { zoom: this.canvasZoom, panX: this.canvasPan.x, panY: this.canvasPan.y };
   }
 
   isLeafLayerNode(node: CanvasNode): boolean {
