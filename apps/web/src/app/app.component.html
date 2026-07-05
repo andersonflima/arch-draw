@@ -273,6 +273,12 @@
       >
         <i [class]="isLeftPanelsHidden ? 'fa-solid fa-bars' : 'fa-solid fa-chevron-left'" aria-hidden="true"></i>
       </button>
+      <canvas
+        #edgeEngineCanvas
+        *ngIf="isCanvasEngineV2()"
+        class="canvas-edge-engine"
+        aria-hidden="true"
+      ></canvas>
       <div
         class="canvas-viewport"
         [class.canvas-viewport--interaction-lite]="shouldUseInteractionLiteMode()"

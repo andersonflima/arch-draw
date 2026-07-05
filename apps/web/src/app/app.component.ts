@@ -26,9 +26,11 @@ import { CanvasNodeComponent } from "./canvas-node.component";
 import { PaletteComponent } from "./palette.component";
 import {
   buildSceneModel,
+  EdgeCanvasRenderer,
   resolveActiveEngineVersion,
   type Camera,
   type EngineVersion,
+  type RenderableEdge,
   type SceneModel
 } from "../canvas-engine";
 import { SelectionStore } from "../features/editor/selection-store";
@@ -483,6 +485,9 @@ const normalizeAwsRegionPromptValue = (value: string): readonly string[] =>
 })
 export class AppComponent implements AfterViewInit, OnDestroy {
   @ViewChild("canvasShell") private readonly canvasShell?: ElementRef<HTMLElement>;
+  @ViewChild("edgeEngineCanvas") private readonly edgeEngineCanvas?: ElementRef<HTMLCanvasElement>;
+  private readonly edgeCanvasRenderer = new EdgeCanvasRenderer();
+  private edgeCanvasMounted = false;
   @ViewChild("miniMap") private readonly miniMap?: ElementRef<HTMLElement>;
   @ViewChild("importInput") private readonly importInput?: ElementRef<HTMLInputElement>;
   @ViewChild("mermaidTextarea") private readonly mermaidTextarea?: ElementRef<HTMLTextAreaElement>;
@@ -757,6 +762,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   ) {
     this.viewRenderScheduler = new RenderScheduler(() => {
       this.changeDetectorRef.detectChanges();
+      this.renderEngineEdgesIfActive();
     });
     this.loadUiLanguagePreference();
     this.loadUiThemePreference();
@@ -828,6 +834,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.cancelPendingWindowPointerMove();
     this.viewRenderScheduler.cancel();
+    this.edgeCanvasRenderer.dispose();
     if (this.canvasUsageHintTimer) {
       clearTimeout(this.canvasUsageHintTimer);
       this.canvasUsageHintTimer = null;
@@ -3800,6 +3807,58 @@ LIMIT 50;`;
     return { zoom: this.canvasZoom, panX: this.canvasPan.x, panY: this.canvasPan.y };
   }
 
+  /**
+   * Map the visible edges to flat draw commands for the canvas edge renderer,
+   * reusing the existing routing/colour/marker geometry. Only used on the v2 path.
+   */
+  getEngineRenderableEdges(): readonly RenderableEdge[] {
+    const result: RenderableEdge[] = [];
+    for (const edge of this.edges) {
+      if (!this.isVisibleEdge(edge)) continue;
+      const data = this.getEdgePathData(edge);
+      if (!data || data.points.length < 2) continue;
+      result.push({
+        id: edge.id,
+        points: data.points.map((point) => ({ x: point.x, y: point.y })),
+        stroke: this.getEdgeColor(edge),
+        lineWidth: 2.4,
+        dash: this.parseEdgeDash(this.getEdgeDash(edge)),
+        arrowStart: this.getEdgeStartMarker(edge) !== null,
+        arrowEnd: this.getEdgeEndMarker(edge) !== null,
+        cornerRadius: 20,
+        opacity: this.isEdgeTemporarilyMuted(edge) ? 0.35 : 1
+      });
+    }
+    return result;
+  }
+
+  private parseEdgeDash(value: string | null): number[] {
+    if (!value) return [];
+    return value
+      .split(/[\s,]+/)
+      .map((token) => Number(token))
+      .filter((token) => Number.isFinite(token) && token > 0);
+  }
+
+  /** Draw the v2 edge canvas for the current frame. No-op on the v1 path. */
+  private renderEngineEdgesIfActive(): void {
+    if (!this.isCanvasEngineV2()) return;
+    const canvas = this.edgeEngineCanvas?.nativeElement;
+    if (!canvas) return;
+    if (!this.edgeCanvasMounted) {
+      this.edgeCanvasRenderer.mount(canvas);
+      this.edgeCanvasMounted = true;
+    }
+    const rect = canvas.getBoundingClientRect();
+    this.edgeCanvasRenderer.render({
+      edges: this.getEngineRenderableEdges(),
+      camera: this.getEngineCamera(),
+      cssWidth: rect.width,
+      cssHeight: rect.height,
+      devicePixelRatio: typeof window === "undefined" ? 1 : window.devicePixelRatio
+    });
+  }
+
   isLeafLayerNode(node: CanvasNode): boolean {
     return this.isVisibleNode(node) && !this.rendersAsContainer(node);
   }
@@ -3824,6 +3883,9 @@ LIMIT 50;`;
   }
 
   getRenderableEdgeViewModels(): readonly EdgeRenderViewModel[] {
+    // Canvas engine (v2) draws edges on its own <canvas> layer, so the SVG edge
+    // layer renders nothing.
+    if (this.isCanvasEngineV2()) return EMPTY_EDGE_RENDER_VIEW_MODELS;
     if (this.isEdgeRenderingSuspended()) {
       // While a node is being dragged/resized the full obstacle-aware routing is
       // suspended for performance. Instead of dropping every connection (which
