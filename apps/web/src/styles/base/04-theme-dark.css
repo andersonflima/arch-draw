@@ -130,6 +130,28 @@
   box-shadow: 2px 2px 0 #0b1220;
 }
 
+.app-shell.theme-dark .toolbar-dropdown__divider {
+  background: #4b5563;
+}
+
+.app-shell.theme-dark .toolbar-user__account-name {
+  color: #e5e7eb;
+}
+
+.app-shell.theme-dark .toolbar-user__account-email,
+.app-shell.theme-dark .toolbar-dropdown__section {
+  color: #9ca3af;
+}
+
+.app-shell.theme-dark .toolbar-user__avatar {
+  border-color: #4b5563;
+}
+
+.app-shell.theme-dark .toolbar-dropdown__item--danger {
+  color: #fca5a5;
+  border-color: #b91c1c;
+}
+
 .app-shell.theme-dark .tutorial-panel {
   border-color: #4b5563;
   background: #111827;

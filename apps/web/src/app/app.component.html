@@ -63,35 +63,8 @@
           <button class="toolbar-dropdown__item" type="button" [title]="t('export.png')" [attr.aria-label]="t('export.png')" (click)="exportPngCurrent()">PNG</button>
         </div>
       </details>
-      <details class="toolbar-dropdown toolbar-dropdown--tutorial">
-        <summary class="toolbar-action toolbar-dropdown__trigger" [title]="t('aria.tutorials')" [attr.aria-label]="t('aria.tutorials')">
-          {{ t("toolbar.tutorial") }}
-        </summary>
-        <div class="toolbar-dropdown__menu">
-          <button
-            *ngFor="let guide of tutorialGuides; trackBy: trackByTutorialGuideId"
-            class="toolbar-dropdown__item"
-            type="button"
-            [title]="t('tutorial.openPrefix') + ': ' + guide.title"
-            [attr.aria-label]="t('tutorial.openPrefix') + ': ' + guide.title"
-            (click)="openTutorialGuide(guide.id, $event)"
-          >
-            {{ guide.title }}
-          </button>
-        </div>
-      </details>
       <button class="toolbar-action" data-tour="toolbar-import" type="button" [title]="t('aria.import')" [attr.aria-label]="t('aria.import')" (click)="openImport()">{{ t("toolbar.import") }}</button>
       <button class="toolbar-action" type="button" [title]="t('aria.cloudDiscovery')" [attr.aria-label]="t('aria.cloudDiscovery')" (click)="discoverAwsArchitecture()">{{ t("toolbar.cloud") }}</button>
-      <button
-        class="toolbar-action"
-        type="button"
-        [title]="isDarkMode ? t('theme.disableDark') : t('theme.enableDark')"
-        [attr.aria-label]="isDarkMode ? t('theme.disableDark') : t('theme.enableDark')"
-        [class.is-active]="isDarkMode"
-        (click)="toggleDarkMode()"
-      >
-        {{ isDarkMode ? t("theme.light") : t("theme.dark") }}
-      </button>
       <button
         class="toolbar-action"
         data-tour="toolbar-clear"
@@ -102,26 +75,74 @@
       >
         {{ t("toolbar.clear") }}
       </button>
-      <button
-        class="toolbar-action toolbar-action--lang"
-        type="button"
-        [title]="t('toolbar.languageSwitch')"
-        [attr.aria-label]="t('toolbar.languageSwitch')"
-        (click)="toggleUiLanguage()"
-      >
-        {{ getCurrentLanguageShortLabel() }}
-      </button>
-      <button
-        *ngIf="authEnabled && authenticatedUser"
-        class="secondary-action toolbar-auth-action"
-        type="button"
-        [title]="t('auth.logout')"
-        [attr.aria-label]="t('auth.logout')"
-        (click)="logoutFromSession()"
-      >
-        <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
-        <span>{{ authenticatedUser.name }}</span>
-      </button>
+      <details class="toolbar-dropdown toolbar-dropdown--user">
+        <summary class="toolbar-action toolbar-dropdown__trigger toolbar-user__trigger" [title]="t('user.menu')" [attr.aria-label]="t('user.menu')">
+          <img
+            *ngIf="authenticatedUser?.picture as picture"
+            class="toolbar-user__avatar"
+            [src]="picture"
+            [alt]="authenticatedUser?.name || ''"
+            referrerpolicy="no-referrer"
+          />
+          <i *ngIf="!(authenticatedUser?.picture)" class="fa-solid fa-user-gear" aria-hidden="true"></i>
+          <span *ngIf="authenticatedUser" class="toolbar-user__name">{{ authenticatedUser.name }}</span>
+        </summary>
+        <div class="toolbar-dropdown__menu toolbar-user__menu">
+          <div *ngIf="authenticatedUser" class="toolbar-user__account">
+            <span class="toolbar-user__account-name">{{ authenticatedUser.name }}</span>
+            <span class="toolbar-user__account-email">{{ authenticatedUser.email }}</span>
+          </div>
+          <div *ngIf="authenticatedUser" class="toolbar-dropdown__divider" aria-hidden="true"></div>
+
+          <span class="toolbar-dropdown__section">{{ t("user.preferences") }}</span>
+          <button
+            class="toolbar-dropdown__item"
+            type="button"
+            [class.is-active]="isDarkMode"
+            [title]="isDarkMode ? t('theme.disableDark') : t('theme.enableDark')"
+            (click)="toggleDarkMode()"
+          >
+            <i class="fa-solid" [class.fa-moon]="!isDarkMode" [class.fa-sun]="isDarkMode" aria-hidden="true"></i>
+            {{ isDarkMode ? t("theme.light") : t("theme.dark") }}
+          </button>
+          <button
+            class="toolbar-dropdown__item"
+            type="button"
+            [title]="t('toolbar.languageSwitch')"
+            (click)="toggleUiLanguage()"
+          >
+            <i class="fa-solid fa-language" aria-hidden="true"></i>
+            {{ t("user.language") }}: {{ getCurrentLanguageShortLabel() }}
+          </button>
+
+          <div class="toolbar-dropdown__divider" aria-hidden="true"></div>
+          <span class="toolbar-dropdown__section">{{ t("toolbar.tutorial") }}</span>
+          <button
+            *ngFor="let guide of tutorialGuides; trackBy: trackByTutorialGuideId"
+            class="toolbar-dropdown__item"
+            type="button"
+            [title]="t('tutorial.openPrefix') + ': ' + guide.title"
+            [attr.aria-label]="t('tutorial.openPrefix') + ': ' + guide.title"
+            (click)="openTutorialGuide(guide.id, $event)"
+          >
+            {{ guide.title }}
+          </button>
+
+          <ng-container *ngIf="authEnabled && authenticatedUser">
+            <div class="toolbar-dropdown__divider" aria-hidden="true"></div>
+            <button
+              class="toolbar-dropdown__item toolbar-dropdown__item--danger"
+              type="button"
+              [title]="t('auth.logout')"
+              [attr.aria-label]="t('auth.logout')"
+              (click)="logoutFromSession()"
+            >
+              <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+              {{ t("auth.logout") }}
+            </button>
+          </ng-container>
+        </div>
+      </details>
     </div>
 
     <button

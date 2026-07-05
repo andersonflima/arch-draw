@@ -203,6 +203,86 @@ button {
   box-shadow: 3px 3px 0 #111827;
 }
 
+/* User preferences + account menu (right-aligned) */
+.toolbar-dropdown--user {
+  margin-left: auto;
+}
+
+.toolbar-dropdown--user .toolbar-dropdown__menu {
+  left: auto;
+  right: 0;
+}
+
+.toolbar-user__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toolbar-user__avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid #111827;
+  object-fit: cover;
+}
+
+.toolbar-user__name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toolbar-user__menu {
+  min-width: 240px;
+}
+
+.toolbar-user__menu .toolbar-dropdown__item {
+  gap: 8px;
+}
+
+.toolbar-user__account {
+  display: grid;
+  gap: 2px;
+  padding: 2px 6px 6px;
+}
+
+.toolbar-user__account-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: #111827;
+}
+
+.toolbar-user__account-email {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toolbar-dropdown__section {
+  padding: 4px 6px 0;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+}
+
+.toolbar-dropdown__divider {
+  height: 2px;
+  margin: 4px 0;
+  background: #e5e7eb;
+}
+
+.toolbar-dropdown__item--danger {
+  color: #b91c1c;
+  border-color: #b91c1c;
+}
+
 .toolbar-auth-action {
   min-height: 40px;
   padding: 0 12px;
