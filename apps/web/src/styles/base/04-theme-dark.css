@@ -152,6 +152,33 @@
   border-color: #b91c1c;
 }
 
+.app-shell.theme-dark .cloud-modal {
+  border-color: #4b5563;
+  background: #111827;
+  box-shadow: 6px 6px 0 #0b1220;
+}
+
+.app-shell.theme-dark .cloud-modal__close,
+.app-shell.theme-dark .cloud-field input,
+.app-shell.theme-dark .cloud-field textarea {
+  border-color: #4b5563;
+  background: #1f2937;
+  color: #e5e7eb;
+}
+
+.app-shell.theme-dark .cloud-field > span {
+  color: #e5e7eb;
+}
+
+.app-shell.theme-dark .cloud-modal__subtitle,
+.app-shell.theme-dark .cloud-modal__security {
+  color: #9ca3af;
+}
+
+.app-shell.theme-dark .cloud-help__steps {
+  color: #cbd5e1;
+}
+
 .app-shell.theme-dark .tutorial-panel {
   border-color: #4b5563;
   background: #111827;

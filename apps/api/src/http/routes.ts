@@ -36,7 +36,7 @@ type IdParams = Readonly<{
 }>;
 
 const ARCHITECTURE_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
-const ROLE_ARN_PATTERN = /^arn:aws:iam::\d{12}:role\/[\w+=,.@/-]{1,512}$/;
+const AWS_ACCESS_KEY_ID_PATTERN = /^[A-Z0-9]{16,128}$/;
 const MAX_TITLE_LENGTH = 180;
 const MAX_DESCRIPTION_LENGTH = 4000;
 const SHARE_ID_PATTERN = /^[a-zA-Z0-9_-]{12,160}$/;
@@ -82,28 +82,38 @@ export const registerRoutes = async (
       return reply.code(400).send({ errors: ["Request body must be a JSON object"] });
     }
 
-    const roleArn = normalizeOptionalString(request.body["roleArn"], 2048);
-    const externalId = normalizeOptionalString(request.body["externalId"], 256);
+    // Caller-supplied AWS credentials. They are used transiently for this request
+    // only and are never logged (only field names appear in logs) or persisted.
+    const accessKeyId = normalizeOptionalString(request.body["accessKeyId"], 128);
+    const secretAccessKey = normalizeOptionalString(request.body["secretAccessKey"], 256);
+    const sessionToken = normalizeOptionalString(request.body["sessionToken"], 8192);
     const accountLabel = normalizeOptionalString(request.body["accountLabel"], 120);
     const regions = sanitizeAwsRegions(request.body["regions"]);
-    if (roleArn === null || externalId === null || accountLabel === null || !regions) {
+    if (
+      accessKeyId === null
+      || secretAccessKey === null
+      || sessionToken === null
+      || accountLabel === null
+      || !regions
+    ) {
       recordSecurityEvent("invalid_body");
       request.log.warn({ event: "invalid_body", route: "/cloud/aws/discover" }, "Rejected invalid cloud discovery payload");
       return reply.code(400).send({ errors: ["Invalid AWS discovery payload"] });
     }
-    // An IAM role ARN is mandatory: discovery must always assume the caller's role
-    // and never fall back to the server's own ambient credentials, which would leak
-    // the host account's infrastructure to any caller (confused-deputy).
-    if (!roleArn || !ROLE_ARN_PATTERN.test(roleArn)) {
+    // Credentials are mandatory: discovery must always use the caller's own
+    // credentials and never fall back to the server's ambient credentials, which
+    // would leak the host account's infrastructure to any caller (confused-deputy).
+    if (!accessKeyId || !AWS_ACCESS_KEY_ID_PATTERN.test(accessKeyId) || !secretAccessKey) {
       recordSecurityEvent("invalid_body");
-      request.log.warn({ event: "invalid_body", route: "/cloud/aws/discover", field: "roleArn" }, "Rejected invalid IAM role ARN");
-      return reply.code(400).send({ errors: ["A valid IAM role ARN is required"] });
+      request.log.warn({ event: "invalid_body", route: "/cloud/aws/discover", field: "credentials" }, "Rejected invalid AWS credentials");
+      return reply.code(400).send({ errors: ["Valid AWS access key id and secret access key are required"] });
     }
 
     const result = await discoverCloudArchitecture({
       provider: "aws",
-      roleArn,
-      externalId,
+      accessKeyId,
+      secretAccessKey,
+      sessionToken,
       accountLabel,
       regions
     });

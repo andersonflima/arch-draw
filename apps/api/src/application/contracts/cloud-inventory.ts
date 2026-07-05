@@ -4,8 +4,14 @@ export type CloudProvider = "aws";
 
 export type CloudDiscoveryRequest = Readonly<{
   provider: CloudProvider;
-  roleArn?: string;
-  externalId?: string;
+  /**
+   * Caller-supplied AWS credentials, used transiently for one discovery request
+   * and never persisted or logged. Prefer temporary STS credentials (with
+   * sessionToken) or a dedicated read-only IAM user.
+   */
+  accessKeyId: string;
+  secretAccessKey: string;
+  sessionToken?: string;
   regions: readonly string[];
   accountLabel?: string;
 }>;

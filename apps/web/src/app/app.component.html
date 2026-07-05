@@ -772,6 +772,80 @@
     </div>
   </div>
 
+  <div
+    class="cloud-modal-backdrop"
+    *ngIf="isCloudModalOpen"
+    role="dialog"
+    aria-modal="true"
+    [attr.aria-label]="t('cloud.title')"
+    (click)="closeCloudModal()"
+  >
+    <div class="cloud-modal" (click)="$event.stopPropagation()">
+      <div class="cloud-modal__header">
+        <strong>{{ t("cloud.title") }}</strong>
+        <button class="cloud-modal__close" type="button" [attr.aria-label]="t('cloud.close')" (click)="closeCloudModal()">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+      <p class="cloud-modal__subtitle">{{ t("cloud.subtitle") }}</p>
+
+      <form class="cloud-modal__form" (submit)="$event.preventDefault(); submitCloudDiscovery()">
+        <label class="cloud-field">
+          <span>{{ t("cloud.accessKeyId") }}</span>
+          <input type="text" autocomplete="off" spellcheck="false" placeholder="AKIA..."
+            [(ngModel)]="cloudForm.accessKeyId" [ngModelOptions]="{ standalone: true }" [disabled]="cloudDiscovering" />
+        </label>
+        <label class="cloud-field">
+          <span>{{ t("cloud.secretAccessKey") }}</span>
+          <input type="password" autocomplete="off" spellcheck="false"
+            [(ngModel)]="cloudForm.secretAccessKey" [ngModelOptions]="{ standalone: true }" [disabled]="cloudDiscovering" />
+        </label>
+        <label class="cloud-field">
+          <span>{{ t("cloud.sessionToken") }}</span>
+          <textarea rows="2" autocomplete="off" spellcheck="false"
+            [(ngModel)]="cloudForm.sessionToken" [ngModelOptions]="{ standalone: true }" [disabled]="cloudDiscovering"></textarea>
+        </label>
+        <div class="cloud-field-row">
+          <label class="cloud-field">
+            <span>{{ t("cloud.regions") }}</span>
+            <input type="text" spellcheck="false" placeholder="us-east-1, eu-west-1"
+              [(ngModel)]="cloudForm.regions" [ngModelOptions]="{ standalone: true }" [disabled]="cloudDiscovering" />
+          </label>
+          <label class="cloud-field">
+            <span>{{ t("cloud.accountLabel") }}</span>
+            <input type="text"
+              [(ngModel)]="cloudForm.accountLabel" [ngModelOptions]="{ standalone: true }" [disabled]="cloudDiscovering" />
+          </label>
+        </div>
+
+        <details class="cloud-help">
+          <summary>{{ t("cloud.helpTitle") }}</summary>
+          <ol class="cloud-help__steps">
+            <li>{{ t("cloud.helpStep1") }}</li>
+            <li>{{ t("cloud.helpStep2") }}</li>
+            <li>{{ t("cloud.helpStep3") }}</li>
+          </ol>
+          <div class="cloud-help__policy">
+            <button type="button" class="cloud-help__copy" (click)="copyCloudPolicy()">
+              {{ cloudPolicyCopied ? t("cloud.copied") : t("cloud.copyPolicy") }}
+            </button>
+            <pre>{{ cloudDiscoveryPolicy }}</pre>
+          </div>
+        </details>
+
+        <p class="cloud-modal__security">{{ t("cloud.securityNote") }}</p>
+        <p class="cloud-modal__error" *ngIf="cloudError">{{ cloudError }}</p>
+
+        <div class="cloud-modal__actions">
+          <button type="button" class="secondary-action" (click)="closeCloudModal()" [disabled]="cloudDiscovering">{{ t("cloud.cancel") }}</button>
+          <button type="submit" class="primary-action" [disabled]="cloudDiscovering">
+            {{ cloudDiscovering ? t("cloud.discovering") : t("cloud.discover") }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
 </div>
 </ng-container>
 </ng-container>
