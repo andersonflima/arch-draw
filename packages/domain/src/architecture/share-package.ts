@@ -1,7 +1,13 @@
 import type { ArchitectureDocument } from "./architecture.js";
 import { normalizeArchitecture, validateArchitecture } from "./architecture.js";
 
-export const SHARE_PACKAGE_VERSION = 1;
+export const SHARE_PACKAGE_VERSION = 2;
+
+// Envelope versions this parser still accepts on import. The envelope structure
+// is unchanged across versions; the bump tracks the architecture schema (v2 adds
+// node zOrder). Older packages remain importable — the inner document is migrated
+// by normalizeArchitecture.
+const SUPPORTED_SHARE_PACKAGE_VERSIONS: ReadonlySet<number> = new Set([1, 2]);
 
 export type ArchitectureSharePackage = Readonly<{
   schema: "arch-draw.share";
@@ -43,7 +49,8 @@ const isSharePackage = (value: unknown): value is ArchitectureSharePackage => {
 
   return (
     candidate.schema === "arch-draw.share" &&
-    candidate.version === SHARE_PACKAGE_VERSION &&
+    typeof candidate.version === "number" &&
+    SUPPORTED_SHARE_PACKAGE_VERSIONS.has(candidate.version) &&
     typeof candidate.exportedAt === "string" &&
     typeof candidate.architecture === "object" &&
     candidate.architecture !== null
