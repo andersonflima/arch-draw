@@ -63,6 +63,22 @@
   overflow: hidden;
 }
 
+/* Foblex ships no default theme here, so the connection line has no stroke — give
+   the edge path (and the live create-connection preview) a visible dark stroke. */
+.e2-host f-connection .f-connection-path,
+.e2-host f-connection-for-create .f-connection-path,
+.e2-host .f-snap-connection .f-connection-path {
+  stroke: #111827;
+  stroke-width: 2;
+  fill: none;
+}
+
+.e2-host f-connection .f-connection-selection {
+  stroke: transparent;
+  stroke-width: 14;
+  fill: none;
+}
+
 /* Foblex minimap internals render as an SVG inside the library component, so the
    editor's component-scoped styles can't reach them — colour them globally. */
 .e2-host f-minimap .f-minimap-node {
