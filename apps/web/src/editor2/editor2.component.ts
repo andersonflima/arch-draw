@@ -205,6 +205,7 @@ export class Editor2Component {
   readonly nodeResized = output<{ id: string; width: number; height: number }>();
   readonly edgeCreated = output<{ from: string; to: string }>();
   readonly codeChanged = output<{ id: string; content: string }>();
+  readonly selectionChanged = output<readonly string[]>();
 
   /** Height of the header strip a collapsed container shrinks to. */
   private static readonly COLLAPSED_HEIGHT = 40;
@@ -212,18 +213,13 @@ export class Editor2Component {
   private static readonly CODE_WIDTH = 360;
   private static readonly CODE_HEIGHT = 260;
 
-  /** Editor2 owns live geometry once a document is loaded; reload only on a genuinely
-      different document (id change), never on same-id autosave/metadata re-emissions. */
-  private lastLoadedId: string | null = null;
-
   constructor() {
+    // The store reconciles: a new document (id change) reloads; the same document
+    // syncs structure while keeping live geometry, so shell edits reach editor2 and
+    // the autosave re-emission never resets an in-progress node.
     effect(() => {
       const doc = this.document();
-      if (!doc) return;
-      const id = doc.id ?? null;
-      if (id === this.lastLoadedId) return;
-      this.lastLoadedId = id;
-      this.store.load(doc, isContainerNodeKind, isCodeSnippetNodeKind);
+      if (doc) this.store.sync(doc, isContainerNodeKind, isCodeSnippetNodeKind);
     });
   }
 
@@ -273,7 +269,9 @@ export class Editor2Component {
   }
 
   onSelectionChange(event: FSelectionChangeEvent): void {
-    this.store.setSelection([...event.nodeIds, ...event.groupIds]);
+    const ids = [...event.nodeIds, ...event.groupIds];
+    this.store.setSelection(ids);
+    this.selectionChanged.emit(ids);
   }
 
   iconClass(kind: ArchitectureNodeKind): string {

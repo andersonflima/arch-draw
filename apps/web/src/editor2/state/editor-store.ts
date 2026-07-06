@@ -33,32 +33,58 @@ export class EditorStore {
   private readonly positions = new Map<string, WritableSignal<Point>>();
   private readonly sizes = new Map<string, WritableSignal<Size>>();
   private readonly codes = new Map<string, WritableSignal<Code>>();
+  private loadedId: string | null = null;
 
-  load(
+  /**
+   * Reconcile the view with a document. A genuinely different document (id change)
+   * fully reloads; the same document reconciles structurally — new elements are
+   * seeded, removed ones dropped, and surviving elements KEEP their live geometry
+   * and view-state. This lets shell edits (add/delete/clear) reach editor2 while the
+   * autosave re-emitting the document never resets a node the user just moved.
+   */
+  sync(
     document: ArchitectureDocument,
     isContainer: (kind: ArchitectureNodeKind) => boolean,
     isCodeSnippet: (kind: ArchitectureNodeKind) => boolean
   ): void {
     const model = buildFlowModel(document, isContainer, isCodeSnippet);
-    this.positions.clear();
-    this.sizes.clear();
-    this.codes.clear();
-    for (const element of [...model.groups, ...model.nodes]) {
-      this.positions.set(element.id, signal<Point>({ x: element.x, y: element.y }));
-      this.sizes.set(element.id, signal<Size>({ width: element.width, height: element.height }));
+    const id = document.id ?? null;
+    const isNewDocument = id !== this.loadedId;
+    this.loadedId = id;
+    const elements = [...model.groups, ...model.nodes];
+
+    if (isNewDocument) {
+      this.positions.clear();
+      this.sizes.clear();
+      this.codes.clear();
+      this.selection.set(new Set());
+      this.collapsed.set(new Set());
+      this.codeExpanded.set(new Set());
+      this.draggingIds.set(new Set());
+    } else {
+      const live = new Set(elements.map((element) => element.id));
+      this.pruneRemoved(this.positions, live);
+      this.pruneRemoved(this.sizes, live);
+      this.pruneRemoved(this.codes, live);
+    }
+
+    for (const element of elements) {
+      if (!this.positions.has(element.id)) this.positions.set(element.id, signal<Point>({ x: element.x, y: element.y }));
+      if (!this.sizes.has(element.id)) this.sizes.set(element.id, signal<Size>({ width: element.width, height: element.height }));
     }
     for (const node of model.nodes) {
-      if (!node.hasCode) continue;
+      if (!node.hasCode || this.codes.has(node.id)) continue;
       this.codes.set(node.id, signal<Code>({
         content: node.codeContent,
         language: resolveLanguage(node.codeContent, node.codeLanguage)
       }));
     }
+
     this._structure.set(model);
-    this.selection.set(new Set());
-    this.collapsed.set(new Set());
-    this.codeExpanded.set(new Set());
-    this.draggingIds.set(new Set());
+  }
+
+  private pruneRemoved<T>(map: Map<string, WritableSignal<T>>, live: ReadonlySet<string>): void {
+    for (const key of [...map.keys()]) if (!live.has(key)) map.delete(key);
   }
 
   readonly groups = computed(() => this._structure().groups);

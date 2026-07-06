@@ -525,11 +525,28 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   // canvas while it is built incrementally and persists edits through the shell.
   readonly editor2Enabled =
     typeof location !== "undefined" && new URLSearchParams(location.search).get("editor") === "v2";
+  // Node/edge count signature; when it changes under editor2 we refresh `architecture`
+  // so structural shell edits (add/delete/clear) reach editor2 without the autosave lag.
+  private editor2StructureSignature = "";
 
   // editor2 emits committed gestures; the shell translates them to its existing
   // mutators (which convert absolute->relative geometry and drive autosave).
   onEditor2NodesMoved(moves: readonly { id: string; x: number; y: number }[]): void {
     for (const move of moves) this.moveNodeToAbsolutePosition(move.id, { x: move.x, y: move.y });
+  }
+
+  // Refresh editor2's document input only when the node/edge set changed, so add/
+  // delete/clear reach it immediately while geometry edits stay owned by editor2.
+  private refreshEditor2StructureIfChanged(): void {
+    if (!this.editor2Enabled || !this.architecture) return;
+    const signature = `${this.nodes.length}:${this.edges.length}`;
+    if (signature === this.editor2StructureSignature) return;
+    this.editor2StructureSignature = signature;
+    this.architecture = toArchitectureDocument(
+      { ...this.architecture, mermaidSource: this.mermaidDraft },
+      this.nodes,
+      this.edges
+    );
   }
 
   onEditor2NodeResized(event: { id: string; width: number; height: number }): void {
@@ -543,6 +560,10 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   onEditor2CodeChanged(event: { id: string; content: string }): void {
     const node = this.getNodeById(event.id);
     if (node) this.updateNodeCodeContent(node, event.content);
+  }
+
+  onEditor2SelectionChanged(ids: readonly string[]): void {
+    this.selectedNodeIds = ids;
   }
   // Selection state is owned by SelectionStore (signals); these accessors keep the
   // component's existing read/write call sites working while the state lives outside.
@@ -1995,6 +2016,9 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   }
 
   onCanvasClick(event: MouseEvent): void {
+    // editor2 owns selection while active; its node clicks bubble here through the
+    // shared canvas shell and must not clear the selection editor2 just published.
+    if (this.editor2Enabled) return;
     if (this.suppressCanvasClickClear) {
       this.suppressCanvasClickClear = false;
       event.stopPropagation();
@@ -9213,8 +9237,10 @@ apiKeys:
       const saved = await api.saveSharedArchitecture(session.shareId, document, {
         clientId: session.clientId
       });
+      // Keep `architecture` in sync with the live nodes/edges (not the stale snapshot)
+      // so consumers binding to it — e.g. editor2 — reconcile against current geometry.
       this.architecture = {
-        ...this.architecture,
+        ...document,
         title: saved.title,
         description: saved.description,
         createdAt: saved.createdAt,
@@ -9527,8 +9553,10 @@ apiKeys:
             clientId: this.collaborationSession.clientId
           })
         : await api.saveArchitecture(document);
+      // Keep `architecture` in sync with the live nodes/edges (not the stale snapshot)
+      // so consumers binding to it — e.g. editor2 — reconcile against current geometry.
       this.architecture = {
-        ...this.architecture,
+        ...document,
         title: saved.title,
         description: saved.description,
         createdAt: saved.createdAt,
@@ -10901,6 +10929,7 @@ spec:
     }
     if (changeState.documentChanged) {
       this.syncMermaidFromCanvasIfNeeded();
+      this.refreshEditor2StructureIfChanged();
       this.recordHistory();
       if (this.collaborationSession) {
         this.scheduleCollaborationSync();
