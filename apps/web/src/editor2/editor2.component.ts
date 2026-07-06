@@ -72,8 +72,10 @@ import type { FlowNodeVm } from "./model/flow-model";
           class="e2-node"
           [class.e2-selected]="store.isSelected(n.id)"
           [class.e2-node--code]="store.isCodeExpanded(n.id)"
+          [style.borderLeftColor]="n.color"
           [style.width.px]="nodeWidth(n)"
           [style.height.px]="nodeHeight(n)"
+          (contextmenu)="onNodeContextMenu(n.id, $event)"
         >
           <!-- Connectors sit OUTSIDE the drag handle so a drag from an anchor starts a
                connection instead of moving the node. -->
@@ -82,7 +84,22 @@ import type { FlowNodeVm } from "./model/flow-model";
           <div fDragHandle class="e2-node__body">
             <div class="e2-node__head">
               <i [class]="iconClass(n.kind)" aria-hidden="true"></i>
-              <span class="e2-node__label">{{ n.label }}</span>
+              <span
+                *ngIf="!store.isEditingLabel(n.id)"
+                class="e2-node__label"
+                (dblclick)="startLabelEdit(n.id); $event.stopPropagation()"
+              >{{ n.label }}</span>
+              <input
+                *ngIf="store.isEditingLabel(n.id)"
+                class="e2-node__label e2-node__label-input"
+                [value]="n.label"
+                (mousedown)="$event.stopPropagation()"
+                (pointerdown)="$event.stopPropagation()"
+                (click)="$event.stopPropagation()"
+                (blur)="commitLabel(n.id, $event)"
+                (keydown.enter)="commitLabel(n.id, $event)"
+                (keydown.escape)="store.stopLabelEdit()"
+              />
               <button
                 *ngIf="n.hasCode"
                 type="button"
@@ -147,7 +164,7 @@ import type { FlowNodeVm } from "./model/flow-model";
     .e2-group__toggle:hover { background: #fef3c7; }
     .e2-node {
       position: relative; display: flex;
-      border: 2px solid #111827; border-radius: 8px; background: #ffffff;
+      border: 2px solid #111827; border-left-width: 7px; border-radius: 8px; background: #ffffff;
       box-shadow: 2px 2px 0 #111827; padding: 6px;
     }
     .e2-node__body {
@@ -161,6 +178,11 @@ import type { FlowNodeVm } from "./model/flow-model";
     }
     .e2-node--code .e2-node__head { flex-direction: row; justify-content: flex-start; gap: 6px; }
     .e2-node__label { font-size: 12px; font-weight: 700; text-align: center; }
+    .e2-node__label-input {
+      width: 100%; min-width: 0; box-sizing: border-box;
+      border: 2px solid #f59e0b; border-radius: 4px; padding: 1px 4px;
+      font-family: inherit; background: #fffbeb; outline: none; cursor: text;
+    }
     .e2-node--code .e2-node__label { flex: 1 1 auto; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .e2-node i { font-size: 18px; }
     .e2-node__code-toggle {
@@ -209,6 +231,8 @@ export class Editor2Component {
   readonly nodeResized = output<{ id: string; width: number; height: number }>();
   readonly edgeCreated = output<{ from: string; to: string }>();
   readonly codeChanged = output<{ id: string; content: string }>();
+  readonly labelChanged = output<{ id: string; label: string }>();
+  readonly nodeContextMenu = output<{ id: string; event: MouseEvent }>();
   readonly selectionChanged = output<readonly string[]>();
 
   /** Height of the header strip a collapsed container shrinks to. */
@@ -236,6 +260,28 @@ export class Editor2Component {
 
   onCodeBlur(id: string): void {
     this.codeChanged.emit({ id, content: this.store.code(id)().content });
+  }
+
+  /** Inline rename: open on double-click, focus the field once it renders. */
+  startLabelEdit(id: string): void {
+    this.store.startLabelEdit(id);
+    setTimeout(() => {
+      const input = document.querySelector<HTMLInputElement>(`[data-e2-id="${id}"] .e2-node__label-input`);
+      input?.focus();
+      input?.select();
+    });
+  }
+
+  commitLabel(id: string, event: Event): void {
+    const value = (event.target as HTMLInputElement).value.trim();
+    this.store.stopLabelEdit();
+    if (value) this.labelChanged.emit({ id, label: value });
+  }
+
+  onNodeContextMenu(id: string, event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation(); // don't let the shell's canvas contextmenu clear the panel
+    this.nodeContextMenu.emit({ id, event });
   }
 
   /** A collapsed container renders header-only; its stored size is preserved for expand. */
