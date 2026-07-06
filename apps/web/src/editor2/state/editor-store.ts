@@ -26,6 +26,7 @@ export class EditorStore {
   readonly selection = signal<ReadonlySet<string>>(new Set());
   readonly collapsed = signal<ReadonlySet<string>>(new Set());
   readonly codeExpanded = signal<ReadonlySet<string>>(new Set());
+  readonly editingLabelId = signal<string | null>(null);
   /** Ids currently being dragged; empty when idle. Drives the drag contact area. */
   private readonly draggingIds = signal<ReadonlySet<string>>(new Set());
   readonly dragging = computed(() => this.draggingIds().size > 0);
@@ -61,6 +62,7 @@ export class EditorStore {
       this.collapsed.set(new Set());
       this.codeExpanded.set(new Set());
       this.draggingIds.set(new Set());
+      this.editingLabelId.set(null);
     } else {
       const live = new Set(elements.map((element) => element.id));
       this.pruneRemoved(this.positions, live);
@@ -184,6 +186,18 @@ export class EditorStore {
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  }
+
+  isEditingLabel(id: string): boolean {
+    return this.editingLabelId() === id;
+  }
+
+  startLabelEdit(id: string): void {
+    this.editingLabelId.set(id);
+  }
+
+  stopLabelEdit(): void {
+    this.editingLabelId.set(null);
   }
 
   /** Two-way geometry sources bound to Foblex. */
