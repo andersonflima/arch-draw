@@ -42,7 +42,9 @@ const stubApiAndLoad = async (page: Page): Promise<void> => {
     return json({});
   });
 
-  await page.goto("/", { waitUntil: "networkidle" });
+  // The greenfield editor is the default canvas; this suite covers the legacy
+  // canvas, still reachable via ?canvas=legacy while the monolith is retired.
+  await page.goto("/?canvas=legacy", { waitUntil: "networkidle" });
   await page.waitForSelector('[data-node-id="n1"]', { timeout: 8000 });
 };
 

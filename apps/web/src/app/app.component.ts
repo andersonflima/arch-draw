@@ -521,10 +521,10 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   // is now the default; v1 (legacy DOM+SVG edges) stays reachable via
   // `?engine=v1` as an escape hatch while the old path is retired.
   readonly canvasEngineVersion: EngineVersion = resolveActiveEngineVersion();
-  // Greenfield editor (Foblex Flow), opt-in via ?editor=v2. It overlays the current
-  // canvas while it is built incrementally and persists edits through the shell.
+  // Greenfield editor (Foblex Flow) is the default canvas; the legacy canvas stays
+  // reachable via ?canvas=legacy as a fallback while the monolith is retired.
   readonly editor2Enabled =
-    typeof location !== "undefined" && new URLSearchParams(location.search).get("editor") === "v2";
+    typeof location === "undefined" || new URLSearchParams(location.search).get("canvas") !== "legacy";
   // Node/edge count signature; when it changes under editor2 we refresh `architecture`
   // so structural shell edits (add/delete/clear) reach editor2 without the autosave lag.
   private editor2StructureSignature = "";
