@@ -539,7 +539,12 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   // delete/clear reach it immediately while geometry edits stay owned by editor2.
   private refreshEditor2StructureIfChanged(): void {
     if (!this.editor2Enabled || !this.architecture) return;
-    const signature = `${this.nodes.length}:${this.edges.length}`;
+    // Content signature (ids + label/kind/color + parent + edge endpoints) — not
+    // geometry — so add/delete/rename/recolour reach editor2 immediately while
+    // drag/resize stay owned by editor2's own signals (no per-frame refresh).
+    const nodePart = this.nodes.map((n) => `${n.id}|${n.label}|${n.kind}|${n.color}|${n.parentId ?? ""}`).join(";");
+    const edgePart = this.edges.map((e) => `${e.id}>${e.from}>${e.to}`).join(";");
+    const signature = `${nodePart}#${edgePart}`;
     if (signature === this.editor2StructureSignature) return;
     this.editor2StructureSignature = signature;
     this.architecture = toArchitectureDocument(
@@ -568,6 +573,10 @@ export class AppComponent implements AfterViewInit, OnDestroy {
 
   onEditor2LabelChanged(event: { id: string; label: string }): void {
     this.updateNode(event.id, { label: event.label });
+  }
+
+  onEditor2NodeContextMenu(payload: { id: string; event: MouseEvent }): void {
+    this.onNodeContextMenu(payload.id, payload.event);
   }
   // Selection state is owned by SelectionStore (signals); these accessors keep the
   // component's existing read/write call sites working while the state lives outside.
