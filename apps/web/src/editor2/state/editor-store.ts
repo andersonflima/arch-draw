@@ -108,6 +108,24 @@ export class EditorStore {
     return ids.size > 0 && (ids.has(edge.from) || ids.has(edge.to));
   }
 
+  /**
+   * Absolute positions of the just-dragged subtree roots (a dragged element whose
+   * parent was not also dragged). Children keep their parent-relative offset, so
+   * persisting the roots moves the whole subtree without double-applying the delta.
+   */
+  draggedRootMoves(): { id: string; x: number; y: number }[] {
+    const ids = this.draggingIds();
+    const parents = this.parentById();
+    const moves: { id: string; x: number; y: number }[] = [];
+    for (const id of ids) {
+      const parent = parents.get(id) ?? null;
+      if (parent && ids.has(parent)) continue; // a descendant of another dragged item
+      const point = this.position(id)();
+      moves.push({ id, x: point.x, y: point.y });
+    }
+    return moves;
+  }
+
   isCollapsed(id: string): boolean {
     return this.collapsed().has(id);
   }

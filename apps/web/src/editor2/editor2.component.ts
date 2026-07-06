@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { ChangeDetectionStrategy, Component, effect, inject, input } from "@angular/core";
+import { ChangeDetectionStrategy, Component, effect, inject, input, output } from "@angular/core";
 import type { ArchitectureDocument, ArchitectureNodeKind } from "@arch-draw/domain";
 import { FFlowModule, type FCreateConnectionEvent, type FDragStartedEvent, type FSelectionChangeEvent } from "@foblex/flow";
 import { CodeEditorComponent } from "../app/code-editor.component";
@@ -26,7 +26,7 @@ import type { FlowNodeVm } from "./model/flow-model";
       [class.e2-flow--dragging]="store.dragging()"
       (fCreateConnection)="onConnect($event)"
       (fDragStarted)="onDragStarted($event)"
-      (fDragEnded)="store.endDrag()"
+      (fDragEnded)="onDragEnded()"
       (fSelectionChange)="onSelectionChange($event)"
     >
       <f-canvas fZoom>
@@ -64,7 +64,6 @@ import type { FlowNodeVm } from "./model/flow-model";
         <div
           *ngFor="let n of store.visibleNodes(); trackBy: trackById"
           fNode
-          fDragHandle
           [fNodeId]="n.id"
           [attr.data-e2-id]="n.id"
           [fNodeParentId]="n.parentId"
@@ -76,32 +75,37 @@ import type { FlowNodeVm } from "./model/flow-model";
           [style.width.px]="nodeWidth(n)"
           [style.height.px]="nodeHeight(n)"
         >
+          <!-- Connectors sit OUTSIDE the drag handle so a drag from an anchor starts a
+               connection instead of moving the node. -->
           <div fNodeInput [fInputId]="n.id" class="e2-conn e2-conn--in"></div>
           <div fNodeOutput [fOutputId]="n.id" class="e2-conn e2-conn--out"></div>
-          <div class="e2-node__head">
-            <i [class]="iconClass(n.kind)" aria-hidden="true"></i>
-            <span class="e2-node__label">{{ n.label }}</span>
-            <button
-              *ngIf="n.hasCode"
-              type="button"
-              class="e2-node__code-toggle"
-              [class.is-active]="store.isCodeExpanded(n.id)"
-              [attr.aria-label]="store.isCodeExpanded(n.id) ? 'hide code' : 'show code'"
+          <div fDragHandle class="e2-node__body">
+            <div class="e2-node__head">
+              <i [class]="iconClass(n.kind)" aria-hidden="true"></i>
+              <span class="e2-node__label">{{ n.label }}</span>
+              <button
+                *ngIf="n.hasCode"
+                type="button"
+                class="e2-node__code-toggle"
+                [class.is-active]="store.isCodeExpanded(n.id)"
+                [attr.aria-label]="store.isCodeExpanded(n.id) ? 'hide code' : 'show code'"
+                (mousedown)="$event.stopPropagation()"
+                (click)="store.toggleCode(n.id); $event.stopPropagation()"
+              >&lt;/&gt;</button>
+            </div>
+            <div
+              *ngIf="n.hasCode && store.isCodeExpanded(n.id)"
+              class="e2-node__code"
               (mousedown)="$event.stopPropagation()"
-              (click)="store.toggleCode(n.id); $event.stopPropagation()"
-            >&lt;/&gt;</button>
-          </div>
-          <div
-            *ngIf="n.hasCode && store.isCodeExpanded(n.id)"
-            class="e2-node__code"
-            (mousedown)="$event.stopPropagation()"
-            (pointerdown)="$event.stopPropagation()"
-          >
-            <app-code-editor
-              [value]="store.code(n.id)().content"
-              [language]="store.code(n.id)().language"
-              (valueChange)="store.setCode(n.id, $event)"
-            ></app-code-editor>
+              (pointerdown)="$event.stopPropagation()"
+            >
+              <app-code-editor
+                [value]="store.code(n.id)().content"
+                [language]="store.code(n.id)().language"
+                (valueChange)="store.setCode(n.id, $event)"
+                (editorBlur)="onCodeBlur(n.id)"
+              ></app-code-editor>
+            </div>
           </div>
         </div>
 
@@ -138,12 +142,15 @@ import type { FlowNodeVm } from "./model/flow-model";
     }
     .e2-group__toggle:hover { background: #fef3c7; }
     .e2-node {
-      position: relative;
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+      position: relative; display: flex;
       border: 2px solid #111827; border-radius: 8px; background: #ffffff;
       box-shadow: 2px 2px 0 #111827; padding: 6px;
     }
-    .e2-node--code { justify-content: flex-start; align-items: stretch; gap: 6px; }
+    .e2-node__body {
+      flex: 1 1 auto; min-width: 0; min-height: 0; width: 100%;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    }
+    .e2-node--code .e2-node__body { justify-content: flex-start; align-items: stretch; gap: 6px; }
     .e2-node__head {
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
       position: relative;
@@ -193,17 +200,42 @@ export class Editor2Component {
   readonly store = inject(EditorStore);
   readonly document = input<ArchitectureDocument | null>(null);
 
+  /** Committed changes for the shell to persist (positions are absolute canvas coords). */
+  readonly nodesMoved = output<readonly { id: string; x: number; y: number }[]>();
+  readonly nodeResized = output<{ id: string; width: number; height: number }>();
+  readonly edgeCreated = output<{ from: string; to: string }>();
+  readonly codeChanged = output<{ id: string; content: string }>();
+
   /** Height of the header strip a collapsed container shrinks to. */
   private static readonly COLLAPSED_HEIGHT = 40;
   /** Size a leaf node grows to while its code snippet is open. */
   private static readonly CODE_WIDTH = 360;
   private static readonly CODE_HEIGHT = 260;
 
+  /** Editor2 owns live geometry once a document is loaded; reload only on a genuinely
+      different document (id change), never on same-id autosave/metadata re-emissions. */
+  private lastLoadedId: string | null = null;
+
   constructor() {
     effect(() => {
       const doc = this.document();
-      if (doc) this.store.load(doc, isContainerNodeKind, isCodeSnippetNodeKind);
+      if (!doc) return;
+      const id = doc.id ?? null;
+      if (id === this.lastLoadedId) return;
+      this.lastLoadedId = id;
+      this.store.load(doc, isContainerNodeKind, isCodeSnippetNodeKind);
     });
+  }
+
+  /** Persist the moved subtree roots on drop; children keep their parent-relative offset. */
+  onDragEnded(): void {
+    const moves = this.store.draggedRootMoves();
+    this.store.endDrag();
+    if (moves.length > 0) this.nodesMoved.emit(moves);
+  }
+
+  onCodeBlur(id: string): void {
+    this.codeChanged.emit({ id, content: this.store.code(id)().content });
   }
 
   /** A collapsed container renders header-only; its stored size is preserved for expand. */
@@ -215,6 +247,7 @@ export class Editor2Component {
   onGroupResize(id: string, size: { width: number; height: number }): void {
     if (this.store.isCollapsed(id)) return; // ignore the shrink echo while collapsed
     this.store.size(id).set(size);
+    this.nodeResized.emit({ id, width: size.width, height: size.height });
   }
 
   /** A leaf node grows to fit its code editor while the snippet is open. */
@@ -234,7 +267,9 @@ export class Editor2Component {
   }
 
   onConnect(event: FCreateConnectionEvent): void {
-    if (event.targetId) this.store.addEdge(event.sourceId, event.targetId);
+    if (!event.targetId || event.sourceId === event.targetId) return;
+    this.store.addEdge(event.sourceId, event.targetId);
+    this.edgeCreated.emit({ from: event.sourceId, to: event.targetId });
   }
 
   onSelectionChange(event: FSelectionChangeEvent): void {

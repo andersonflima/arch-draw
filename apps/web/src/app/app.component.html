@@ -287,7 +287,14 @@
     >
       @defer (when editor2Enabled) {
         @if (editor2Enabled) {
-          <app-editor2 class="e2-host" [document]="architecture"></app-editor2>
+          <app-editor2
+            class="e2-host"
+            [document]="architecture"
+            (nodesMoved)="onEditor2NodesMoved($event)"
+            (nodeResized)="onEditor2NodeResized($event)"
+            (edgeCreated)="onEditor2EdgeCreated($event)"
+            (codeChanged)="onEditor2CodeChanged($event)"
+          ></app-editor2>
         }
       }
       <button
