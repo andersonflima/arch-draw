@@ -285,7 +285,11 @@
       (contextmenu)="onCanvasContextMenu($event)"
       (dblclick)="onCanvasDoubleClick($event)"
     >
-      <app-editor2 *ngIf="editor2Enabled" class="e2-host" [document]="architecture"></app-editor2>
+      @defer (when editor2Enabled) {
+        @if (editor2Enabled) {
+          <app-editor2 class="e2-host" [document]="architecture"></app-editor2>
+        }
+      }
       <button
         class="workspace-menu-toggle"
         type="button"
