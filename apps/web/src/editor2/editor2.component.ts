@@ -116,6 +116,10 @@ import type { FlowNodeVm } from "./model/flow-model";
           [fInputId]="e.to"
           fBehavior="fixed"
         ></f-connection>
+
+        <!-- Live preview line for drag-to-connect; Foblex only arms connection
+             creation when this component is present in the flow. -->
+        <f-connection-for-create fBehavior="fixed"></f-connection-for-create>
       </f-canvas>
 
       <f-minimap [fMinSize]="600" class="e2-minimap"></f-minimap>
