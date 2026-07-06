@@ -1,7 +1,7 @@
 import { CommonModule } from "@angular/common";
-import { ChangeDetectionStrategy, Component, effect, inject, input, output } from "@angular/core";
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, effect, inject, input, output, signal } from "@angular/core";
 import type { ArchitectureDocument, ArchitectureNodeKind } from "@arch-draw/domain";
-import { FFlowModule, type FCreateConnectionEvent, type FDragStartedEvent, type FSelectionChangeEvent } from "@foblex/flow";
+import { FFlowModule, type FCanvasChangeEvent, type FCreateConnectionEvent, type FDragStartedEvent, type FSelectionChangeEvent } from "@foblex/flow";
 import { CodeEditorComponent } from "../app/code-editor.component";
 import { isCodeSnippetNodeKind, isContainerNodeKind } from "../features/editor/node-catalog";
 import { getNodeIconClass } from "../features/editor/node-icons";
@@ -27,9 +27,15 @@ import type { FlowNodeVm } from "./model/flow-model";
       (fCreateConnection)="onConnect($event)"
       (fDragStarted)="onDragStarted($event)"
       (fDragEnded)="onDragEnded()"
+      (fFullRendered)="onFullRendered()"
       (fSelectionChange)="onSelectionChange($event)"
     >
-      <f-canvas fZoom>
+      <f-canvas
+        fZoom
+        [position]="cameraPosition()"
+        [scale]="cameraScale()"
+        (fCanvasChange)="onCanvasChange($event)"
+      >
         <f-background>
           <f-rect-pattern></f-rect-pattern>
         </f-background>
@@ -140,6 +146,12 @@ import type { FlowNodeVm } from "./model/flow-model";
       </f-canvas>
 
       <f-minimap [fMinSize]="600" class="e2-minimap"></f-minimap>
+
+      <div class="e2-controls">
+        <button type="button" class="e2-ctl" aria-label="zoom in" (click)="zoomBy(1.2)">+</button>
+        <button type="button" class="e2-ctl" aria-label="fit to view" (click)="fitToView()"><i class="fa-solid fa-expand" aria-hidden="true"></i></button>
+        <button type="button" class="e2-ctl" aria-label="zoom out" (click)="zoomBy(1 / 1.2)">−</button>
+      </div>
     </f-flow>
   `,
   styles: [`
@@ -220,6 +232,18 @@ import type { FlowNodeVm } from "./model/flow-model";
       background: rgba(255, 255, 255, 0.9); box-shadow: 3px 3px 0 #111827;
       overflow: hidden;
     }
+    .e2-controls {
+      position: absolute; right: 14px; bottom: 168px;
+      display: flex; flex-direction: column; gap: 6px; z-index: 6;
+    }
+    .e2-ctl {
+      width: 40px; height: 40px; padding: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      border: 2px solid #111827; border-radius: 8px; background: #ffffff;
+      box-shadow: 2px 2px 0 #111827; font-size: 18px; font-weight: 900; line-height: 1; cursor: pointer;
+    }
+    .e2-ctl:hover { background: #fef3c7; }
+    .e2-ctl:active { transform: translateY(1px); box-shadow: 1px 1px 0 #111827; }
   `]
 })
 export class Editor2Component {
@@ -241,13 +265,29 @@ export class Editor2Component {
   private static readonly CODE_WIDTH = 360;
   private static readonly CODE_HEIGHT = 260;
 
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly cdr = inject(ChangeDetectorRef);
+  // Camera is a two-way bound signal on <f-canvas>: Foblex writes it as the user
+  // pans/zooms (fCanvasChange), and we set it for fit/zoom so navigation works even
+  // where touch panning is unreliable. The library's fitToScreen() no-ops here.
+  readonly cameraPosition = signal<{ x: number; y: number }>({ x: 0, y: 0 });
+  readonly cameraScale = signal<number>(1);
+  private pendingFit = false;
+  private fitDocId: string | null = null;
+
   constructor() {
     // The store reconciles: a new document (id change) reloads; the same document
     // syncs structure while keeping live geometry, so shell edits reach editor2 and
     // the autosave re-emission never resets an in-progress node.
     effect(() => {
       const doc = this.document();
-      if (doc) this.store.sync(doc, isContainerNodeKind, isCodeSnippetNodeKind);
+      if (!doc) return;
+      this.store.sync(doc, isContainerNodeKind, isCodeSnippetNodeKind);
+      const id = doc.id ?? null;
+      if (id !== this.fitDocId) {
+        this.fitDocId = id;
+        this.pendingFit = true;
+      }
     });
   }
 
@@ -322,6 +362,78 @@ export class Editor2Component {
     const ids = [...event.nodeIds, ...event.groupIds];
     this.store.setSelection(ids);
     this.selectionChanged.emit(ids);
+  }
+
+  /** Keep the camera signal in sync when Foblex pans/zooms (guarded against a loop). */
+  onCanvasChange(event: FCanvasChangeEvent): void {
+    const p = this.cameraPosition();
+    if (p.x !== event.position.x || p.y !== event.position.y) {
+      this.cameraPosition.set({ x: event.position.x, y: event.position.y });
+    }
+    if (this.cameraScale() !== event.scale) this.cameraScale.set(event.scale);
+  }
+
+  onFullRendered(): void {
+    if (!this.pendingFit) return;
+    // Foblex emits this outside Angular, and the root view is detached; set the
+    // camera then force this view to re-check so the [scale]/[position] bindings apply.
+    setTimeout(() => {
+      if (this.fitToView()) {
+        this.pendingFit = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  /** Frame every element in the viewport — computed from the store geometry, since
+      Foblex's own fitToScreen() has no effect with this canvas setup. */
+  fitToView(): boolean {
+    const bounds = this.contentBounds();
+    if (!bounds) return false;
+    const el = this.host.nativeElement;
+    const vw = el.clientWidth;
+    const vh = el.clientHeight;
+    if (vw === 0 || vh === 0) return false;
+    const pad = 56;
+    // Only ever zoom out to frame a large diagram; keep small ones at 1:1, centred.
+    const scale = Math.max(0.1, Math.min(1, (vw - 2 * pad) / bounds.width, (vh - 2 * pad) / bounds.height));
+    const cx = bounds.x + bounds.width / 2;
+    const cy = bounds.y + bounds.height / 2;
+    this.cameraScale.set(scale);
+    this.cameraPosition.set({ x: vw / 2 - scale * cx, y: vh / 2 - scale * cy });
+    return true;
+  }
+
+  zoomBy(factor: number): void {
+    const el = this.host.nativeElement;
+    const vw = el.clientWidth || 0;
+    const vh = el.clientHeight || 0;
+    const prev = this.cameraScale();
+    const next = Math.max(0.1, Math.min(2.5, prev * factor));
+    if (next === prev) return;
+    const pos = this.cameraPosition();
+    const worldX = (vw / 2 - pos.x) / prev;
+    const worldY = (vh / 2 - pos.y) / prev;
+    this.cameraScale.set(next);
+    this.cameraPosition.set({ x: vw / 2 - next * worldX, y: vh / 2 - next * worldY });
+  }
+
+  private contentBounds(): { x: number; y: number; width: number; height: number } | null {
+    const elements = [...this.store.groups(), ...this.store.nodes()];
+    if (elements.length === 0) return null;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const element of elements) {
+      const p = this.store.position(element.id)();
+      const s = this.store.size(element.id)();
+      minX = Math.min(minX, p.x);
+      minY = Math.min(minY, p.y);
+      maxX = Math.max(maxX, p.x + s.width);
+      maxY = Math.max(maxY, p.y + s.height);
+    }
+    return { x: minX, y: minY, width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) };
   }
 
   iconClass(kind: ArchitectureNodeKind): string {
