@@ -13,6 +13,10 @@ export interface FlowNodeVm {
   readonly height: number;
   readonly color: string;
   readonly zOrder: number;
+  /** Whether this element can hold an example code snippet. */
+  readonly hasCode: boolean;
+  readonly codeContent: string;
+  readonly codeLanguage: string;
 }
 
 export interface FlowEdgeVm {
@@ -36,7 +40,8 @@ export const EMPTY_FLOW_MODEL: FlowModel = { groups: [], nodes: [], edges: [] };
  */
 export const buildFlowModel = (
   document: ArchitectureDocument,
-  isContainer: (kind: ArchitectureNodeKind) => boolean
+  isContainer: (kind: ArchitectureNodeKind) => boolean,
+  isCodeSnippet: (kind: ArchitectureNodeKind) => boolean
 ): FlowModel => {
   const byId = new Map(document.nodes.map((node) => [node.id, node] as const));
   const scene = buildSceneModel({
@@ -58,7 +63,10 @@ export const buildFlowModel = (
       width: sceneNode.width,
       height: sceneNode.height,
       color: node.color,
-      zOrder: sceneNode.zOrder
+      zOrder: sceneNode.zOrder,
+      hasCode: isCodeSnippet(node.kind),
+      codeContent: node.properties?.["codeContent"] ?? "",
+      codeLanguage: node.properties?.["codeLanguage"] ?? ""
     };
   };
 
