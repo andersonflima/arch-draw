@@ -285,6 +285,19 @@
       (contextmenu)="onCanvasContextMenu($event)"
       (dblclick)="onCanvasDoubleClick($event)"
     >
+      @defer (when editor2Enabled) {
+        @if (editor2Enabled) {
+          <app-editor2
+            class="e2-host"
+            [document]="architecture"
+            (nodesMoved)="onEditor2NodesMoved($event)"
+            (nodeResized)="onEditor2NodeResized($event)"
+            (edgeCreated)="onEditor2EdgeCreated($event)"
+            (codeChanged)="onEditor2CodeChanged($event)"
+            (selectionChanged)="onEditor2SelectionChanged($event)"
+          ></app-editor2>
+        }
+      }
       <button
         class="workspace-menu-toggle"
         type="button"
@@ -297,12 +310,12 @@
       </button>
       <canvas
         #edgeEngineCanvas
-        *ngIf="isCanvasEngineV2()"
+        *ngIf="isCanvasEngineV2() && !editor2Enabled"
         class="canvas-edge-engine"
         aria-hidden="true"
       ></canvas>
       <textarea
-        *ngIf="isCanvasEngineV2() && editingEdgeId as editorId"
+        *ngIf="isCanvasEngineV2() && !editor2Enabled && editingEdgeId as editorId"
         class="canvas-edge-label-editor canvas-edge-label-editor--engine"
         [ngStyle]="getEngineEdgeEditorStyle()"
         [attr.data-edge-editor-id]="editorId"
@@ -316,6 +329,7 @@
         (keydown)="onEdgeLabelEditorKeyDown($event, editorId)"
       ></textarea>
       <div
+        *ngIf="!editor2Enabled"
         class="canvas-viewport"
         [class.canvas-viewport--interaction-lite]="shouldUseInteractionLiteMode()"
         [ngStyle]="getViewportStyle()"
@@ -541,7 +555,7 @@
 
       </div>
 
-      <section class="canvas-map" [attr.aria-label]="t('map.aria')" (click)="$event.stopPropagation()">
+      <section *ngIf="!editor2Enabled" class="canvas-map" [attr.aria-label]="t('map.aria')" (click)="$event.stopPropagation()">
         <div #miniMap class="mini-map" data-tour="mini-map" (pointerdown)="onMiniMapPointerDown($event)">
           <ng-container *ngFor="let node of getMiniMapRenderableNodes(); trackBy: trackByNodeId">
             <span

@@ -36,6 +36,7 @@ import {
   type RenderableEdgeLabel,
   type SceneModel
 } from "../canvas-engine";
+import { Editor2Component } from "../editor2";
 import { SelectionStore } from "../features/editor/selection-store";
 import { EditingStore } from "../features/editor/editing-store";
 import { CameraStore } from "../features/editor/camera-store";
@@ -481,7 +482,8 @@ const normalizeAwsRegionPromptValue = (value: string): readonly string[] =>
     CommonModule,
     FormsModule,
     CanvasNodeComponent,
-    PaletteComponent
+    PaletteComponent,
+    Editor2Component
   ],
   templateUrl: "./app.component.html",
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -519,6 +521,50 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   // is now the default; v1 (legacy DOM+SVG edges) stays reachable via
   // `?engine=v1` as an escape hatch while the old path is retired.
   readonly canvasEngineVersion: EngineVersion = resolveActiveEngineVersion();
+  // Greenfield editor (Foblex Flow) is the default canvas; the legacy canvas stays
+  // reachable via ?canvas=legacy as a fallback while the monolith is retired.
+  readonly editor2Enabled =
+    typeof location === "undefined" || new URLSearchParams(location.search).get("canvas") !== "legacy";
+  // Node/edge count signature; when it changes under editor2 we refresh `architecture`
+  // so structural shell edits (add/delete/clear) reach editor2 without the autosave lag.
+  private editor2StructureSignature = "";
+
+  // editor2 emits committed gestures; the shell translates them to its existing
+  // mutators (which convert absolute->relative geometry and drive autosave).
+  onEditor2NodesMoved(moves: readonly { id: string; x: number; y: number }[]): void {
+    for (const move of moves) this.moveNodeToAbsolutePosition(move.id, { x: move.x, y: move.y });
+  }
+
+  // Refresh editor2's document input only when the node/edge set changed, so add/
+  // delete/clear reach it immediately while geometry edits stay owned by editor2.
+  private refreshEditor2StructureIfChanged(): void {
+    if (!this.editor2Enabled || !this.architecture) return;
+    const signature = `${this.nodes.length}:${this.edges.length}`;
+    if (signature === this.editor2StructureSignature) return;
+    this.editor2StructureSignature = signature;
+    this.architecture = toArchitectureDocument(
+      { ...this.architecture, mermaidSource: this.mermaidDraft },
+      this.nodes,
+      this.edges
+    );
+  }
+
+  onEditor2NodeResized(event: { id: string; width: number; height: number }): void {
+    this.updateNode(event.id, { size: { width: event.width, height: event.height } });
+  }
+
+  onEditor2EdgeCreated(event: { from: string; to: string }): void {
+    this.createConnection(event.from, event.to, { sourcePort: "right", targetPort: "left" });
+  }
+
+  onEditor2CodeChanged(event: { id: string; content: string }): void {
+    const node = this.getNodeById(event.id);
+    if (node) this.updateNodeCodeContent(node, event.content);
+  }
+
+  onEditor2SelectionChanged(ids: readonly string[]): void {
+    this.selectedNodeIds = ids;
+  }
   // Selection state is owned by SelectionStore (signals); these accessors keep the
   // component's existing read/write call sites working while the state lives outside.
   get selectedNodeId(): string | null {
@@ -1970,6 +2016,9 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   }
 
   onCanvasClick(event: MouseEvent): void {
+    // editor2 owns selection while active; its node clicks bubble here through the
+    // shared canvas shell and must not clear the selection editor2 just published.
+    if (this.editor2Enabled) return;
     if (this.suppressCanvasClickClear) {
       this.suppressCanvasClickClear = false;
       event.stopPropagation();
@@ -9188,8 +9237,10 @@ apiKeys:
       const saved = await api.saveSharedArchitecture(session.shareId, document, {
         clientId: session.clientId
       });
+      // Keep `architecture` in sync with the live nodes/edges (not the stale snapshot)
+      // so consumers binding to it — e.g. editor2 — reconcile against current geometry.
       this.architecture = {
-        ...this.architecture,
+        ...document,
         title: saved.title,
         description: saved.description,
         createdAt: saved.createdAt,
@@ -9502,8 +9553,10 @@ apiKeys:
             clientId: this.collaborationSession.clientId
           })
         : await api.saveArchitecture(document);
+      // Keep `architecture` in sync with the live nodes/edges (not the stale snapshot)
+      // so consumers binding to it — e.g. editor2 — reconcile against current geometry.
       this.architecture = {
-        ...this.architecture,
+        ...document,
         title: saved.title,
         description: saved.description,
         createdAt: saved.createdAt,
@@ -10876,6 +10929,7 @@ spec:
     }
     if (changeState.documentChanged) {
       this.syncMermaidFromCanvasIfNeeded();
+      this.refreshEditor2StructureIfChanged();
       this.recordHistory();
       if (this.collaborationSession) {
         this.scheduleCollaborationSync();
