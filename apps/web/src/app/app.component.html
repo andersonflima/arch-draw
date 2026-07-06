@@ -310,12 +310,12 @@
       </button>
       <canvas
         #edgeEngineCanvas
-        *ngIf="isCanvasEngineV2()"
+        *ngIf="isCanvasEngineV2() && !editor2Enabled"
         class="canvas-edge-engine"
         aria-hidden="true"
       ></canvas>
       <textarea
-        *ngIf="isCanvasEngineV2() && editingEdgeId as editorId"
+        *ngIf="isCanvasEngineV2() && !editor2Enabled && editingEdgeId as editorId"
         class="canvas-edge-label-editor canvas-edge-label-editor--engine"
         [ngStyle]="getEngineEdgeEditorStyle()"
         [attr.data-edge-editor-id]="editorId"
@@ -329,6 +329,7 @@
         (keydown)="onEdgeLabelEditorKeyDown($event, editorId)"
       ></textarea>
       <div
+        *ngIf="!editor2Enabled"
         class="canvas-viewport"
         [class.canvas-viewport--interaction-lite]="shouldUseInteractionLiteMode()"
         [ngStyle]="getViewportStyle()"
