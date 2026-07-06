@@ -565,6 +565,10 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   onEditor2SelectionChanged(ids: readonly string[]): void {
     this.selectedNodeIds = ids;
   }
+
+  onEditor2LabelChanged(event: { id: string; label: string }): void {
+    this.updateNode(event.id, { label: event.label });
+  }
   // Selection state is owned by SelectionStore (signals); these accessors keep the
   // component's existing read/write call sites working while the state lives outside.
   get selectedNodeId(): string | null {
