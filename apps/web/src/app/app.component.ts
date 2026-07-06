@@ -521,10 +521,29 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   // is now the default; v1 (legacy DOM+SVG edges) stays reachable via
   // `?engine=v1` as an escape hatch while the old path is retired.
   readonly canvasEngineVersion: EngineVersion = resolveActiveEngineVersion();
-  // Greenfield editor (Foblex Flow), opt-in via ?editor=v2. Read-only render in
-  // this slice; it overlays the current canvas so we can build it incrementally.
+  // Greenfield editor (Foblex Flow), opt-in via ?editor=v2. It overlays the current
+  // canvas while it is built incrementally and persists edits through the shell.
   readonly editor2Enabled =
     typeof location !== "undefined" && new URLSearchParams(location.search).get("editor") === "v2";
+
+  // editor2 emits committed gestures; the shell translates them to its existing
+  // mutators (which convert absolute->relative geometry and drive autosave).
+  onEditor2NodesMoved(moves: readonly { id: string; x: number; y: number }[]): void {
+    for (const move of moves) this.moveNodeToAbsolutePosition(move.id, { x: move.x, y: move.y });
+  }
+
+  onEditor2NodeResized(event: { id: string; width: number; height: number }): void {
+    this.updateNode(event.id, { size: { width: event.width, height: event.height } });
+  }
+
+  onEditor2EdgeCreated(event: { from: string; to: string }): void {
+    this.createConnection(event.from, event.to, { sourcePort: "right", targetPort: "left" });
+  }
+
+  onEditor2CodeChanged(event: { id: string; content: string }): void {
+    const node = this.getNodeById(event.id);
+    if (node) this.updateNodeCodeContent(node, event.content);
+  }
   // Selection state is owned by SelectionStore (signals); these accessors keep the
   // component's existing read/write call sites working while the state lives outside.
   get selectedNodeId(): string | null {
