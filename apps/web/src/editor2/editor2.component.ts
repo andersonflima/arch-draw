@@ -72,8 +72,10 @@ import type { FlowNodeVm } from "./model/flow-model";
           class="e2-node"
           [class.e2-selected]="store.isSelected(n.id)"
           [class.e2-node--code]="store.isCodeExpanded(n.id)"
+          [style.borderLeftColor]="n.color"
           [style.width.px]="nodeWidth(n)"
           [style.height.px]="nodeHeight(n)"
+          (contextmenu)="onNodeContextMenu(n.id, $event)"
         >
           <!-- Connectors sit OUTSIDE the drag handle so a drag from an anchor starts a
                connection instead of moving the node. -->
@@ -162,7 +164,7 @@ import type { FlowNodeVm } from "./model/flow-model";
     .e2-group__toggle:hover { background: #fef3c7; }
     .e2-node {
       position: relative; display: flex;
-      border: 2px solid #111827; border-radius: 8px; background: #ffffff;
+      border: 2px solid #111827; border-left-width: 7px; border-radius: 8px; background: #ffffff;
       box-shadow: 2px 2px 0 #111827; padding: 6px;
     }
     .e2-node__body {
@@ -230,6 +232,7 @@ export class Editor2Component {
   readonly edgeCreated = output<{ from: string; to: string }>();
   readonly codeChanged = output<{ id: string; content: string }>();
   readonly labelChanged = output<{ id: string; label: string }>();
+  readonly nodeContextMenu = output<{ id: string; event: MouseEvent }>();
   readonly selectionChanged = output<readonly string[]>();
 
   /** Height of the header strip a collapsed container shrinks to. */
@@ -273,6 +276,12 @@ export class Editor2Component {
     const value = (event.target as HTMLInputElement).value.trim();
     this.store.stopLabelEdit();
     if (value) this.labelChanged.emit({ id, label: value });
+  }
+
+  onNodeContextMenu(id: string, event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation(); // don't let the shell's canvas contextmenu clear the panel
+    this.nodeContextMenu.emit({ id, event });
   }
 
   /** A collapsed container renders header-only; its stored size is preserved for expand. */
