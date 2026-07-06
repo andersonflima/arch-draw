@@ -17,6 +17,7 @@ export class EditorStore {
   private readonly _structure = signal<FlowModel>(EMPTY_FLOW_MODEL);
   readonly structure = this._structure.asReadonly();
   readonly selection = signal<ReadonlySet<string>>(new Set());
+  readonly collapsed = signal<ReadonlySet<string>>(new Set());
 
   private readonly positions = new Map<string, WritableSignal<Point>>();
   private readonly sizes = new Map<string, WritableSignal<Size>>();
@@ -31,11 +32,53 @@ export class EditorStore {
     }
     this._structure.set(model);
     this.selection.set(new Set());
+    this.collapsed.set(new Set());
   }
 
   readonly groups = computed(() => this._structure().groups);
   readonly nodes = computed(() => this._structure().nodes);
   readonly edges = computed(() => this._structure().edges);
+
+  /** Parent lookup for the whole scene (groups + leaves). */
+  private readonly parentById = computed(() => {
+    const map = new Map<string, string | null>();
+    const model = this._structure();
+    for (const element of [...model.groups, ...model.nodes]) map.set(element.id, element.parentId);
+    return map;
+  });
+
+  /** Ids hidden because an ancestor group is collapsed (the collapsed group itself stays visible). */
+  private readonly hiddenIds = computed(() => {
+    const collapsed = this.collapsed();
+    if (collapsed.size === 0) return new Set<string>();
+    const parents = this.parentById();
+    const hidden = new Set<string>();
+    for (const id of parents.keys()) {
+      for (let ancestor = parents.get(id) ?? null; ancestor; ancestor = parents.get(ancestor) ?? null) {
+        if (collapsed.has(ancestor)) { hidden.add(id); break; }
+      }
+    }
+    return hidden;
+  });
+
+  readonly visibleGroups = computed(() => this.groups().filter((group) => !this.hiddenIds().has(group.id)));
+  readonly visibleNodes = computed(() => this.nodes().filter((node) => !this.hiddenIds().has(node.id)));
+  readonly visibleEdges = computed(() => {
+    const hidden = this.hiddenIds();
+    return this.edges().filter((edge) => !hidden.has(edge.from) && !hidden.has(edge.to));
+  });
+
+  isCollapsed(id: string): boolean {
+    return this.collapsed().has(id);
+  }
+
+  toggleCollapse(id: string): void {
+    this.collapsed.update((current) => {
+      const next = new Set(current);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
 
   /** Two-way geometry sources bound to Foblex. */
   position(id: string): WritableSignal<Point> {

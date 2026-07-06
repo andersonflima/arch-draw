@@ -63,6 +63,29 @@
   overflow: hidden;
 }
 
+/* Foblex minimap internals render as an SVG inside the library component, so the
+   editor's component-scoped styles can't reach them — colour them globally. */
+.e2-host f-minimap .f-minimap-node {
+  fill: #111827;
+}
+
+.e2-host f-minimap .f-minimap-group {
+  fill: rgba(199, 210, 254, 0.85);
+  stroke: #111827;
+  stroke-width: 1;
+}
+
+.e2-host f-minimap .f-minimap-node-selected,
+.e2-host f-minimap .f-minimap-group.f-minimap-node-selected {
+  fill: #f59e0b;
+}
+
+.e2-host f-minimap .f-minimap-view {
+  fill: rgba(245, 158, 11, 0.16);
+  stroke: #f59e0b;
+  stroke-width: 2;
+}
+
 .canvas-marquee {
   position: absolute;
   border: 2px dashed #2563eb;
