@@ -1,7 +1,7 @@
 import { CommonModule } from "@angular/common";
 import { ChangeDetectionStrategy, Component, effect, inject, input } from "@angular/core";
 import type { ArchitectureDocument, ArchitectureNodeKind } from "@arch-draw/domain";
-import { FFlowModule, type FCreateConnectionEvent, type FSelectionChangeEvent } from "@foblex/flow";
+import { FFlowModule, type FCreateConnectionEvent, type FDragStartedEvent, type FSelectionChangeEvent } from "@foblex/flow";
 import { CodeEditorComponent } from "../app/code-editor.component";
 import { isCodeSnippetNodeKind, isContainerNodeKind } from "../features/editor/node-catalog";
 import { getNodeIconClass } from "../features/editor/node-icons";
@@ -23,7 +23,10 @@ import type { FlowNodeVm } from "./model/flow-model";
     <f-flow
       fDraggable
       class="e2-flow"
+      [class.e2-flow--dragging]="store.dragging()"
       (fCreateConnection)="onConnect($event)"
+      (fDragStarted)="onDragStarted($event)"
+      (fDragEnded)="store.endDrag()"
       (fSelectionChange)="onSelectionChange($event)"
     >
       <f-canvas fZoom>
@@ -104,6 +107,7 @@ import type { FlowNodeVm } from "./model/flow-model";
 
         <f-connection
           *ngFor="let e of store.visibleEdges(); trackBy: trackById"
+          [class.e2-edge--muted]="store.isEdgeMuted(e)"
           [fOutputId]="e.from"
           [fInputId]="e.to"
           fBehavior="fixed"
@@ -168,9 +172,14 @@ import type { FlowNodeVm } from "./model/flow-model";
     .e2-conn {
       position: absolute; top: 50%; width: 12px; height: 12px; margin-top: -6px;
       border: 2px solid #111827; border-radius: 50%; background: #fde68a; cursor: crosshair;
+      transition: opacity 90ms ease;
     }
     .e2-conn--out { right: -8px; }
     .e2-conn--in { left: -8px; }
+    /* Drag contact area: while a node/group is being moved, its anchors and the
+       lines linking the moved elements are hidden to keep the view readable. */
+    .e2-flow--dragging .e2-conn { opacity: 0; pointer-events: none; }
+    .e2-edge--muted { opacity: 0; transition: opacity 90ms ease; }
     .e2-minimap {
       position: absolute; right: 14px; bottom: 14px;
       width: 200px; height: 140px;
@@ -215,6 +224,13 @@ export class Editor2Component {
 
   nodeHeight(node: FlowNodeVm): number {
     return this.store.isCodeExpanded(node.id) ? Editor2Component.CODE_HEIGHT : this.store.size(node.id)().height;
+  }
+
+  /** Foblex fires this for every drag kind; only node/group moves open the contact area. */
+  onDragStarted(event: FDragStartedEvent): void {
+    if (event.kind !== "drag-node") return;
+    const data = event.data as { fNodeIds?: readonly string[] } | undefined;
+    this.store.startDrag(data?.fNodeIds ?? []);
   }
 
   onConnect(event: FCreateConnectionEvent): void {

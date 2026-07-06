@@ -26,6 +26,9 @@ export class EditorStore {
   readonly selection = signal<ReadonlySet<string>>(new Set());
   readonly collapsed = signal<ReadonlySet<string>>(new Set());
   readonly codeExpanded = signal<ReadonlySet<string>>(new Set());
+  /** Ids currently being dragged; empty when idle. Drives the drag contact area. */
+  private readonly draggingIds = signal<ReadonlySet<string>>(new Set());
+  readonly dragging = computed(() => this.draggingIds().size > 0);
 
   private readonly positions = new Map<string, WritableSignal<Point>>();
   private readonly sizes = new Map<string, WritableSignal<Size>>();
@@ -55,6 +58,7 @@ export class EditorStore {
     this.selection.set(new Set());
     this.collapsed.set(new Set());
     this.codeExpanded.set(new Set());
+    this.draggingIds.set(new Set());
   }
 
   readonly groups = computed(() => this._structure().groups);
@@ -89,6 +93,20 @@ export class EditorStore {
     const hidden = this.hiddenIds();
     return this.edges().filter((edge) => !hidden.has(edge.from) && !hidden.has(edge.to));
   });
+
+  /** During a drag, the lines linking the moved elements are muted to declutter. */
+  startDrag(ids: readonly string[]): void {
+    this.draggingIds.set(new Set(ids));
+  }
+
+  endDrag(): void {
+    this.draggingIds.set(new Set());
+  }
+
+  isEdgeMuted(edge: FlowEdgeVm): boolean {
+    const ids = this.draggingIds();
+    return ids.size > 0 && (ids.has(edge.from) || ids.has(edge.to));
+  }
 
   isCollapsed(id: string): boolean {
     return this.collapsed().has(id);
