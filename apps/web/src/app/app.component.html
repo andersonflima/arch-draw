@@ -165,13 +165,6 @@
     />
   </header>
 
-  <div
-    class="mobile-scrim"
-    [class.mobile-scrim--active]="isMobileToolbarOpen || !isLeftPanelsHidden"
-    (click)="closeMobileOverlays()"
-    aria-hidden="true"
-  ></div>
-
   <aside *ngIf="getActiveTutorialGuide() as activeTutorial" class="tutorial-panel" aria-live="polite">
     <div class="tutorial-panel__header">
       <div>
@@ -219,6 +212,14 @@
   ></div>
 
   <div class="workspace" [class.workspace--left-panels-hidden]="isLeftPanelsHidden">
+    <!-- Scrim lives inside the workspace so it shares the drawer's stacking context
+         (the workspace is `isolation: isolate`); otherwise it paints over the drawer. -->
+    <div
+      class="mobile-scrim"
+      [class.mobile-scrim--active]="isMobileToolbarOpen || !isLeftPanelsHidden"
+      (click)="closeMobileOverlays()"
+      aria-hidden="true"
+    ></div>
     <div class="left-drawer">
     <nav class="sidebar">
       <div class="panel-heading">

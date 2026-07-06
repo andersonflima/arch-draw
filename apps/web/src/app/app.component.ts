@@ -995,6 +995,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
       this.isLeftPanelsHidden = true;
       this.persistLeftPanelsVisibilityPreference();
     }
+    this.markViewportChanged(); // detached zoneless root: repaint the overflow menu
   }
 
   // Close the overflow menu after a real action, but keep it open while the user
@@ -1003,7 +1004,10 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     if (!this.isMobileToolbarOpen) return;
     const target = event.target as HTMLElement | null;
     if (!target || target.closest("summary")) return;
-    if (target.closest("button")) this.isMobileToolbarOpen = false;
+    if (target.closest("button")) {
+      this.isMobileToolbarOpen = false;
+      this.markViewportChanged();
+    }
   }
 
   closeMobileOverlays(): void {
@@ -1011,8 +1015,8 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     if (this.isMobileViewport() && !this.isLeftPanelsHidden) {
       this.isLeftPanelsHidden = true;
       this.persistLeftPanelsVisibilityPreference();
-      this.markViewportChanged();
     }
+    this.markViewportChanged(); // detached zoneless root: repaint after closing overlays
   }
 
   private closeLeftDrawerOnMobile(): void {
