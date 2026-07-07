@@ -1,4 +1,4 @@
-import type { ArchitectureDocument, ArchitectureNodeKind } from "@arch-draw/domain";
+import type { ArchitectureDocument, ArchitectureEdgeLineStyle, ArchitectureNodeKind } from "@arch-draw/domain";
 import { buildSceneModel } from "../../canvas-engine";
 
 /** A node/group resolved to absolute coordinates for the Foblex flow layer. */
@@ -23,6 +23,10 @@ export interface FlowEdgeVm {
   readonly id: string;
   readonly from: string;
   readonly to: string;
+  /** Line rendering style (solid / dashed / dotted). */
+  readonly line: ArchitectureEdgeLineStyle;
+  /** Arrowheads on both ends (vs. a single arrow at the target). */
+  readonly bidirectional: boolean;
 }
 
 export interface FlowModel {
@@ -44,6 +48,7 @@ export const buildFlowModel = (
   isCodeSnippet: (kind: ArchitectureNodeKind) => boolean
 ): FlowModel => {
   const byId = new Map(document.nodes.map((node) => [node.id, node] as const));
+  const edgeById = new Map(document.edges.map((edge) => [edge.id, edge] as const));
   const scene = buildSceneModel({
     nodes: document.nodes,
     edges: document.edges,
@@ -75,6 +80,15 @@ export const buildFlowModel = (
   return {
     groups: scene.containers.map(toVm).filter(keep),
     nodes: scene.leaves.map(toVm).filter(keep),
-    edges: scene.edges.map((edge) => ({ id: edge.id, from: edge.from, to: edge.to }))
+    edges: scene.edges.map((edge) => {
+      const style = edgeById.get(edge.id)?.style;
+      return {
+        id: edge.id,
+        from: edge.from,
+        to: edge.to,
+        line: style?.line ?? "solid",
+        bidirectional: style?.bidirectional ?? false
+      };
+    })
   };
 };
