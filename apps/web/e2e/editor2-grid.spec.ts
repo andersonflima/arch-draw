@@ -37,13 +37,10 @@ test("the grid is visible and pans with the canvas", async ({ page }) => {
   expect(style.image).toContain("gradient"); // grid lines present
   const before = style.position;
 
-  // pan the canvas -> the grid offset follows the camera
+  // pan the canvas via two-finger scroll -> the grid offset follows the camera
   const host = (await page.locator(".e2-host").boundingBox())!;
-  const sx = host.x + host.width * 0.7, sy = host.y + host.height * 0.7;
-  await page.mouse.move(sx, sy);
-  await page.mouse.down();
-  await page.mouse.move(sx - 200, sy - 140, { steps: 10 });
-  await page.mouse.up();
+  await page.mouse.move(host.x + host.width * 0.7, host.y + host.height * 0.7);
+  await page.mouse.wheel(160, 120);
   await page.waitForTimeout(400);
   const after = await flow.evaluate((el) => getComputedStyle(el as Element).backgroundPosition);
   expect(after).not.toBe(before);
