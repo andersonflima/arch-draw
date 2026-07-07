@@ -143,8 +143,18 @@ import type { FlowNodeVm } from "./model/flow-model";
           fType="bezier"
           fBehavior="fixed"
         >
-          <f-connection-marker-arrow [type]="EFMarkerType.END_ALL_STATES"></f-connection-marker-arrow>
-          <f-connection-marker-arrow *ngIf="e.bidirectional" [type]="EFMarkerType.START_ALL_STATES"></f-connection-marker-arrow>
+          <ng-container [ngSwitch]="e.arrowEnd">
+            <svg *ngSwitchCase="'arrow'" fMarker [type]="EFMarkerType.END_ALL_STATES" markerUnits="strokeWidth" orient="auto" [width]="8" [height]="8" [refX]="7" [refY]="4" viewBox="0 0 8 8"><svg:path d="M1,1 L7,4 L1,7 Z" fill="context-stroke" stroke="none"/></svg>
+            <svg *ngSwitchCase="'arrow-open'" fMarker [type]="EFMarkerType.END_ALL_STATES" markerUnits="strokeWidth" orient="auto" [width]="8" [height]="8" [refX]="7" [refY]="4" viewBox="0 0 8 8"><svg:path d="M1,1 L7,4 L1,7" fill="none" stroke="context-stroke" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg *ngSwitchCase="'diamond'" fMarker [type]="EFMarkerType.END_ALL_STATES" markerUnits="strokeWidth" orient="auto" [width]="10" [height]="10" [refX]="9" [refY]="5" viewBox="0 0 10 10"><svg:path d="M5,1 L9,5 L5,9 L1,5 Z" fill="context-stroke" stroke="none"/></svg>
+            <svg *ngSwitchCase="'diamond-open'" fMarker [type]="EFMarkerType.END_ALL_STATES" markerUnits="strokeWidth" orient="auto" [width]="10" [height]="10" [refX]="9" [refY]="5" viewBox="0 0 10 10"><svg:path d="M5,1 L9,5 L5,9 L1,5 Z" fill="none" stroke="context-stroke" stroke-width="1.2"/></svg>
+          </ng-container>
+          <ng-container [ngSwitch]="e.arrowStart">
+            <svg *ngSwitchCase="'arrow'" fMarker [type]="EFMarkerType.START_ALL_STATES" markerUnits="strokeWidth" orient="auto-start-reverse" [width]="8" [height]="8" [refX]="7" [refY]="4" viewBox="0 0 8 8"><svg:path d="M1,1 L7,4 L1,7 Z" fill="context-stroke" stroke="none"/></svg>
+            <svg *ngSwitchCase="'arrow-open'" fMarker [type]="EFMarkerType.START_ALL_STATES" markerUnits="strokeWidth" orient="auto-start-reverse" [width]="8" [height]="8" [refX]="7" [refY]="4" viewBox="0 0 8 8"><svg:path d="M1,1 L7,4 L1,7" fill="none" stroke="context-stroke" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg *ngSwitchCase="'diamond'" fMarker [type]="EFMarkerType.START_ALL_STATES" markerUnits="strokeWidth" orient="auto-start-reverse" [width]="10" [height]="10" [refX]="9" [refY]="5" viewBox="0 0 10 10"><svg:path d="M5,1 L9,5 L5,9 L1,5 Z" fill="context-stroke" stroke="none"/></svg>
+            <svg *ngSwitchCase="'diamond-open'" fMarker [type]="EFMarkerType.START_ALL_STATES" markerUnits="strokeWidth" orient="auto-start-reverse" [width]="10" [height]="10" [refX]="9" [refY]="5" viewBox="0 0 10 10"><svg:path d="M5,1 L9,5 L5,9 L1,5 Z" fill="none" stroke="context-stroke" stroke-width="1.2"/></svg>
+          </ng-container>
         </f-connection>
 
         <!-- Live preview line for drag-to-connect; Foblex only arms connection

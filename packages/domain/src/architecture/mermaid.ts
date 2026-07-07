@@ -28,7 +28,9 @@ export const architectureFromMermaid = (
       line: "solid" as const,
       color: "#111827",
       animated: false,
-      bidirectional: false
+      bidirectional: false,
+      arrowStart: "none" as const,
+      arrowEnd: "arrow" as const
     }
   }));
 

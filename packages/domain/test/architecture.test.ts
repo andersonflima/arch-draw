@@ -171,7 +171,9 @@ describe("architecture domain", () => {
             line: "solid" as const,
             color: "#111827",
             animated: false,
-            bidirectional: true
+            bidirectional: true,
+            arrowStart: "arrow" as const,
+            arrowEnd: "arrow" as const
           }
         }
       ]
@@ -217,7 +219,9 @@ describe("architecture domain", () => {
             line: "solid" as const,
             color: "#111827",
             animated: false,
-            bidirectional: false
+            bidirectional: false,
+            arrowStart: "none" as const,
+            arrowEnd: "arrow" as const
           }
         }
       ]
