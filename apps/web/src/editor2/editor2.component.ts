@@ -179,7 +179,7 @@ import type { FlowNodeVm } from "./model/flow-model";
       position: relative; display: flex;
       border: 1px solid var(--border); border-left-width: 7px; border-radius: var(--radius-md);
       background: var(--surface); color: var(--text);
-      box-shadow: var(--shadow-sm); padding: 6px;
+      padding: 6px;
     }
     .e2-node__body {
       flex: 1 1 auto; min-width: 0; min-height: 0; width: 100%;
@@ -393,12 +393,22 @@ export class Editor2Component {
     if (!this.pendingFit) return;
     // Foblex emits this outside Angular, and the root view is detached; set the
     // camera then force this view to re-check so the [scale]/[position] bindings apply.
+    // On the real login flow the canvas can still be unmeasured (clientWidth 0) when
+    // this first fires, so fitToView() returns false — retry a few frames until the
+    // viewport has a size, otherwise the diagram stays at 1:1 and overflows the screen.
+    this.tryFit(8);
+  }
+
+  private tryFit(attemptsLeft: number): void {
     setTimeout(() => {
+      if (!this.pendingFit) return;
       if (this.fitToView()) {
         this.pendingFit = false;
         this.cdr.detectChanges();
+      } else if (attemptsLeft > 0) {
+        this.tryFit(attemptsLeft - 1);
       }
-    });
+    }, 50);
   }
 
   /** Frame every element in the viewport — computed from the store geometry, since
