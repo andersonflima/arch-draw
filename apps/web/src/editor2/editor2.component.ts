@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, effect, inject, input, output, signal } from "@angular/core";
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, ElementRef, effect, inject, input, output, signal } from "@angular/core";
 import type { ArchitectureDocument, ArchitectureNodeKind } from "@arch-draw/domain";
 import { FFlowModule, type FCanvasChangeEvent, type FCreateConnectionEvent, type FDragStartedEvent, type FSelectionChangeEvent } from "@foblex/flow";
 import { CodeEditorComponent } from "../app/code-editor.component";
@@ -290,6 +290,11 @@ export class Editor2Component {
   readonly cameraScale = signal<number>(1);
   private pendingFit = false;
   private fitDocId: string | null = null;
+  // Once the user pans/zooms, we stop auto-framing so a later resize never yanks
+  // their view. Until then the canvas behaves like draw.io: a fixed viewport that
+  // reframes the diagram as the layout settles (sidebar) or the window resizes.
+  private userInteracted = false;
+  private resizeObserver?: ResizeObserver;
 
   constructor() {
     // The store reconciles: a new document (id change) reloads; the same document
@@ -302,9 +307,38 @@ export class Editor2Component {
       const id = doc.id ?? null;
       if (id !== this.fitDocId) {
         this.fitDocId = id;
-        this.pendingFit = true;
+        this.userInteracted = false; // a freshly loaded document reframes
+        this.scheduleAutoFit();
       }
     });
+
+    const el = this.host.nativeElement;
+    const markInteracted = (): void => { this.userInteracted = true; };
+    // A real gesture on the canvas (wheel-zoom or pointer pan/drag) opts out of
+    // auto-framing; a resize afterwards keeps the user's chosen view.
+    el.addEventListener("wheel", markInteracted, { passive: true });
+    el.addEventListener("pointerdown", markInteracted);
+
+    // The viewport is only ever the size of its container; when that container
+    // changes (sidebar toggle, window resize) reframe so the diagram stays fit —
+    // the world layer is transformed inside the fixed host, never resized in the DOM.
+    if (typeof ResizeObserver !== "undefined") {
+      this.resizeObserver = new ResizeObserver(() => this.scheduleAutoFit());
+      this.resizeObserver.observe(el);
+    }
+
+    inject(DestroyRef).onDestroy(() => {
+      el.removeEventListener("wheel", markInteracted);
+      el.removeEventListener("pointerdown", markInteracted);
+      this.resizeObserver?.disconnect();
+    });
+  }
+
+  /** Reframe the diagram unless the user has taken manual control of the camera. */
+  private scheduleAutoFit(): void {
+    if (this.userInteracted) return;
+    this.pendingFit = true;
+    this.tryFit(8);
   }
 
   /** Persist the moved subtree roots on drop; children keep their parent-relative offset. */
