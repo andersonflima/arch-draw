@@ -544,7 +544,9 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     // geometry — so add/delete/rename/recolour reach editor2 immediately while
     // drag/resize stay owned by editor2's own signals (no per-frame refresh).
     const nodePart = this.nodes.map((n) => `${n.id}|${n.label}|${n.kind}|${n.color}|${n.parentId ?? ""}`).join(";");
-    const edgePart = this.edges.map((e) => `${e.id}>${e.from}>${e.to}`).join(";");
+    const edgePart = this.edges
+      .map((e) => `${e.id}>${e.from}>${e.to}>${e.style?.line ?? ""}>${e.style?.bidirectional ?? ""}`)
+      .join(";");
     const signature = `${nodePart}#${edgePart}`;
     if (signature === this.editor2StructureSignature) return;
     this.editor2StructureSignature = signature;
@@ -570,6 +572,20 @@ export class AppComponent implements AfterViewInit, OnDestroy {
 
   onEditor2SelectionChanged(ids: readonly string[]): void {
     this.selectedNodeIds = ids;
+  }
+
+  onEditor2EdgeSelected(edgeId: string | null): void {
+    this.selectedEdgeId = edgeId;
+    if (edgeId) {
+      this.selectedNodeId = null;
+      this.selectedNodeIds = [];
+      // Open the style panel docked to the right, so selecting a connection
+      // surfaces its line/direction/colour controls (the "side panel" pattern).
+      this.contextPropertiesPanel = this.layoutContextPropertiesPanelFromClientPoint(window.innerWidth, 96);
+    } else {
+      this.contextPropertiesPanel = null;
+    }
+    this.requestViewRender();
   }
 
   onEditor2LabelChanged(event: { id: string; label: string }): void {
