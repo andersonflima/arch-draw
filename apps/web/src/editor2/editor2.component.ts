@@ -155,29 +155,31 @@ import type { FlowNodeVm } from "./model/flow-model";
     </f-flow>
   `,
   styles: [`
-    .e2-flow { display: block; width: 100%; height: 100%; background: #f7f4ed; }
+    .e2-flow { display: block; width: 100%; height: 100%; background: var(--bg-canvas); color: var(--text); }
     .e2-group {
-      border: 2px solid #111827; border-radius: 10px;
-      background: rgba(238, 242, 255, 0.72); box-shadow: 3px 3px 0 #111827;
+      border: 1px solid var(--border); border-radius: var(--radius-lg);
+      background: var(--surface-group); color: var(--text);
     }
     .e2-group__bar {
       display: flex; align-items: center; gap: 6px;
-      padding: 6px 10px; font-weight: 800; font-size: 13px;
-      border-bottom: 2px dashed #111827;
+      padding: 6px 10px; font-weight: 700; font-size: 13px; font-family: var(--font-mono);
+      color: var(--text); border-bottom: 1px dashed var(--border-strong);
     }
     .e2-group--collapsed .e2-group__bar { border-bottom: none; }
     .e2-group__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .e2-group__toggle {
       flex: 0 0 auto; width: 20px; height: 20px; margin-right: 2px;
       display: inline-flex; align-items: center; justify-content: center;
-      border: 2px solid #111827; border-radius: 5px; background: #ffffff;
-      font-weight: 900; font-size: 14px; line-height: 1; cursor: pointer; padding: 0;
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      background: var(--surface-raised); color: var(--text);
+      font-weight: 800; font-size: 14px; line-height: 1; cursor: pointer; padding: 0;
     }
-    .e2-group__toggle:hover { background: #fef3c7; }
+    .e2-group__toggle:hover { border-color: var(--accent); color: var(--accent); }
     .e2-node {
       position: relative; display: flex;
-      border: 2px solid #111827; border-left-width: 7px; border-radius: 8px; background: #ffffff;
-      box-shadow: 2px 2px 0 #111827; padding: 6px;
+      border: 1px solid var(--border); border-left-width: 7px; border-radius: var(--radius-md);
+      background: var(--surface); color: var(--text);
+      box-shadow: var(--shadow-sm); padding: 6px;
     }
     .e2-node__body {
       flex: 1 1 auto; min-width: 0; min-height: 0; width: 100%;
@@ -189,11 +191,12 @@ import type { FlowNodeVm } from "./model/flow-model";
       position: relative;
     }
     .e2-node--code .e2-node__head { flex-direction: row; justify-content: flex-start; gap: 6px; }
-    .e2-node__label { font-size: 12px; font-weight: 700; text-align: center; }
+    .e2-node__label { font-size: 12px; font-weight: 600; text-align: center; }
     .e2-node__label-input {
       width: 100%; min-width: 0; box-sizing: border-box;
-      border: 2px solid #f59e0b; border-radius: 4px; padding: 1px 4px;
-      font-family: inherit; background: #fffbeb; outline: none; cursor: text;
+      border: 1px solid var(--accent); border-radius: var(--radius-sm); padding: 1px 4px;
+      font-family: inherit; color: var(--text); background: var(--surface-sunken);
+      outline: none; box-shadow: var(--glow-accent); cursor: text;
     }
     .e2-node--code .e2-node__label { flex: 1 1 auto; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .e2-node i { font-size: 18px; }
@@ -201,22 +204,23 @@ import type { FlowNodeVm } from "./model/flow-model";
       position: absolute; top: -4px; right: -4px;
       width: 22px; height: 20px; padding: 0;
       display: inline-flex; align-items: center; justify-content: center;
-      border: 2px solid #111827; border-radius: 5px; background: #ffffff;
-      font-size: 10px; font-weight: 900; line-height: 1; cursor: pointer;
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      background: var(--surface-raised); color: var(--text);
+      font-size: 10px; font-weight: 800; line-height: 1; cursor: pointer;
     }
-    .e2-node__code-toggle:hover { background: #fef3c7; }
-    .e2-node__code-toggle.is-active { background: #111827; color: #fde68a; }
+    .e2-node__code-toggle:hover { border-color: var(--accent); color: var(--accent); }
+    .e2-node__code-toggle.is-active { background: var(--accent); color: var(--text-on-accent); border-color: var(--accent); }
     .e2-node--code .e2-node__code-toggle { position: static; }
     .e2-node__code {
       flex: 1 1 auto; min-height: 0; width: 100%;
-      border: 2px solid #111827; border-radius: 6px; overflow: hidden; background: #282c34;
+      border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; background: var(--surface-sunken);
     }
     .e2-node__code app-code-editor,
     .e2-node__code app-code-editor > * { display: block; width: 100%; height: 100%; }
-    .e2-selected { outline: 3px solid #f59e0b; outline-offset: 2px; }
+    .e2-selected { outline: 1px solid var(--accent); outline-offset: 2px; box-shadow: var(--glow-accent); }
     .e2-conn {
       position: absolute; top: 50%; width: 12px; height: 12px; margin-top: -6px;
-      border: 2px solid #111827; border-radius: 50%; background: #fde68a; cursor: crosshair;
+      border: 2px solid var(--bg-canvas); border-radius: 50%; background: var(--accent); cursor: crosshair;
       transition: opacity 90ms ease;
     }
     .e2-conn--out { right: -8px; }
@@ -228,8 +232,8 @@ import type { FlowNodeVm } from "./model/flow-model";
     .e2-minimap {
       position: absolute; right: 14px; bottom: 14px;
       width: 200px; height: 140px;
-      border: 2px solid #111827; border-radius: 8px;
-      background: rgba(255, 255, 255, 0.9); box-shadow: 3px 3px 0 #111827;
+      border: 1px solid var(--border); border-radius: var(--radius-md);
+      background: var(--surface); box-shadow: var(--shadow-md);
       overflow: hidden;
     }
     .e2-controls {
@@ -239,11 +243,12 @@ import type { FlowNodeVm } from "./model/flow-model";
     .e2-ctl {
       width: 40px; height: 40px; padding: 0;
       display: inline-flex; align-items: center; justify-content: center;
-      border: 2px solid #111827; border-radius: 8px; background: #ffffff;
-      box-shadow: 2px 2px 0 #111827; font-size: 18px; font-weight: 900; line-height: 1; cursor: pointer;
+      border: 1px solid var(--border); border-radius: var(--radius-md);
+      background: var(--surface-raised); color: var(--text);
+      box-shadow: var(--shadow-sm); font-size: 18px; font-weight: 700; line-height: 1; cursor: pointer;
     }
-    .e2-ctl:hover { background: #fef3c7; }
-    .e2-ctl:active { transform: translateY(1px); box-shadow: 1px 1px 0 #111827; }
+    .e2-ctl:hover { border-color: var(--accent); color: var(--accent); }
+    .e2-ctl:active { transform: translateY(1px); }
 
     /* Phone: the minimap is heavy and redundant once the diagram is framed; drop it
        and keep a slim, thumb-sized control cluster bottom-right. */
@@ -251,8 +256,8 @@ import type { FlowNodeVm } from "./model/flow-model";
       .e2-minimap { display: none; }
       .e2-controls { right: 12px; bottom: 12px; gap: 8px; }
       .e2-ctl {
-        width: 44px; height: 44px; border-radius: 10px; font-size: 20px;
-        background: rgba(255, 255, 255, 0.94); box-shadow: 2px 2px 0 #111827;
+        width: 44px; height: 44px; border-radius: var(--radius-lg); font-size: 20px;
+        background: var(--surface-raised); box-shadow: var(--shadow-sm);
       }
     }
   `]

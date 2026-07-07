@@ -7,7 +7,7 @@
   padding: 12px;
   border: 0;
   background: transparent;
-  color: var(--node-text-color, #111827);
+  color: var(--node-text-color, var(--text));
   --node-transform: rotate(-0.35deg);
   transform: translate3d(var(--node-x, 0), var(--node-y, 0), 0) var(--node-transform);
   user-select: none;
@@ -22,10 +22,10 @@
   position: absolute;
   z-index: -1;
   inset: 0;
-  border: 2px solid #111827;
-  border-radius: 8px 7px 9px 6px;
-  background: var(--node-bg, #ffffff);
-  box-shadow: 3px 3px 0 #111827;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--node-bg, var(--surface));
+  box-shadow: none;
 }
 
 .architecture-node > :not(.resize-control):not(.node-port) {
@@ -54,26 +54,26 @@
 .architecture-node--container::before {
   border-style: dashed;
   border-width: 2.4px;
-  background-color: var(--node-bg, #ffffff);
+  background-color: var(--node-bg, var(--surface));
   background-image:
     linear-gradient(rgba(17, 24, 39, 0.035) 1px, transparent 1px),
     linear-gradient(90deg, rgba(17, 24, 39, 0.035) 1px, transparent 1px);
   background-size: 22px 22px;
-  box-shadow: 4px 4px 0 rgba(17, 24, 39, 0.72);
+  box-shadow: none;
 }
 
 .architecture-node--container::after {
   content: "";
   position: absolute;
   inset: 36px 12px 12px;
-  border: 1px dashed rgba(17, 24, 39, 0.18);
+  border: 1px dashed var(--border);
   border-radius: 7px;
   pointer-events: none;
 }
 
 .architecture-node--aws::before {
-  border-color: #7c2d12;
-  box-shadow: 3px 3px 0 #7c2d12;
+  border-color: var(--border);
+  box-shadow: none;
 }
 
 .architecture-node--code::before {
@@ -86,7 +86,7 @@
 
 .architecture-node--flow::before {
   border-style: solid;
-  box-shadow: 3px 3px 0 #065f46;
+  box-shadow: none;
 }
 
 .architecture-node--flow-start::before,
@@ -128,8 +128,7 @@
 
 .architecture-node--system::before {
   box-shadow:
-    inset 0 0 0 3px rgba(17, 24, 39, 0.08),
-    3px 3px 0 #111827;
+    inset 0 0 0 3px rgba(17, 24, 39, 0.08);
 }
 
 .architecture-node--service::before,
@@ -172,8 +171,7 @@
   border-radius: 26px 26px 10px 10px / 18px 18px 10px 10px;
   box-shadow:
     inset 0 13px 0 rgba(255, 255, 255, 0.58),
-    inset 0 16px 0 rgba(17, 24, 39, 0.16),
-    3px 3px 0 #111827;
+    inset 0 16px 0 rgba(17, 24, 39, 0.16);
 }
 
 .architecture-node--aws-s3::before,
@@ -191,8 +189,7 @@
   border-radius: 999px;
   box-shadow:
     inset 18px 0 0 rgba(17, 24, 39, 0.06),
-    inset -18px 0 0 rgba(17, 24, 39, 0.06),
-    3px 3px 0 #111827;
+    inset -18px 0 0 rgba(17, 24, 39, 0.06);
 }
 
 .architecture-node--external::before,
@@ -223,8 +220,7 @@
 .architecture-node--algorithm-queue::before {
   border-radius: 16px 16px 6px 6px;
   box-shadow:
-    inset 0 -12px 0 rgba(17, 24, 39, 0.06),
-    3px 3px 0 #111827;
+    inset 0 -12px 0 rgba(17, 24, 39, 0.06);
 }
 
 .architecture-node--code-file::after {
@@ -234,9 +230,9 @@
   right: 0;
   width: 24px;
   height: 24px;
-  border-left: 2px solid #111827;
-  border-bottom: 2px solid #111827;
-  background: rgba(255, 255, 255, 0.7);
+  border-left: 2px solid var(--border);
+  border-bottom: 2px solid var(--border);
+  background: var(--surface-raised);
   border-radius: 0 6px 0 4px;
 }
 
@@ -267,8 +263,7 @@
   border-radius: 36px 32px 18px 22px;
   box-shadow:
     inset 22px 0 0 rgba(14, 116, 144, 0.08),
-    inset -18px 0 0 rgba(14, 116, 144, 0.08),
-    3px 3px 0 #111827;
+    inset -18px 0 0 rgba(14, 116, 144, 0.08);
 }
 
 .architecture-node--identity::before,
@@ -310,17 +305,17 @@
 .architecture-node:not(.architecture-node--container)::before {
   inset: 0;
   clip-path: none;
-  border: 2px solid #111827;
-  border-radius: 8px 7px 9px 6px;
-  background-color: var(--node-bg, #ffffff);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background-color: var(--node-bg, var(--surface));
   background-image: none;
-  box-shadow: 3px 3px 0 #111827;
+  box-shadow: none;
   transform: none;
 }
 
 .architecture-node--aws:not(.architecture-node--container)::before {
-  border-color: #7c2d12;
-  box-shadow: 3px 3px 0 #7c2d12;
+  border-color: var(--border);
+  box-shadow: none;
 }
 
 .architecture-node--code:not(.architecture-node--container)::before {
@@ -328,7 +323,7 @@
 }
 
 .architecture-node--flow:not(.architecture-node--container)::before {
-  box-shadow: 3px 3px 0 #065f46;
+  box-shadow: none;
 }
 
 /* Flow Diagram nodes rendered by dedicated shape components */
@@ -374,10 +369,10 @@ app-flow-document-node {
   align-items: center;
   justify-content: center;
   padding: 12px 18px;
-  color: var(--node-text-color, #065f46);
-  border: 2px solid #065f46;
-  background-color: var(--node-bg, #ffffff);
-  box-shadow: 3px 3px 0 #065f46;
+  color: var(--node-text-color, var(--success));
+  border: 2px solid var(--success);
+  background-color: var(--node-bg, var(--surface));
+  box-shadow: none;
   overflow: hidden;
 }
 
@@ -406,7 +401,7 @@ app-flow-document-node {
   position: absolute;
   z-index: 1;
   inset: 8px;
-  border: 2px solid #065f46;
+  border: 2px solid var(--success);
   border-radius: 999px;
   pointer-events: none;
 }
@@ -428,8 +423,7 @@ app-flow-document-node {
   border-radius: 999px / 18%;
   box-shadow:
     inset 0 11px 0 rgba(255, 255, 255, 0.55),
-    inset 0 13px 0 rgba(6, 95, 70, 0.18),
-    3px 3px 0 #065f46;
+    inset 0 13px 0 rgba(6, 95, 70, 0.18);
 }
 
 .flow-shape--loop {
@@ -448,8 +442,8 @@ app-flow-document-node {
   bottom: 10px;
   left: 14px;
   right: 14px;
-  border-left: 2px solid #065f46;
-  border-right: 2px solid #065f46;
+  border-left: 2px solid var(--success);
+  border-right: 2px solid var(--success);
   pointer-events: none;
 }
 
@@ -508,11 +502,11 @@ app-flow-document-node {
 .architecture-node--code-snippet::before {
   inset: 0;
   clip-path: none;
-  border: 2px solid #111827;
-  border-radius: 8px 7px 9px 6px;
-  background-color: var(--node-bg, #ffffff);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background-color: var(--node-bg, var(--surface));
   background-image: none;
-  box-shadow: 3px 3px 0 #111827;
+  box-shadow: none;
   transform: none;
 }
 
@@ -528,7 +522,7 @@ app-flow-document-node {
 }
 
 .architecture-node--leaf .node-icon {
-  --icon-base: var(--icon-color, #111827);
+  --icon-base: var(--icon-color, var(--text));
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -538,9 +532,9 @@ app-flow-document-node {
   margin-inline: auto;
   color: var(--icon-base);
   border-radius: 14px;
-  background: color-mix(in srgb, var(--icon-base) 14%, #ffffff 86%);
-  border: 2px solid color-mix(in srgb, var(--icon-base) 38%, #ffffff 62%);
-  box-shadow: 2px 2px 0 rgba(17, 24, 39, 0.45);
+  background: color-mix(in srgb, var(--icon-base) 14%, var(--surface) 86%);
+  border: 2px solid color-mix(in srgb, var(--icon-base) 38%, var(--surface-raised) 62%);
+  box-shadow: none;
 }
 
 .architecture-node--leaf .node-icon i {
@@ -558,11 +552,11 @@ app-flow-document-node {
   width: 24px;
   height: 24px;
   box-sizing: border-box;
-  color: var(--code-language-badge-color, #111827);
-  background: color-mix(in srgb, var(--code-language-badge-bg, #f8fafc) 88%, #ffffff 12%);
-  border: 2px solid #ffffff;
+  color: var(--code-language-badge-color, var(--text));
+  background: color-mix(in srgb, var(--code-language-badge-bg, var(--surface-raised)) 88%, var(--surface) 12%);
+  border: 2px solid var(--surface);
   border-radius: 999px;
-  box-shadow: 1px 1px 0 rgba(17, 24, 39, 0.45);
+  box-shadow: none;
   pointer-events: none;
 }
 
@@ -613,10 +607,10 @@ app-flow-document-node {
   width: 100%;
   min-width: 92px;
   min-height: 56px;
-  border: 2px solid #111827;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: #ffffff;
-  color: #111827;
+  background: var(--surface);
+  color: var(--text);
   font-size: var(--node-label-font-size, 28px);
   font-weight: 700;
   line-height: 1.2;
@@ -627,7 +621,7 @@ app-flow-document-node {
 }
 
 .node-inline-label-input:focus {
-  box-shadow: 0 0 0 2px #facc15;
+  box-shadow: 0 0 0 2px var(--accent), var(--glow-accent);
 }
 
 .architecture-node.is-selected {
@@ -642,7 +636,7 @@ app-flow-document-node {
   width: var(--node-icon-size, 34px);
   min-width: var(--node-icon-size, 34px);
   height: var(--node-icon-size, 34px);
-  color: var(--icon-color, #111827);
+  color: var(--icon-color, var(--text));
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -722,7 +716,7 @@ app-flow-document-node {
 
 .node-icon--aws-s3,
 .node-icon--object-storage {
-  color: #166534;
+  color: var(--success);
 }
 
 .node-icon--aws-s3 .node-icon__glyph::before,
@@ -757,7 +751,7 @@ app-flow-document-node {
 .node-icon--aws-lambda,
 .node-icon--serverless,
 .node-icon--aws-step-functions {
-  color: #92400e;
+  color: var(--warning);
 }
 
 .node-icon--aws-lambda .node-icon__glyph::before,
@@ -812,7 +806,7 @@ app-flow-document-node {
 .node-icon--aws-ecr,
 .node-icon--kubernetes,
 .node-icon--container {
-  color: #9a3412;
+  color: var(--warning);
 }
 
 .node-icon--aws-ec2 .node-icon__glyph::before,
@@ -851,7 +845,7 @@ app-flow-document-node {
 .node-icon--aws-opensearch,
 .node-icon--aws-elasticache,
 .node-icon--cache {
-  color: #1d4ed8;
+  color: var(--info);
 }
 
 .node-icon--aws-dynamodb .node-icon__glyph::before,
@@ -901,7 +895,7 @@ app-flow-document-node {
 .node-icon--aws-kinesis,
 .node-icon--queue,
 .node-icon--algorithm-queue {
-  color: #047857;
+  color: var(--success);
 }
 
 .node-icon--aws-sqs .node-icon__glyph::before,
@@ -942,7 +936,7 @@ app-flow-document-node {
 .node-icon--load-balancer,
 .node-icon--aws-alb,
 .node-icon--aws-nlb {
-  color: #0e7490;
+  color: var(--info);
 }
 
 .node-icon--api-gateway .node-icon__glyph::before,
@@ -979,7 +973,7 @@ app-flow-document-node {
 .node-icon--cdn,
 .node-icon--aws-cloudfront,
 .node-icon--aws-route53 {
-  color: #0369a1;
+  color: var(--info);
 }
 
 .node-icon--cloud-provider .node-icon__glyph::before,
@@ -1018,7 +1012,7 @@ app-flow-document-node {
 .node-icon--code-workspace,
 .node-icon--code-package,
 .node-icon--code-module {
-  color: #4d7c0f;
+  color: var(--success);
 }
 
 .node-icon--group-container .node-icon__glyph::before,
@@ -1067,7 +1061,7 @@ app-flow-document-node {
 .node-icon--aws-waf,
 .node-icon--aws-shield,
 .node-icon--aws-security-group {
-  color: #991b1b;
+  color: var(--danger);
 }
 
 .node-icon--aws-kms .node-icon__glyph::before,
@@ -1130,7 +1124,7 @@ app-flow-document-node {
 .node-icon--logging,
 .node-icon--aws-cloudwatch,
 .node-icon--aws-cloudtrail {
-  color: #047857;
+  color: var(--success);
 }
 
 .node-icon--monitoring .node-icon__glyph::before,
@@ -1178,7 +1172,7 @@ app-flow-document-node {
 .node-icon--code-variable,
 .node-icon--code-enum,
 .node-icon--code-type {
-  color: #4338ca;
+  color: var(--info);
 }
 
 .node-icon--code-function .node-icon__glyph::before,
@@ -1251,7 +1245,7 @@ app-flow-document-node {
 .node-icon--flow-loop,
 .node-icon--flow-subroutine,
 .node-icon--flow-data {
-  color: #065f46;
+  color: var(--success);
 }
 
 .node-icon--flow-start .node-icon__glyph::before,

@@ -2,7 +2,7 @@
 <ng-container *ngIf="!authEnabled || isAuthenticated; else loginGate">
 <div
   class="app-shell"
-  [class.theme-dark]="isDarkMode"
+  [class.theme-light]="!isDarkMode"
   [class.app-shell--tutorial-lock]="isTutorialActive()"
   [class.app-shell--perf-lite]="shouldUsePerformanceLiteMode()"
 >
@@ -868,7 +868,7 @@
 </ng-container>
 
 <ng-template #sessionBoot>
-  <div class="auth-screen" [class.theme-dark]="isDarkMode">
+  <div class="auth-screen" [class.theme-light]="!isDarkMode">
     <header class="auth-screen__topbar">
       <div class="brand-lockup">
         <img class="brand-logo" src="assets/brand/logo-mark.svg" alt="Arch Draw" />
@@ -898,7 +898,7 @@
 </ng-template>
 
 <ng-template #loginGate>
-  <div class="auth-screen" [class.theme-dark]="isDarkMode">
+  <div class="auth-screen" [class.theme-light]="!isDarkMode">
     <header class="auth-screen__topbar">
       <div class="brand-lockup">
         <img class="brand-logo" src="assets/brand/logo-mark.svg" alt="Arch Draw" />

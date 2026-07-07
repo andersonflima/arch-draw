@@ -1,8 +1,9 @@
+@import "./base/00-tokens.css";
 @import "./base/00-foundation.css";
 @import "./base/01-canvas-shell.css";
 @import "./base/02-nodes-icons.css";
 @import "./base/03-connections-panels.css";
-@import "./base/04-theme-dark.css";
+@import "./base/04-theme.css";
 @import "./base/05-responsive.css";
 @import "./base/06-mobile.css";
 

@@ -1,0 +1,99 @@
+/*
+ * Design tokens — single source of truth for the visual language.
+ *
+ * Default (:root) is the "dark technical" dev-tool theme: near-black canvas,
+ * subtle grid, high-contrast surfaces, cyan accent. A light variant is exposed
+ * under `.app-shell.theme-light` so the theme toggle only swaps token values —
+ * no surface needs to know about themes, it just reads var(--*).
+ *
+ * Performance/security notes:
+ *  - No external resources (CSP-safe): colors only, fonts are system/local.
+ *  - Shadows here are cheap; blurred glow is reserved for focus/selection
+ *    (a single element at a time), never applied per-node in bulk.
+ */
+:root {
+  /* Surfaces (dark technical, default) */
+  --bg-canvas: #0d1117; /* diagram canvas backdrop */
+  --bg-app: #010409; /* app chrome: topbar, page */
+  --surface: #161b22; /* nodes, cards, panels */
+  --surface-raised: #21262d; /* hover, dropdowns, popovers */
+  --surface-sunken: #0b0f14; /* code fields, inputs */
+  --surface-group: rgba(34, 211, 238, 0.05); /* container/group fill — faint grouping cue */
+
+  /* Borders (subtle 1px, replaces 2px hard black) */
+  --border: #30363d;
+  --border-strong: #484f58;
+  --border-subtle: #21262d;
+
+  /* Text */
+  --text: #e6edf3;
+  --text-muted: #7d8590;
+  --text-faint: #4d5560;
+  --text-on-accent: #04222b;
+
+  /* Accent — cyan neon */
+  --accent: #22d3ee;
+  --accent-hover: #38dcf3;
+  --accent-muted: rgba(34, 211, 238, 0.14);
+  --accent-border: rgba(34, 211, 238, 0.5);
+
+  /* Semantic */
+  --success: #3fb950;
+  --danger: #f85149;
+  --warning: #d29922;
+  --info: #58a6ff;
+
+  /* Grid + hairlines on the canvas */
+  --grid-line: rgba(255, 255, 255, 0.045);
+  --grid-line-strong: rgba(255, 255, 255, 0.08);
+
+  /* Radii — consistent, no hand-drawn irregularity */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-pill: 999px;
+
+  /* Shadows — flat/cheap by default; glow only for focus/selection */
+  --shadow-sm: 0 1px 2px rgba(1, 4, 9, 0.6);
+  --shadow-md: 0 4px 12px rgba(1, 4, 9, 0.5);
+  --shadow-pop: 0 8px 24px rgba(1, 4, 9, 0.6);
+  --glow-accent: 0 0 0 1px var(--accent-border), 0 0 12px rgba(34, 211, 238, 0.28);
+  --ring-accent: 0 0 0 2px var(--accent);
+
+  /* Type — no new webfonts; Inter is already local, mono is system */
+  --font-ui: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", "JetBrains Mono", Menlo,
+    Consolas, monospace;
+}
+
+/* Light variant — theme toggle swaps only these values. */
+.app-shell.theme-light {
+  --bg-canvas: #f6f8fa;
+  --bg-app: #ffffff;
+  --surface: #ffffff;
+  --surface-raised: #f6f8fa;
+  --surface-sunken: #eef1f4;
+  --surface-group: rgba(8, 145, 178, 0.05);
+
+  --border: #d0d7de;
+  --border-strong: #afb8c1;
+  --border-subtle: #eaeef2;
+
+  --text: #1f2328;
+  --text-muted: #656d76;
+  --text-faint: #8c959f;
+  --text-on-accent: #04222b;
+
+  --accent: #0891b2;
+  --accent-hover: #0aa4c9;
+  --accent-muted: rgba(8, 145, 178, 0.12);
+  --accent-border: rgba(8, 145, 178, 0.45);
+
+  --grid-line: rgba(15, 23, 42, 0.05);
+  --grid-line-strong: rgba(15, 23, 42, 0.09);
+
+  --shadow-sm: 0 1px 2px rgba(31, 35, 40, 0.12);
+  --shadow-md: 0 4px 12px rgba(31, 35, 40, 0.1);
+  --shadow-pop: 0 8px 24px rgba(31, 35, 40, 0.14);
+  --glow-accent: 0 0 0 1px var(--accent-border), 0 0 10px rgba(8, 145, 178, 0.22);
+}
