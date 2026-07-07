@@ -1,7 +1,7 @@
 import { CommonModule } from "@angular/common";
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, ElementRef, computed, effect, inject, input, output, signal } from "@angular/core";
 import type { ArchitectureDocument, ArchitectureNodeKind } from "@arch-draw/domain";
-import { FFlowModule, type FCanvasChangeEvent, type FCreateConnectionEvent, type FDragStartedEvent, type FSelectionChangeEvent } from "@foblex/flow";
+import { FFlowModule, F_SCROLL_PAN_CONTROL_SCHEME, provideFFlow, withControlScheme, type FCanvasChangeEvent, type FCreateConnectionEvent, type FDragStartedEvent, type FSelectionChangeEvent } from "@foblex/flow";
 import { CodeEditorComponent } from "../app/code-editor.component";
 import { isCodeSnippetNodeKind, isContainerNodeKind } from "../features/editor/node-catalog";
 import { getNodeIconClass } from "../features/editor/node-icons";
@@ -18,7 +18,9 @@ import type { FlowNodeVm } from "./model/flow-model";
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FFlowModule, CodeEditorComponent],
-  providers: [EditorStore],
+  // Scroll-pan control scheme: two-finger trackpad / wheel pans the canvas,
+  // pinch (ctrl+wheel) zooms — matching draw.io / Figma navigation.
+  providers: [EditorStore, provideFFlow(withControlScheme(F_SCROLL_PAN_CONTROL_SCHEME))],
   template: `
     <f-flow
       fDraggable
@@ -135,12 +137,13 @@ import type { FlowNodeVm } from "./model/flow-model";
           [class.e2-edge--muted]="store.isEdgeMuted(e)"
           [fOutputId]="e.from"
           [fInputId]="e.to"
+          fType="bezier"
           fBehavior="fixed"
         ></f-connection>
 
         <!-- Live preview line for drag-to-connect; Foblex only arms connection
              creation when this component is present in the flow. -->
-        <f-connection-for-create fBehavior="fixed"></f-connection-for-create>
+        <f-connection-for-create fType="bezier" fBehavior="fixed"></f-connection-for-create>
       </f-canvas>
 
       <f-minimap *ngIf="hasContent()" [fMinSize]="600" class="e2-minimap"></f-minimap>
