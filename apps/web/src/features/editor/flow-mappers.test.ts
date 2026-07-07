@@ -33,7 +33,9 @@ describe("canvas mappers", () => {
             line: "dashed" as const,
             color: "#2563eb",
             animated: true,
-            bidirectional: false
+            bidirectional: false,
+            arrowStart: "none" as const,
+            arrowEnd: "arrow" as const
           }
         }
       ]

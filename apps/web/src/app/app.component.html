@@ -733,6 +733,18 @@
             </select>
           </label>
           <label class="property-field">
+            {{ t("properties.arrowStart") }}
+            <select [ngModel]="edge.style.arrowStart" (ngModelChange)="updateSelectedEdgeStyle({ arrowStart: $event })">
+              <option *ngFor="let a of edgeArrows; trackBy: trackByString" [ngValue]="a">{{ getEdgeArrowLabel(a) }}</option>
+            </select>
+          </label>
+          <label class="property-field">
+            {{ t("properties.arrowEnd") }}
+            <select [ngModel]="edge.style.arrowEnd" (ngModelChange)="updateSelectedEdgeStyle({ arrowEnd: $event })">
+              <option *ngFor="let a of edgeArrows; trackBy: trackByString" [ngValue]="a">{{ getEdgeArrowLabel(a) }}</option>
+            </select>
+          </label>
+          <label class="property-field">
             {{ t("properties.direction") }}
             <select [ngModel]="getSelectedEdgeDirection(edge)" (ngModelChange)="updateSelectedEdgeDirection($event)">
               <option *ngFor="let direction of edgeDirections; trackBy: trackByString" [ngValue]="direction">{{ getEdgeDirectionLabel(direction) }}</option>

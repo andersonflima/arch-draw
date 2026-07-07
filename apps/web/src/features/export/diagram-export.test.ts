@@ -54,7 +54,9 @@ const makeArchitecture = () => ({
         line: "dashed" as const,
         color: "#0f172a",
         animated: true,
-        bidirectional: false
+        bidirectional: false,
+        arrowStart: "none" as const,
+        arrowEnd: "arrow" as const
       }
     }
   ],

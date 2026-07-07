@@ -5,6 +5,7 @@ import {
   architectureFromMermaid,
   createEmptyArchitecture,
   type ArchitectureDocument,
+  type ArchitectureEdgeArrow,
   type ArchitectureEdgeLineStyle,
   type ArchitectureEdgePortSide,
   type ArchitectureEdgePath,
@@ -510,6 +511,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   readonly edgePaths: readonly ArchitectureEdgePath[] = ["smoothstep"];
   readonly edgeLines: readonly ArchitectureEdgeLineStyle[] = ["solid", "dashed", "dotted"];
   readonly edgeDirections: readonly EdgeDirection[] = ["left-to-right", "right-to-left", "both"];
+  readonly edgeArrows: readonly ArchitectureEdgeArrow[] = ["none", "arrow", "arrow-open", "diamond", "diamond-open"];
   readonly codeLanguageOptions: readonly CodeLanguageOption[] = CODE_LANGUAGE_OPTIONS;
   readonly exampleTemplateOptions: readonly ExampleTemplateOption[] = EXAMPLE_TEMPLATE_OPTIONS;
   readonly currentYear = new Date().getFullYear();
@@ -545,7 +547,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     // drag/resize stay owned by editor2's own signals (no per-frame refresh).
     const nodePart = this.nodes.map((n) => `${n.id}|${n.label}|${n.kind}|${n.color}|${n.parentId ?? ""}`).join(";");
     const edgePart = this.edges
-      .map((e) => `${e.id}>${e.from}>${e.to}>${e.style?.line ?? ""}>${e.style?.bidirectional ?? ""}`)
+      .map((e) => `${e.id}>${e.from}>${e.to}>${e.style?.line ?? ""}>${e.style?.bidirectional ?? ""}>${e.style?.arrowStart ?? ""}>${e.style?.arrowEnd ?? ""}`)
       .join(";");
     const signature = `${nodePart}#${edgePart}`;
     if (signature === this.editor2StructureSignature) return;
@@ -2620,6 +2622,17 @@ LIMIT 50;`;
     if (direction === "left-to-right") return this.t("properties.directionLtr");
     if (direction === "right-to-left") return this.t("properties.directionRtl");
     return this.t("properties.directionBoth");
+  }
+
+  getEdgeArrowLabel(arrow: ArchitectureEdgeArrow): string {
+    const key = {
+      "none": "edgeArrow.none",
+      "arrow": "edgeArrow.arrow",
+      "arrow-open": "edgeArrow.arrowOpen",
+      "diamond": "edgeArrow.diamond",
+      "diamond-open": "edgeArrow.diamondOpen"
+    }[arrow];
+    return this.t(key);
   }
 
   updateSelectedEdgeDirection(direction: EdgeDirection): void {
@@ -5019,7 +5032,9 @@ LIMIT 50;`;
       line: "solid",
       color: "#111827",
       animated: true,
-      bidirectional: false
+      bidirectional: false,
+      arrowStart: "none",
+      arrowEnd: "arrow"
     };
 
     const makeNode = (
@@ -5478,7 +5493,9 @@ spec:
       line: "solid",
       color: "#111827",
       animated: true,
-      bidirectional: false
+      bidirectional: false,
+      arrowStart: "none",
+      arrowEnd: "arrow"
     };
     const makeNode = (
       id: string,
@@ -5594,7 +5611,9 @@ spec:
       line: "solid",
       color: "#111827",
       animated: true,
-      bidirectional: false
+      bidirectional: false,
+      arrowStart: "none",
+      arrowEnd: "arrow"
     };
     const makeNode = (
       id: string,
@@ -5687,7 +5706,9 @@ spec:
       line: "solid",
       color: "#111827",
       animated: true,
-      bidirectional: false
+      bidirectional: false,
+      arrowStart: "none",
+      arrowEnd: "arrow"
     };
     const makeNode = (
       id: string,
@@ -5790,7 +5811,9 @@ apiKeys:
       line: "solid",
       color: "#111827",
       animated: true,
-      bidirectional: false
+      bidirectional: false,
+      arrowStart: "none",
+      arrowEnd: "arrow"
     };
     const makeNode = (
       id: string,
@@ -5888,7 +5911,9 @@ apiKeys:
       line: "solid",
       color: "#111827",
       animated: true,
-      bidirectional: false
+      bidirectional: false,
+      arrowStart: "none",
+      arrowEnd: "arrow"
     };
     const makeNode = (
       id: string,
@@ -5982,7 +6007,9 @@ apiKeys:
       line: "solid",
       color: "#111827",
       animated: true,
-      bidirectional: false
+      bidirectional: false,
+      arrowStart: "none",
+      arrowEnd: "arrow"
     };
     const makeNode = (
       id: string,

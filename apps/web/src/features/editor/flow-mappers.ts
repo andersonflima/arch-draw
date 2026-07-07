@@ -50,7 +50,9 @@ export const normalizeEdgeStyle = (
   line: style?.line ?? "solid",
   color: style?.color ?? "#111827",
   animated: style?.animated ?? false,
-  bidirectional: style?.bidirectional ?? false
+  bidirectional: style?.bidirectional ?? false,
+  arrowStart: style?.arrowStart ?? (style?.bidirectional ? "arrow" : "none"),
+  arrowEnd: style?.arrowEnd ?? "arrow"
 });
 
 const normalizeEdgePath = (path: unknown): ArchitectureEdgeStyle["path"] => {

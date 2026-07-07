@@ -238,6 +238,8 @@ export type ArchitectureEdgePath = "smoothstep";
 
 export type ArchitectureEdgeLineStyle = "solid" | "dashed" | "dotted";
 export type ArchitectureEdgePortSide = "left" | "right" | "top" | "bottom";
+/** Arrowhead shape at a connection end (draw.io-style). */
+export type ArchitectureEdgeArrow = "none" | "arrow" | "arrow-open" | "diamond" | "diamond-open";
 
 export type ArchitectureEdgeStyle = Readonly<{
   path: ArchitectureEdgePath;
@@ -245,7 +247,22 @@ export type ArchitectureEdgeStyle = Readonly<{
   color: string;
   animated: boolean;
   bidirectional: boolean;
+  arrowStart: ArchitectureEdgeArrow;
+  arrowEnd: ArchitectureEdgeArrow;
 }>;
+
+const ARCHITECTURE_EDGE_ARROWS: readonly ArchitectureEdgeArrow[] = [
+  "none",
+  "arrow",
+  "arrow-open",
+  "diamond",
+  "diamond-open"
+];
+
+const normalizeEdgeArrow = (
+  value: ArchitectureEdgeArrow | undefined,
+  fallback: ArchitectureEdgeArrow
+): ArchitectureEdgeArrow => (value && ARCHITECTURE_EDGE_ARROWS.includes(value) ? value : fallback);
 
 export type Point = Readonly<{
   x: number;
@@ -485,7 +502,9 @@ const normalizeEdgeStyle = (
   line: style?.line ?? "solid",
   color: sanitizeSingleLineText(style?.color, 32) || "#111827",
   animated: style?.animated ?? false,
-  bidirectional: style?.bidirectional ?? false
+  bidirectional: style?.bidirectional ?? false,
+  arrowStart: normalizeEdgeArrow(style?.arrowStart, style?.bidirectional ? "arrow" : "none"),
+  arrowEnd: normalizeEdgeArrow(style?.arrowEnd, "arrow")
 });
 
 const normalizeEdgePath = (path: unknown): ArchitectureEdgePath => {
