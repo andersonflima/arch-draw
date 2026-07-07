@@ -244,6 +244,17 @@ import type { FlowNodeVm } from "./model/flow-model";
     }
     .e2-ctl:hover { background: #fef3c7; }
     .e2-ctl:active { transform: translateY(1px); box-shadow: 1px 1px 0 #111827; }
+
+    /* Phone: the minimap is heavy and redundant once the diagram is framed; drop it
+       and keep a slim, thumb-sized control cluster bottom-right. */
+    @media (max-width: 768px) {
+      .e2-minimap { display: none; }
+      .e2-controls { right: 12px; bottom: 12px; gap: 8px; }
+      .e2-ctl {
+        width: 44px; height: 44px; border-radius: 10px; font-size: 20px;
+        background: rgba(255, 255, 255, 0.94); box-shadow: 2px 2px 0 #111827;
+      }
+    }
   `]
 })
 export class Editor2Component {
@@ -394,7 +405,8 @@ export class Editor2Component {
     const vw = el.clientWidth;
     const vh = el.clientHeight;
     if (vw === 0 || vh === 0) return false;
-    const pad = 56;
+    // Smaller margin on narrow screens so the diagram fills more of the viewport.
+    const pad = Math.max(16, Math.min(56, Math.min(vw, vh) * 0.06));
     // Only ever zoom out to frame a large diagram; keep small ones at 1:1, centred.
     const scale = Math.max(0.1, Math.min(1, (vw - 2 * pad) / bounds.width, (vh - 2 * pad) / bounds.height));
     const cx = bounds.x + bounds.width / 2;
