@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, ElementRef, effect, inject, input, output, signal } from "@angular/core";
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, ElementRef, computed, effect, inject, input, output, signal } from "@angular/core";
 import type { ArchitectureDocument, ArchitectureNodeKind } from "@arch-draw/domain";
 import { FFlowModule, type FCanvasChangeEvent, type FCreateConnectionEvent, type FDragStartedEvent, type FSelectionChangeEvent } from "@foblex/flow";
 import { CodeEditorComponent } from "../app/code-editor.component";
@@ -24,6 +24,8 @@ import type { FlowNodeVm } from "./model/flow-model";
       fDraggable
       class="e2-flow"
       [class.e2-flow--dragging]="store.dragging()"
+      [style.backgroundSize]="gridSize()"
+      [style.backgroundPosition]="gridPosition()"
       (fCreateConnection)="onConnect($event)"
       (fDragStarted)="onDragStarted($event)"
       (fDragEnded)="onDragEnded()"
@@ -36,10 +38,6 @@ import type { FlowNodeVm } from "./model/flow-model";
         [scale]="cameraScale()"
         (fCanvasChange)="onCanvasChange($event)"
       >
-        <f-background>
-          <f-rect-pattern></f-rect-pattern>
-        </f-background>
-
         <div
           *ngFor="let g of store.visibleGroups(); trackBy: trackById"
           fGroup
@@ -145,7 +143,7 @@ import type { FlowNodeVm } from "./model/flow-model";
         <f-connection-for-create fBehavior="fixed"></f-connection-for-create>
       </f-canvas>
 
-      <f-minimap [fMinSize]="600" class="e2-minimap"></f-minimap>
+      <f-minimap *ngIf="hasContent()" [fMinSize]="600" class="e2-minimap"></f-minimap>
 
       <div class="e2-controls">
         <button type="button" class="e2-ctl" aria-label="zoom in" (click)="zoomBy(1.2)">+</button>
@@ -155,7 +153,16 @@ import type { FlowNodeVm } from "./model/flow-model";
     </f-flow>
   `,
   styles: [`
-    .e2-flow { display: block; width: 100%; height: 100%; background: var(--bg-canvas); color: var(--text); }
+    /* Infinite grid painted on the fixed viewport; background-size/position are
+       driven by the camera (scale/translate) so it pans and zooms with the
+       content — Foblex's own f-background does not render in this setup. */
+    .e2-flow {
+      display: block; width: 100%; height: 100%; color: var(--text);
+      background-color: var(--bg-canvas);
+      background-image:
+        linear-gradient(var(--grid-line-strong) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-line-strong) 1px, transparent 1px);
+    }
     .e2-group {
       border: 1px solid var(--border); border-radius: var(--radius-lg);
       background: var(--surface-group); color: var(--text);
@@ -288,6 +295,12 @@ export class Editor2Component {
   // where touch panning is unreliable. The library's fitToScreen() no-ops here.
   readonly cameraPosition = signal<{ x: number; y: number }>({ x: 0, y: 0 });
   readonly cameraScale = signal<number>(1);
+  // The viewport grid tracks the camera: spacing scales with zoom, offset follows
+  // the pan translate, so it reads as an infinite grid fixed to world space.
+  readonly gridSize = computed(() => { const px = 24 * this.cameraScale(); return `${px}px ${px}px`; });
+  readonly gridPosition = computed(() => { const p = this.cameraPosition(); return `${p.x}px ${p.y}px`; });
+  // The minimap is only useful once there is something to map.
+  readonly hasContent = computed(() => this.store.groups().length > 0 || this.store.nodes().length > 0);
   private pendingFit = false;
   private fitDocId: string | null = null;
   // Once the user pans/zooms, we stop auto-framing so a later resize never yanks
