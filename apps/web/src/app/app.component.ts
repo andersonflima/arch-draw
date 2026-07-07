@@ -3,6 +3,7 @@ import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, E
 import { FormsModule } from "@angular/forms";
 import {
   architectureFromMermaid,
+  createEmptyArchitecture,
   type ArchitectureDocument,
   type ArchitectureEdgeLineStyle,
   type ArchitectureEdgePortSide,
@@ -1638,12 +1639,26 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     return options.includes(selectedKind) ? options : [selectedKind, ...options];
   }
 
+  /** Start an in-memory document the first time the user edits a blank canvas; the
+      normal autosave then persists it, so a dropped block is never lost. */
+  private ensureEditableArchitecture(): void {
+    if (this.architecture) return;
+    this.architecture = createEmptyArchitecture({
+      id: crypto.randomUUID(),
+      title: this.t("title.newArchitecture"),
+      now: new Date().toISOString()
+    });
+  }
+
   addNode(
     template: NodeTemplate,
     position = this.nextNodePosition(),
     options: Readonly<{ attachToContainer: boolean }> = { attachToContainer: false }
   ): void {
     if (!this.canEditArchitecture()) return;
+    // On a blank canvas (no document yet) the first dropped block starts a new
+    // document, so it actually lands on the canvas instead of being discarded.
+    this.ensureEditableArchitecture();
     const id = `${template.kind}-${crypto.randomUUID()}`;
     const defaultSize = getDefaultNodeSize(template.kind);
     const isContainerKind = isContainerNodeKind(template.kind);
