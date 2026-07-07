@@ -6,9 +6,9 @@
   overflow: hidden;
   contain: paint;
   background:
-    linear-gradient(rgba(17, 24, 39, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(17, 24, 39, 0.03) 1px, transparent 1px),
-    #f7f4ed;
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
+    var(--bg-canvas);
   background-size: 24px 24px;
   cursor: grab;
 }
@@ -27,11 +27,11 @@
   z-index: 70;
   width: 38px;
   height: 38px;
-  border: 2px solid #111827;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #111827;
-  box-shadow: 2px 2px 0 #111827;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -39,12 +39,12 @@
 }
 
 .workspace-menu-toggle:hover {
-  background: #fef3c7;
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .workspace-menu-toggle:active {
   transform: translateY(1px);
-  box-shadow: 1px 1px 0 #111827;
 }
 
 .canvas-viewport {
@@ -70,9 +70,15 @@
 .e2-host f-connection .f-connection-path,
 .e2-host f-connection-for-create .f-connection-path,
 .e2-host .f-snap-connection .f-connection-path {
-  stroke: #111827;
+  stroke: var(--border-strong);
   stroke-width: 2;
   fill: none;
+}
+
+.e2-host f-connection.f-selected .f-connection-path,
+.e2-host f-connection-for-create .f-connection-path,
+.e2-host .f-snap-connection .f-connection-path {
+  stroke: var(--accent);
 }
 
 .e2-host f-connection .f-connection-selection {
@@ -84,31 +90,31 @@
 /* Foblex minimap internals render as an SVG inside the library component, so the
    editor's component-scoped styles can't reach them — colour them globally. */
 .e2-host f-minimap .f-minimap-node {
-  fill: #111827;
+  fill: var(--text-muted);
 }
 
 .e2-host f-minimap .f-minimap-group {
-  fill: rgba(199, 210, 254, 0.85);
-  stroke: #111827;
+  fill: var(--accent-muted);
+  stroke: var(--border);
   stroke-width: 1;
 }
 
 .e2-host f-minimap .f-minimap-node-selected,
 .e2-host f-minimap .f-minimap-group.f-minimap-node-selected {
-  fill: #f59e0b;
+  fill: var(--accent);
 }
 
 .e2-host f-minimap .f-minimap-view {
-  fill: rgba(245, 158, 11, 0.16);
-  stroke: #f59e0b;
+  fill: var(--accent-muted);
+  stroke: var(--accent);
   stroke-width: 2;
 }
 
 .canvas-marquee {
   position: absolute;
-  border: 2px dashed #2563eb;
-  background: transparent;
-  border-radius: 6px;
+  border: 1px dashed var(--accent);
+  background: var(--accent-muted);
+  border-radius: var(--radius-sm);
   pointer-events: none;
   z-index: 18;
 }
@@ -135,14 +141,14 @@
   position: absolute;
   left: 10px;
   top: 12px;
-  border: 2px solid #111827;
-  border-radius: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   background: var(--cursor-color, #f97316);
-  color: #111827;
+  color: #04121a;
   font-size: 11px;
   font-weight: 800;
   line-height: 1;
   white-space: nowrap;
   padding: 5px 8px 4px;
-  box-shadow: 2px 2px 0 #111827;
+  box-shadow: var(--shadow-sm);
 }

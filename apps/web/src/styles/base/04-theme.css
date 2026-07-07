@@ -1,0 +1,31 @@
+/*
+ * Theme adjustments that design tokens can't express on their own.
+ *
+ * The dark technical theme is the DEFAULT (token values live on :root); the
+ * light theme is opt-in via `.app-shell.theme-light` / `.auth-screen.theme-light`,
+ * which only swaps token values (see 00-tokens.css). Every surface that reads
+ * var(--*) themes itself automatically, so this file is limited to injected /
+ * third-party SVG markup we cannot tokenize per element — chiefly the Mermaid
+ * preview diagram, whose strokes must stay legible on the dark canvas.
+ */
+
+.mermaid-preview {
+  background: var(--bg-canvas);
+}
+
+/* Mermaid injects its own SVG; on the default (dark) theme force light strokes.
+   The light theme keeps Mermaid's default dark strokes, readable on its bg. */
+.app-shell:not(.theme-light) .mermaid-preview__diagram .edgePath .path,
+.app-shell:not(.theme-light) .mermaid-preview__diagram .flowchart-link,
+.app-shell:not(.theme-light) .mermaid-preview__diagram .relationshipLine,
+.app-shell:not(.theme-light) .mermaid-preview__diagram .relation,
+.app-shell:not(.theme-light) .mermaid-preview__diagram .messageLine0,
+.app-shell:not(.theme-light) .mermaid-preview__diagram .messageLine1 {
+  stroke: var(--text) !important;
+}
+
+.app-shell:not(.theme-light) .mermaid-preview__diagram .arrowheadPath,
+.app-shell:not(.theme-light) .mermaid-preview__diagram marker path {
+  fill: var(--text) !important;
+  stroke: var(--text) !important;
+}
