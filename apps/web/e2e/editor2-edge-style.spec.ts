@@ -36,8 +36,8 @@ test("a dashed edge renders a dash pattern and an arrowhead", async ({ page }) =
   await expect(conn).toHaveClass(/e2-edge--dashed/);
   const dash = await conn.locator(".f-connection-path").first().evaluate((el) => getComputedStyle(el as Element).strokeDasharray);
   expect(dash).not.toBe("none");
-  // an arrow marker is projected into the connection
-  expect(await conn.locator("f-connection-marker-arrow").count()).toBeGreaterThan(0);
+  // an arrow marker is projected into the connection (Foblex svg[fMarker])
+  expect(await conn.locator("svg[fMarker]").count()).toBeGreaterThan(0);
 
   // selecting the connection opens the shell's edge-style panel (side panel)
   await conn.locator(".f-connection-selection").first().click({ force: true });

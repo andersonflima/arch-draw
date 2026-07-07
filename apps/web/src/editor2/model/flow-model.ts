@@ -1,4 +1,4 @@
-import type { ArchitectureDocument, ArchitectureEdgeLineStyle, ArchitectureNodeKind } from "@arch-draw/domain";
+import type { ArchitectureDocument, ArchitectureEdgeArrow, ArchitectureEdgeLineStyle, ArchitectureNodeKind } from "@arch-draw/domain";
 import { buildSceneModel } from "../../canvas-engine";
 
 /** A node/group resolved to absolute coordinates for the Foblex flow layer. */
@@ -27,6 +27,10 @@ export interface FlowEdgeVm {
   readonly line: ArchitectureEdgeLineStyle;
   /** Arrowheads on both ends (vs. a single arrow at the target). */
   readonly bidirectional: boolean;
+  /** Arrow shape at the source end. */
+  readonly arrowStart: ArchitectureEdgeArrow;
+  /** Arrow shape at the target end. */
+  readonly arrowEnd: ArchitectureEdgeArrow;
 }
 
 export interface FlowModel {
@@ -87,7 +91,9 @@ export const buildFlowModel = (
         from: edge.from,
         to: edge.to,
         line: style?.line ?? "solid",
-        bidirectional: style?.bidirectional ?? false
+        bidirectional: style?.bidirectional ?? false,
+        arrowStart: style?.arrowStart ?? (style?.bidirectional ? "arrow" : "none"),
+        arrowEnd: style?.arrowEnd ?? "arrow"
       };
     })
   };

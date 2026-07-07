@@ -5,6 +5,7 @@ import {
   createSharePackage,
   type ArchitectureDocument,
   type ArchitectureEdge,
+  type ArchitectureEdgeArrow,
   type ArchitectureEdgePath,
   type ArchitectureEdgeStyle,
   type ArchitectureNode,
@@ -387,7 +388,9 @@ const parseExcalidrawToArchitecture = (
         ? (element.strokeColor as string)
         : "#111827",
       animated: false,
-      bidirectional: Boolean(element.startArrowhead && element.endArrowhead)
+      bidirectional: Boolean(element.startArrowhead && element.endArrowhead),
+      arrowStart: element.startArrowhead ? "arrow" : "none",
+      arrowEnd: element.endArrowhead ? "arrow" : "none"
     };
 
     edges.push({
@@ -676,6 +679,11 @@ const normalizeImportedProperties = (
   }, Object.create(null) as Record<string, string>);
 };
 
+const asEdgeArrow = (value: unknown, fallback: ArchitectureEdgeArrow): ArchitectureEdgeArrow =>
+  value === "none" || value === "arrow" || value === "arrow-open" || value === "diamond" || value === "diamond-open"
+    ? value
+    : fallback;
+
 const normalizeImportedEdgeStyle = (value: unknown): ArchitectureEdgeStyle | undefined => {
   if (!isObjectRecord(value)) return undefined;
   const line = value.line === "dashed" || value.line === "dotted" ? value.line : "solid";
@@ -687,7 +695,9 @@ const normalizeImportedEdgeStyle = (value: unknown): ArchitectureEdgeStyle | und
     line,
     color,
     animated: value.animated === true,
-    bidirectional: value.bidirectional === true
+    bidirectional: value.bidirectional === true,
+    arrowStart: asEdgeArrow(value.arrowStart, value.bidirectional === true ? "arrow" : "none"),
+    arrowEnd: asEdgeArrow(value.arrowEnd, "arrow")
   };
 };
 
@@ -1143,8 +1153,24 @@ const inferDrawIoEdgeStyle = (styleText: string): ArchitectureEdgeStyle => {
     : "#111827";
   const animated = style.flowAnimation === "1";
   const bidirectional = style.startArrow !== undefined && style.startArrow !== "none";
+  const toArrow = (marker: string | undefined, whenUnset: ArchitectureEdgeArrow): ArchitectureEdgeArrow => {
+    if (marker === undefined) return whenUnset;
+    if (marker === "none") return "none";
+    const normalized = marker.toLowerCase();
+    if (normalized.includes("diamond")) return normalized.includes("thin") ? "diamond-open" : "diamond";
+    if (normalized.includes("open")) return "arrow-open";
+    return "arrow";
+  };
 
-  return { path, line, color, animated, bidirectional };
+  return {
+    path,
+    line,
+    color,
+    animated,
+    bidirectional,
+    arrowStart: toArrow(style.startArrow, "none"),
+    arrowEnd: toArrow(style.endArrow, "arrow")
+  };
 };
 
 const inferMermaidFlowDirection = (source: string): MermaidFlowDirection => {

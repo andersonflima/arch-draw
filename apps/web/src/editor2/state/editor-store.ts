@@ -213,7 +213,7 @@ export class EditorStore {
     if (!from || !to || from === to) return;
     this._structure.update((model) => {
       if (model.edges.some((edge) => edge.from === from && edge.to === to)) return model;
-      const edge: FlowEdgeVm = { id: `e-${crypto.randomUUID()}`, from, to, line: "solid", bidirectional: false };
+      const edge: FlowEdgeVm = { id: `e-${crypto.randomUUID()}`, from, to, line: "solid", bidirectional: false, arrowStart: "none", arrowEnd: "arrow" };
       return { ...model, edges: [...model.edges, edge] };
     });
   }
