@@ -638,7 +638,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   loginError = "";
   googleLoginUrl = "";
   showCanvasUsageHint = false;
-  uiTheme: "light" | "dark" = "light";
+  uiTheme: "light" | "dark" = "dark";
   uiLanguage: UiLanguage = "pt-BR";
   isLeftPanelsHidden = false;
   isMobileToolbarOpen = false;
@@ -9758,7 +9758,7 @@ apiKeys:
     host.style.zIndex = "-1";
 
     const themedRoot = document.createElement("div");
-    themedRoot.className = this.isDarkMode ? "app-shell theme-dark" : "app-shell";
+    themedRoot.className = this.isDarkMode ? "app-shell" : "app-shell theme-light";
     themedRoot.style.width = `${dimensions.width}px`;
     themedRoot.style.height = `${dimensions.height}px`;
 
@@ -9837,9 +9837,9 @@ apiKeys:
   private loadUiThemePreference(): void {
     try {
       const value = localStorage.getItem(UI_THEME_STORAGE_KEY);
-      this.uiTheme = value === "dark" ? "dark" : "light";
+      this.uiTheme = value === "light" ? "light" : "dark";
     } catch {
-      this.uiTheme = "light";
+      this.uiTheme = "dark";
     }
   }
 

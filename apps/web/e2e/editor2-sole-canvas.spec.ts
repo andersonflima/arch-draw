@@ -42,10 +42,12 @@ test("editor2 is the only canvas and edges are visibly stroked", async ({ page }
   await expect(page.locator("app-canvas-node")).toHaveCount(0);
   await expect(page.locator("app-editor2 [data-e2-id]")).toHaveCount(2);
 
-  // the connection line is stroked (visible)
+  // the connection line is stroked (visible) — resting edges use the --border-strong
+  // token from the design system, not a transparent/none stroke.
   const stroke = await page.locator("app-editor2 f-connection .f-connection-path").first()
     .evaluate((el) => getComputedStyle(el as Element).stroke);
-  expect(stroke).toBe("rgb(17, 24, 39)");
+  expect(stroke).not.toBe("none");
+  expect(stroke).toBe("rgb(72, 79, 88)");
 
   expect(errors).toEqual([]);
 });
