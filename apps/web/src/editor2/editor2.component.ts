@@ -446,7 +446,11 @@ export class Editor2Component {
   }
 
   private contentBounds(): { x: number; y: number; width: number; height: number } | null {
-    const elements = [...this.store.groups(), ...this.store.nodes()];
+    // Only top-level elements: a nested node's stored position is relative to its
+    // parent container, so mixing it with absolute positions skews the bounds and
+    // the fit camera lands on empty canvas. A top-level container's box already
+    // covers its children in absolute coords.
+    const elements = [...this.store.groups(), ...this.store.nodes()].filter((el) => !el.parentId);
     if (elements.length === 0) return null;
     let minX = Infinity;
     let minY = Infinity;
