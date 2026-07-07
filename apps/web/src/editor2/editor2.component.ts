@@ -1,7 +1,7 @@
 import { CommonModule } from "@angular/common";
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, ElementRef, computed, effect, inject, input, output, signal } from "@angular/core";
 import type { ArchitectureDocument, ArchitectureNodeKind } from "@arch-draw/domain";
-import { FFlowModule, F_SCROLL_PAN_CONTROL_SCHEME, provideFFlow, withControlScheme, type FCanvasChangeEvent, type FCreateConnectionEvent, type FDragStartedEvent, type FSelectionChangeEvent } from "@foblex/flow";
+import { EFMarkerType, FFlowModule, F_SCROLL_PAN_CONTROL_SCHEME, provideFFlow, withControlScheme, type FCanvasChangeEvent, type FCreateConnectionEvent, type FDragStartedEvent, type FSelectionChangeEvent } from "@foblex/flow";
 import { CodeEditorComponent } from "../app/code-editor.component";
 import { isCodeSnippetNodeKind, isContainerNodeKind } from "../features/editor/node-catalog";
 import { getNodeIconClass } from "../features/editor/node-icons";
@@ -134,12 +134,18 @@ import type { FlowNodeVm } from "./model/flow-model";
 
         <f-connection
           *ngFor="let e of store.visibleEdges(); trackBy: trackById"
+          [fConnectionId]="e.id"
           [class.e2-edge--muted]="store.isEdgeMuted(e)"
+          [class.e2-edge--dashed]="e.line === 'dashed'"
+          [class.e2-edge--dotted]="e.line === 'dotted'"
           [fOutputId]="e.from"
           [fInputId]="e.to"
           fType="bezier"
           fBehavior="fixed"
-        ></f-connection>
+        >
+          <f-connection-marker-arrow [type]="EFMarkerType.END_ALL_STATES"></f-connection-marker-arrow>
+          <f-connection-marker-arrow *ngIf="e.bidirectional" [type]="EFMarkerType.START_ALL_STATES"></f-connection-marker-arrow>
+        </f-connection>
 
         <!-- Live preview line for drag-to-connect; Foblex only arms connection
              creation when this component is present in the flow. -->
@@ -275,6 +281,8 @@ import type { FlowNodeVm } from "./model/flow-model";
 export class Editor2Component {
   readonly store = inject(EditorStore);
   readonly document = input<ArchitectureDocument | null>(null);
+  /** Exposed for the connection marker types in the template. */
+  protected readonly EFMarkerType = EFMarkerType;
 
   /** Committed changes for the shell to persist (positions are absolute canvas coords). */
   readonly nodesMoved = output<readonly { id: string; x: number; y: number }[]>();
@@ -284,6 +292,9 @@ export class Editor2Component {
   readonly labelChanged = output<{ id: string; label: string }>();
   readonly nodeContextMenu = output<{ id: string; event: MouseEvent }>();
   readonly selectionChanged = output<readonly string[]>();
+  /** Selected connection id (or null when a node/nothing is selected) so the shell
+      can open its edge-style panel for the clicked connection. */
+  readonly edgeSelected = output<string | null>();
 
   /** Height of the header strip a collapsed container shrinks to. */
   private static readonly COLLAPSED_HEIGHT = 40;
@@ -428,6 +439,8 @@ export class Editor2Component {
     const ids = [...event.nodeIds, ...event.groupIds];
     this.store.setSelection(ids);
     this.selectionChanged.emit(ids);
+    // A connection selection (no node selected) opens the edge-style panel.
+    this.edgeSelected.emit(ids.length === 0 ? event.connectionIds[0] ?? null : null);
   }
 
   /** Keep the camera signal in sync when Foblex pans/zooms (guarded against a loop). */

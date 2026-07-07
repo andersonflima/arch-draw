@@ -81,6 +81,15 @@
   stroke: var(--accent);
 }
 
+/* Line style from the edge model: solid (default), dashed, dotted. */
+.e2-host f-connection.e2-edge--dashed .f-connection-path {
+  stroke-dasharray: 7 6;
+}
+.e2-host f-connection.e2-edge--dotted .f-connection-path {
+  stroke-dasharray: 1.5 5;
+  stroke-linecap: round;
+}
+
 .e2-host f-connection .f-connection-selection {
   stroke: transparent;
   stroke-width: 14;
