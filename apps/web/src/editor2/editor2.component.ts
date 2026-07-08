@@ -53,17 +53,24 @@ import type { FlowNodeVm } from "./model/flow-model";
           class="e2-group"
           [class.e2-selected]="store.isSelected(g.id)"
           [class.e2-group--collapsed]="store.isCollapsed(g.id)"
+          [style.--node-color]="g.color"
         >
-          <div class="e2-group__bar" fDragHandle>
-            <button
-              type="button"
-              class="e2-group__toggle"
-              [attr.aria-label]="store.isCollapsed(g.id) ? 'expand' : 'collapse'"
-              (mousedown)="$event.stopPropagation()"
-              (click)="store.toggleCollapse(g.id); $event.stopPropagation()"
-            >{{ store.isCollapsed(g.id) ? '+' : '−' }}</button>
-            <i [class]="iconClass(g.kind)" aria-hidden="true"></i>
-            <span class="e2-group__label">{{ g.label }}</span>
+          <!-- The whole container is the drag handle (header bar + empty body), so a
+               container moves whether grabbed by its title or anywhere in its body.
+               Child nodes render as separate elements above it and keep their own
+               handles, so grabbing a child still moves the child, not the container. -->
+          <div fDragHandle class="e2-group__body">
+            <div class="e2-group__bar">
+              <button
+                type="button"
+                class="e2-group__toggle"
+                [attr.aria-label]="store.isCollapsed(g.id) ? 'expand' : 'collapse'"
+                (mousedown)="$event.stopPropagation()"
+                (click)="store.toggleCollapse(g.id); $event.stopPropagation()"
+              >{{ store.isCollapsed(g.id) ? '+' : '−' }}</button>
+              <i [class]="iconClass(g.kind)" aria-hidden="true"></i>
+              <span class="e2-group__label">{{ g.label }}</span>
+            </div>
           </div>
         </div>
 
@@ -78,7 +85,7 @@ import type { FlowNodeVm } from "./model/flow-model";
           class="e2-node"
           [class.e2-selected]="store.isSelected(n.id)"
           [class.e2-node--code]="store.isCodeExpanded(n.id)"
-          [style.borderLeftColor]="n.color"
+          [style.--node-color]="n.color"
           [style.width.px]="nodeWidth(n)"
           [style.height.px]="nodeHeight(n)"
           (contextmenu)="onNodeContextMenu(n.id, $event)"
@@ -183,14 +190,20 @@ import type { FlowNodeVm } from "./model/flow-model";
         linear-gradient(90deg, var(--grid-line-strong) 1px, transparent 1px);
     }
     .e2-group {
-      border: 1px solid var(--border); border-radius: var(--radius-lg);
-      background: var(--surface-group); color: var(--text);
+      --node-color: var(--accent);
+      display: flex; flex-direction: column;
+      border: 1px solid var(--border); border-left: 4px solid var(--node-color); border-radius: var(--radius-lg);
+      background: color-mix(in srgb, var(--node-color) 5%, var(--surface-group)); color: var(--text);
     }
+    /* The full container is the drag surface: bar pinned to the top, the empty
+       region below it stays grabbable so a container moves from its body too. */
+    .e2-group__body { display: flex; flex-direction: column; width: 100%; flex: 1 1 auto; min-height: 0; }
     .e2-group__bar {
       display: flex; align-items: center; gap: 6px;
       padding: 6px 10px; font-weight: 700; font-size: 13px; font-family: var(--font-mono);
       color: var(--text); border-bottom: 1px dashed var(--border-strong);
     }
+    .e2-group__bar i { color: var(--node-color); }
     .e2-group--collapsed .e2-group__bar { border-bottom: none; }
     .e2-group__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .e2-group__toggle {
@@ -201,12 +214,18 @@ import type { FlowNodeVm } from "./model/flow-model";
       font-weight: 800; font-size: 14px; line-height: 1; cursor: pointer; padding: 0;
     }
     .e2-group__toggle:hover { border-color: var(--accent); color: var(--accent); }
+    /* Node identity: a colored spine + a faint wash of the node's own colour, so
+       every element reads as distinct at a glance without any per-node blur/shadow.
+       The neon glow is spent only on hover/selection (one element at a time). */
     .e2-node {
+      --node-color: var(--accent);
       position: relative; display: flex;
-      border: 1px solid var(--border); border-left-width: 7px; border-radius: var(--radius-md);
-      background: var(--surface); color: var(--text);
+      border: 1px solid var(--border); border-left: 4px solid var(--node-color); border-radius: var(--radius-md);
+      background: color-mix(in srgb, var(--node-color) 8%, var(--surface)); color: var(--text);
       padding: 6px;
+      transition: border-color 90ms ease, box-shadow 90ms ease;
     }
+    .e2-node:hover { border-color: var(--accent-border); box-shadow: var(--glow-accent); }
     .e2-node__body {
       flex: 1 1 auto; min-width: 0; min-height: 0; width: 100%;
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
@@ -225,7 +244,7 @@ import type { FlowNodeVm } from "./model/flow-model";
       outline: none; box-shadow: var(--glow-accent); cursor: text;
     }
     .e2-node--code .e2-node__label { flex: 1 1 auto; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .e2-node i { font-size: 18px; }
+    .e2-node i { font-size: 18px; color: var(--node-color); }
     .e2-node__code-toggle {
       position: absolute; top: -4px; right: -4px;
       width: 22px; height: 20px; padding: 0;
