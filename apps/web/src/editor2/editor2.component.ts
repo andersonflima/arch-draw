@@ -1,7 +1,7 @@
 import { CommonModule } from "@angular/common";
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, ElementRef, computed, effect, inject, input, output, signal } from "@angular/core";
 import type { ArchitectureDocument, ArchitectureNodeKind } from "@arch-draw/domain";
-import { EFMarkerType, FFlowModule, F_SCROLL_PAN_CONTROL_SCHEME, provideFFlow, withControlScheme, type FCanvasChangeEvent, type FCreateConnectionEvent, type FDragStartedEvent, type FSelectionChangeEvent } from "@foblex/flow";
+import { EFMarkerType, FFlowModule, F_SCROLL_PAN_CONTROL_SCHEME, provideFFlow, withControlScheme, type FCanvasChangeEvent, type FCreateConnectionEvent, type FDragStartedEvent, type FEventTrigger, type FSelectionChangeEvent } from "@foblex/flow";
 import { CodeEditorComponent } from "../app/code-editor.component";
 import { isCodeSnippetNodeKind, isContainerNodeKind } from "../features/editor/node-catalog";
 import { getNodeIconClass } from "../features/editor/node-icons";
@@ -28,6 +28,7 @@ import type { FlowNodeVm } from "./model/flow-model";
       [class.e2-flow--dragging]="store.dragging()"
       [style.backgroundSize]="gridSize()"
       [style.backgroundPosition]="gridPosition()"
+      [fMultiSelectTrigger]="multiSelectTrigger"
       (fCreateConnection)="onConnect($event)"
       (fDragStarted)="onDragStarted($event)"
       (fDragEnded)="onDragEnded()"
@@ -169,6 +170,11 @@ import type { FlowNodeVm } from "./model/flow-model";
         <f-connection-for-create fType="bezier" fBehavior="fixed"></f-connection-for-create>
       </f-canvas>
 
+      <!-- Marquee: a left-drag on the empty canvas rubber-bands a selection rectangle
+           (the scroll-pan scheme's selection gesture). Enclosed nodes/groups get
+           selected together, so Delete/Backspace removes them in one go. -->
+      <f-selection-area class="e2-marquee"></f-selection-area>
+
       <f-minimap *ngIf="hasContent()" [fMinSize]="600" class="e2-minimap"></f-minimap>
 
       <div class="e2-controls">
@@ -263,6 +269,8 @@ import type { FlowNodeVm } from "./model/flow-model";
     .e2-node__code app-code-editor,
     .e2-node__code app-code-editor > * { display: block; width: 100%; height: 100%; }
     .e2-selected { outline: 1px solid var(--accent); outline-offset: 2px; box-shadow: var(--glow-accent); }
+    /* Marquee rectangle: Foblex sizes/positions it; we only paint it. */
+    .e2-marquee { border: 1px solid var(--accent-border); background: var(--accent-muted); border-radius: 2px; }
     .e2-conn {
       position: absolute; top: 50%; width: 12px; height: 12px; margin-top: -6px;
       border: 2px solid var(--bg-canvas); border-radius: 50%; background: var(--accent); cursor: crosshair;
@@ -312,6 +320,11 @@ export class Editor2Component {
   readonly document = input<ArchitectureDocument | null>(null);
   /** Exposed for the connection marker types in the template. */
   protected readonly EFMarkerType = EFMarkerType;
+
+  /** Additive-select modifier: Shift or Ctrl/Cmd click adds to the selection (Foblex
+      defaults to Ctrl/Cmd only). Shift-drag on empty canvas keeps the marquee additive. */
+  protected readonly multiSelectTrigger: FEventTrigger = (event) =>
+    event.shiftKey || event.ctrlKey || event.metaKey;
 
   /** Committed changes for the shell to persist (positions are absolute canvas coords). */
   readonly nodesMoved = output<readonly { id: string; x: number; y: number }[]>();
